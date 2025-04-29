@@ -9,7 +9,6 @@ import CTASection from "@/components/sections/cta-section"
 import { FadeIn } from "@/components/animated-elements"
 import AnimatedBackground from "@/components/animated-background"
 import { useEffect, useState } from "react"
-import SiteFooter from "@/components/layout/site-footer"
 import { EmailModalProvider } from "@/components/email-modal-provider"
 
 export default function Home() {
@@ -48,9 +47,6 @@ export default function Home() {
           </FadeIn>
           <FadeIn delay={0.6}>
             <CTASection />
-          </FadeIn>
-          <FadeIn delay={0.7}>
-            <SiteFooter />
           </FadeIn>
         </div>
       </div>

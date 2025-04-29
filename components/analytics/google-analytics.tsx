@@ -1,28 +1,26 @@
 "use client"
 
+import { useEffect } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 import Script from "next/script"
-import { useEffect } from "react"
-import { pageview, GA_MEASUREMENT_ID } from "@/lib/analytics"
 
-export default function GoogleAnalytics() {
+export function GoogleAnalytics({ measurementId }: { measurementId: string }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
   useEffect(() => {
-    if (!GA_MEASUREMENT_ID) return
+    if (!measurementId || !window.gtag) return
 
-    // Track page views when the route changes
-    const url = pathname + searchParams.toString()
-    pageview(url)
-  }, [pathname, searchParams])
+    const url = pathname + (searchParams?.toString() ? `?${searchParams.toString()}` : "")
 
-  // Don't render anything if there's no GA Measurement ID
-  if (!GA_MEASUREMENT_ID) return null
+    window.gtag("config", measurementId, {
+      page_path: url,
+    })
+  }, [pathname, searchParams, measurementId])
 
   return (
     <>
-      <Script strategy="afterInteractive" src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`} />
+      <Script strategy="afterInteractive" src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`} />
       <Script
         id="google-analytics"
         strategy="afterInteractive"
@@ -31,9 +29,7 @@ export default function GoogleAnalytics() {
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
-            gtag('config', '${GA_MEASUREMENT_ID}', {
-              page_path: window.location.pathname,
-            });
+            gtag('config', '${measurementId}');
           `,
         }}
       />

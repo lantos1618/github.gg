@@ -7,6 +7,7 @@ import { GithubIcon, Code2Icon, MenuIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { GitHubStarButton } from "@/components/ui/github-star-button"
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -56,6 +57,9 @@ export default function Navbar() {
           <Link href="/docs" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
             Docs
           </Link>
+
+          {/* GitHub-style Star Button */}
+          <GitHubStarButton />
         </nav>
 
         {/* Desktop Actions */}
@@ -101,6 +105,10 @@ export default function Navbar() {
             >
               Docs
             </Link>
+
+            {/* Mobile GitHub-style Star Button */}
+            <GitHubStarButton className="w-full" />
+
             <div className="flex flex-col space-y-3 pt-2">
               <Button variant="outline" size="sm" className="justify-center gap-2 w-full">
                 <GithubIcon className="h-4 w-4" />

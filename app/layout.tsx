@@ -1,18 +1,18 @@
 import type React from "react"
+import "./globals.css"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import SiteHeader from "@/components/layout/site-header"
-import { EmailModalProvider } from "@/components/email-modal-provider"
-import GoogleAnalytics from "@/components/analytics/google-analytics"
 import { Suspense } from "react"
+import SiteHeader from "@/components/layout/site-header"
+import SiteFooter from "@/components/layout/site-footer"
+import { ThemeProvider } from "@/components/theme-provider"
+import { EmailModalProvider } from "@/components/email-modal-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "GitHub.GG - Understand Code Instantly with AI",
-  description: "GitHub.GG is an AI-powered tool that provides instant insights and summaries for GitHub repositories.",
+  title: "GitHub.GG - Enhanced GitHub Experience",
+  description: "A better way to explore and understand GitHub repositories",
     generator: 'v0.dev'
 }
 
@@ -22,20 +22,44 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <Suspense fallback={null}>
+          {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+            <GoogleAnalyticsScript measurementId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
+          )}
+        </Suspense>
+      </head>
       <body className={inter.className}>
-        <GoogleAnalytics />
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <EmailModalProvider>
-            <div className="flex flex-col min-h-screen">
+            <div className="relative flex min-h-screen flex-col">
               <SiteHeader />
-              <Suspense>
-                <div className="flex-1">{children}</div>
-              </Suspense>
+              <div className="flex-1">{children}</div>
+              <SiteFooter />
             </div>
           </EmailModalProvider>
         </ThemeProvider>
       </body>
     </html>
+  )
+}
+
+// Server Component for Google Analytics Script
+function GoogleAnalyticsScript({ measurementId }: { measurementId: string }) {
+  return (
+    <>
+      <script async src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`} />
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${measurementId}');
+          `,
+        }}
+      />
+    </>
   )
 }

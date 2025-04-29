@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SearchResults } from "@/components/search/search-results"
 import { searchMockData } from "@/lib/mock/search-data"
+import { GitHubStarButton } from "@/components/github-star-button"
 import type { SearchResult } from "@/lib/types/search"
 
 export default function SiteHeader() {
@@ -166,6 +167,9 @@ export default function SiteHeader() {
           >
             Docs
           </Link>
+
+          {/* GitHub Star Button */}
+          <GitHubStarButton owner="lantos1618" repo="github.gg" />
         </nav>
 
         <div className="hidden md:flex items-center gap-4 ml-4">
@@ -219,6 +223,10 @@ export default function SiteHeader() {
             >
               Docs
             </Link>
+
+            {/* Mobile GitHub Star Button */}
+            <GitHubStarButton owner="lantos1618" repo="github.gg" className="py-2" />
+
             <div className="flex flex-col space-y-3 pt-2">
               <Button
                 variant="outline"

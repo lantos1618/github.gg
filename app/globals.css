@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 145 63% 40%; /* Updated to match the new darker green */
+    --primary-foreground: 355.7 100% 97.3%;
+
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 145 63% 40%; /* Updated to match the new darker green */
+
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@keyframes gridShift {
+  0% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(25px, 25px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes gridShiftReverse {
+  0% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-5px, -5px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes glow {
+  0% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes float {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(10px, 10px);
+  }
+}
+
+@layer utilities {
+  .grid-background {
+    background-image: linear-gradient(to right, rgba(255, 100, 150, 0.2) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 100, 150, 0.2) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  .grid-background-small {
+    background-image: linear-gradient(to right, rgba(255, 100, 150, 0.1) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 100, 150, 0.1) 1px, transparent 1px);
+    background-size: 10px 10px;
+  }
+}
+
+/* Add this at the end of the file */
+.perspective-[1000px] {
+  perspective: 1000px;
+}

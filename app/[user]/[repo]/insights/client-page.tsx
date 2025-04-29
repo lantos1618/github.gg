@@ -1,58 +1,23 @@
-import type { Metadata } from "next"
+"use client"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GitGraphIcon, UsersIcon, CodeIcon, GitCommitIcon } from "lucide-react"
-import { getRepoData } from "@/lib/github"
+import { ContributorsChart, CommitsChart, SimpleLineChart } from "@/components/insights-charts"
 
-export async function generateMetadata({ params }: { params: { user: string; repo: string } }): Promise<Metadata> {
-  return {
-    title: `Insights · ${params.user}/${params.repo} - GitHub.GG`,
-    description: `Analytics and insights for ${params.user}/${params.repo}`,
-  }
+interface RepoInsightsClientPageProps {
+  params: { user: string; repo: string }
+  contributorsData: any[]
+  commitsData: any[]
+  topContributors: any[]
 }
 
-export default async function RepoInsightsPage({ params }: { params: { user: string; repo: string } }) {
-  const repoData = await getRepoData(params.user, params.repo)
-
-  // Mock insights data
-  const contributorsData = [
-    { name: "Jan", contributions: 45 },
-    { name: "Feb", contributions: 32 },
-    { name: "Mar", contributions: 67 },
-    { name: "Apr", contributions: 89 },
-    { name: "May", contributions: 54 },
-    { name: "Jun", contributions: 78 },
-    { name: "Jul", contributions: 92 },
-    { name: "Aug", contributions: 63 },
-    { name: "Sep", contributions: 71 },
-    { name: "Oct", contributions: 84 },
-    { name: "Nov", contributions: 52 },
-    { name: "Dec", contributions: 33 },
-  ]
-
-  const commitsData = [
-    { name: "Jan", commits: 120 },
-    { name: "Feb", commits: 98 },
-    { name: "Mar", commits: 143 },
-    { name: "Apr", commits: 165 },
-    { name: "May", commits: 127 },
-    { name: "Jun", commits: 150 },
-    { name: "Jul", commits: 180 },
-    { name: "Aug", commits: 134 },
-    { name: "Sep", commits: 162 },
-    { name: "Oct", commits: 187 },
-    { name: "Nov", commits: 110 },
-    { name: "Dec", commits: 85 },
-  ]
-
-  const topContributors = [
-    { name: "developer1", commits: 342, additions: 15420, deletions: 8753 },
-    { name: "developer2", commits: 217, additions: 9876, deletions: 5432 },
-    { name: "developer3", commits: 184, additions: 7654, deletions: 3210 },
-    { name: "developer4", commits: 156, additions: 6543, deletions: 2987 },
-    { name: "developer5", commits: 123, additions: 5432, deletions: 1876 },
-  ]
-
+export default function RepoInsightsClientPage({
+  params,
+  contributorsData,
+  commitsData,
+  topContributors,
+}: RepoInsightsClientPageProps) {
   return (
     <div className="container py-4">
       <div className="space-y-6">
@@ -103,10 +68,7 @@ export default async function RepoInsightsPage({ params }: { params: { user: str
                   <div>
                     <h3 className="text-lg font-medium mb-4">Contribution Activity</h3>
                     <div className="h-[250px]">
-                      {/* Client-side only chart component */}
-                      <div className="w-full h-full bg-gray-800/30 rounded-md flex items-center justify-center">
-                        <p className="text-muted-foreground">Chart loads on client side</p>
-                      </div>
+                      <ContributorsChart data={contributorsData} />
                     </div>
                   </div>
                 </div>
@@ -154,10 +116,7 @@ export default async function RepoInsightsPage({ params }: { params: { user: str
                   <div>
                     <h3 className="text-lg font-medium mb-4">Contribution Timeline</h3>
                     <div className="h-[250px]">
-                      {/* Client-side only chart component */}
-                      <div className="w-full h-full bg-gray-800/30 rounded-md flex items-center justify-center">
-                        <p className="text-muted-foreground">Chart loads on client side</p>
-                      </div>
+                      <ContributorsChart data={contributorsData} />
                     </div>
                   </div>
                 </div>
@@ -178,20 +137,52 @@ export default async function RepoInsightsPage({ params }: { params: { user: str
                   <div>
                     <h3 className="text-lg font-medium mb-4">Visitors</h3>
                     <div className="h-[250px]">
-                      {/* Client-side only chart component */}
-                      <div className="w-full h-full bg-gray-800/30 rounded-md flex items-center justify-center">
-                        <p className="text-muted-foreground">Chart loads on client side</p>
-                      </div>
+                      <SimpleLineChart
+                        data={[
+                          { date: "6/1", visitors: 45 },
+                          { date: "6/2", visitors: 52 },
+                          { date: "6/3", visitors: 49 },
+                          { date: "6/4", visitors: 63 },
+                          { date: "6/5", visitors: 58 },
+                          { date: "6/6", visitors: 48 },
+                          { date: "6/7", visitors: 42 },
+                          { date: "6/8", visitors: 39 },
+                          { date: "6/9", visitors: 47 },
+                          { date: "6/10", visitors: 54 },
+                          { date: "6/11", visitors: 59 },
+                          { date: "6/12", visitors: 65 },
+                          { date: "6/13", visitors: 72 },
+                          { date: "6/14", visitors: 68 },
+                        ]}
+                        dataKey="visitors"
+                        color="#3498db"
+                      />
                     </div>
                   </div>
 
                   <div>
                     <h3 className="text-lg font-medium mb-4">Clones</h3>
                     <div className="h-[250px]">
-                      {/* Client-side only chart component */}
-                      <div className="w-full h-full bg-gray-800/30 rounded-md flex items-center justify-center">
-                        <p className="text-muted-foreground">Chart loads on client side</p>
-                      </div>
+                      <SimpleLineChart
+                        data={[
+                          { date: "6/1", clones: 12 },
+                          { date: "6/2", clones: 15 },
+                          { date: "6/3", clones: 10 },
+                          { date: "6/4", clones: 18 },
+                          { date: "6/5", clones: 14 },
+                          { date: "6/6", clones: 11 },
+                          { date: "6/7", clones: 9 },
+                          { date: "6/8", clones: 8 },
+                          { date: "6/9", clones: 13 },
+                          { date: "6/10", clones: 16 },
+                          { date: "6/11", clones: 19 },
+                          { date: "6/12", clones: 21 },
+                          { date: "6/13", clones: 17 },
+                          { date: "6/14", clones: 14 },
+                        ]}
+                        dataKey="clones"
+                        color="#e74c3c"
+                      />
                     </div>
                   </div>
                 </div>
@@ -249,10 +240,7 @@ export default async function RepoInsightsPage({ params }: { params: { user: str
                   <div>
                     <h3 className="text-lg font-medium mb-4">Commit Frequency</h3>
                     <div className="h-[250px]">
-                      {/* Client-side only chart component */}
-                      <div className="w-full h-full bg-gray-800/30 rounded-md flex items-center justify-center">
-                        <p className="text-muted-foreground">Chart loads on client side</p>
-                      </div>
+                      <CommitsChart data={commitsData} />
                     </div>
                   </div>
 

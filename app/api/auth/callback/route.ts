@@ -1,51 +1,45 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { exchangeCodeForToken, getGitHubUser } from "@/lib/auth-service"
-import { cookies } from "next/headers"
-import { encrypt } from "@/lib/encryption"
+import { NextResponse } from "next/server"
 
-export async function GET(request: NextRequest) {
-  // Get the code and state from the query parameters
-  const searchParams = request.nextUrl.searchParams
-  const code = searchParams.get("code")
-  const state = searchParams.get("state")
-
-  // Get the stored state from the cookie
-  const storedState = cookies().get("github_oauth_state")?.value
-
-  // Validate the state to prevent CSRF attacks
-  if (!code || !state || !storedState || state !== storedState) {
-    return NextResponse.redirect(new URL("/auth/error?error=invalid_state", request.url))
-  }
-
+export async function GET(request: Request) {
   try {
-    // Exchange the code for an access token
-    const accessToken = await exchangeCodeForToken(code)
+    console.log("API route handler: /api/auth/callback started")
 
-    // Get the user information
-    const user = await getGitHubUser(accessToken)
+    // Get the URL and parse the code parameter
+    const url = new URL(request.url)
+    const code = url.searchParams.get("code")
 
-    // Create a session
-    const session = {
-      user,
-      accessToken,
-      expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 7, // 7 days
+    if (!code) {
+      console.error("No code parameter in callback URL")
+      return new NextResponse(
+        JSON.stringify({
+          error: "Invalid Callback",
+          message: "No authorization code received from GitHub.",
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      )
     }
 
-    // Encrypt the session
-    const encryptedSession = await encrypt(JSON.stringify(session))
+    console.log("Received GitHub code, redirecting to homepage")
 
-    // Store the session in a cookie
-    cookies().set("github_session", encryptedSession, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: "/",
-    })
-
-    // Redirect to the dashboard
-    return NextResponse.redirect(new URL("/dashboard", request.url))
+    // For now, just redirect to the homepage
+    // In a real implementation, we would exchange the code for a token here
+    return NextResponse.redirect(new URL("/", request.url))
   } catch (error) {
-    console.error("GitHub OAuth error:", error)
-    return NextResponse.redirect(new URL("/auth/error?error=oauth_failure", request.url))
+    console.error("Error in GitHub OAuth callback:", error)
+
+    return new NextResponse(
+      JSON.stringify({
+        error: "Callback Error",
+        message: "An error occurred during the GitHub OAuth callback.",
+        details: error instanceof Error ? error.message : String(error),
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      },
+    )
   }
 }

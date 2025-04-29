@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { SparklesIcon, RocketIcon, ExternalLinkIcon, GithubIcon } from "lucide-react"
 import { motion } from "framer-motion"
 import { useEmailModal } from "@/components/email-modal-provider"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 
 export interface PricingFeature {
   text: string
@@ -46,19 +48,32 @@ export default function PricingCard({
   isUltra = false,
   planType,
 }: PricingCardProps) {
-  // Use try/catch to handle the case when EmailModalProvider is not available
-  let emailModalContext
-  try {
-    emailModalContext = useEmailModal()
-  } catch (error) {
-    // Provide a fallback when the context is not available
-    emailModalContext = { openModal: () => console.log("Email modal not available") }
-  }
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
+  // Use try/catch to handle the case when EmailModalProvider is not available
+  const emailModalContext = useEmailModal()
   const { openModal } = emailModalContext
 
+  const handleGitHubLogin = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      // Use client-side navigation instead of API route
+      router.push("/github-login")
+    } catch (err) {
+      console.error("Error during GitHub login:", err)
+      setError("Failed to navigate to login page. Please try again.")
+      setIsLoading(false)
+    }
+  }
+
   const handleClick = () => {
-    if (buttonAction) {
+    if (planType === "free") {
+      handleGitHubLogin()
+    } else if (buttonAction) {
       buttonAction()
     } else if (openModal) {
       openModal(planType)
@@ -105,6 +120,10 @@ export default function PricingCard({
               </li>
             ))}
           </ul>
+
+          {error && (
+            <div className="mt-4 p-2 bg-red-500/10 border border-red-500/20 rounded text-red-500 text-sm">{error}</div>
+          )}
         </CardContent>
         <CardFooter className="pt-6 mt-auto">
           <Button
@@ -115,12 +134,13 @@ export default function PricingCard({
             }`}
             variant={buttonVariant as any}
             onClick={handleClick}
+            disabled={isLoading}
           >
             <div className="flex items-center justify-center gap-2 w-full">
               {planType === "free" ? (
                 <>
                   <GithubIcon className="h-4 w-4" />
-                  <span>Sign in with GitHub</span>
+                  <span>{isLoading ? "Connecting..." : "Sign in with GitHub"}</span>
                 </>
               ) : isUltra ? (
                 <div className="flex items-center justify-center gap-2 relative">

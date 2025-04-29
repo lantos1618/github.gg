@@ -61,7 +61,6 @@
     "@emotion/is-prop-valid": "latest",
     "react-spring": "latest",
     "framer-motion": "latest",
-    "uuid": "latest",
     "crypto": "latest",
     "@octokit/rest": "latest",
     "memfs": "latest",

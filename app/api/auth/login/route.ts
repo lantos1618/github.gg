@@ -1,23 +1,61 @@
 import { NextResponse } from "next/server"
-import { getGitHubAuthURL } from "@/lib/auth-service"
-import { cookies } from "next/headers"
-import { v4 as uuidv4 } from "uuid"
 
 export async function GET() {
-  // Generate a random state to prevent CSRF attacks
-  const state = uuidv4()
+  try {
+    // For debugging: log that we're entering the route handler
+    console.log("API route handler: /api/auth/login started")
 
-  // Store the state in a cookie
-  cookies().set("github_oauth_state", state, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 10, // 10 minutes
-    path: "/",
-  })
+    // Check if GitHub client ID is configured
+    const clientId = process.env.GITHUB_CLIENT_ID
+    if (!clientId) {
+      console.error("GitHub Client ID is not configured")
+      return new NextResponse(
+        JSON.stringify({
+          error: "Configuration Error",
+          message: "GitHub OAuth is not properly configured. Missing GITHUB_CLIENT_ID.",
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        },
+      )
+    }
 
-  // Generate the GitHub OAuth URL
-  const authUrl = getGitHubAuthURL(state)
+    // Create a simple redirect URL without state for now
+    // We'll add state back once we confirm basic functionality works
+    const redirectUri = process.env.NEXT_PUBLIC_SITE_URL
+      ? `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`
+      : "http://localhost:3000/api/auth/callback"
 
-  // Redirect to GitHub
-  return NextResponse.redirect(authUrl)
+    const scopes = ["repo", "read:user", "user:email"].join(" ")
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: scopes,
+    })
+
+    const authUrl = `https://github.com/login/oauth/authorize?${params.toString()}`
+
+    console.log("Redirecting to GitHub OAuth:", authUrl)
+
+    // Redirect to GitHub
+    return NextResponse.redirect(authUrl)
+  } catch (error) {
+    // Log the full error for debugging
+    console.error("Error in GitHub OAuth login:", error)
+
+    // Return a detailed error response
+    return new NextResponse(
+      JSON.stringify({
+        error: "OAuth Error",
+        message: "An error occurred during the GitHub OAuth process.",
+        details: error instanceof Error ? error.message : String(error),
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      },
+    )
+  }
 }

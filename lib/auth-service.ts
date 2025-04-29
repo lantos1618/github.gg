@@ -27,6 +27,10 @@ export interface AuthSession {
 
 // Generate the GitHub OAuth URL
 export function getGitHubAuthURL(state: string): string {
+  if (!GITHUB_CLIENT_ID) {
+    throw new Error("GitHub Client ID is not configured")
+  }
+
   const params = new URLSearchParams({
     client_id: GITHUB_CLIENT_ID,
     redirect_uri: REDIRECT_URI,
@@ -39,40 +43,58 @@ export function getGitHubAuthURL(state: string): string {
 
 // Exchange code for access token
 export async function exchangeCodeForToken(code: string): Promise<string> {
-  const response = await fetch("https://github.com/login/oauth/access_token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({
-      client_id: GITHUB_CLIENT_ID,
-      client_secret: GITHUB_CLIENT_SECRET,
-      code,
-      redirect_uri: REDIRECT_URI,
-    }),
-  })
-
-  const data = await response.json()
-
-  if (data.error) {
-    throw new Error(`GitHub OAuth error: ${data.error_description || data.error}`)
+  if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
+    throw new Error("GitHub OAuth credentials are not configured")
   }
 
-  return data.access_token
+  try {
+    const response = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        client_id: GITHUB_CLIENT_ID,
+        client_secret: GITHUB_CLIENT_SECRET,
+        code,
+        redirect_uri: REDIRECT_URI,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+
+    if (data.error) {
+      throw new Error(`GitHub OAuth error: ${data.error_description || data.error}`)
+    }
+
+    return data.access_token
+  } catch (error) {
+    console.error("Error exchanging code for token:", error)
+    throw new Error(`Failed to exchange code for token: ${error.message}`)
+  }
 }
 
 // Get user information using the access token
 export async function getGitHubUser(accessToken: string): Promise<GitHubUser> {
-  const octokit = new Octokit({ auth: accessToken })
-  const { data } = await octokit.users.getAuthenticated()
+  try {
+    const octokit = new Octokit({ auth: accessToken })
+    const { data } = await octokit.users.getAuthenticated()
 
-  return {
-    id: data.id,
-    login: data.login,
-    name: data.name,
-    email: data.email,
-    avatar_url: data.avatar_url,
+    return {
+      id: data.id,
+      login: data.login,
+      name: data.name,
+      email: data.email,
+      avatar_url: data.avatar_url,
+    }
+  } catch (error) {
+    console.error("Error getting GitHub user:", error)
+    throw new Error(`Failed to get GitHub user: ${error.message}`)
   }
 }
 
@@ -80,6 +102,11 @@ export async function getGitHubUser(accessToken: string): Promise<GitHubUser> {
 export function createOctokit(accessToken?: string): Octokit {
   // Use the provided access token, or fall back to the public token
   const token = accessToken || PUBLIC_GITHUB_TOKEN
+
+  if (!token) {
+    console.warn("No GitHub token provided and no PUBLIC_GITHUB_TOKEN available")
+  }
+
   return new Octokit({ auth: token })
 }
 
@@ -95,6 +122,7 @@ export async function isPublicRepository(owner: string, repo: string): Promise<b
     if (error.status === 404) {
       return false
     }
+    console.error(`Error checking if repository ${owner}/${repo} is public:`, error)
     throw error
   }
 }

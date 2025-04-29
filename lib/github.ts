@@ -112,12 +112,10 @@ export async function getIssueData(username: string, reponame: string, issueId: 
   try {
     const response = await fetch(`https://api.github.com/repos/${username}/${reponame}/issues/${issueId}`, {
       headers: {
-        
-      headers: {
         Accept: "application/vnd.github.v3+json",
         ...(process.env.GITHUB_TOKEN ? { Authorization: `token ${process.env.GITHUB_TOKEN}` } : {}),
       },
-      next: { revalidate: 60 }, // Cache for 60 seconds\
+      next: { revalidate: 60 }, // Cache for 60 seconds
     })
 
     if (!response.ok) {
@@ -134,10 +132,10 @@ export async function getIssueData(username: string, reponame: string, issueId: 
 export async function getAllRepoFiles(user: string, repo: string, branch: string) {
   try {
     const octokit = createOctokit()
-    
+
     // For large repositories, we need to handle pagination and potential timeouts
     const maxFilesToFetch = 1000 // Limit to prevent overwhelming the browser
-    
+
     try {
       // First try the recursive approach which is faster but may fail for large repos
       const { data: treeData } = await octokit.rest.git.getTree({
@@ -167,7 +165,7 @@ export async function getAllRepoFiles(user: string, repo: string, branch: string
     } catch (error) {
       // If recursive approach fails, fall back to non-recursive for top-level
       console.warn("Recursive tree fetch failed, falling back to top-level only:", error)
-      
+
       const { data: treeData } = await octokit.rest.git.getTree({
         owner: user,
         repo: repo,

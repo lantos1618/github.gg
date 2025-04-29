@@ -11,6 +11,11 @@ export function middleware(request: NextRequest) {
   // Check if the path is directly under the root and is a reserved path
   const segments = pathname.split("/").filter(Boolean)
 
+  // If this is a login path, let it pass through without any modifications
+  if (segments[0] === "login") {
+    return NextResponse.next()
+  }
+
   // If this is a docs path, let it pass through without any modifications
   if (segments[0] === "docs") {
     return NextResponse.next()
@@ -18,6 +23,12 @@ export function middleware(request: NextRequest) {
 
   // For other reserved paths
   if (segments.length === 1 && RESERVED_PATHS.includes(segments[0])) {
+    return NextResponse.next()
+  }
+
+  // Handle user and repo routes
+  if (segments.length >= 1) {
+    // This could be a username or a username/repo path
     return NextResponse.next()
   }
 

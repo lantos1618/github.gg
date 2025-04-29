@@ -169,9 +169,11 @@ export default function SiteHeader() {
         </nav>
 
         <div className="hidden md:flex items-center gap-4 ml-4">
-          <Button variant="outline" size="sm" className="gap-2">
-            <GithubIcon className="h-4 w-4" />
-            Sign In
+          <Button variant="outline" size="sm" className="gap-2" asChild>
+            <Link href="/login">
+              <GithubIcon className="h-4 w-4" />
+              Sign In
+            </Link>
           </Button>
         </div>
 
@@ -218,9 +220,17 @@ export default function SiteHeader() {
               Docs
             </Link>
             <div className="flex flex-col space-y-3 pt-2">
-              <Button variant="outline" className="w-full gap-2">
-                <GithubIcon className="h-4 w-4" />
-                Sign In
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2 mt-4"
+                asChild
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Link href="/login">
+                  <GithubIcon className="h-4 w-4" />
+                  Sign In
+                </Link>
               </Button>
               <Button className="w-full">Try Free</Button>
             </div>

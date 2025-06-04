@@ -1,6 +1,5 @@
 import type React from "react"
 import { Suspense } from "react"
-import { notFound } from "next/navigation"
 import RepoHeader from "@/components/repo/repo-header"
 import RepoNavigation from "@/components/repo/repo-navigation"
 import LoadingSpinner from "@/components/ui/loading-spinner"
@@ -27,6 +26,10 @@ export default async function RepoLayout({
     )
   } catch (error) {
     console.error("Error fetching repo data for layout:", error)
-    notFound()
+    return (
+      <div className="container py-6">
+        <p className="text-red-500">Failed to load repository data. Please try again later.</p>
+      </div>
+    )
   }
 }

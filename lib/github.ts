@@ -129,9 +129,24 @@ export async function getIssueData(username: string, reponame: string, issueId: 
   }
 }
 
-export async function getAllRepoFiles(user: string, repo: string, branch: string) {
+export async function getAllRepoFiles(
+  user: string,
+  repo: string,
+  branch?: string,
+): Promise<{ files: any[]; branch: string }> {
   try {
     const octokit = createOctokit()
+
+    // Determine which branch to use. If not provided, use the repository's
+    // default branch to avoid failures on repos that don't use "main".
+    let branchToUse = branch
+    if (!branchToUse) {
+      const { data: repoData } = await octokit.rest.repos.get({
+        owner: user,
+        repo: repo,
+      })
+      branchToUse = repoData.default_branch
+    }
 
     // For large repositories, we need to handle pagination and potential timeouts
     const maxFilesToFetch = 1000 // Limit to prevent overwhelming the browser
@@ -141,7 +156,7 @@ export async function getAllRepoFiles(user: string, repo: string, branch: string
       const { data: treeData } = await octokit.rest.git.getTree({
         owner: user,
         repo: repo,
-        tree_sha: branch,
+        tree_sha: branchToUse,
         recursive: "true",
       })
 
@@ -160,8 +175,7 @@ export async function getAllRepoFiles(user: string, repo: string, branch: string
           type: "file",
           content: "", // Content will be fetched separately if needed
         }))
-
-      return files
+      return { files, branch: branchToUse }
     } catch (error) {
       // If recursive approach fails, fall back to non-recursive for top-level
       console.warn("Recursive tree fetch failed, falling back to top-level only:", error)
@@ -169,7 +183,7 @@ export async function getAllRepoFiles(user: string, repo: string, branch: string
       const { data: treeData } = await octokit.rest.git.getTree({
         owner: user,
         repo: repo,
-        tree_sha: branch,
+        tree_sha: branchToUse,
       })
 
       const files = treeData.tree
@@ -181,8 +195,7 @@ export async function getAllRepoFiles(user: string, repo: string, branch: string
           type: "file",
           content: "",
         }))
-
-      return files
+      return { files, branch: branchToUse }
     }
   } catch (error) {
     console.error("Error fetching all repo files:", error)

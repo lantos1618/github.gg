@@ -35,9 +35,10 @@ interface SigmaCodeViewProps {
   repoData?: any
   owner?: string
   repo?: string
+  branch?: string
 }
 
-export default function SigmaCodeView({ files: initialFiles = [], repoData, owner, repo }: SigmaCodeViewProps) {
+export default function SigmaCodeView({ files: initialFiles = [], repoData, owner, repo, branch }: SigmaCodeViewProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
   const [loadedFiles, setLoadedFiles] = useState<Record<string, FileData>>({})
@@ -45,6 +46,7 @@ export default function SigmaCodeView({ files: initialFiles = [], repoData, owne
   const [files, setFiles] = useState<FileData[]>(initialFiles)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [branchName] = useState(branch || repoData?.default_branch || "main")
 
   // Function to load repository files
   const loadRepoFiles = async () => {
@@ -62,6 +64,7 @@ export default function SigmaCodeView({ files: initialFiles = [], repoData, owne
         body: JSON.stringify({
           owner,
           repo,
+          branch: branchName,
         }),
       })
 
@@ -126,6 +129,7 @@ export default function SigmaCodeView({ files: initialFiles = [], repoData, owne
         body: JSON.stringify({
           owner,
           repo,
+          branch: branchName,
           path: file.path,
         }),
         cache: "no-store",
@@ -211,7 +215,7 @@ export default function SigmaCodeView({ files: initialFiles = [], repoData, owne
         </div>
 
         <div className="flex items-center gap-4">
-          <CopyAllButton files={filteredFiles} loadedFiles={loadedFiles} />
+          <CopyAllButton owner={owner!} repo={repo!} branch={branchName} />
           <div className="text-sm text-muted-foreground">
             {filteredFiles.length} files • {formatBytes(totalSize)}
           </div>
@@ -397,7 +401,13 @@ function CopyButton({ content }: { content: string }) {
   )
 }
 
-function CopyAllButton({ files, loadedFiles }: { files: FileData[]; loadedFiles: Record<string, FileData> }) {
+interface CopyAllButtonProps {
+  owner: string
+  repo: string
+  branch: string
+}
+
+function CopyAllButton({ owner, repo, branch }: CopyAllButtonProps) {
   const [copied, setCopied] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -405,12 +415,22 @@ function CopyAllButton({ files, loadedFiles }: { files: FileData[]; loadedFiles:
     try {
       setIsLoading(true)
 
-      // Collect all loaded non-binary file contents
-      const fileContents = files
-        .filter((file) => loadedFiles[file.path] && !loadedFiles[file.path].isBinary)
-        .map((file) => {
-          return `// File: ${file.path}\n\n${loadedFiles[file.path].content || ""}\n\n`
-        })
+      const response = await fetch("/api/git/archive-repo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ owner, repo, branch }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Failed to fetch repository: ${response.status} ${response.statusText} ${errorData.message || ""}`)
+      }
+
+      const data = await response.json()
+      const fileContents = data.files
+        .map((file: any) => `// File: ${file.path}\n\n${file.content || ""}\n\n`)
         .join("// -----------------------------------------------\n\n")
 
       await navigator.clipboard.writeText(fileContents)
@@ -430,7 +450,7 @@ function CopyAllButton({ files, loadedFiles }: { files: FileData[]; loadedFiles:
       className="ml-auto"
       onClick={copyAllToClipboard}
       disabled={isLoading}
-      title="Copy all loaded files"
+      title="Copy entire repository"
     >
       {copied ? (
         <>

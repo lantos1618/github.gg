@@ -1,6 +1,6 @@
 import { Suspense } from "react"
 import { Loader2Icon } from "lucide-react"
-import { getAllRepoFiles } from "@/lib/github"
+import { getAllRepoFiles, getRepoData } from "@/lib/github"
 import ClientWrapper from "../sigma/client-wrapper"
 
 interface PageProps {
@@ -13,10 +13,15 @@ interface PageProps {
 export default async function DiagramPage({ params }: PageProps) {
   const { user, repo } = params
 
+  // Fetch repo info to determine default branch
+  const repoInfo = await getRepoData(user, repo)
+  const branch = repoInfo?.default_branch || "main"
+
   // Fetch files server-side to avoid client-side loading issues
-  let files = []
+  let files: any[] = []
   try {
-    files = await getAllRepoFiles(user, repo, "main")
+    const result = await getAllRepoFiles(user, repo, branch)
+    files = result.files
   } catch (error) {
     console.error("Error fetching repo files:", error)
     // We'll continue with empty files and let the client component handle the error
@@ -34,7 +39,14 @@ export default async function DiagramPage({ params }: PageProps) {
           </div>
         }
       >
-        <ClientWrapper files={files} repoData={repoData} owner={user} repo={repo} defaultTab="diagram" />
+        <ClientWrapper
+          files={files}
+          repoData={repoData}
+          owner={user}
+          repo={repo}
+          branch={branch}
+          defaultTab="diagram"
+        />
       </Suspense>
     </div>
   )

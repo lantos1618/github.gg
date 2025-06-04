@@ -64,7 +64,8 @@
     "crypto": "latest",
     "@octokit/rest": "latest",
     "memfs": "latest",
-    "mermaid": "latest"
+    "mermaid": "latest",
+    "jszip": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

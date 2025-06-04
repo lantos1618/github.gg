@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server"
+import { exchangeCodeForToken, getGitHubUser } from "@/lib/auth-service"
+import { encrypt } from "@/lib/encryption"
+import { cookies } from "next/headers"
 
 export async function GET(request: Request) {
   try {
@@ -22,10 +25,25 @@ export async function GET(request: Request) {
       )
     }
 
-    console.log("Received GitHub code, redirecting to homepage")
+    // Exchange the code for an access token
+    const accessToken = await exchangeCodeForToken(code)
 
-    // For now, just redirect to the homepage
-    // In a real implementation, we would exchange the code for a token here
+    // Fetch the authenticated user's info
+    const user = await getGitHubUser(accessToken)
+
+    // Store the session in an encrypted cookie
+    const session = { user, accessToken }
+    const encrypted = await encrypt(JSON.stringify(session))
+    const cookieStore = cookies()
+    cookieStore.set("github_session", encrypted, {
+      httpOnly: true,
+      secure: true,
+      path: "/",
+      sameSite: "lax",
+    })
+
+    console.log("GitHub OAuth successful, redirecting to homepage")
+
     return NextResponse.redirect(new URL("/", request.url))
   } catch (error) {
     console.error("Error in GitHub OAuth callback:", error)

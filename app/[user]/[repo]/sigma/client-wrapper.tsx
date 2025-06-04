@@ -14,6 +14,7 @@ interface ClientWrapperProps {
   }
   owner: string
   repo: string
+  branch: string
   defaultTab?: "code" | "diagram"
 }
 
@@ -22,10 +23,12 @@ export default function ClientWrapper({
   repoData,
   owner,
   repo,
+  branch,
   defaultTab = "code",
 }: ClientWrapperProps) {
   const [activeTab, setActiveTab] = useState<"code" | "diagram">(defaultTab)
   const [files, setFiles] = useState<any[]>(initialFiles)
+  const [branchName, setBranchName] = useState(branch)
   const [isLoading, setIsLoading] = useState(initialFiles.length === 0)
   const [error, setError] = useState<string | null>(null)
 
@@ -42,8 +45,9 @@ export default function ClientWrapper({
       setError(null)
 
       try {
-        const fetchedFiles = await getAllRepoFiles(owner, repo, "main")
+        const { files: fetchedFiles, branch: fetchedBranch } = await getAllRepoFiles(owner, repo, branchName)
         setFiles(fetchedFiles)
+        setBranchName(fetchedBranch)
       } catch (err) {
         console.error("Error fetching repo files:", err)
         setError("Failed to fetch repository files")
@@ -53,7 +57,7 @@ export default function ClientWrapper({
     }
 
     fetchFiles()
-  }, [owner, repo, initialFiles])
+  }, [owner, repo, branchName, initialFiles])
 
   if (isLoading) {
     return (
@@ -75,9 +79,9 @@ export default function ClientWrapper({
   return (
     <div className="space-y-6">
       {activeTab === "code" ? (
-        <SigmaCodeView files={files} repoData={repoData} owner={owner} repo={repo} />
+        <SigmaCodeView files={files} repoData={repoData} owner={owner} repo={repo} branch={branchName} />
       ) : (
-        <RepoStructureDiagram files={files} owner={owner} repo={repo} />
+        <RepoStructureDiagram files={files} owner={owner} repo={repo} branch={branchName} />
       )}
     </div>
   )

@@ -31,14 +31,16 @@ interface RepoStructureDiagramProps {
   files: any[]
   owner: string
   repo: string
+  branch: string
 }
 
-export default function RepoStructureDiagram({ files: initialFiles, owner, repo }: RepoStructureDiagramProps) {
+export default function RepoStructureDiagram({ files: initialFiles, owner, repo, branch }: RepoStructureDiagramProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [diagramType, setDiagramType] = useState<"flowchart" | "classDiagram" | "mindmap">("flowchart")
   const [fileTree, setFileTree] = useState<FileNode[]>([])
   const [files, setFiles] = useState<any[]>(initialFiles)
+  const [branchName, setBranchName] = useState(branch)
   const mermaidRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [retryCount, setRetryCount] = useState(0)
@@ -81,7 +83,8 @@ export default function RepoStructureDiagram({ files: initialFiles, owner, repo 
       setError(null)
 
       try {
-        const fetchedFiles = await getAllRepoFiles(owner, repo, "main")
+        const { files: fetchedFiles, branch: fetchedBranch } = await getAllRepoFiles(owner, repo, branchName)
+        setBranchName(fetchedBranch)
         setFiles(fetchedFiles)
       } catch (err) {
         console.error("Error fetching repo files:", err)
@@ -92,7 +95,7 @@ export default function RepoStructureDiagram({ files: initialFiles, owner, repo 
     }
 
     fetchFiles()
-  }, [owner, repo, initialFiles, retryCount])
+  }, [owner, repo, branchName, initialFiles, retryCount])
 
   // Build file tree from flat files array
   useEffect(() => {
@@ -352,7 +355,7 @@ export default function RepoStructureDiagram({ files: initialFiles, owner, repo 
       }
 
       // Add click event
-      code += `    click ${nodeId} "/${owner}/${repo}/tree/main/${node.path}"\n`
+      code += `    click ${nodeId} "/${owner}/${repo}/tree/${branchName}/${node.path}"\n`
 
       // Connect to parent
       if (parentId) {
@@ -422,7 +425,7 @@ export default function RepoStructureDiagram({ files: initialFiles, owner, repo 
       code += `    }\n`
 
       // Add link
-      code += `    link ${nodeId} "/${owner}/${repo}/tree/main/${node.path}"\n`
+      code += `    link ${nodeId} "/${owner}/${repo}/tree/${branchName}/${node.path}"\n`
 
       // Connect to parent
       if (parentId) {

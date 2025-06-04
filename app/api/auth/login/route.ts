@@ -1,45 +1,23 @@
 import { NextResponse } from "next/server"
+import { getGitHubAuthURL } from "@/lib/auth-service"
 
 export async function GET() {
   try {
-    // For debugging: log that we're entering the route handler
     console.log("API route handler: /api/auth/login started")
 
-    // Check if GitHub client ID is configured
-    const clientId = process.env.GITHUB_CLIENT_ID
-    if (!clientId) {
+    if (!process.env.GITHUB_CLIENT_ID) {
       console.error("GitHub Client ID is not configured")
-      return new NextResponse(
-        JSON.stringify({
-          error: "Configuration Error",
-          message: "GitHub OAuth is not properly configured. Missing GITHUB_CLIENT_ID.",
-        }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json" },
-        },
+      return NextResponse.json(
+        { error: "Configuration Error", message: "GitHub OAuth not configured" },
+        { status: 500 },
       )
     }
 
-    // Create a simple redirect URL without state for now
-    // We'll add state back once we confirm basic functionality works
-    const redirectUri = process.env.NEXT_PUBLIC_SITE_URL
-      ? `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`
-      : "http://localhost:3000/api/auth/callback"
-
-    const scopes = ["repo", "read:user", "user:email"].join(" ")
-
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      scope: scopes,
-    })
-
-    const authUrl = `https://github.com/login/oauth/authorize?${params.toString()}`
+    const state = Math.random().toString(36).slice(2)
+    const authUrl = getGitHubAuthURL(state)
 
     console.log("Redirecting to GitHub OAuth:", authUrl)
 
-    // Redirect to GitHub
     return NextResponse.redirect(authUrl)
   } catch (error) {
     // Log the full error for debugging

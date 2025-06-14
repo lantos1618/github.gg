@@ -206,6 +206,8 @@ export default function StatsSection() {
   
   // Get stats data from custom hook
   const { stats, isLoading, error } = useStatsData();
+  
+  // Destructure with default values
   const { 
     userActivity = { data: [], currentUsers: 0, growthPercentage: 0 },
     reposAnalyzed = { data: [], totalRepos: 0, growthPercentage: 0 },
@@ -361,17 +363,17 @@ export default function StatsSection() {
 
   // Error state
   if (error) {
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return (
       <section className="bg-black/60 backdrop-blur-sm pt-12 md:pt-20 border-y border-border/40" ref={sectionRef}>
         <div className="container px-4 md:px-6 text-center py-20">
-          <div className="text-red-400">Error loading stats: {error.message}</div>
+          <div className="text-red-400">Error loading stats: {errorMessage}</div>
         </div>
       </section>
     )
   }
 
-  // Use the already extracted stats data
-  const { userActivity, reposAnalyzed, tokensUsed } = stats;
+  // Stats data is already destructured above with default values
 
   return (
     <section className="bg-black/60 backdrop-blur-sm pt-12 md:pt-20 border-y border-border/40" ref={sectionRef}>

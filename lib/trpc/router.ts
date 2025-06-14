@@ -249,17 +249,20 @@ export const appRouter = createTRPCRouter({
         sha: z.string().optional(),
         page: z.number().optional(),
         perPage: z.number().optional(),
+        since: z.string().optional(),
+        until: z.string().optional(),
       }))
       .query(async ({ input }) => {
         try {
-          return await getCommitData(
-            input.owner,
-            input.repo,
-            input.path,
-            input.sha,
-            input.page,
-            input.perPage
-          );
+          const { owner, repo, path, sha, page, perPage, since, until } = input;
+          return await getCommitData(owner, repo, {
+            path,
+            sha,
+            page,
+            perPage,
+            since,
+            until
+          });
         } catch (error) {
           if (error instanceof GitHubServiceError) {
             throw new TRPCError({

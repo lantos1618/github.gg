@@ -63,14 +63,14 @@ export default function RepoCommitDetail({
           <div className="space-y-4">
             <div className="bg-gray-900/50 p-4 rounded-lg border border-border/50">
               <h3 className="font-medium mb-2">Commit Message</h3>
-              <div className="whitespace-pre-wrap text-sm text-muted-foreground">{commitData.message}</div>
+              <div className="whitespace-pre-wrap text-sm text-muted-foreground">{commitData.commit.message}</div>
             </div>
 
             <div className="bg-gray-900/50 p-4 rounded-lg border border-border/50">
               <h3 className="font-medium mb-2">AI Analysis</h3>
               <p className="text-sm text-muted-foreground">
                 This commit appears to be making changes related to the repository's functionality. The commit was
-                authored by {commitData.author.name} and includes modifications to several files. Based on the commit
+                authored by {commitData.author?.login || commitData.commit.author.name} and includes modifications to several files. Based on the commit
                 message, it seems to be addressing a specific feature or bug fix.
               </p>
             </div>

@@ -414,33 +414,155 @@ export async function getAllRepoFiles(
   }
 }
 
+export interface CommitListOptions {
+  path?: string;
+  sha?: string;
+  page?: number;
+  perPage?: number;
+  since?: string;
+  until?: string;
+}
+
+export interface CommitListResponse {
+  commits: CommitData[];
+  totalPages: number;
+  currentPage: number;
+  perPage: number;
+  totalCommits: number;
+}
+
 export async function getCommitData(
   owner: string,
   repo: string,
-  sha: string
-): Promise<CommitData> {
+  options: CommitListOptions = {}
+): Promise<CommitListResponse> {
+  const {
+    path,
+    sha = 'HEAD',
+    page = 1,
+    perPage = 30,
+    since,
+    until
+  } = options;
+
   const octokit = createOctokit();
   
   try {
-    const { data } = await octokit.rest.repos.getCommit({
+    const params: any = {
       owner,
       repo,
-      ref: sha,
+      sha,
+      page,
+      per_page: perPage,
       headers: {
         'X-GitHub-Api-Version': '2022-11-28',
       },
-    });
+    };
+
+    if (path) params.path = path;
+    if (since) params.since = since;
+    if (until) params.until = until;
+
+    const { data, headers } = await octokit.rest.repos.listCommits(params);
     
-    return data as unknown as CommitData;
+    // Extract pagination info from headers
+    const linkHeader = headers.link || '';
+    let totalPages = 1;
+    
+    // Parse Link header to get total pages if available
+    const lastPageMatch = linkHeader.match(/<[^>]+[?&]page=(\d+)[^>]*>;\s*rel="last"/);
+    if (lastPageMatch && lastPageMatch[1]) {
+      totalPages = parseInt(lastPageMatch[1], 10);
+    } else if (data.length > 0 && data.length < perPage) {
+      // If we got fewer items than requested, this is the last page
+      totalPages = page;
+    }
+    
+    // Ensure totalCommits is a number
+    const totalCountHeader = headers['x-total-count'];
+    const totalCount = typeof totalCountHeader === 'string' 
+      ? parseInt(totalCountHeader, 10) 
+      : 0;
+      
+    // Transform the GitHub API response to match our CommitData type
+    const transformedCommits = data.map(commit => {
+      // Ensure required commit fields are present
+      const commitData = commit.commit;
+      const author = commitData.author || { name: 'unknown', email: 'unknown', date: new Date().toISOString() };
+      const committer = commitData.committer || { name: 'unknown', email: 'unknown', date: new Date().toISOString() };
+      
+      // Ensure commit tree is present
+      const tree = commitData.tree ? {
+        sha: commitData.tree.sha || '',
+        url: commitData.tree.url || ''
+      } : { sha: '', url: '' };
+
+      return {
+        ...commit,
+        commit: {
+          ...commitData,
+          author: {
+            name: author.name || 'unknown',
+            email: author.email || 'unknown',
+            date: author.date || new Date().toISOString()
+          },
+          committer: {
+            name: committer.name || 'unknown',
+            email: committer.email || 'unknown',
+            date: committer.date || new Date().toISOString()
+          },
+          tree,
+          url: commitData.url || '',
+          message: commitData.message || '',
+          comment_count: commitData.comment_count || 0,
+          verification: commitData.verification || {
+            verified: false,
+            reason: 'unsigned',
+            signature: null,
+            payload: null
+          }
+        },
+        author: commit.author ? {
+          login: commit.author.login || '',
+          id: commit.author.id || 0,
+          avatar_url: commit.author.avatar_url || '',
+          html_url: commit.author.html_url || ''
+        } : null,
+        committer: commit.committer ? {
+          login: commit.committer.login || '',
+          id: commit.committer.id || 0,
+          avatar_url: commit.committer.avatar_url || '',
+          html_url: commit.committer.html_url || ''
+        } : null,
+        parents: (commit.parents || []).map(p => ({
+          sha: p.sha || '',
+          url: p.url || '',
+          html_url: p.html_url || ''
+        })),
+        stats: commit.stats ? {
+          additions: commit.stats.additions || 0,
+          deletions: commit.stats.deletions || 0,
+          total: commit.stats.total || 0
+        } : undefined
+      };
+    });
+      
+    return {
+      commits: transformedCommits,
+      totalPages,
+      currentPage: page,
+      perPage,
+      totalCommits: totalCount || (totalPages * perPage)
+    };
   } catch (error: unknown) {
     if (error instanceof Error) {
-      console.error(`Error fetching commit data for ${owner}/${repo}@${sha}:`, error.message);
+      console.error(`Error fetching commits for ${owner}/${repo}:`, error.message);
       throw new GitHubServiceError(
-        `Failed to fetch commit data: ${error.message}`,
+        `Failed to fetch commits: ${error.message}`,
         'status' in error ? (error as any).status : 500
       );
     }
-    throw new GitHubServiceError('An unknown error occurred while fetching commit data', 500);
+    throw new GitHubServiceError('An unknown error occurred while fetching commits', 500);
   }
 }
 

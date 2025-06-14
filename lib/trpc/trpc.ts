@@ -1,5 +1,5 @@
 import { httpBatchLink, loggerLink } from "@trpc/client";
-import { createTRPCNext } from "@trpc/next";
+import { createTRPCProxyClient, createTRPCReact } from "@trpc/react-query";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 import superjson from "superjson";
 
@@ -11,37 +11,28 @@ const getBaseUrl = () => {
   return `http://localhost:${process.env.PORT ?? 3000}`; // dev SSR should use localhost
 };
 
-/**
- * Create a stable client reference for React. The only time this is
- * needed is for WebSocket/SSE connections, but it doesn't hurt to
- * always use it.
- */
-export const trpc = createTRPCNext<AppRouter>({
-  config() {
-    return {
-      links: [
-        loggerLink({
-          enabled: (opts) => process.env.NODE_ENV === "development" ||
-            (opts.direction === "down" && opts.result instanceof Error),
-        }),
-        httpBatchLink({
-          url: `${getBaseUrl()}/api/trpc`,
-          // You can pass any HTTP headers you wish here
-          async headers() {
-            return {
-              // authorization: getAuthCookie(),
-            };
-          },
-          transformer: {
-            serialize: (data) => superjson.serialize(data),
-            deserialize: (data) => superjson.deserialize(data),
-          },
-        }),
-      ],
-    };
-  },
-  ssr: false,
-  transformer: superjson
+// Create the tRPC client for React Query
+export const trpc = createTRPCReact<AppRouter>();
+
+// Create a vanilla tRPC client for non-React usage
+export const trpcClient = createTRPCProxyClient<AppRouter>({
+  links: [
+    loggerLink({
+      enabled: (opts) => process.env.NODE_ENV === "development" ||
+        (opts.direction === "down" && opts.result instanceof Error),
+    }),
+    httpBatchLink({
+      url: `${getBaseUrl()}/api/trpc`,
+      transformer: {
+        serialize: (data) => superjson.serialize(data),
+        deserialize: (data) => superjson.deserialize(data),
+      },
+      headers: async () => ({
+        // Add any headers you need here
+        // authorization: getAuthCookie()
+      }),
+    }),
+  ]
 });
 
 /**

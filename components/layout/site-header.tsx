@@ -180,7 +180,6 @@ export default function SiteHeader() {
           <div className="hidden md:block">
             <AuthButtons />
           </div>
-          <GitHubStarButton owner="lantos1618" repo="github.gg" />
           <Button 
             variant="ghost" 
             size="icon" 

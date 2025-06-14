@@ -2,6 +2,7 @@ import Link from "next/link"
 import { StarIcon, GitForkIcon, EyeIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { CopyAllCodeButton } from "@/components/repo/copy-all-code-button"
 
 interface RepoHeaderProps {
   username: string
@@ -30,6 +31,12 @@ export default function RepoHeader({ username, reponame, repoData }: RepoHeaderP
           </div>
 
           <div className="flex items-center gap-3">
+            <CopyAllCodeButton 
+              owner={username} 
+              repo={reponame} 
+              branch={repoData.default_branch}
+              className="mr-2"
+            />
             <div className="flex items-center gap-1 text-sm">
               <Button variant="outline" size="sm" className="gap-1">
                 <StarIcon className="h-4 w-4" />

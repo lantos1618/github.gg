@@ -1,6 +1,40 @@
 import { Octokit } from "@octokit/rest"
+import JSZip from 'jszip'
+import { Readable } from 'stream'
 
 const PUBLIC_GITHUB_TOKEN = process.env.PUBLIC_GITHUB_TOKEN || ""
+
+// Helper function to handle the GitHub API response and convert it to a buffer
+async function streamToBuffer(response: Response): Promise<Buffer> {
+  if (!response.body) {
+    throw new Error('No response body')
+  }
+  
+  const reader = response.body.getReader()
+  const chunks: Uint8Array[] = []
+  let totalLength = 0
+  
+  while (true) {
+    const { done, value } = await reader.read()
+    
+    if (done) {
+      break
+    }
+    
+    chunks.push(value)
+    totalLength += value.length
+  }
+  
+  // Combine all chunks into a single Uint8Array
+  const result = new Uint8Array(totalLength)
+  let offset = 0
+  for (const chunk of chunks) {
+    result.set(chunk, offset)
+    offset += chunk.length
+  }
+  
+  return Buffer.from(result.buffer)
+}
 
 // Create an Octokit instance with the public token
 export function createOctokit(token?: string): Octokit {
@@ -133,6 +167,7 @@ export async function getAllRepoFiles(
   user: string,
   repo: string,
   branch?: string,
+  accessToken?: string,
 ): Promise<{ files: any[]; branch: string }> {
   try {
     const octokit = createOctokit()
@@ -330,4 +365,97 @@ function countNonPrintableChars(str: string): number {
     }
   }
   return count
+}
+
+export interface FileContent {
+  path: string
+  content: string
+  size: number
+  truncated?: boolean
+}
+
+export async function getRepositoryAsText(
+  owner: string,
+  repo: string,
+  branch: string,
+  accessToken?: string
+): Promise<{ files: FileContent[]; error?: string }> {
+  try {
+    const octokit = createOctokit(accessToken)
+    
+    // Get the repository archive (zip) as a raw response
+    const archiveResponse = await octokit.request('GET /repos/{owner}/{repo}/zipball/{ref}', {
+      owner,
+      repo,
+      ref: branch,
+      headers: {
+        'Accept': 'application/vnd.github.v3+zip'
+      },
+      request: {
+        // @ts-ignore - The type definition is missing the responseType property
+        responseType: 'arraybuffer'
+      }
+    })
+
+    // Convert the response to a buffer
+    const archiveBuffer = Buffer.from(archiveResponse.data as ArrayBuffer)
+    
+    // Load the zip file
+    const zip = await JSZip.loadAsync(archiveBuffer)
+    
+    const files: FileContent[] = []
+    let processedFiles = 0
+    const maxFiles = 1000 // Limit to prevent memory issues
+    const maxFileSize = 1024 * 1024 // 1MB max file size
+    
+    // Process each file in the zip
+    for (const [relativePath, zipEntry] of Object.entries(zip.files)) {
+      // Skip directories and hidden files
+      if (zipEntry.dir || relativePath.includes('/.') || relativePath.includes('__MACOSX')) {
+        continue
+      }
+      
+      // Limit the number of files to process
+      if (processedFiles >= maxFiles) {
+        console.warn(`Reached maximum number of files (${maxFiles}). Some files were not processed.`)
+        break
+      }
+      
+      try {
+        // Get file content as text
+        const content = await zipEntry.async('text')
+        
+        // Skip large files
+        if (content.length > maxFileSize) {
+          files.push({
+            path: relativePath,
+            content: '',
+            size: content.length,
+            truncated: true
+          })
+          continue
+        }
+        
+        files.push({
+          path: relativePath,
+          content,
+          size: content.length,
+          truncated: false
+        })
+        
+        processedFiles++
+      } catch (error) {
+        console.error(`Error processing file ${relativePath}:`, error)
+        // Skip files that can't be processed
+      }
+    }
+    
+    return { files }
+  } catch (error) {
+    console.error('Error fetching repository as text:', error)
+    return { 
+      files: [], 
+      error: error instanceof Error ? error.message : 'Failed to fetch repository content' 
+    }
+  }
 }

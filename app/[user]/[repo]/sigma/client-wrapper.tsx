@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import SigmaCodeView from "@/components/repo/sigma-code-view"
 import RepoStructureDiagram from "@/components/repo/repo-structure-diagram"
 import { getAllRepoFiles } from "@/lib/github"
@@ -31,6 +32,8 @@ export default function ClientWrapper({
   const [branchName, setBranchName] = useState(branch)
   const [isLoading, setIsLoading] = useState(initialFiles.length === 0)
   const [error, setError] = useState<string | null>(null)
+  const { data: session } = useSession()
+  const accessToken = session?.accessToken as string | undefined
 
   // Fetch files if not provided
   useEffect(() => {
@@ -45,7 +48,12 @@ export default function ClientWrapper({
       setError(null)
 
       try {
-        const { files: fetchedFiles, branch: fetchedBranch } = await getAllRepoFiles(owner, repo, branchName)
+        const { files: fetchedFiles, branch: fetchedBranch } = await getAllRepoFiles(
+          owner, 
+          repo, 
+          branchName,
+          accessToken
+        )
         setFiles(fetchedFiles)
         setBranchName(fetchedBranch)
       } catch (err) {

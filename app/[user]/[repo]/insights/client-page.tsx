@@ -2,15 +2,11 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { GitGraphIcon, UsersIcon, CodeIcon, GitCommitIcon } from "lucide-react"
-import { ContributorsChart, CommitsChart, SimpleLineChart } from "@/components/insights-charts"
-
-interface RepoInsightsClientPageProps {
-  params: { user: string; repo: string }
-  contributorsData: any[]
-  commitsData: any[]
-  topContributors: any[]
-}
+import { GitGraphIcon, UsersIcon, CodeIcon, GitCommitIcon, GitPullRequest, AlertCircle, Play } from "lucide-react"
+import { ContributorsChart, CommitsChart } from "@/components/insights-charts"
+import type { RepoInsightsClientPageProps, ActivityItem, ActivityType, ActivityStatus } from "@/lib/types/insights"
+import { ActivityList, ActivityListItem } from "@/components/activity/activity-list-item"
+import { formatDistanceToNow } from "date-fns"
 
 export default function RepoInsightsClientPage({
   params,
@@ -18,11 +14,116 @@ export default function RepoInsightsClientPage({
   commitsData,
   topContributors,
 }: RepoInsightsClientPageProps) {
+  // Mock recent activity data - replace with real data from API
+  const recentActivity: ActivityItem[] = [
+    {
+      id: '1',
+      type: 'commit',
+      title: 'Refactor insights page components',
+      author: {
+        name: 'dev1',
+        avatarUrl: 'https://github.com/dev1.png',
+        url: '/dev1'
+      },
+      timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
+      status: 'success',
+      details: 'Refactored the insights page to use the new ActivityListItem component',
+      url: `/${params.user}/${params.repo}/commit/abc123`
+    },
+    {
+      id: '2',
+      type: 'pull-request',
+      title: 'Add ActivityListItem component',
+      author: {
+        name: 'dev2',
+        avatarUrl: 'https://github.com/dev2.png',
+        url: '/dev2'
+      },
+      timestamp: new Date(Date.now() - 1000 * 60 * 120), // 2 hours ago
+      status: 'open',
+      details: 'Created a reusable ActivityListItem component for consistent activity feeds',
+      url: `/${params.user}/${params.repo}/pull/42`
+    },
+    {
+      id: '3',
+      type: 'issue',
+      title: 'Fix type errors in commit details',
+      author: {
+        name: 'dev3',
+        avatarUrl: 'https://github.com/dev3.png',
+        url: '/dev3'
+      },
+      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5), // 5 hours ago
+      status: 'open',
+      details: 'TypeScript errors need to be fixed in the commit details component',
+      url: `/${params.user}/${params.repo}/issues/123`
+    },
+    {
+      id: '4',
+      type: 'run',
+      title: 'CI / Build and Test',
+      author: {
+        name: 'github-actions',
+        avatarUrl: 'https://github.com/actions.png',
+        url: 'https://github.com/actions'
+      },
+      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
+      status: 'failure',
+      details: 'Tests failed in test-utils.tsx',
+      url: `/${params.user}/${params.repo}/actions/runs/12345`
+    }
+  ]
+
+  // Simple line chart component - move to a separate file if reused
+  const SimpleLineChart = <T extends string>({ 
+    data, 
+    dataKey,
+    color = '#3b82f6',
+    height = 300 
+  }: { 
+    data: Record<string, string | number>[]; 
+    dataKey: T;
+    color?: string;
+    height?: number;
+  }) => (
+    <div className="relative h-[300px] w-full">
+      <div className="absolute inset-0 flex items-end" aria-hidden="true">
+        <div className="h-full w-full rounded-md bg-muted/30" />
+      </div>
+      <div className="relative flex h-full items-end justify-between">
+        {data.map((item, i) => (
+          <div key={i} className="flex flex-col items-center">
+            <div 
+              className="w-2 rounded-t" 
+              style={{ 
+                height: `${(Number(item[dataKey]) / Math.max(...data.map(d => Number(d[dataKey]))) * 100)}%`,
+                backgroundColor: color
+              }}
+            />
+            <span className="mt-1 text-xs text-muted-foreground">
+              {item.date || item.name}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
   return (
     <div className="container py-4">
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">Insights</h1>
+        </div>
+        
+        {/* Recent Activity Section */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
+          <ActivityList>
+            {recentActivity.map((activity) => (
+              <ActivityListItem key={activity.id} {...activity} />
+            ))}
+          </ActivityList>
         </div>
 
         <Tabs defaultValue="pulse" className="w-full">

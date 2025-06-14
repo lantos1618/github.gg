@@ -2,16 +2,22 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { GitCommitIcon, UserIcon, CalendarIcon, FileIcon, PlusIcon, MinusIcon } from "lucide-react"
+import type { RepoCommitDetailProps } from "@/lib/types/repo"
 
-interface RepoCommitDetailProps {
-  username: string
-  reponame: string
-  sha: string
-  repoData: any
-  commitData: any
-}
+export default function RepoCommitDetail({ 
+  username, 
+  reponame, 
+  sha, 
+  repoData, 
+  commitData 
+}: RepoCommitDetailProps) {
+  // Extract commit message title (first line)
+  const commitTitle = commitData.commit.message.split("\n")[0];
+  // Use commit author from commit data (not the GitHub user)
+  const commitAuthor = commitData.commit.author;
+  // Use committer if author is not available
+  const displayAuthor = commitData.author?.login || commitAuthor.name;
 
-export default function RepoCommitDetail({ username, reponame, sha, repoData, commitData }: RepoCommitDetailProps) {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
@@ -25,7 +31,7 @@ export default function RepoCommitDetail({ username, reponame, sha, repoData, co
         </div>
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <h1 className="text-xl font-bold">{commitData.message.split("\n")[0]}</h1>
+          <h1 className="text-xl font-bold">{commitTitle}</h1>
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm">
               Browse Files
@@ -40,11 +46,11 @@ export default function RepoCommitDetail({ username, reponame, sha, repoData, co
           </span>
           <span className="flex items-center gap-1">
             <UserIcon className="h-3.5 w-3.5" />
-            {commitData.author.name}
+            {displayAuthor}
           </span>
           <span className="flex items-center gap-1">
             <CalendarIcon className="h-3.5 w-3.5" />
-            Committed on {new Date(commitData.author.date).toLocaleDateString()}
+            Committed on {new Date(commitAuthor.date).toLocaleDateString()}
           </span>
         </div>
       </div>

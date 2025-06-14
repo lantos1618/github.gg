@@ -9,7 +9,6 @@ import CTASection from "@/components/sections/cta-section"
 import { FadeIn } from "@/components/animated-elements"
 import AnimatedBackground from "@/components/animated-background"
 import { useEffect, useState } from "react"
-import { EmailModalProvider } from "@/components/email-modal-provider"
 
 export default function Home() {
   const [mounted, setMounted] = useState(false)
@@ -23,8 +22,7 @@ export default function Home() {
   }
 
   return (
-    <EmailModalProvider>
-      <div className="flex flex-col min-h-screen bg-black relative">
+    <div className="flex flex-col min-h-screen bg-black relative">
         {/* Animated background */}
         <AnimatedBackground />
 
@@ -50,6 +48,5 @@ export default function Home() {
           </FadeIn>
         </div>
       </div>
-    </EmailModalProvider>
   )
 }

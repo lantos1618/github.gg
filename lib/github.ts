@@ -5,15 +5,46 @@ import { minimatch } from 'minimatch';
 // Import types from the types directory
 import type {
   RepoFile,
-  FileProcessingOptions,
+  RepoItem,
+  RepoDirectory,
+  RepoSymlink,
+  RepoSubmodule,
+  FileProcessingOptions as FileProcessingOptionsType,
   Issue,
   CommitData,
-  FileContentResult
+  FileContentResult,
+  SearchRepositoryResult,
+  SearchRepositoriesResponse
 } from '@/lib/types/github';
+
+// Re-export types for backward compatibility
+export type { 
+  FileProcessingOptions,
+  RepoFile,
+  RepoItem,
+  RepoDirectory,
+  RepoSymlink,
+  RepoSubmodule
+};
 
 const PUBLIC_GITHUB_TOKEN = process.env.PUBLIC_GITHUB_TOKEN || "";
 
 // Default file processing options
+// File processing options type is now imported from types/github
+// This is just a local type for backward compatibility
+type FileProcessingOptions = FileProcessingOptionsType;
+
+/**
+ * Options for searching repositories
+ */
+export interface SearchRepositoryOptions {
+  page?: number;
+  perPage?: number;
+  sort?: 'stars' | 'forks' | 'help-wanted-issues' | 'updated';
+  order?: 'asc' | 'desc';
+  accessToken?: string;
+}
+
 const DEFAULT_OPTIONS: Required<FileProcessingOptions> = {
   maxFileSize: 1024 * 1024, // 1MB
   maxFiles: 1000,
@@ -48,7 +79,7 @@ function shouldIncludeFile(relativePath: string, options: FileProcessingOptions 
   }
   
   // Check file extension
-  if (mergedOptions.includeExtensions?.length > 0) {
+  if (mergedOptions.includeExtensions && mergedOptions.includeExtensions.length > 0) {
     const ext = relativePath.split('.').pop()?.toLowerCase()
     if (!ext || !mergedOptions.includeExtensions.includes(`.${ext}`)) {
       return false
@@ -227,166 +258,161 @@ export async function getAllRepoFiles(
   }>; 
   branch: string 
 }> {
+  const octokit = createOctokit(accessToken);
+  const mergedOptions = { ...DEFAULT_OPTIONS, ...options };
+
+  // Get repository metadata to determine the default branch if not provided
+  const { data: repoData } = await octokit.rest.repos.get({
+    owner: user,
+    repo: repo,
+  });
+  
+  const branchToUse = branch || repoData.default_branch;
+  if (!branchToUse) {
+    throw new GitHubServiceError("Could not determine default branch for repository.", 400);
+  }
+
+  // Try to fetch via zipball first (more efficient)
   try {
-    const octokit = createOctokit(accessToken)
-    const mergedOptions = { ...DEFAULT_OPTIONS, ...options }
-
-    // Get repository metadata to determine the default branch if not provided
-    const { data: repoData } = await octokit.rest.repos.get({
+    const response = await octokit.repos.downloadZipballArchive({
       owner: user,
-      repo: repo,
-    })
+      repo,
+      ref: branchToUse,
+      request: {
+        // @ts-ignore - The type definition is missing this property
+        timeout: 30000 // 30 second timeout
+      }
+    });
+
+    const zip = new JSZip();
+    await zip.loadAsync(response.data as ArrayBuffer);
+
+    const files: Array<{
+      path: string;
+      name: string;
+      size: number;
+      type: 'file' | 'dir' | 'symlink';
+      content?: string;
+      encoding?: string;
+      tooLarge?: boolean;
+    }> = [];
     
-    const branchToUse = branch || repoData.default_branch
-    if (!branchToUse) {
-      throw new GitHubServiceError("Could not determine default branch for repository.", 400)
-    }
+    const promises: Promise<void>[] = [];
+    const rootDir = Object.keys(zip.files)[0] || '';
+    let fileCount = 0;
 
-    // Try to fetch via zipball first (more efficient)
-    try {
-      const response = await octokit.repos.downloadZipballArchive({
-        owner: user,
-        repo,
-        ref: branchToUse,
-        request: {
-          // @ts-ignore - The type definition is missing this property
-          timeout: 30000 // 30 second timeout
-        }
-      })
-
-      const zip = new JSZip()
-      await zip.loadAsync(response.data as ArrayBuffer)
-
-      const files: RepoFile[] = []
-      const promises: Promise<void>[] = []
-      const rootDir = Object.keys(zip.files)[0] || ''
-      let fileCount = 0
-
-      // Process files in parallel
-      for (const [relativePath, file] of Object.entries(zip.files)) {
-        if (fileCount >= mergedOptions.maxFiles) break
-        if (file.dir) continue
+    // Process files in parallel
+    for (const [relativePath, file] of Object.entries(zip.files)) {
+      if (file.dir) continue;
+      
+      // The path in zip is like 'owner-repo-sha12345/path/to/file.txt'
+      // We need to strip the root directory
+      const correctedPath = relativePath.startsWith(rootDir) 
+        ? relativePath.substring(rootDir.length)
+        : relativePath;
         
-        // The path in zip is like 'owner-repo-sha12345/path/to/file.txt'
-        // We need to strip the root directory
-        const correctedPath = relativePath.startsWith(rootDir) 
-          ? relativePath.substring(rootDir.length)
-          : relativePath
-
-        if (!correctedPath || !shouldIncludeFile(correctedPath, mergedOptions)) {
-          continue
-        }
-
-        fileCount++
-        const promise = (async () => {
+      if (!shouldIncludeFile(correctedPath, mergedOptions)) continue;
+      
+      fileCount++;
+      if (fileCount > mergedOptions.maxFiles) break;
+      
+      // Skip if file is too large
+      const fileSize = (file as any)._data?.uncompressedSize || 0;
+      if (fileSize > mergedOptions.maxFileSize) continue;
+      
+      promises.push(
+        (async () => {
           try {
-            if (mergedOptions.includeContent) {
-              const content = await file.async('string')
-              if (content.length > mergedOptions.maxFileSize) {
-                files.push({
-                  path: correctedPath,
-                  name: correctedPath.split('/').pop() || '',
-                  size: content.length,
-                  type: 'file',
-                  tooLarge: true,
-                  content: ''
-                })
-                return
-              }
+            const content = await file.async('arraybuffer');
+            const decoder = new TextDecoder('utf-8');
+            let decodedContent = '';
+            let isBinary = false;
+            
+            try {
+              // Convert ArrayBuffer to Uint8Array for binary check
+              const uint8Array = new Uint8Array(content);
+              // Simple check for binary content - look for null bytes in first 512 bytes
+              const hasNullByte = uint8Array.slice(0, Math.min(512, uint8Array.length)).some(byte => byte === 0);
+              isBinary = hasNullByte;
               
-              files.push({
-                path: correctedPath,
-                name: correctedPath.split('/').pop() || '',
-                content: content,
-                size: content.length,
-                type: 'file',
-                encoding: 'utf-8'
-              })
-            } else {
-              files.push({
-                path: correctedPath,
-                name: correctedPath.split('/').pop() || '',
-                size: 0,
-                type: 'file',
-                encoding: 'utf-8'
-              })
+              if (!isBinary) {
+                decodedContent = decoder.decode(content);
+              }
+            } catch (e) {
+              // If we can't decode as text, it's likely binary
+              isBinary = true;
             }
-          } catch (e) {
-            console.warn(`Could not process file ${correctedPath}:`, e)
+            
+            files.push({
+              path: correctedPath,
+              name: correctedPath.split('/').pop() || '',
+              size: fileSize,
+              type: 'file',
+              content: isBinary ? '' : decodedContent,
+              encoding: isBinary ? 'base64' : 'utf-8',
+              tooLarge: false
+            });
+          } catch (error) {
+            console.error(`Error processing file ${correctedPath}:`, error);
           }
         })()
-        promises.push(promise)
-
-        if (promises.length >= 10) { // Process in batches of 10
-          await Promise.all(promises.splice(0, promises.length))
-        }
-      }
-
-      // Wait for any remaining promises
-      await Promise.all(promises)
-
-      // Sort files by path for consistent ordering
-      files.sort((a, b) => a.path.localeCompare(b.path))
-
-      return { files, branch: branchToUse }
-    } catch (zipError) {
-      console.warn('Zipball download failed, falling back to recursive tree API:', zipError)
-      
-      // Fallback to recursive tree API
-      try {
-        const { data: treeData } = await octokit.rest.git.getTree({
-          owner: user,
-          repo: repo,
-          tree_sha: branchToUse,
-          recursive: 'true',
-        })
-
-        const files: Array<{
-          path: string;
-          name: string;
-          size: number;
-          type: 'file' | 'dir' | 'symlink';
-          content?: string;
-          encoding?: string;
-          tooLarge?: boolean;
-        }> = []
-        
-        for (const item of treeData.tree) {
-          if (files.length >= mergedOptions.maxFiles) break
-          if (item.type !== 'blob' || !item.path) continue
-          
-          const path = item.path
-          if (!shouldIncludeFile(path, mergedOptions)) continue
-          
-          files.push({
-            path,
-            name: path.split('/').pop() || '',
-            size: item.size || 0,
-            type: 'file',
-            content: ''
-          })
-        }
-        
-        return { files, branch: branchToUse }
-      } catch (treeError) {
-        console.error('Recursive tree API also failed:', treeError)
-        throw new GitHubServiceError(
-          'Failed to fetch repository contents using both zipball and tree API methods.',
-          500
-        )
-      }
+      );
     }
-  } catch (error) {
-    console.error('Error in getAllRepoFiles:', error)
-    if (error instanceof GitHubServiceError) throw error
-    throw new GitHubServiceError(
-      error instanceof Error ? error.message : 'Failed to fetch repository contents',
-      500
-    )
+    
+    await Promise.all(promises);
+    return { files, branch: branchToUse };
+  } catch (zipError) {
+    console.warn('Failed to process zip archive, falling back to tree API:', zipError);
+    
+    // Fallback to tree API if zip download fails
+    try {
+      const { data: treeData } = await octokit.git.getTree({
+        owner: user,
+        repo,
+        tree_sha: branchToUse,
+        recursive: 'true',
+      });
+      
+      if (!treeData.tree) {
+        throw new Error('No files found in repository');
+      }
+      
+      const files: Array<{
+        path: string;
+        name: string;
+        size: number;
+        type: 'file' | 'dir' | 'symlink';
+        content?: string;
+        encoding?: string;
+        tooLarge?: boolean;
+      }> = [];
+      
+      for (const item of treeData.tree) {
+        if (files.length >= mergedOptions.maxFiles) break;
+        if (item.type !== 'blob' || !item.path) continue;
+        
+        const path = item.path;
+        if (!shouldIncludeFile(path, mergedOptions)) continue;
+        
+        files.push({
+          path,
+          name: path.split('/').pop() || '',
+          size: item.size || 0,
+          type: 'file',
+          content: ''
+        });
+      }
+      
+      return { files, branch: branchToUse };
+    } catch (treeError) {
+      console.error('Tree API failed:', treeError);
+      throw new GitHubServiceError(
+        'Failed to fetch repository contents using both zipball and tree API methods.',
+        500
+      );
+    }
   }
 }
-
-// CommitData type is imported from '@/lib/types/github'
 
 export async function getCommitData(
   owner: string,
@@ -552,4 +578,42 @@ function countNonPrintableChars(str: string): number {
   }
   return count
 }
-// Note: getRepositoryAsText and FileContent interface have been removed in favor of RepoArchiveService
+/**
+ * Search GitHub repositories
+ */
+export async function searchRepositories(
+  query: string,
+  options: SearchRepositoryOptions = {}
+): Promise<SearchRepositoriesResponse> {
+  const {
+    page = 1,
+    perPage = 10,
+    sort = 'stars',
+    order = 'desc',
+    accessToken
+  } = options;
+
+  const octokit = createOctokit(accessToken);
+
+  try {
+    const { data } = await octokit.search.repos({
+      q: query,
+      sort,
+      order,
+      per_page: perPage,
+      page,
+    });
+
+    return {
+      total_count: data.total_count,
+      incomplete_results: data.incomplete_results,
+      items: data.items as unknown as SearchRepositoryResult[],
+    };
+  } catch (error: any) {
+    console.error('GitHub search error:', error);
+    throw new GitHubServiceError(
+      error.response?.data?.message || 'Failed to search repositories',
+      error.status || 500
+    );
+  }
+}

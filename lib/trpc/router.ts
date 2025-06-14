@@ -7,6 +7,7 @@ import {
   getFileTreeData,
   getCommitData,
   getCompareData,
+  searchRepositories,
   type FileProcessingOptions
 } from "@/lib/github";
 import { GitHubServiceError } from "@/lib/github";
@@ -93,6 +94,46 @@ const fileProcessingOptionsSchema = z.object({
 // Create the main app router
 export const appRouter = createTRPCRouter({
   github: createTRPCRouter({
+    // Search repositories
+    search: publicProcedure
+      .input(z.object({
+        query: z.string().min(1, 'Search query is required'),
+        page: z.number().min(1).default(1),
+        perPage: z.number().min(1).max(100).default(10),
+        sort: z.enum(['stars', 'forks', 'help-wanted-issues', 'updated']).optional(),
+        order: z.enum(['asc', 'desc']).optional(),
+      }))
+      .query(async ({ input }) => {
+        try {
+          const result = await searchRepositories(
+            input.query,
+            {
+              page: input.page,
+              perPage: input.perPage,
+              sort: input.sort,
+              order: input.order,
+            }
+          );
+          return {
+            success: true,
+            data: result,
+          };
+        } catch (error) {
+          console.error('Search error:', error);
+          if (error instanceof GitHubServiceError) {
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: error.message,
+              cause: error,
+            });
+          }
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to search repositories',
+            cause: error,
+          });
+        }
+      }),
     // Get repository data
     getRepo: publicProcedure
       .input(z.object({
@@ -119,7 +160,7 @@ export const appRouter = createTRPCRouter({
       .input(z.object({
         owner: z.string(),
         repo: z.string(),
-        path: z.string().optional(),
+        branch: z.string().optional(),
         options: fileProcessingOptionsSchema,
       }))
       .query(async ({ input }) => {
@@ -127,7 +168,8 @@ export const appRouter = createTRPCRouter({
           return await getAllRepoFiles(
             input.owner,
             input.repo,
-            input.path || '',
+            input.branch,
+            undefined, // accessToken
             input.options
           );
         } catch (error) {

@@ -1,37 +1,22 @@
 import { analyzeRepositoryWithSocket } from "./socket-api-service"
 import { Octokit } from "@octokit/rest"
-import { createOctokit, getAllRepoFiles } from "./github"
+import { createOctokit, getAllRepoFiles, type RepoItem, type RepoFile, type RepoDirectory, type RepoSymlink, type RepoSubmodule } from "./github"
 
-// Type definitions for repository analysis
+// Re-export types for backward compatibility
+export type RepoFileItem = RepoItem
+export type { RepoFile, RepoDirectory, RepoSymlink, RepoSubmodule } from "./github"
 
-// Base interface for all repository items
-interface RepoItemBase {
+// Type for repository file items from GitHub API
+export interface GitHubFileItem {
   path: string
   name: string
   size: number
-  sha: string
-  type: string
-}
-
-// File type
-interface RepoFile extends RepoItemBase {
-  type: 'file'
-}
-
-// Directory type
-interface RepoDirectory extends RepoItemBase {
-  type: 'dir'
-}
-
-// Symlink type
-interface RepoSymlink extends RepoItemBase {
-  type: 'symlink'
+  type: 'file' | 'dir' | 'symlink' | 'submodule'
+  sha?: string
+  content?: string
+  encoding?: string
+  tooLarge?: boolean
   target?: string
-}
-
-// Submodule type
-interface RepoSubmodule extends RepoItemBase {
-  type: 'submodule'
   submoduleUrl?: string
 }
 
@@ -84,13 +69,61 @@ export async function analyzeRepository(
     const { files: repoFiles } = await getAllRepoFiles(owner, repo)
     
     // Convert the file list to our format
-    files.push(...repoFiles.map(file => ({
-      path: file.path,
-      name: file.name,
-      size: file.size,
-      type: 'file' as const,
-      sha: file.sha || '', // Use the SHA if available, otherwise empty string
-    })))
+    files.push(...repoFiles.map((file: GitHubFileItem) => {
+      const baseItem: Omit<RepoItemBase, 'type'> & { type: string } = {
+        path: file.path,
+        name: file.name,
+        size: file.size,
+        type: file.type || 'file',
+      };
+
+      // Only add sha if it exists
+      if (file.sha) {
+        baseItem.sha = file.sha;
+      }
+
+      // Handle different file types
+      switch (file.type) {
+        case 'file':
+          return {
+            ...baseItem,
+            type: 'file' as const,
+            content: file.content,
+            encoding: file.encoding,
+            tooLarge: file.tooLarge,
+          } as RepoFile;
+          
+        case 'dir':
+          return {
+            ...baseItem,
+            type: 'dir' as const,
+          } as RepoDirectory;
+          
+        case 'symlink':
+          return {
+            ...baseItem,
+            type: 'symlink' as const,
+            target: file.target,
+          } as RepoSymlink;
+          
+        case 'submodule':
+          return {
+            ...baseItem,
+            type: 'submodule' as const,
+            submoduleUrl: file.submoduleUrl,
+          } as RepoSubmodule;
+          
+        default:
+          // Default to file type for unknown types
+          return {
+            ...baseItem,
+            type: 'file' as const,
+            content: file.content,
+            encoding: file.encoding,
+            tooLarge: file.tooLarge,
+          } as RepoFile;
+      }
+    }))
 
     // Try to find and fetch the README
     const readmeFile = repoFiles.find(file => 

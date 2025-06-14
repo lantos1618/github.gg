@@ -17,6 +17,9 @@ export default function CTASection() {
 
     const ctx = canvas.getContext("2d")
     if (!ctx) return
+    
+    // Ensure canvas is in the DOM
+    if (!canvas.parentElement) return
 
     // Set canvas dimensions
     const resizeCanvas = () => {
@@ -91,9 +94,11 @@ export default function CTASection() {
     }
 
     // Animation loop
-    let animationFrameId: number
+    let animationFrameId: number | null = null
 
     const animate = () => {
+      // Check if canvas is still in the DOM
+      if (!canvas || !ctx) return
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
       // Draw gradient background
@@ -144,7 +149,9 @@ export default function CTASection() {
 
     return () => {
       window.removeEventListener("resize", resizeCanvas)
-      cancelAnimationFrame(animationFrameId)
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId)
+      }
     }
   }, [])
 

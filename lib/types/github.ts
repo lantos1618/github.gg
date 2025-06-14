@@ -1,17 +1,53 @@
 // GitHub API related types
 
 /**
- * Represents a file or directory in a GitHub repository
+ * Base interface for all repository items
  */
-export interface RepoFile {
+export interface RepoItemBase {
   path: string;
   name: string;
   size: number;
-  type: 'file' | 'dir' | 'symlink';
+  type: 'file' | 'dir' | 'symlink' | 'submodule';
+  sha?: string;
+}
+
+/**
+ * Represents a file in a GitHub repository
+ */
+export interface RepoFile extends RepoItemBase {
+  type: 'file';
   content?: string;
   encoding?: string;
   tooLarge?: boolean;
 }
+
+/**
+ * Represents a directory in a GitHub repository
+ */
+export interface RepoDirectory extends RepoItemBase {
+  type: 'dir';
+}
+
+/**
+ * Represents a symbolic link in a GitHub repository
+ */
+export interface RepoSymlink extends RepoItemBase {
+  type: 'symlink';
+  target?: string;
+}
+
+/**
+ * Represents a submodule in a GitHub repository
+ */
+export interface RepoSubmodule extends RepoItemBase {
+  type: 'submodule';
+  url?: string;
+}
+
+/**
+ * Union type of all possible repository item types
+ */
+export type RepoItem = RepoFile | RepoDirectory | RepoSymlink | RepoSubmodule;
 
 /**
  * File processing options for repository content
@@ -129,4 +165,38 @@ export interface FileContentResult {
   size: number;
   content: string;
   isBinary: boolean;
+}
+
+/**
+ * Search result for GitHub repositories
+ */
+export interface SearchRepositoryResult {
+  id: number;
+  name: string;
+  full_name: string;
+  html_url: string;
+  description: string | null;
+  private: boolean;
+  owner: {
+    login: string;
+    avatar_url: string;
+    html_url: string;
+  };
+  stargazers_count: number;
+  watchers_count: number;
+  language: string | null;
+  forks_count: number;
+  open_issues_count: number;
+  updated_at: string;
+  pushed_at: string;
+  default_branch: string;
+}
+
+/**
+ * Search response for repositories
+ */
+export interface SearchRepositoriesResponse {
+  total_count: number;
+  incomplete_results: boolean;
+  items: SearchRepositoryResult[];
 }

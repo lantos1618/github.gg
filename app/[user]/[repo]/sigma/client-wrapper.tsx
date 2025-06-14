@@ -35,7 +35,7 @@ export default function ClientWrapper({
     { 
       owner, 
       repo, 
-      path: branch,
+      branch: branch,
       options: {
         maxFileSize: 1024 * 1024, // 1MB
         maxFiles: 1000,

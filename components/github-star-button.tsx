@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { StarIcon } from "lucide-react"
-import { fetchRepoData } from "@/lib/github-api"
+import { fetchRepoData } from "@/lib/github"
 
 interface GitHubStarButtonProps {
   owner: string

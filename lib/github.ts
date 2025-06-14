@@ -700,6 +700,31 @@ function countNonPrintableChars(str: string): number {
   }
   return count
 }
+
+export async function fetchRepoData(owner: string, repo: string) {
+  const octokit = createOctokit();
+  
+  try {
+    const { data } = await octokit.repos.get({
+      owner,
+      repo,
+    });
+    
+    return {
+      stargazers_count: data.stargazers_count || 0,
+      forks_count: data.forks_count || 0,
+      open_issues_count: data.open_issues_count || 0,
+      description: data.description || '',
+      language: data.language || '',
+      html_url: data.html_url || `https://github.com/${owner}/${repo}`,
+      // Add other fields as needed
+    };
+  } catch (error) {
+    console.error('Error fetching repo data:', error);
+    throw new Error('Failed to fetch repository data');
+  }
+}
+
 /**
  * Search GitHub repositories
  */

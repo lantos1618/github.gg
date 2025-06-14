@@ -12,6 +12,10 @@ import { SearchResults } from "@/components/search/search-results"
 import { searchMockData } from "@/lib/mock/search-data"
 import { GitHubStarButton } from "@/components/github-star-button"
 import type { SearchResult } from "@/lib/types/search"
+import { useSession } from "next-auth/react"
+import { LoginButton } from "@/components/auth/login-button"
+import { UserAvatar } from "@/components/auth/user-avatar"
+import { cn } from "@/lib/utils"
 
 export default function SiteHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -172,79 +176,100 @@ export default function SiteHeader() {
           <GitHubStarButton owner="lantos1618" repo="github.gg" />
         </nav>
 
-        <div className="hidden md:flex items-center gap-4 ml-4">
-          <Button variant="outline" size="sm" className="gap-2" asChild>
-            <Link href="/login">
-              <GithubIcon className="h-4 w-4" />
-              Sign In
-            </Link>
+        <div className="flex items-center gap-4">
+          <div className="hidden md:block">
+            <AuthButtons />
+          </div>
+          <GitHubStarButton owner="lantos1618" repo="github.gg" />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="md:hidden" 
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? <XIcon className="h-5 w-5" /> : <MenuIcon className="h-5 w-5" />}
+            <span className="sr-only">Toggle menu</span>
           </Button>
         </div>
 
-        {/* Mobile Menu Button */}
-        <Button variant="ghost" size="icon" className="md:hidden ml-2" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-          {isMenuOpen ? <XIcon className="h-5 w-5" /> : <MenuIcon className="h-5 w-5" />}
-        </Button>
-      </div>
-
-      {/* Mobile Menu */}
-      {isMenuOpen && (
-        <div className="md:hidden border-t py-4">
-          <div className="container flex flex-col space-y-4">
-            <Link
-              href="/explore"
-              className={`text-sm font-medium ${
-                pathname === "/explore" ? "text-foreground" : "text-muted-foreground"
-              } hover:text-foreground transition-colors py-2`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Explore
-            </Link>
-            <Link
-              href={pathname === "/" ? "#features" : "/#features"}
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2"
-              onClick={(e) => handleSectionClick(e, "features")}
-            >
-              Features
-            </Link>
-            <Link
-              href={pathname === "/" ? "#pricing" : "/#pricing"}
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2"
-              onClick={(e) => handleSectionClick(e, "pricing")}
-            >
-              Pricing
-            </Link>
-            <Link
-              href="/docs"
-              className={`text-sm font-medium ${
-                pathname === "/docs" ? "text-foreground" : "text-muted-foreground"
-              } hover:text-foreground transition-colors py-2`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Docs
-            </Link>
-
-            {/* Mobile GitHub Star Button */}
-            <GitHubStarButton owner="lantos1618" repo="github.gg" className="py-2" />
-
-            <div className="flex flex-col space-y-3 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full gap-2 mt-4"
-                asChild
+        {/* Mobile Menu */}
+        {isMenuOpen && (
+          <div className="md:hidden border-t py-4">
+            <div className="container flex flex-col space-y-4">
+              <Link
+                href="/explore"
+                className={`text-sm font-medium ${
+                  pathname === "/explore" ? "text-foreground" : "text-muted-foreground"
+                } hover:text-foreground transition-colors py-2`}
                 onClick={() => setIsMenuOpen(false)}
               >
-                <Link href="/login">
-                  <GithubIcon className="h-4 w-4" />
-                  Sign In
-                </Link>
-              </Button>
-              <Button className="w-full">Try Free</Button>
+                Explore
+              </Link>
+              <Link
+                href={pathname === "/" ? "#features" : "/#features"}
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2"
+                onClick={(e) => handleSectionClick(e, "features")}
+              >
+                Features
+              </Link>
+              <Link
+                href={pathname === "/" ? "#pricing" : "/#pricing"}
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2"
+                onClick={(e) => handleSectionClick(e, "pricing")}
+              >
+                Pricing
+              </Link>
+              <Link
+                href="/docs"
+                className={`text-sm font-medium ${
+                  pathname === "/docs" ? "text-foreground" : "text-muted-foreground"
+                } hover:text-foreground transition-colors py-2`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Docs
+              </Link>
+
+              {/* Mobile GitHub Star Button */}
+              <GitHubStarButton owner="lantos1618" repo="github.gg" className="py-2" />
+
+              {/* Mobile Auth Buttons */}
+              <div className="flex flex-col space-y-3 pt-2">
+                <div className="md:hidden">
+                  <AuthButtons />
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </header>
   )
+}
+
+interface AuthButtonsProps {
+  className?: string;
+}
+
+function AuthButtons({ className }: AuthButtonsProps) {
+  const { data: session, status } = useSession()
+  
+  if (status === 'loading') {
+    return (
+      <div 
+        className={cn(
+          "w-24 h-9 bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden",
+          className
+        )}
+      >
+        <div className="h-full w-full animate-pulse bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent"></div>
+      </div>
+    )
+  }
+
+  if (status === 'authenticated' && session) {
+    return <UserAvatar className={className} />
+  }
+
+  // If unauthenticated or error state
+  return <LoginButton className={className} />
 }

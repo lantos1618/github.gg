@@ -1,9 +1,9 @@
 import type { Metadata } from "next"
 import UserProfile from "@/components/user/user-profile"
 import { getUserData } from "@/lib/github"
-import { cookies } from "next/headers"
-import { decrypt } from "@/lib/encryption"
 import { notFound } from "next/navigation"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 export async function generateMetadata({ params }: { params: { user: string } }): Promise<Metadata> {
   // Don't try to generate metadata for reserved paths
@@ -36,19 +36,9 @@ export default async function UserPage({ params }: { params: { user: string } })
     return null
   }
 
-  // Try to get the user's token if they're logged in
-  let token: string | undefined
-  const cookieStore = cookies()
-  const sessionCookie = cookieStore.get("github_session")
-
-  if (sessionCookie?.value) {
-    try {
-      const session = JSON.parse(decrypt(sessionCookie.value))
-      token = session.accessToken
-    } catch (error) {
-      console.error("Error decrypting session:", error)
-    }
-  }
+  // Get the user's session if they're logged in
+  const session = await getServerSession(authOptions)
+  const token = session?.accessToken as string | undefined
 
   try {
     // Fetch user data with the token if available

@@ -3,7 +3,7 @@ import { Octokit } from "@octokit/rest"
 const PUBLIC_GITHUB_TOKEN = process.env.PUBLIC_GITHUB_TOKEN || ""
 
 // Create an Octokit instance with the public token
-function createOctokit(token?: string): Octokit {
+export function createOctokit(token?: string): Octokit {
   return new Octokit({
     auth: token || PUBLIC_GITHUB_TOKEN,
     request: {

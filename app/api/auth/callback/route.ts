@@ -32,14 +32,16 @@ export async function GET(request: Request) {
     const user = await getGitHubUser(accessToken)
 
     // Store the session in an encrypted cookie
-    const session = { user, accessToken }
+    const session = { user, accessToken, timestamp: Date.now() }
     const encrypted = await encrypt(JSON.stringify(session))
     const cookieStore = cookies()
     cookieStore.set("github_session", encrypted, {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === 'production', // Use secure in production only
       path: "/",
       sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      domain: process.env.NODE_ENV === 'production' ? '.github.gg' : undefined // Set domain in production
     })
 
     console.log("GitHub OAuth successful, redirecting to homepage")

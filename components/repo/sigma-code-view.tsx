@@ -49,46 +49,45 @@ export default function SigmaCodeView({ files: initialFiles = [], repoData, owne
   const [error, setError] = useState<string | null>(null)
   const [branchName] = useState(branch || repoData?.default_branch || "main")
 
-  // Initialize tRPC client
-  const utils = trpc.useContext()
+  // Use tRPC query to fetch repository files
+  const { data, isLoading: isFetching, error: fetchError, refetch } = trpc.github.getFiles.useQuery(
+    {
+      owner: owner || '',
+      repo: repo || '',
+      path: branchName,
+      options: {
+        maxFileSize: 1024 * 1024, // 1MB
+        maxFiles: 1000,
+        includeContent: true,
+        includeExtensions: ['.js', '.ts', '.jsx', '.tsx', '.json', '.md'],
+        excludePaths: ['**/node_modules/**', '**/dist/**', '**/build/**']
+      }
+    },
+    {
+      enabled: !!(owner && repo && initialFiles.length === 0),
+      refetchOnWindowFocus: false,
+      onSuccess: (data: { files?: FileData[] }) => {
+        setFiles(data.files || [])
+        setError(null)
+      },
+      onError: (error: Error & { message: string }) => {
+        setError(error.message || 'Failed to load repository files')
+      }
+    }
+  )
 
-  // Function to load repository files using tRPC
+  // Function to reload repository files
   const loadRepoFiles = async () => {
     if (!owner || !repo) return
-
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const result = await utils.github.fetchRepoFiles.fetch({
-        owner,
-        repo,
-        branch: branchName,
-        options: {
-          // You can customize these options as needed
-          maxFileSize: 1024 * 1024, // 1MB
-          maxFiles: 1000,
-          includeContent: true,
-          includeExtensions: ['.js', '.ts', '.jsx', '.tsx', '.json', '.md'],
-          excludePaths: ['**/node_modules/**', '**/dist/**', '**/build/**']
-        }
-      })
-
-      setFiles(result.files || [])
-    } catch (err) {
-      console.error("Error loading repository files:", err)
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setIsLoading(false)
-    }
+    await refetch()
   }
 
-  // Load repository files on component mount
+  // Set initial files if provided
   useEffect(() => {
-    if (initialFiles.length === 0 && owner && repo) {
-      loadRepoFiles()
+    if (initialFiles.length > 0) {
+      setFiles(initialFiles)
     }
-  }, [initialFiles, owner, repo])
+  }, [initialFiles])
 
   // Filter files based on search query and active tab
   const filteredFiles = files.filter((file) => {
@@ -165,11 +164,11 @@ export default function SigmaCodeView({ files: initialFiles = [], repoData, owne
     }
   }
 
-  if (isLoading) {
+  if ((isLoading || isFetching) && files.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center p-8">
         <Loader2Icon className="h-8 w-8 animate-spin mr-3" />
-        <span>Analyzing repository...</span>
+        <span>Loading repository files...</span>
       </div>
     )
   }

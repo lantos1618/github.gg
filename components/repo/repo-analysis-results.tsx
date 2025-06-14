@@ -4,74 +4,53 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Loader2Icon, FolderIcon, FileIcon, ClockIcon, CodeIcon, LockIcon, GithubIcon } from "lucide-react"
-import type { RepoAnalysisResult } from "@/lib/repo-analysis-service"
+import { trpc } from "@/lib/trpc/trpc"
+import type { RouterOutputs } from "@/lib/trpc/trpc"
+
+type RepoAnalysisResult = {
+  fileCount: number
+  directoryCount: number
+  analysisTimeMs: number
+  languages: Record<string, number>
+  readme?: string
+}
 
 interface RepoAnalysisResultsProps {
   owner: string
   repo: string
 }
 
+type AnalysisResult = RepoAnalysisResult & { authenticated?: boolean }
+
 export default function RepoAnalysisResults({ owner, repo }: RepoAnalysisResultsProps) {
-  const [analysis, setAnalysis] = useState<RepoAnalysisResult | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [needsAuth, setNeedsAuth] = useState(false)
-  const [rateLimit, setRateLimit] = useState<{ remaining: number; resetAt: string } | null>(null)
-
-  const analyzeRepo = async () => {
-    setIsLoading(true)
-    setError(null)
-    setNeedsAuth(false)
-
-    try {
-      const response = await fetch("/api/analyze-repo", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ owner, repo }),
-      })
-
-      // Check for rate limit headers
-      const rateLimitLimit = response.headers.get("X-RateLimit-Limit")
-      const rateLimitRemaining = response.headers.get("X-RateLimit-Remaining")
-      const rateLimitReset = response.headers.get("X-RateLimit-Reset")
-
-      if (rateLimitRemaining && rateLimitReset) {
-        setRateLimit({
-          remaining: Number.parseInt(rateLimitRemaining, 10),
-          resetAt: new Date(Number.parseInt(rateLimitReset, 10) * 1000).toISOString(),
-        })
+  
+  const analyzeMutation = trpc.github.analyzeRepo.useMutation({
+    onSuccess: (data: AnalysisResult) => {
+      setAnalysis(data)
+      setError(null)
+      setNeedsAuth(false)
+    },
+    onError: (error: any) => {
+      if (error.data?.code === 'UNAUTHORIZED') {
+        setNeedsAuth(true)
+        setError("Authentication required to access this repository")
+      } else if (error.data?.code === 'TOO_MANY_REQUESTS') {
+        setError(`Rate limit exceeded. Please try again later.`)
+      } else {
+        setError(error.message || "An error occurred while analyzing the repository")
       }
+    },
+  })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-
-        // Check if authentication is required
-        if (response.status === 401 && errorData.error === "Authentication required") {
-          setNeedsAuth(true)
-          throw new Error("Authentication required to access this repository")
-        }
-
-        // Check if rate limit is exceeded
-        if (response.status === 429) {
-          throw new Error(`Rate limit exceeded. Please try again after ${new Date(errorData.resetAt).toLocaleString()}`)
-        }
-
-        throw new Error(errorData.message || "Failed to analyze repository")
-      }
-
-      const result = await response.json()
-      setAnalysis(result.data)
-      setIsAuthenticated(result.authenticated)
-    } catch (err: any) {
-      setError(err.message || "An error occurred while analyzing the repository")
-      console.error("Error analyzing repo:", err)
-    } finally {
-      setIsLoading(false)
-    }
+  const analyzeRepo = () => {
+    analyzeMutation.mutate({ owner, repo })
   }
+  
+  const isLoading = analyzeMutation.isPending
+  const isAuthenticated = analyzeMutation.data?.authenticated ?? null
 
   // Helper function to format file size
   const formatSize = (bytes: number) => {
@@ -84,19 +63,23 @@ export default function RepoAnalysisResults({ owner, repo }: RepoAnalysisResults
   const getTopLanguages = () => {
     if (!analysis?.languages) return []
 
-    return Object.entries(analysis.languages)
+    const languages = analysis.languages as Record<string, number>
+    const totalSize = getTotalSize()
+
+    return Object.entries(languages)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([lang, size]) => ({
         language: lang,
         size,
-        percentage: ((size / getTotalSize()) * 100).toFixed(1),
+        percentage: ((size / totalSize) * 100).toFixed(1),
       }))
   }
 
-  const getTotalSize = () => {
+  const getTotalSize = (): number => {
     if (!analysis?.languages) return 0
-    return Object.values(analysis.languages).reduce((sum, size) => sum + size, 0)
+    const languages = analysis.languages as Record<string, number>
+    return Object.values(languages).reduce((sum: number, size: number) => sum + size, 0)
   }
 
   return (
@@ -183,7 +166,7 @@ export default function RepoAnalysisResults({ owner, repo }: RepoAnalysisResults
             <div className="bg-gray-900/50 p-4 rounded-lg border border-border/50">
               <h3 className="text-lg font-medium mb-3">Top Languages</h3>
               <div className="space-y-3">
-                {getTopLanguages().map(({ language, size, percentage }) => (
+                {getTopLanguages().map(({ language, size, percentage }: { language: string; size: number; percentage: string }) => (
                   <div key={language}>
                     <div className="flex justify-between text-sm mb-1">
                       <span>{language}</span>
@@ -206,7 +189,7 @@ export default function RepoAnalysisResults({ owner, repo }: RepoAnalysisResults
                   {analysis.readme
                     .split("\n")
                     .slice(0, 10)
-                    .map((line, i) => (
+                    .map((line: string, i: number) => (
                       <p key={i}>{line}</p>
                     ))}
                   {analysis.readme.split("\n").length > 10 && <p className="text-primary mt-2">... (truncated)</p>}

@@ -1,63 +1,42 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useRef } from "react"
 import { motion, useInView, useAnimation } from "framer-motion"
 import { UsersIcon, SparklesIcon, Code2Icon } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import { useMediaQuery } from "@/hooks/use-media-query"
+import { trpc } from "@/lib/trpc/trpc"
 
 export default function StatsSection() {
-  // State for API data
-  const [statsData, setStatsData] = useState({
-    userActivity: {
-      data: [],
-      currentUsers: 0,
-      growthPercentage: 0,
-    },
-    reposAnalyzed: {
-      data: [],
-      totalRepos: 0,
-      growthPercentage: 0,
-    },
-    tokensUsed: {
-      monthlyData: [],
-      totalTokens: 0,
-    },
-  })
-
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState(null)
-
   // Check if we're on mobile
   const isMobile = useMediaQuery("(max-width: 768px)")
 
-  // Fetch stats data from API
-  useEffect(() => {
-    const fetchStatsData = async () => {
-      try {
-        setIsLoading(true)
-        const format = isMobile ? "mobile" : "full"
-        const response = await fetch(`/api/stats?format=${format}`)
-
-        if (!response.ok) {
-          throw new Error(`API request failed with status ${response.status}`)
-        }
-
-        const data = await response.json()
-        setStatsData(data)
-        setError(null)
-      } catch (err) {
-        console.error("Error fetching stats data:", err)
-        setError(err.message)
-      } finally {
-        setIsLoading(false)
-      }
+  // Fetch stats data using tRPC
+  const { data: statsData, isLoading, error } = trpc.stats.getStats.useQuery(
+    { format: isMobile ? "mobile" : "full" },
+    {
+      refetchOnWindowFocus: false,
+      // Set initial data to prevent undefined errors
+      initialData: {
+        userActivity: {
+          data: [],
+          currentUsers: 0,
+          growthPercentage: 0,
+        },
+        reposAnalyzed: {
+          data: [],
+          totalRepos: 0,
+          growthPercentage: 0,
+        },
+        tokensUsed: {
+          monthlyData: [],
+          totalTokens: 0,
+        },
+      },
     }
-
-    fetchStatsData()
-  }, [isMobile])
+  )
 
   // Counter animation component
   function CountUp({ end, duration = 2, decimals = 0, suffix = "" }) {
@@ -141,7 +120,7 @@ export default function StatsSection() {
     return (
       <section className="bg-black/60 backdrop-blur-sm pt-12 md:pt-20 border-y border-border/40" ref={sectionRef}>
         <div className="container px-4 md:px-6 text-center py-20">
-          <div className="text-red-400">Error loading stats: {error}</div>
+          <div className="text-red-400">Error loading stats: {error.message}</div>
         </div>
       </section>
     )

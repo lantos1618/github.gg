@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useSession } from "next-auth/react"
 import SigmaCodeView from "@/components/repo/sigma-code-view"
 import RepoStructureDiagram from "@/components/repo/repo-structure-diagram"
-import { getAllRepoFiles } from "@/lib/github"
 import { Loader2Icon } from "lucide-react"
+import { trpc } from "@/lib/trpc/trpc"
 
 interface ClientWrapperProps {
   files: any[]
@@ -24,50 +24,52 @@ export default function ClientWrapper({
   repoData,
   owner,
   repo,
-  branch,
+  branch: initialBranch,
   defaultTab = "code",
 }: ClientWrapperProps) {
   const [activeTab, setActiveTab] = useState<"code" | "diagram">(defaultTab)
-  const [files, setFiles] = useState<any[]>(initialFiles)
-  const [branchName, setBranchName] = useState(branch)
-  const [isLoading, setIsLoading] = useState(initialFiles.length === 0)
-  const [error, setError] = useState<string | null>(null)
-  const { data: session } = useSession()
-  const accessToken = session?.accessToken as string | undefined
-
-  // Fetch files if not provided
-  useEffect(() => {
-    async function fetchFiles() {
-      if (initialFiles && initialFiles.length > 0) {
-        setFiles(initialFiles)
-        setIsLoading(false)
-        return
+  const [branch, setBranch] = useState(initialBranch)
+  
+  // Use tRPC query to fetch repository files
+  const { data, isLoading, error, isFetching } = trpc.github.getFiles.useQuery(
+    { 
+      owner, 
+      repo, 
+      path: branch,
+      options: {
+        maxFileSize: 1024 * 1024, // 1MB
+        maxFiles: 1000,
+        includeContent: true,
+        includeExtensions: ['.js', '.ts', '.jsx', '.tsx', '.json', '.md'],
+        excludePaths: ['**/node_modules/**', '**/dist/**', '**/build/**']
       }
-
-      setIsLoading(true)
-      setError(null)
-
-      try {
-        const { files: fetchedFiles, branch: fetchedBranch } = await getAllRepoFiles(
-          owner, 
-          repo, 
-          branchName,
-          accessToken
-        )
-        setFiles(fetchedFiles)
-        setBranchName(fetchedBranch)
-      } catch (err) {
-        console.error("Error fetching repo files:", err)
-        setError("Failed to fetch repository files")
-      } finally {
-        setIsLoading(false)
-      }
+    },
+    {
+      // Only fetch if we don't have initial files
+      enabled: !initialFiles?.length,
+      // Don't retry on 404 (repo not found)
+      retry: (failureCount: number, error: any) => 
+        error?.data?.code !== 'NOT_FOUND' && failureCount < 3,
+      // Don't refetch on window focus to reduce API calls
+      refetchOnWindowFocus: false,
+      // Use placeholder data while fetching
+      placeholderData: (previousData: any) => previousData || { files: [], branch: branch || 'main' }
     }
+  )
 
-    fetchFiles()
-  }, [owner, repo, branchName, initialFiles])
+  // Use either the initial files or the data from tRPC
+  const files = initialFiles?.length ? initialFiles : data?.files || []
+  const branchName = data?.branch || branch || 'main'
+  
+  // Combine loading states
+  const isDataLoading = isLoading || isFetching
 
-  if (isLoading) {
+  // Handle error state
+  const errorMessage = error ? 
+    error.message || 'Failed to fetch repository files' : 
+    null
+
+  if (isDataLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2Icon className="h-8 w-8 animate-spin mr-3" />
@@ -76,10 +78,10 @@ export default function ClientWrapper({
     )
   }
 
-  if (error) {
+  if (errorMessage) {
     return (
       <div className="text-center py-8">
-        <p className="text-red-500 font-medium">{error}</p>
+        <p className="text-red-500 font-medium">{errorMessage}</p>
       </div>
     )
   }

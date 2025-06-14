@@ -8,14 +8,13 @@ import SiteFooter from "@/components/layout/site-footer"
 import { ThemeProvider } from "@/components/theme-provider"
 import { EmailModalProvider } from "@/components/email-modal-provider"
 import { AuthProvider } from "@/components/auth-provider"
-import { TRPCProvider } from "@/components/providers/trpc-provider"
+import { Toaster } from "sonner"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "GitHub.GG - Enhanced GitHub Experience",
   description: "A better way to explore and understand GitHub repositories",
-    generator: 'v0.dev'
 }
 
 export default function RootLayout({
@@ -36,13 +35,12 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AuthProvider>
             <EmailModalProvider>
-              <TRPCProvider>
                 <div className="relative flex min-h-screen flex-col">
                   <SiteHeader />
                   <div className="flex-1">{children}</div>
                   <SiteFooter />
+                  <Toaster position="top-center" richColors closeButton />
                 </div>
-              </TRPCProvider>
             </EmailModalProvider>
           </AuthProvider>
         </ThemeProvider>

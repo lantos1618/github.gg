@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import RepoIssueDetail from "@/components/repo/repo-issue-detail"
-import { getRepoData, getIssueData } from "@/lib/github"
+import { getRepoData, fetchRepoData } from "@/lib/github"
 
 export async function generateMetadata({
   params,

@@ -688,6 +688,69 @@ export async function getFileContent(
   }
 }
 
+export async function getIssueData(
+  owner: string,
+  repo: string,
+  issueNumber: string,
+): Promise<Issue> {
+  const octokit = createOctokit();
+  
+  try {
+    const { data } = await octokit.issues.get({
+      owner,
+      repo,
+      issue_number: Number(issueNumber),
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
+
+    return {
+      id: data.id,
+      number: data.number,
+      title: data.title,
+      user: {
+        login: data.user?.login || '',
+        avatar_url: data.user?.avatar_url || '',
+        html_url: data.user?.html_url || `https://github.com/${data.user?.login}`,
+      },
+      state: data.state as 'open' | 'closed',
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      body: data.body || null,
+      html_url: data.html_url,
+      comments: data.comments,
+      labels: (data.labels || []).map(label => {
+        // Handle both string and object labels
+        if (typeof label === 'string') {
+          return {
+            id: 0,
+            name: label,
+            color: '000000',
+            description: null as string | null
+          };
+        }
+        
+        // Handle object labels
+        return {
+          id: label.id || 0,
+          name: label.name || '',
+          color: label.color || '000000',
+          description: label.description || null
+        };
+      }),
+    };
+  } catch (error: unknown) {
+    console.error(`Error fetching issue #${issueNumber} from ${owner}/${repo}:`, error);
+    const statusCode = (error as { status?: number })?.status || 500;
+    throw new GitHubServiceError(
+      `Failed to fetch issue #${issueNumber}`,
+      statusCode
+    );
+  }
+}
+
+
 // Helper function to count non-printable characters
 function countNonPrintableChars(str: string): number {
   let count = 0

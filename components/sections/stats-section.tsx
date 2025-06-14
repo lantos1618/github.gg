@@ -363,7 +363,9 @@ export default function StatsSection() {
 
   // Error state
   if (error) {
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    const errorMessage = error && typeof error === 'object' && 'message' in error 
+      ? (error as Error).message 
+      : 'An unknown error occurred';
     return (
       <section className="bg-black/60 backdrop-blur-sm pt-12 md:pt-20 border-y border-border/40" ref={sectionRef}>
         <div className="container px-4 md:px-6 text-center py-20">

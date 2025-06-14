@@ -1,32 +1,17 @@
-import { Octokit } from "@octokit/rest"
-import JSZip from 'jszip'
-import { Readable } from 'stream'
+import { Octokit } from "@octokit/rest";
+import JSZip from 'jszip';
+import { minimatch } from 'minimatch';
 
-export interface RepoFile {
-  path: string;
-  name: string;
-  size: number;
-  type: 'file' | 'dir' | 'symlink';
-  content?: string;
-  encoding?: string;
-  tooLarge?: boolean;
-}
+// Import types from the types directory
+import type {
+  RepoFile,
+  FileProcessingOptions,
+  Issue,
+  CommitData,
+  FileContentResult
+} from '@/lib/types/github';
 
-const PUBLIC_GITHUB_TOKEN = process.env.PUBLIC_GITHUB_TOKEN || ""
-
-// File processing options
-export interface FileProcessingOptions {
-  /** Maximum file size in bytes (default: 1MB) */
-  maxFileSize?: number
-  /** Maximum number of files to process (default: 1000) */
-  maxFiles?: number
-  /** File extensions to include (if specified, only these will be included) */
-  includeExtensions?: string[]
-  /** File paths to exclude (supports glob patterns) */
-  excludePaths?: string[]
-  /** Whether to include file content (default: true) */
-  includeContent?: boolean
-}
+const PUBLIC_GITHUB_TOKEN = process.env.PUBLIC_GITHUB_TOKEN || "";
 
 // Default file processing options
 const DEFAULT_OPTIONS: Required<FileProcessingOptions> = {
@@ -181,54 +166,46 @@ export async function getRepoData(user: string, repo: string) {
   }
 }
 
+// Issue type is imported from '@/lib/types/github'
+
 export async function getRepoIssues(
-  username: string,
-  reponame: string,
-  options: { page?: number; state?: "open" | "closed" | "all" } = {},
-) {
-  const { page = 1, state = "open" } = options
+  owner: string,
+  repo: string,
+  options: { 
+    page?: number; 
+    state?: 'open' | 'closed' | 'all';
+    perPage?: number;
+  } = {}
+): Promise<Issue[]> {
+  const { 
+    page = 1, 
+    state = 'open',
+    perPage = 10 
+  } = options;
+
+  const octokit = createOctokit();
 
   try {
-    const response = await fetch(
-      `https://api.github.com/repos/${username}/${reponame}/issues?page=${page}&state=${state}&per_page=10`,
-      {
-        headers: {
-          Accept: "application/vnd.github.v3+json",
-          ...(process.env.GITHUB_TOKEN ? { Authorization: `token ${process.env.GITHUB_TOKEN}` } : {}),
-        },
-        next: { revalidate: 60 }, // Cache for 60 seconds
-      },
-    )
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch issues: ${response.status}`)
-    }
-
-    return await response.json()
-  } catch (error) {
-    console.error("Error fetching repo issues:", error)
-    return []
-  }
-}
-
-export async function getIssueData(username: string, reponame: string, issueId: string) {
-  try {
-    const response = await fetch(`https://api.github.com/repos/${username}/${reponame}/issues/${issueId}`, {
+    const { data } = await octokit.issues.listForRepo({
+      owner,
+      repo,
+      state,
+      page,
+      per_page: perPage,
       headers: {
-        Accept: "application/vnd.github.v3+json",
-        ...(process.env.GITHUB_TOKEN ? { Authorization: `token ${process.env.GITHUB_TOKEN}` } : {}),
+        'X-GitHub-Api-Version': '2022-11-28',
       },
-      next: { revalidate: 60 }, // Cache for 60 seconds
-    })
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch issue: ${response.status}`)
+    });
+    // Type assertion to ensure we're returning the correct type
+    return data as unknown as Issue[];
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error('Error fetching repository issues:', error.message);
+    } else {
+      console.error('An unknown error occurred while fetching repository issues');
     }
-
-    return await response.json()
-  } catch (error) {
-    console.error("Error fetching issue data:", error)
-    throw error
+    // Return empty array on error to maintain backward compatibility
+    return [];
   }
 }
 
@@ -409,18 +386,35 @@ export async function getAllRepoFiles(
   }
 }
 
-export async function getCommitData(user: string, repo: string, sha: string) {
+// CommitData type is imported from '@/lib/types/github'
+
+export async function getCommitData(
+  owner: string,
+  repo: string,
+  sha: string
+): Promise<CommitData> {
+  const octokit = createOctokit();
+  
   try {
-    const octokit = createOctokit()
-    const { data } = await octokit.rest.git.getCommit({
-      owner: user,
-      repo: repo,
-      commit_sha: sha,
-    })
-    return data
-  } catch (error) {
-    console.error("Error fetching commit data:", error)
-    throw error
+    const { data } = await octokit.rest.repos.getCommit({
+      owner,
+      repo,
+      ref: sha,
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
+    
+    return data as unknown as CommitData;
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error(`Error fetching commit data for ${owner}/${repo}@${sha}:`, error.message);
+      throw new GitHubServiceError(
+        `Failed to fetch commit data: ${error.message}`,
+        'status' in error ? (error as any).status : 500
+      );
+    }
+    throw new GitHubServiceError('An unknown error occurred while fetching commit data', 500);
   }
 }
 
@@ -463,65 +457,86 @@ export async function getFileTreeData(user: string, repo: string, branch: string
   }
 }
 
-export async function getFileContent(user: string, repo: string, branch: string, path: string) {
+// FileContentResult type is imported from '@/lib/types/github'
+
+export async function getFileContent(
+  owner: string,
+  repo: string,
+  branch: string,
+  path: string
+): Promise<FileContentResult> {
+  const octokit = createOctokit();
+  
   try {
-    const octokit = createOctokit()
-    const { data } = await octokit.rest.repos.getContent({
-      owner: user,
-      repo: repo,
-      path: path,
+    // Get file content using Octokit's typed method
+    const { data } = await octokit.repos.getContent({
+      owner,
+      repo,
+      path,
       ref: branch,
-    })
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28'
+      }
+    });
 
+    // Handle directory response
     if (Array.isArray(data)) {
-      throw new Error("Expected a file, but got a directory")
+      throw new GitHubServiceError('Expected a file, but got a directory', 400);
     }
 
-    if (data.type !== "file") {
-      throw new Error("Expected a file, but got a different type")
+    // Handle non-file responses
+    if (data.type !== 'file') {
+      throw new GitHubServiceError('Expected a file, but got a different type', 400);
     }
 
-    // Get the filename and extension
-    const filename = path.split("/").pop() || ""
+    // Base response data
+    const baseResponse = {
+      name: data.name,
+      path: data.path,
+      size: data.size,
+      content: '',
+      isBinary: false
+    };
 
-    // Always attempt to decode as text first
     try {
-      const content = Buffer.from(data.content, "base64").toString("utf-8")
-
-      // Check if content appears to be binary by looking for null bytes or high concentration of non-printable characters
-      const isBinary = content.includes("\0") || countNonPrintableChars(content) / content.length > 0.1
+      // Decode content from base64
+      const content = Buffer.from(data.content, 'base64').toString('utf-8');
+      
+      // Check for binary content
+      const isBinary = content.includes('\0') || 
+                      countNonPrintableChars(content) / content.length > 0.1;
 
       if (isBinary) {
         return {
-          name: data.name,
-          path: data.path,
-          size: data.size,
-          content: "Binary file not shown",
-          isBinary: true,
-        }
+          ...baseResponse,
+          content: 'Binary file not shown',
+          isBinary: true
+        };
       }
 
       return {
-        name: data.name,
-        path: data.path,
-        size: data.size,
-        content: content,
-        isBinary: false,
-      }
-    } catch (e) {
-      // If decoding fails, treat as binary
-      console.warn(`Failed to decode ${path} as text:`, e)
+        ...baseResponse,
+        content,
+        isBinary: false
+      };
+    } catch (decodeError) {
+      // Handle binary content that can't be decoded as text
+      console.warn(`Failed to decode ${path} as text:`, decodeError);
       return {
-        name: data.name,
-        path: data.path,
-        size: data.size,
-        content: "Binary file not shown",
-        isBinary: true,
-      }
+        ...baseResponse,
+        content: 'Binary file not shown',
+        isBinary: true
+      };
     }
-  } catch (error) {
-    console.error("Error fetching file content:", error)
-    throw error
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      const githubError = error as { response?: { data?: { message?: string } }, status?: number };
+      throw new GitHubServiceError(
+        githubError.response?.data?.message || error.message || 'Failed to fetch file content',
+        githubError.status || 500
+      );
+    }
+    throw new GitHubServiceError('An unknown error occurred while fetching file content', 500);
   }
 }
 
@@ -537,5 +552,4 @@ function countNonPrintableChars(str: string): number {
   }
   return count
 }
-
 // Note: getRepositoryAsText and FileContent interface have been removed in favor of RepoArchiveService

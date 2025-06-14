@@ -24,10 +24,12 @@ import type { Context } from "./context";
  *
  * This is where the tRPC API is initialized, connecting the context and transformer.
  */
+import superjson from 'superjson';
+
 const t = initTRPC.context<Context>().create({
   transformer: {
-    serialize: (data) => JSON.stringify(data),
-    deserialize: (data) => JSON.parse(data),
+    serialize: (data) => superjson.serialize(data),
+    deserialize: (data) => superjson.deserialize(data),
   },
   errorFormatter({ shape, error }) {
     return {

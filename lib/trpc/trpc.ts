@@ -1,0 +1,60 @@
+import { httpBatchLink, loggerLink } from "@trpc/client";
+import { createTRPCNext } from "@trpc/next";
+import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
+import superjson from "superjson";
+
+import { type AppRouter } from "./router";
+
+const getBaseUrl = () => {
+  if (typeof window !== 'undefined') return ''; // browser should use relative url
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`; // SSR should use vercel url
+  return `http://localhost:${process.env.PORT ?? 3000}`; // dev SSR should use localhost
+};
+
+/**
+ * Create a stable client reference for React. The only time this is
+ * needed is for WebSocket/SSE connections, but it doesn't hurt to
+ * always use it.
+ */
+export const trpc = createTRPCNext<AppRouter>({
+  config() {
+    return {
+      links: [
+        loggerLink({
+          enabled: (opts) => process.env.NODE_ENV === "development" ||
+            (opts.direction === "down" && opts.result instanceof Error),
+        }),
+        httpBatchLink({
+          url: `${getBaseUrl()}/api/trpc`,
+          // You can pass any HTTP headers you wish here
+          async headers() {
+            return {
+              // authorization: getAuthCookie(),
+            };
+          },
+          transformer: {
+            serialize: (data) => superjson.serialize(data),
+            deserialize: (data) => superjson.deserialize(data),
+          },
+        }),
+      ],
+    };
+  },
+  ssr: false,
+  transformer: superjson
+});
+
+/**
+ * Inference helper for inputs
+ * @example type HelloInput = RouterInputs['example']['hello']
+ **/
+export type RouterInputs = inferRouterInputs<AppRouter>;
+
+/**
+ * Inference helper for outputs
+ * @example type HelloOutput = RouterOutputs['example']['hello']
+ **/
+export type RouterOutputs = inferRouterOutputs<AppRouter>;
+
+// Export the type of the tRPC client for use in components
+export type TrpcClient = typeof trpc;

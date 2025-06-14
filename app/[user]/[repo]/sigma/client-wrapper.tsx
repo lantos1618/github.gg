@@ -15,7 +15,7 @@ interface ClientWrapperProps {
   }
   owner: string
   repo: string
-  branch: string
+  branch?: string
   defaultTab?: "code" | "diagram"
 }
 

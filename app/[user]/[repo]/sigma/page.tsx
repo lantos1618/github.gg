@@ -22,7 +22,7 @@ export default async function SigmaPage({ params }: PageProps) {
         fallback={
           <div className="flex items-center justify-center py-12">
             <Loader2Icon className="h-8 w-8 animate-spin mr-3" />
-            <span>Loading code visualization...</span>
+            <span>Loading code...</span>
           </div>
         }
       >

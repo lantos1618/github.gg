@@ -8,6 +8,7 @@ import SiteFooter from "@/components/layout/site-footer"
 import { ThemeProvider } from "@/components/theme-provider"
 import { EmailModalProvider } from "@/components/email-modal-provider"
 import { AuthProvider } from "@/components/auth-provider"
+import { TRPCProvider } from "@/components/providers/trpc-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -35,11 +36,13 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AuthProvider>
             <EmailModalProvider>
-              <div className="relative flex min-h-screen flex-col">
-                <SiteHeader />
-                <div className="flex-1">{children}</div>
-                <SiteFooter />
-              </div>
+              <TRPCProvider>
+                <div className="relative flex min-h-screen flex-col">
+                  <SiteHeader />
+                  <div className="flex-1">{children}</div>
+                  <SiteFooter />
+                </div>
+              </TRPCProvider>
             </EmailModalProvider>
           </AuthProvider>
         </ThemeProvider>

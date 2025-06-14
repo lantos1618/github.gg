@@ -31,7 +31,7 @@ interface RepoStructureDiagramProps {
   files: any[]
   owner: string
   repo: string
-  branch: string
+  branch?: string
 }
 
 export default function RepoStructureDiagram({ files: initialFiles, owner, repo, branch }: RepoStructureDiagramProps) {
@@ -60,11 +60,10 @@ export default function RepoStructureDiagram({ files: initialFiles, owner, repo,
         flowchart: {
           useMaxWidth: true,
           htmlLabels: true,
-          curve: "basis",
+          curve: "basis"
         },
         // Better error handling
-        logLevel: 3, // Error level logs only
-        errorOutputType: 3, // Error and warning messages
+        logLevel: 'error'  // Only show error level logs
       })
     } catch (err) {
       console.error("Error initializing mermaid:", err)

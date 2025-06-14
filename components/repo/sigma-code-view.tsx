@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { trpc } from "@/lib/trpc/trpc"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   SearchIcon,
@@ -48,7 +49,10 @@ export default function SigmaCodeView({ files: initialFiles = [], repoData, owne
   const [error, setError] = useState<string | null>(null)
   const [branchName] = useState(branch || repoData?.default_branch || "main")
 
-  // Function to load repository files
+  // Initialize tRPC client
+  const utils = trpc.useContext()
+
+  // Function to load repository files using tRPC
   const loadRepoFiles = async () => {
     if (!owner || !repo) return
 
@@ -56,27 +60,21 @@ export default function SigmaCodeView({ files: initialFiles = [], repoData, owne
     setError(null)
 
     try {
-      const response = await fetch("/api/git/clone-repo", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          owner,
-          repo,
-          branch: branchName,
-        }),
+      const result = await utils.github.fetchRepoFiles.fetch({
+        owner,
+        repo,
+        branch: branchName,
+        options: {
+          // You can customize these options as needed
+          maxFileSize: 1024 * 1024, // 1MB
+          maxFiles: 1000,
+          includeContent: true,
+          includeExtensions: ['.js', '.ts', '.jsx', '.tsx', '.json', '.md'],
+          excludePaths: ['**/node_modules/**', '**/dist/**', '**/build/**']
+        }
       })
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(
-          `Failed to analyze repository: ${response.status} ${response.statusText} ${errorData.message || ""}`,
-        )
-      }
-
-      const data = await response.json()
-      setFiles(data.files || [])
+      setFiles(result.files || [])
     } catch (err) {
       console.error("Error loading repository files:", err)
       setError(err instanceof Error ? err.message : String(err))

@@ -175,7 +175,7 @@ export default function RepoAnalysisResults({ owner, repo }: RepoAnalysisResults
 
               <div className="bg-gray-900/50 p-4 rounded-lg border border-border/50 flex flex-col items-center">
                 <ClockIcon className="h-8 w-8 text-green-400 mb-2" />
-                <span className="text-2xl font-bold">{(analysis.cloneTimeMs / 1000).toFixed(2)}s</span>
+                <span className="text-2xl font-bold">{(analysis.analysisTimeMs / 1000).toFixed(2)}s</span>
                 <span className="text-sm text-muted-foreground">Clone Time</span>
               </div>
             </div>

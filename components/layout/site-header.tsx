@@ -9,7 +9,6 @@ import { Code2Icon, SearchIcon, MenuIcon, XIcon, GithubIcon } from "lucide-react
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SearchResults } from "@/components/search/search-results"
-import { searchMockData } from "@/lib/mock/search-data"
 import { GitHubStarButton } from "@/components/github-star-button"
 import type { SearchResult } from "@/lib/types/search"
 import { useSession } from "next-auth/react"
@@ -65,7 +64,19 @@ export default function SiteHeader() {
 
       // Debounce search
       const timeoutId = setTimeout(() => {
-        const results = searchMockData(query)
+        const results: SearchResult[] = [{
+          id: "1",
+          type: "repository",
+          title: "test",
+          description: "test",
+          url: "test",
+          owner: "test",
+          avatar: "test",
+          stars: 1,
+          language: "test",
+          updated: "test",
+          matchingText: "test"
+        }] 
         setSearchResults(results)
         setIsSearching(false)
       }, 300)

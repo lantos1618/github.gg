@@ -1,7 +1,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { 
-  getAllRepoFiles, 
+  getAllRepoFilesWithZip, 
   getRepoData, 
   getFileContent,
   getFileTreeData,
@@ -167,7 +167,7 @@ export const appRouter = createTRPCRouter({
       }))
       .query(async ({ input }) => {
         try {
-          return await getAllRepoFiles(
+          return await getAllRepoFilesWithZip(
             input.owner,
             input.repo,
             input.branch,

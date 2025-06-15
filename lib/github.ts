@@ -1,6 +1,7 @@
 import { Octokit } from "@octokit/rest";
 import JSZip from 'jszip';
 import { minimatch } from 'minimatch';
+import { getFromCache, setInCache } from './github/cache';
 
 // Import types from the types directory
 import type {
@@ -240,7 +241,7 @@ export async function getRepoIssues(
   }
 }
 
-export async function getAllRepoFiles(
+export async function getAllRepoFilesWithZip(
   user: string,
   repo: string,
   branch?: string,
@@ -611,13 +612,27 @@ export async function getFileContent(
   owner: string,
   repo: string,
   branch: string,
-  path: string
+  path: string,
+  accessToken?: string
 ): Promise<FileContentResult> {
-  const octokit = createOctokit();
+  const octokit = createOctokit(accessToken);
   
+  // First, try to get from cache
+  const cachedFile = getFromCache(owner, repo, path, branch);
+  if (cachedFile) {
+    return {
+      name: path.split('/').pop() || path,
+      path,
+      size: cachedFile.size,
+      content: cachedFile.content,
+      isBinary: cachedFile.isBinary
+    };
+  }
+
+  // If not in cache, try to fetch the tarball first
   try {
-    // Get file content using Octokit's typed method
-    const { data } = await octokit.repos.getContent({
+    // First, get the file metadata to check if it exists and get its size
+    const { data: fileData } = await octokit.repos.getContent({
       owner,
       repo,
       path,
@@ -628,54 +643,67 @@ export async function getFileContent(
     });
 
     // Handle directory response
-    if (Array.isArray(data)) {
+    if (Array.isArray(fileData)) {
       throw new GitHubServiceError('Expected a file, but got a directory', 400);
     }
 
     // Handle non-file responses
-    if (data.type !== 'file') {
+    if (fileData.type !== 'file') {
       throw new GitHubServiceError('Expected a file, but got a different type', 400);
     }
 
     // Base response data
     const baseResponse = {
-      name: data.name,
-      path: data.path,
-      size: data.size,
+      name: fileData.name,
+      path: fileData.path,
+      size: fileData.size,
       content: '',
       isBinary: false
     };
 
-    try {
-      // Decode content from base64
-      const content = Buffer.from(data.content, 'base64').toString('utf-8');
-      
-      // Check for binary content
-      const isBinary = content.includes('\0') || 
-                      countNonPrintableChars(content) / content.length > 0.1;
+    // For files larger than 1MB, use the individual API to avoid downloading large tarballs
+    if (fileData.size > 1 * 1024 * 1024) {
+      console.warn(`File ${path} is large (${fileData.size} bytes), using direct API`);
+      return await fetchFileViaApi(octokit, owner, repo, branch, path, baseResponse);
+    }
 
-      if (isBinary) {
+    // Try to get the file from the tarball
+    try {
+      // Fetch the tarball for the entire repo
+      const repoFiles = await getAllRepoFilesWithZip(owner, repo, branch, accessToken, {
+        maxFiles: 1000, // Reasonable limit for most repos
+        includeContent: true,
+        includeExtensions: ['.*'], // Include all extensions
+        excludePaths: [] // Don't exclude any paths
+      });
+
+      // Look for our file in the tarball results
+      const fileFromTarball = repoFiles.files.find(f => f.path === path);
+      
+      if (fileFromTarball && fileFromTarball.content !== undefined) {
+        // Cache the file content for future use
+        setInCache(owner, repo, branch, [{
+          path,
+          content: fileFromTarball.content,
+          encoding: fileFromTarball.encoding === 'base64' ? 'base64' : 'utf-8',
+          size: fileFromTarball.size,
+          isBinary: fileFromTarball.encoding === 'base64'
+        }]);
+
         return {
-          ...baseResponse,
-          content: 'Binary file not shown',
-          isBinary: true
+          name: fileFromTarball.name,
+          path: fileFromTarball.path,
+          size: fileFromTarball.size,
+          content: fileFromTarball.content,
+          isBinary: fileFromTarball.encoding === 'base64'
         };
       }
-
-      return {
-        ...baseResponse,
-        content,
-        isBinary: false
-      };
-    } catch (decodeError) {
-      // Handle binary content that can't be decoded as text
-      console.warn(`Failed to decode ${path} as text:`, decodeError);
-      return {
-        ...baseResponse,
-        content: 'Binary file not shown',
-        isBinary: true
-      };
+    } catch (tarballError) {
+      console.warn(`Failed to get file ${path} from tarball, falling back to direct API:`, tarballError);
     }
+
+    // Fall back to direct API if tarball approach fails
+    return await fetchFileViaApi(octokit, owner, repo, branch, path, baseResponse);
   } catch (error: unknown) {
     if (error instanceof Error) {
       const githubError = error as { response?: { data?: { message?: string } }, status?: number };
@@ -685,6 +713,77 @@ export async function getFileContent(
       );
     }
     throw new GitHubServiceError('An unknown error occurred while fetching file content', 500);
+  }
+}
+
+/**
+ * Helper function to fetch a single file via GitHub API
+ * This is used as a fallback when the tarball approach fails
+ */
+async function fetchFileViaApi(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  branch: string,
+  path: string,
+  baseResponse: { name: string; path: string; size: number; content: string; isBinary: boolean }
+): Promise<FileContentResult> {
+  const { data } = await octokit.repos.getContent({
+    owner,
+    repo,
+    path,
+    ref: branch,
+    headers: {
+      'X-GitHub-Api-Version': '2022-11-28'
+    }
+  });
+
+  if (Array.isArray(data) || data.type !== 'file') {
+    throw new GitHubServiceError('Expected a file', 400);
+  }
+
+  try {
+    // Decode content from base64
+    const content = Buffer.from(data.content, 'base64').toString('utf-8');
+    
+    // Check for binary content
+    const isBinary = content.includes('\0') || 
+                    countNonPrintableChars(content) / content.length > 0.1;
+
+    const result = {
+      ...baseResponse,
+      content: isBinary ? 'Binary file not shown' : content,
+      isBinary
+    };
+
+    // Cache the result
+    setInCache(owner, repo, branch, [{
+      path,
+      content: result.content,
+      encoding: isBinary ? 'base64' : 'utf-8',
+      size: baseResponse.size,
+      isBinary
+    }]);
+
+    return result;
+  } catch (decodeError) {
+    console.warn(`Failed to decode ${path} as text:`, decodeError);
+    const result = {
+      ...baseResponse,
+      content: 'Binary file not shown',
+      isBinary: true
+    };
+
+    // Cache the result even if it's binary
+    setInCache(owner, repo, branch, [{
+      path,
+      content: result.content,
+      encoding: 'base64',
+      size: baseResponse.size,
+      isBinary: true
+    }]);
+
+    return result;
   }
 }
 

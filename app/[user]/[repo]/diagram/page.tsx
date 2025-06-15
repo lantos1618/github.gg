@@ -1,6 +1,6 @@
 import { Suspense } from "react"
 import { Loader2Icon } from "lucide-react"
-import { getAllRepoFiles, getRepoData } from "@/lib/github"
+import { getAllRepoFilesWithZip, getRepoData } from "@/lib/github"
 import ClientWrapper from "../sigma/client-wrapper"
 
 interface PageProps {
@@ -20,7 +20,7 @@ export default async function DiagramPage({ params }: PageProps) {
   // Fetch files server-side to avoid client-side loading issues
   let files: any[] = []
   try {
-    const result = await getAllRepoFiles(user, repo, branch)
+    const result = await getAllRepoFilesWithZip(user, repo, branch)
     files = result.files
   } catch (error) {
     console.error("Error fetching repo files:", error)

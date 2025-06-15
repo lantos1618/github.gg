@@ -1,6 +1,6 @@
 import { analyzeRepositoryWithSocket } from "./socket-api-service"
 import { Octokit } from "@octokit/rest"
-import { createOctokit, getAllRepoFiles, type RepoItem, type RepoFile, type RepoDirectory, type RepoSymlink, type RepoSubmodule } from "./github"
+import { createOctokit, getAllRepoFilesWithZip, type RepoItem, type RepoFile, type RepoDirectory, type RepoSymlink, type RepoSubmodule } from "./github"
 
 // Re-export types for backward compatibility
 export type RepoFileItem = RepoItem
@@ -66,7 +66,7 @@ export async function analyzeRepository(
     }
 
     // Get all files in the repository using the efficient recursive tree API
-    const { files: repoFiles } = await getAllRepoFiles(owner, repo)
+    const { files: repoFiles } = await getAllRepoFilesWithZip(owner, repo)
     
     // Convert the file list to our format
     files.push(...repoFiles.map((file: GitHubFileItem) => {

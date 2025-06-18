@@ -137,14 +137,15 @@ export const appRouter = createTRPCRouter({
         }
       }),
     // Get repository data
-    getRepo: publicProcedure
+    getRepo: protectedProcedure
       .input(z.object({
         owner: z.string(),
         repo: z.string(),
       }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
         try {
-          return await getRepoData(input.owner, input.repo);
+          const accessToken = ctx.session.user.accessToken;
+          return await getRepoData(input.owner, input.repo, accessToken);
         } catch (error) {
           if (error instanceof GitHubServiceError) {
             throw new TRPCError({
@@ -158,20 +159,21 @@ export const appRouter = createTRPCRouter({
       }),
 
     // Get repository files
-    getFiles: publicProcedure
+    getFiles: protectedProcedure
       .input(z.object({
         owner: z.string(),
         repo: z.string(),
         branch: z.string().optional(),
         options: fileProcessingOptionsSchema,
       }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
         try {
+          const accessToken = ctx.session.user.accessToken;
           return await getAllRepoFilesWithZip(
             input.owner,
             input.repo,
             input.branch,
-            undefined, // accessToken
+            accessToken,
             input.options
           );
         } catch (error) {
@@ -187,20 +189,22 @@ export const appRouter = createTRPCRouter({
       }),
 
     // Get file content
-    getFileContent: publicProcedure
+    getFileContent: protectedProcedure
       .input(z.object({
         owner: z.string(),
         repo: z.string(),
         path: z.string(),
         ref: z.string().optional(),
       }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
         try {
+          const accessToken = ctx.session.user.accessToken;
           return await getFileContent(
             input.owner,
             input.repo,
             input.path,
-            input.ref || 'main' // Default to 'main' branch if ref is not provided
+            input.ref || 'main', // Default to 'main' branch if ref is not provided
+            accessToken
           );
         } catch (error) {
           if (error instanceof GitHubServiceError) {
@@ -215,20 +219,22 @@ export const appRouter = createTRPCRouter({
       }),
 
     // Get file tree
-    getFileTree: publicProcedure
+    getFileTree: protectedProcedure
       .input(z.object({
         owner: z.string(),
         repo: z.string(),
         branch: z.string(),
         path: z.string().optional(),
       }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
         try {
+          const accessToken = ctx.session.user.accessToken;
           return await getFileTreeData(
             input.owner,
             input.repo,
             input.branch,
-            input.path || ''
+            input.path || '',
+            accessToken
           );
         } catch (error) {
           if (error instanceof GitHubServiceError) {
@@ -243,7 +249,7 @@ export const appRouter = createTRPCRouter({
       }),
 
     // Get commit history
-    getCommits: publicProcedure
+    getCommits: protectedProcedure
       .input(z.object({
         owner: z.string(),
         repo: z.string(),
@@ -254,16 +260,18 @@ export const appRouter = createTRPCRouter({
         since: z.string().optional(),
         until: z.string().optional(),
       }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
         try {
           const { owner, repo, path, sha, page, perPage, since, until } = input;
+          const accessToken = ctx.session.user.accessToken;
           return await getCommitData(owner, repo, {
             path,
             sha,
             page,
             perPage,
             since,
-            until
+            until,
+            accessToken
           });
         } catch (error) {
           if (error instanceof GitHubServiceError) {
@@ -278,20 +286,22 @@ export const appRouter = createTRPCRouter({
       }),
 
     // Compare commits
-    compareCommits: publicProcedure
+    compareCommits: protectedProcedure
       .input(z.object({
         owner: z.string(),
         repo: z.string(),
         base: z.string(),
         head: z.string(),
       }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
         try {
+          const accessToken = ctx.session.user.accessToken;
           return await getCompareData(
             input.owner,
             input.repo,
             input.base,
-            input.head
+            input.head,
+            accessToken
           );
         } catch (error) {
           if (error instanceof GitHubServiceError) {

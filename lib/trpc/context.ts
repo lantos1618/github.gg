@@ -1,6 +1,25 @@
 import { type inferAsyncReturnType } from '@trpc/server';
-import { type Session } from 'next-auth';
+import type { Session } from 'next-auth';
 import type { NextRequest } from 'next/server';
+import { isAuthenticated } from '../../lib/auth/utils';
+import type { AuthenticatedUser, AuthenticatedSession } from '../../lib/auth/types';
+
+// Re-export auth types for convenience
+export type { AuthenticatedUser, AuthenticatedSession } from '../../lib/auth/types';
+
+// Helper types for authenticated context
+export type AuthenticatedContext = {
+  user: AuthenticatedUser;
+  accessToken: string;
+  session: AuthenticatedSession;
+};
+
+// Base context type for all procedures
+export type BaseContext = {
+  session: Session | null;
+  req: NextRequest;
+  resHeaders: Headers;
+};
 
 /**
  * Defines the inner context type for your tRPC procedures.
@@ -11,6 +30,8 @@ interface CreateInnerContextOptions {
   req: NextRequest;
   resHeaders: Headers;
   // Add any other context properties you need
+  user?: AuthenticatedUser;
+  accessToken?: string;
 }
 
 /**
@@ -21,12 +42,32 @@ interface CreateInnerContextOptions {
  * - tRPC's `createServerSideHelpers` where we don't have `req`/`res`
  */
 const createContextInner = (opts: CreateInnerContextOptions) => {
-  return {
+  const context = {
     session: opts.session,
     req: opts.req,
     resHeaders: opts.resHeaders,
     // Add any other context properties here
   };
+
+  // If we have a user and access token in the options, add them to the context
+  if (opts.user && opts.accessToken) {
+    return {
+      ...context,
+      user: opts.user,
+      accessToken: opts.accessToken,
+    };
+  }
+
+  // If we have a session with an access token, add it to the context
+  if (isAuthenticated(opts.session)) {
+    return {
+      ...context,
+      user: opts.session.user,
+      accessToken: opts.session.user.accessToken,
+    };
+  }
+
+  return context;
 };
 
 /**

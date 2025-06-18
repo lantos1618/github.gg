@@ -422,6 +422,7 @@ export interface CommitListOptions {
   perPage?: number;
   since?: string;
   until?: string;
+  accessToken?: string; // For authenticated requests
 }
 
 export interface CommitListResponse {

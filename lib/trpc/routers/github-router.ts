@@ -93,7 +93,7 @@ export const githubRouter = createTRPCRouter({
     }),
 
   // Get repository files
-  getFiles: protectedProcedure
+  getFiles: publicProcedure
     .input(z.object({
       owner: z.string(),
       repo: z.string(),
@@ -102,7 +102,8 @@ export const githubRouter = createTRPCRouter({
     }))
     .query(async ({ input, ctx }) => {
       try {
-        const accessToken = ctx.session.user.accessToken;
+        // Use accessToken from session if available, otherwise undefined
+        const accessToken = ctx.session?.user?.accessToken || undefined;
         return await getAllRepoFilesWithTar(
           input.owner,
           input.repo,

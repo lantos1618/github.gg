@@ -114,85 +114,170 @@ export class GitHubService {
   }
 
   private async extractTarball(buffer: ArrayBuffer, maxFiles: number): Promise<GitHubFile[]> {
-    try {
-      const files: GitHubFile[] = [];
-      let fileCount = 0;
+    const files: GitHubFile[] = [];
+    let fileCount = 0;
 
-      // Convert ArrayBuffer to Buffer for tar processing
-      const uint8Array = new Uint8Array(buffer);
-      const nodeBuffer = Buffer.from(uint8Array);
+    // --- Start of Refined Lists ---
 
-      // Create readable stream from buffer
-      const stream = Readable.from(nodeBuffer);
+    // A more organized and comprehensive allow-list for file extensions and names.
+    const allowList = {
+      // Common Languages
+      languages: [
+        '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.py', '.rb', '.java', '.c', '.cpp', '.h', '.hpp', 
+        '.cs', '.go', '.rs', '.swift', '.kt', '.scala', '.php', '.pl', '.sh', '.bash', '.zsh', 
+        '.ps1', '.lua', '.groovy', '.r', '.dart', '.hs', '.erl', '.ex', '.exs'
+      ],
+      // Web & Frontend
+      web: ['.html', '.htm', '.css', '.scss', '.sass', '.less', '.styl', '.vue', '.svelte'],
+      // Config Files
+      config: [
+        '.json', '.xml', '.yml', '.yaml', '.toml', '.ini', '.env', '.properties', '.babelrc', 
+        '.eslintrc', '.prettierrc', '.browserslistrc', '.gitattributes', '.gitignore', '.editorconfig', 
+        'tsconfig.json', 'package.json', 'webpack.config.js', 'vite.config.js', 'next.config.js',
+        'tailwind.config.js', 'postcss.config.js', 'jest.config.js', 'cypress.config.js',
+        'playwright.config.js', '.npmrc', '.yarnrc'
+      ],
+      // Documentation & Data
+      docs: ['.md', '.mdx', '.txt', '.rst', '.adoc', '.csv', '.tsv', '.sql', '.graphql', '.gql'],
+      // Build & Infrastructure
+      build: [
+        'Dockerfile', 'docker-compose.yml', '.dockerignore', 'Makefile', 'CMakeLists.txt', 
+        'pom.xml', 'build.gradle', 'Vagrantfile', '.tf', '.tfvars'
+      ],
+      // Exact filenames to always include
+      exactNames: ['README', 'LICENSE', 'CONTRIBUTING', 'CHANGELOG', 'CODE_OF_CONDUCT']
+    };
 
-      // Create tar extract stream
-      const extract = tar.extract();
+    // Combine all allowed extensions into a single Set for fast lookups.
+    const allowedExtensions = new Set([
+      ...allowList.languages,
+      ...allowList.web,
+      ...allowList.config,
+      ...allowList.docs
+    ]);
 
-      // Handle each entry in the tar file
-      extract.on('entry', (header, stream, next) => {
-        if (fileCount >= maxFiles) {
-          stream.resume(); // Skip this file
-          next();
-          return;
-        }
+    // Deny-list for extensions that are often binary, generated, or not useful.
+    const deniedExtensions = new Set([
+      // Images
+      '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.webp', '.svg',
+      // Fonts
+      '.woff', '.woff2', '.ttf', '.eot', '.otf',
+      // Videos & Audio
+      '.mp4', '.avi', '.mov', '.mp3', '.wav', '.flac',
+      // Compiled/Binary
+      '.exe', '.dll', '.so', '.a', '.o', '.class', '.pyc', '.wasm',
+      // Archives
+      '.zip', '.tar', '.gz', '.rar', '.7z',
+      // Documents
+      '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+      // Other
+      '.lock', '.log', '.tmp', '.cache', '.suo', '.ntvs_analysis.dat',
+      '.pdb', '.db', '.sqlite', '.sqlite3'
+    ]);
 
-        // Skip directories and non-regular files
-        if (header.type !== 'file' || header.size === 0) {
-          stream.resume(); // Skip this file
-          next();
-          return;
-        }
+    // Deny-list for paths. Any file within these directories will be skipped.
+    const deniedPaths = [
+      'node_modules/', 'vendor/', 'dist/', 'build/', 'bin/', 'obj/', '.git/', 
+      '.svn/', '.hg/', '.idea/', '.vscode/', '__pycache__/', 'target/', 'out/'
+    ];
 
-        // Read file content into memory buffer
-        const chunks: Buffer[] = [];
-        stream.on('data', (chunk: Buffer) => chunks.push(chunk));
-        stream.on('end', () => {
-          if (fileCount >= maxFiles) {
-            next();
-            return;
-          }
+    // --- End of Refined Lists ---
 
+    const shouldProcessFile = (filePath: string): boolean => {
+      const lowerFilePath = filePath.toLowerCase();
+      const fileName = filePath.split('/').pop() || '';
+
+      // 1. Deny if it's in a denied directory.
+      if (deniedPaths.some(p => lowerFilePath.startsWith(p))) {
+        return false;
+      }
+
+      // 2. Deny if it has a denied extension.
+      const extension = (fileName.includes('.') ? '.' + fileName.split('.').pop() : '').toLowerCase();
+      if (extension && deniedExtensions.has(extension)) {
+        return false;
+      }
+      
+      // 3. Deny minified files
+      if (lowerFilePath.endsWith('.min.js') || lowerFilePath.endsWith('.min.css')) {
+        return false;
+      }
+
+      // 4. Allow if it's an exact name match (e.g., README).
+      if (allowList.exactNames.includes(fileName)) {
+        return true;
+      }
+
+      // 5. Allow if it has an allowed extension.
+      if (extension && allowedExtensions.has(extension)) {
+        return true;
+      }
+
+      // 6. Allow common config file patterns that don't have extensions.
+      if (allowList.build.includes(fileName) || fileName.endsWith('rc')) {
+        return true;
+      }
+
+      return false;
+    };
+    
+    // Convert ArrayBuffer to Buffer for tar processing
+    const nodeBuffer = Buffer.from(new Uint8Array(buffer));
+    const stream = Readable.from(nodeBuffer);
+    const extract = tar.extract();
+
+    extract.on('entry', (header, stream, next) => {
+      if (fileCount >= maxFiles) {
+        stream.resume();
+        next();
+        return;
+      }
+
+      if (header.type !== 'file' || header.size === 0) {
+        stream.resume();
+        next();
+        return;
+      }
+
+      // Remove the top-level directory from the path.
+      const cleanPath = header.name.replace(/^[^/]+\//, '');
+
+      if (!shouldProcessFile(cleanPath)) {
+        stream.resume();
+        next();
+        return;
+      }
+
+      const chunks: Buffer[] = [];
+      stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+      stream.on('end', () => {
+        if (fileCount < maxFiles) {
           try {
             const content = Buffer.concat(chunks).toString('utf8');
-            
-            // Remove the repository prefix from path (e.g., "repo-name-123abc/")
-            const cleanPath = header.name.replace(/^[^/]+\//, '');
-            
-            files.push({
-              path: cleanPath,
-              content,
-            });
+            files.push({ path: cleanPath, content });
             fileCount++;
-          } catch {
-            // Skip files that can't be read as UTF-8 (binary files)
-            console.warn(`Skipping binary file ${header.name}`);
+          } catch (e) {
+            console.warn(`Skipping file that could not be decoded as UTF-8: ${cleanPath}`);
           }
-          next();
-        });
+        }
+        next();
       });
-
-      // Handle completion
-      extract.on('finish', () => {
-        // This will be handled by the promise resolution
+      stream.on('error', (err) => {
+        console.error(`Error reading stream for ${cleanPath}:`, err);
+        next(); // Move to the next entry even if one stream fails
       });
+    });
 
-      // Handle errors
-      extract.on('error', (err) => {
-        console.error('Tar extraction error:', err);
-      });
+    await new Promise<void>((resolve, reject) => {
+      extract.on('finish', resolve);
+      extract.on('error', reject);
+      stream.pipe(gunzip()).pipe(extract as any).on('error', reject);
+    }).catch(error => {
+        console.error('Error processing tarball stream:', error);
+        // Don't re-throw, just return whatever files we managed to extract.
+    });
 
-      // Process the stream
-      await new Promise<void>((resolve, reject) => {
-        extract.on('finish', () => resolve());
-        extract.on('error', (err) => reject(err));
-        stream.pipe(gunzip()).pipe(extract as any);
-      });
-
-      return files;
-    } catch (error) {
-      console.error('Error extracting tarball:', error);
-      return [];
-    }
+    return files;
   }
 }
 

@@ -4,6 +4,8 @@ import * as tar from 'tar-stream';
 import { Readable } from 'stream';
 const gunzip = require('gunzip-maybe');
 
+export const DEFAULT_MAX_FILES = 300;
+
 export interface GitHubFile {
   path: string;
   content: string;
@@ -41,7 +43,7 @@ export class GitHubService {
     owner: string,
     repo: string,
     ref?: string,
-    maxFiles: number = 100
+    maxFiles: number = DEFAULT_MAX_FILES
   ): Promise<GitHubFilesResponse> {
     try {
       // First, test the token by making a simple API call

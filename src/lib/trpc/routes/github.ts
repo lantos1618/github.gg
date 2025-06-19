@@ -1,6 +1,6 @@
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { z } from 'zod';
-import { createGitHubService } from '@/lib/github';
+import { createGitHubService, DEFAULT_MAX_FILES, GitHubFilesResponse } from '@/lib/github';
 import { auth } from '@/lib/auth';
 import { TRPCError } from '@trpc/server';
 
@@ -11,9 +11,9 @@ export const githubRouter = router({
       owner: z.string(),
       repo: z.string(),
       ref: z.string().optional(),
-      maxFiles: z.number().min(1).max(1000).default(100), // Limit to prevent abuse
+      maxFiles: z.number().min(1).max(1000).default(DEFAULT_MAX_FILES), // Limit to prevent abuse
     }))
-    .query(async ({ input, ctx }) => {
+    .query(async ({ input, ctx }): Promise<GitHubFilesResponse> => {
       try {
         const githubService = await createGitHubService(ctx.session, ctx.req);
         

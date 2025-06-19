@@ -2,16 +2,38 @@
 
 import { useParams } from 'next/navigation';
 import { useRepoStore } from '@/lib/store';
-import { useRepoData } from '@/lib/hooks/useRepoData';
+import { useEffect } from 'react';
 import { RepoLayout, RepoHeader, FileList, RepoStatus } from '@/components';
+import { trpc } from '@/lib/trpc/client';
+
+interface RepoPageParams {
+  user: string;
+  repo: string;
+  [key: string]: string;
+}
 
 export default function RepoPage() {
-  const params = useParams();
-  const user = params.user as string;
-  const repo = params.repo as string;
-  const { files, totalFiles, copyAllContent, isCopying, copied } = useRepoStore();
+  const params = useParams<RepoPageParams>();
+  
+  const { 
+    files, 
+    totalFiles, 
+    copyAllContent, 
+    isCopying, 
+    copied,
+    setFiles
+  } = useRepoStore();
 
-  const { isLoading, error } = useRepoData({ user, repo });
+  const { data, isLoading, error } = trpc.github.files.useQuery({
+    owner: params.user,
+    repo: params.repo,
+  });
+
+  useEffect(() => {
+    if (data) {
+      setFiles(data.files, data.totalFiles);
+    }
+  }, [data, setFiles]);
 
   return (
     <RepoLayout>
@@ -19,8 +41,8 @@ export default function RepoPage() {
       {!isLoading && !error && (
         <>
           <RepoHeader
-            user={user}
-            repo={repo}
+            user={params.user}
+            repo={params.repo}
             onCopyAll={copyAllContent}
             isCopying={isCopying}
             copied={copied}

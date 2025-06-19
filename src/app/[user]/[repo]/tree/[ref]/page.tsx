@@ -2,17 +2,40 @@
 
 import { useParams } from 'next/navigation';
 import { useRepoStore } from '@/lib/store';
-import { useRepoData } from '@/lib/hooks/useRepoData';
+import { useEffect } from 'react';
 import { RepoLayout, RepoHeader, FileList, RepoStatus } from '@/components';
+import { trpc } from '@/lib/trpc/client';
+
+interface RepoTreeParams {
+  user: string;
+  repo: string;
+  ref: string;
+  [key: string]: string;
+}
 
 export default function RepoTreePage() {
-  const params = useParams();
-  const user = params.user as string;
-  const repo = params.repo as string;
-  const ref = params.ref as string;
-  const { files, totalFiles, copyAllContent, isCopying, copied } = useRepoStore();
+  const params = useParams<RepoTreeParams>();
+  
+  const { 
+    files, 
+    totalFiles, 
+    copyAllContent, 
+    isCopying, 
+    copied,
+    setFiles
+  } = useRepoStore();
 
-  const { isLoading, error } = useRepoData({ user, repo, ref });
+  const { data, isLoading, error } = trpc.github.files.useQuery({
+    owner: params.user,
+    repo: params.repo,
+    ref: params.ref,
+  });
+
+  useEffect(() => {
+    if (data) {
+      setFiles(data.files, data.totalFiles);
+    }
+  }, [data, setFiles]);
 
   return (
     <RepoLayout>
@@ -20,15 +43,15 @@ export default function RepoTreePage() {
       {!isLoading && !error && (
         <>
           <RepoHeader
-            user={user}
-            repo={repo}
+            user={params.user}
+            repo={params.repo}
             onCopyAll={copyAllContent}
             isCopying={isCopying}
             copied={copied}
             fileCount={totalFiles}
           />
           <div className="mb-4 text-sm text-gray-600">
-            Branch: <span className="font-mono">{ref}</span>
+            Branch: <span className="font-mono">{params.ref}</span>
           </div>
           <FileList files={files} />
         </>

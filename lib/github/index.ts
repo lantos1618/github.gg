@@ -1,7 +1,7 @@
 import { Octokit } from "@octokit/rest";
-import JSZip from 'jszip';
 import { minimatch } from 'minimatch';
-import { getFromCache, setInCache } from './github/cache';
+import { getFromCache, setInCache } from './cache';
+import { extractRepoTarballToMemory } from './tarball';
 
 // Import types from the types directory
 import type {
@@ -241,178 +241,32 @@ export async function getRepoIssues(
   }
 }
 
-export async function getAllRepoFilesWithZip(
+export async function getAllRepoFilesWithTar(
   user: string,
   repo: string,
   branch?: string,
   accessToken?: string,
   options: FileProcessingOptions = {}
-): Promise<{ 
+): Promise<{
   files: Array<{
     path: string;
     name: string;
     size: number;
-    type: 'file' | 'dir' | 'symlink';
+    type: 'file';
     content?: string;
     encoding?: string;
     tooLarge?: boolean;
-  }>; 
-  branch: string 
+  }>;
+  branch: string;
 }> {
-  const octokit = createOctokit(accessToken);
-  const mergedOptions = { ...DEFAULT_OPTIONS, ...options };
-
-  // Get repository metadata to determine the default branch if not provided
-  const { data: repoData } = await octokit.rest.repos.get({
+  // Use the tarball utility to fetch and extract files in memory
+  return await extractRepoTarballToMemory({
     owner: user,
-    repo: repo,
+    repo,
+    ref: branch,
+    token: accessToken,
+    options
   });
-  
-  const branchToUse = branch || repoData.default_branch;
-  if (!branchToUse) {
-    throw new GitHubServiceError("Could not determine default branch for repository.", 400);
-  }
-
-  // Try to fetch via zipball first (more efficient)
-  try {
-    const response = await octokit.repos.downloadZipballArchive({
-      owner: user,
-      repo,
-      ref: branchToUse,
-      request: {
-        // @ts-ignore - The type definition is missing this property
-        timeout: 30000 // 30 second timeout
-      }
-    });
-
-    const zip = new JSZip();
-    await zip.loadAsync(response.data as ArrayBuffer);
-
-    const files: Array<{
-      path: string;
-      name: string;
-      size: number;
-      type: 'file' | 'dir' | 'symlink';
-      content?: string;
-      encoding?: string;
-      tooLarge?: boolean;
-    }> = [];
-    
-    const promises: Promise<void>[] = [];
-    const rootDir = Object.keys(zip.files)[0] || '';
-    let fileCount = 0;
-
-    // Process files in parallel
-    for (const [relativePath, file] of Object.entries(zip.files)) {
-      if (file.dir) continue;
-      
-      // The path in zip is like 'owner-repo-sha12345/path/to/file.txt'
-      // We need to strip the root directory
-      const correctedPath = relativePath.startsWith(rootDir) 
-        ? relativePath.substring(rootDir.length)
-        : relativePath;
-        
-      if (!shouldIncludeFile(correctedPath, mergedOptions)) continue;
-      
-      fileCount++;
-      if (fileCount > mergedOptions.maxFiles) break;
-      
-      // Skip if file is too large
-      const fileSize = (file as any)._data?.uncompressedSize || 0;
-      if (fileSize > mergedOptions.maxFileSize) continue;
-      
-      promises.push(
-        (async () => {
-          try {
-            const content = await file.async('arraybuffer');
-            const decoder = new TextDecoder('utf-8');
-            let decodedContent = '';
-            let isBinary = false;
-            
-            try {
-              // Convert ArrayBuffer to Uint8Array for binary check
-              const uint8Array = new Uint8Array(content);
-              // Simple check for binary content - look for null bytes in first 512 bytes
-              const hasNullByte = uint8Array.slice(0, Math.min(512, uint8Array.length)).some(byte => byte === 0);
-              isBinary = hasNullByte;
-              
-              if (!isBinary) {
-                decodedContent = decoder.decode(content);
-              }
-            } catch (e) {
-              // If we can't decode as text, it's likely binary
-              isBinary = true;
-            }
-            
-            files.push({
-              path: correctedPath,
-              name: correctedPath.split('/').pop() || '',
-              size: fileSize,
-              type: 'file',
-              content: isBinary ? '' : decodedContent,
-              encoding: isBinary ? 'base64' : 'utf-8',
-              tooLarge: false
-            });
-          } catch (error) {
-            console.error(`Error processing file ${correctedPath}:`, error);
-          }
-        })()
-      );
-    }
-    
-    await Promise.all(promises);
-    return { files, branch: branchToUse };
-  } catch (zipError) {
-    console.warn('Failed to process zip archive, falling back to tree API:', zipError);
-    
-    // Fallback to tree API if zip download fails
-    try {
-      const { data: treeData } = await octokit.git.getTree({
-        owner: user,
-        repo,
-        tree_sha: branchToUse,
-        recursive: 'true',
-      });
-      
-      if (!treeData.tree) {
-        throw new Error('No files found in repository');
-      }
-      
-      const files: Array<{
-        path: string;
-        name: string;
-        size: number;
-        type: 'file' | 'dir' | 'symlink';
-        content?: string;
-        encoding?: string;
-        tooLarge?: boolean;
-      }> = [];
-      
-      for (const item of treeData.tree) {
-        if (files.length >= mergedOptions.maxFiles) break;
-        if (item.type !== 'blob' || !item.path) continue;
-        
-        const path = item.path;
-        if (!shouldIncludeFile(path, mergedOptions)) continue;
-        
-        files.push({
-          path,
-          name: path.split('/').pop() || '',
-          size: item.size || 0,
-          type: 'file',
-          content: ''
-        });
-      }
-      
-      return { files, branch: branchToUse };
-    } catch (treeError) {
-      console.error('Tree API failed:', treeError);
-      throw new GitHubServiceError(
-        'Failed to fetch repository contents using both zipball and tree API methods.',
-        500
-      );
-    }
-  }
 }
 
 export interface CommitListOptions {
@@ -671,7 +525,7 @@ export async function getFileContent(
     // Try to get the file from the tarball
     try {
       // Fetch the tarball for the entire repo
-      const repoFiles = await getAllRepoFilesWithZip(owner, repo, branch, accessToken, {
+      const repoFiles = await getAllRepoFilesWithTar(owner, repo, branch, accessToken, {
         maxFiles: 1000, // Reasonable limit for most repos
         includeContent: true,
         includeExtensions: ['.*'], // Include all extensions
@@ -850,18 +704,9 @@ export async function getIssueData(
   }
 }
 
-
-// Helper function to count non-printable characters
+// Helper function to count non-printable characters in a string
 function countNonPrintableChars(str: string): number {
-  let count = 0
-  for (let i = 0; i < str.length; i++) {
-    const code = str.charCodeAt(i)
-    // Count control characters (except common whitespace) and other non-printable chars
-    if ((code < 32 && ![9, 10, 13].includes(code)) || (code >= 127 && code <= 159)) {
-      count++
-    }
-  }
-  return count
+  return str.split('').filter(char => char.charCodeAt(0) < 32 && char.charCodeAt(0) !== 9 && char.charCodeAt(0) !== 10 && char.charCodeAt(0) !== 13).length;
 }
 
 export async function fetchRepoData(owner: string, repo: string) {
@@ -927,3 +772,297 @@ export async function searchRepositories(
     );
   }
 }
+
+// New functions for workflows, pull requests, and events
+
+export interface Workflow {
+  id: number;
+  name: string;
+  path: string;
+  state: 'active' | 'deleted' | 'disabled_fork' | 'disabled_inactivity' | 'disabled_manually';
+  created_at: string;
+  updated_at: string;
+  url: string;
+  html_url: string;
+  badge_url: string;
+  deleted_at?: string;
+}
+
+export interface WorkflowRun {
+  id: number;
+  name?: string | null;
+  head_branch: string | null;
+  head_sha: string;
+  run_number: number;
+  event: string;
+  status: any;
+  conclusion: any;
+  workflow_id: number;
+  check_suite_id: number;
+  check_suite_node_id: string;
+  url: string;
+  html_url: string;
+  pull_requests: any[];
+  created_at: string;
+  updated_at: string;
+  actor: any;
+  run_attempt: number;
+  run_started_at: string;
+  triggering_actor: any;
+  jobs_url: string;
+  logs_url: string;
+  check_suite_url: string;
+  artifacts_url: string;
+  cancel_url: string;
+  rerun_url: string;
+  previous_attempt_url: string | null;
+  workflow_url: string;
+  head_commit: any;
+  repository: any;
+  head_repository: any;
+}
+
+export interface PullRequest {
+  url: string;
+  id: number;
+  node_id: string;
+  html_url: string;
+  diff_url: string;
+  patch_url: string;
+  issue_url: string;
+  commits_url: string;
+  review_comments_url: string;
+  review_comment_url: string;
+  comments_url: string;
+  statuses_url: string;
+  number: number;
+  state: 'open' | 'closed';
+  locked: boolean;
+  title: string;
+  user: any;
+  body: string | null;
+  created_at: string;
+  updated_at: string;
+  closed_at: string | null;
+  merged_at: string | null;
+  merge_commit_sha: string | null;
+  assignee: any | null;
+  assignees: any[];
+  requested_reviewers: any[];
+  requested_teams: any[];
+  labels: any[];
+  milestone: any | null;
+  draft?: boolean;
+  head: any;
+  base: any;
+  _links: any;
+  author_association: string;
+  auto_merge: any | null;
+  active_lock_reason: string | null;
+  merged: boolean;
+  mergeable: boolean | null;
+  mergeable_state: string;
+  merged_by: any | null;
+  comments: number;
+  review_comments: number;
+  maintainer_can_modify: boolean;
+  commits: number;
+  additions: number;
+  deletions: number;
+  changed_files: number;
+}
+
+export interface RepositoryEvent {
+  id: string;
+  type: string | null;
+  actor: {
+    id: number;
+    login: string;
+    display_login?: string;
+    gravatar_id: string | null;
+    url: string;
+    avatar_url: string;
+  };
+  repo: {
+    id: number;
+    name: string;
+    url: string;
+  };
+  payload: any;
+  public: boolean;
+  created_at: string | null;
+  org?: {
+    id: number;
+    login: string;
+    display_login?: string;
+    gravatar_id: string | null;
+    url: string;
+    avatar_url: string;
+  };
+}
+
+/**
+ * Get repository workflows
+ */
+export async function getRepoWorkflows(
+  owner: string,
+  repo: string,
+  accessToken?: string
+): Promise<Workflow[]> {
+  const octokit = createOctokit(accessToken);
+  
+  try {
+    const { data } = await octokit.rest.actions.listRepoWorkflows({
+      owner,
+      repo,
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
+    
+    return data.workflows;
+  } catch (error: any) {
+    console.error('Error fetching repository workflows:', error);
+    throw new GitHubServiceError(
+      error.response?.data?.message || 'Failed to fetch workflows',
+      error.status || 500
+    );
+  }
+}
+
+/**
+ * Get repository workflow runs
+ */
+export async function getRepoWorkflowRuns(
+  owner: string,
+  repo: string,
+  workflowId?: number,
+  options: {
+    page?: number;
+    perPage?: number;
+    status?: 'completed' | 'action_required' | 'cancelled' | 'failure' | 'neutral' | 'skipped' | 'stale' | 'success' | 'timed_out' | 'in_progress' | 'queued' | 'requested' | 'waiting' | 'pending';
+    branch?: string;
+    event?: string;
+    actor?: string;
+  } = {}
+): Promise<{ total_count: number; workflow_runs: WorkflowRun[] }> {
+  const octokit = createOctokit();
+  
+  try {
+    const params: any = {
+      owner,
+      repo,
+      page: options.page || 1,
+      per_page: options.perPage || 30,
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    };
+
+    if (workflowId) params.workflow_id = workflowId;
+    if (options.status) params.status = options.status;
+    if (options.branch) params.branch = options.branch;
+    if (options.event) params.event = options.event;
+    if (options.actor) params.actor = options.actor;
+
+    const { data } = await octokit.rest.actions.listWorkflowRunsForRepo(params);
+    
+    return {
+      total_count: data.total_count,
+      workflow_runs: data.workflow_runs,
+    };
+  } catch (error: any) {
+    console.error('Error fetching repository workflow runs:', error);
+    throw new GitHubServiceError(
+      error.response?.data?.message || 'Failed to fetch workflow runs',
+      error.status || 500
+    );
+  }
+}
+
+/**
+ * Get repository pull requests
+ */
+export async function getRepoPullRequests(
+  owner: string,
+  repo: string,
+  options: {
+    page?: number;
+    state?: 'open' | 'closed' | 'all';
+    perPage?: number;
+    sort?: 'created' | 'updated' | 'popularity' | 'long-running';
+    direction?: 'asc' | 'desc';
+  } = {}
+): Promise<PullRequest[]> {
+  const {
+    page = 1,
+    state = 'open',
+    perPage = 30,
+    sort = 'created',
+    direction = 'desc'
+  } = options;
+
+  const octokit = createOctokit();
+
+  try {
+    const { data } = await octokit.rest.pulls.list({
+      owner,
+      repo,
+      state,
+      page,
+      per_page: perPage,
+      sort,
+      direction,
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
+    
+    return data;
+  } catch (error: any) {
+    console.error('Error fetching repository pull requests:', error);
+    throw new GitHubServiceError(
+      error.response?.data?.message || 'Failed to fetch pull requests',
+      error.status || 500
+    );
+  }
+}
+
+/**
+ * Get repository events
+ */
+export async function getRepoEvents(
+  owner: string,
+  repo: string,
+  options: {
+    page?: number;
+    perPage?: number;
+  } = {}
+): Promise<RepositoryEvent[]> {
+  const {
+    page = 1,
+    perPage = 30
+  } = options;
+
+  const octokit = createOctokit();
+
+  try {
+    const { data } = await octokit.rest.activity.listRepoEvents({
+      owner,
+      repo,
+      page,
+      per_page: perPage,
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
+    
+    return data;
+  } catch (error: any) {
+    console.error('Error fetching repository events:', error);
+    throw new GitHubServiceError(
+      error.response?.data?.message || 'Failed to fetch repository events',
+      error.status || 500
+    );
+  }
+} 

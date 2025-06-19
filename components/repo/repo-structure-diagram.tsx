@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Slider } from "@/components/ui/slider"
-import { getAllRepoFilesWithZip } from "@/lib/github"
+import { getAllRepoFilesWithTar } from "@/lib/github"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface FileNode {
@@ -82,7 +82,7 @@ export default function RepoStructureDiagram({ files: initialFiles, owner, repo,
       setError(null)
 
       try {
-        const { files: fetchedFiles, branch: fetchedBranch } = await getAllRepoFilesWithZip(owner, repo, branchName)
+        const { files: fetchedFiles, branch: fetchedBranch } = await getAllRepoFilesWithTar(owner, repo, branchName)
         setBranchName(fetchedBranch)
         setFiles(fetchedFiles)
       } catch (err) {

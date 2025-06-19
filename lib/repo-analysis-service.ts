@@ -1,33 +1,14 @@
 import { analyzeRepositoryWithSocket } from "./socket-api-service"
-import { Octokit } from "@octokit/rest"
-import { createOctokit, getAllRepoFilesWithZip, type RepoItem, type RepoFile, type RepoDirectory, type RepoSymlink, type RepoSubmodule } from "./github"
-
-// Re-export types for backward compatibility
-export type RepoFileItem = RepoItem
-export type { RepoFile, RepoDirectory, RepoSymlink, RepoSubmodule } from "./github"
-
-// Type for repository file items from GitHub API
-export interface GitHubFileItem {
-  path: string
-  name: string
-  size: number
-  type: 'file' | 'dir' | 'symlink' | 'submodule'
-  sha?: string
-  content?: string
-  encoding?: string
-  tooLarge?: boolean
-  target?: string
-  submoduleUrl?: string
-}
-
-// Union type for all possible repository items
-export type RepoFileItem = RepoFile | RepoDirectory | RepoSymlink | RepoSubmodule
+import { createOctokit, getAllRepoFilesWithTar } from "./github"
+import type { RepoItem, RepoFile, RepoDirectory, RepoSymlink, RepoSubmodule } from "@/lib/types/github"
+import type { Octokit } from "@octokit/rest"
 
 // Type for GitHub API language data
+// (keep this here, it's business logic)
 type GitHubLanguages = Record<string, number>
 
 export interface RepoAnalysisResult {
-  files: RepoFileItem[]
+  files: RepoItem[]
   fileCount: number
   directoryCount: number
   languages: GitHubLanguages
@@ -46,7 +27,7 @@ export async function analyzeRepository(
   accessToken?: string,
 ): Promise<RepoAnalysisResult> {
   const startTime = Date.now()
-  const files: RepoFileItem[] = []
+  const files: RepoItem[] = []
   let readme: string | undefined
   let isPublic = true
   let totalSize = 0
@@ -66,64 +47,8 @@ export async function analyzeRepository(
     }
 
     // Get all files in the repository using the efficient recursive tree API
-    const { files: repoFiles } = await getAllRepoFilesWithZip(owner, repo)
-    
-    // Convert the file list to our format
-    files.push(...repoFiles.map((file: GitHubFileItem) => {
-      const baseItem: Omit<RepoItemBase, 'type'> & { type: string } = {
-        path: file.path,
-        name: file.name,
-        size: file.size,
-        type: file.type || 'file',
-      };
-
-      // Only add sha if it exists
-      if (file.sha) {
-        baseItem.sha = file.sha;
-      }
-
-      // Handle different file types
-      switch (file.type) {
-        case 'file':
-          return {
-            ...baseItem,
-            type: 'file' as const,
-            content: file.content,
-            encoding: file.encoding,
-            tooLarge: file.tooLarge,
-          } as RepoFile;
-          
-        case 'dir':
-          return {
-            ...baseItem,
-            type: 'dir' as const,
-          } as RepoDirectory;
-          
-        case 'symlink':
-          return {
-            ...baseItem,
-            type: 'symlink' as const,
-            target: file.target,
-          } as RepoSymlink;
-          
-        case 'submodule':
-          return {
-            ...baseItem,
-            type: 'submodule' as const,
-            submoduleUrl: file.submoduleUrl,
-          } as RepoSubmodule;
-          
-        default:
-          // Default to file type for unknown types
-          return {
-            ...baseItem,
-            type: 'file' as const,
-            content: file.content,
-            encoding: file.encoding,
-            tooLarge: file.tooLarge,
-          } as RepoFile;
-      }
-    }))
+    const { files: repoFiles } = await getAllRepoFilesWithTar(owner, repo)
+    files.push(...repoFiles as RepoItem[])
 
     // Try to find and fetch the README
     const readmeFile = repoFiles.find(file => 
@@ -147,7 +72,6 @@ export async function analyzeRepository(
 
     // Calculate total size of all files
     totalSize = files.reduce((sum, file) => sum + (file.size || 0), 0)
-
 
     // Get the main language (language with most bytes of code)
     const languages: GitHubLanguages = languagesData || {}

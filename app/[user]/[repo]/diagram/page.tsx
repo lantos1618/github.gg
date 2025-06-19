@@ -1,6 +1,6 @@
 import { Suspense } from "react"
 import { Loader2Icon } from "lucide-react"
-import { getAllRepoFilesWithZip, getRepoData } from "@/lib/github"
+import { trpcClient } from "@/lib/trpc/trpc"
 import ClientWrapper from "../sigma/client-wrapper"
 
 interface PageProps {
@@ -13,20 +13,20 @@ interface PageProps {
 export default async function DiagramPage({ params }: PageProps) {
   const { user, repo } = params
 
-  // Fetch repo info to determine default branch
-  const repoInfo = await getRepoData(user, repo)
-  const branch = repoInfo?.default_branch || "main"
+  // Fetch files using tRPC (SSR/React Query)
+  // Use the vanilla tRPC client for server-side data fetching
+  const filesResult = await trpcClient.github.getFiles.query({
+    owner: user,
+    repo,
+    branch: "main", // You can fetch the default branch via another tRPC call if needed
+    options: {
+      maxFiles: 1000,
+      includeContent: true
+    }
+  })
 
-  // Fetch files server-side to avoid client-side loading issues
-  let files: any[] = []
-  try {
-    const result = await getAllRepoFilesWithZip(user, repo, branch)
-    files = result.files
-  } catch (error) {
-    console.error("Error fetching repo files:", error)
-    // We'll continue with empty files and let the client component handle the error
-  }
-
+  const files = filesResult?.files || []
+  const branch = filesResult?.branch || "main"
   const repoData = { owner: user, repo }
 
   return (

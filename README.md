@@ -95,7 +95,7 @@ To test the authentication flow:
 For automated testing, you can use the test script:
 
 ```bash
-npx tsx scripts/test-auth.ts
+# (Test script removed; see project for available scripts)
 ```
 
 ## Production Deployment

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { getAllRepoFilesWithZip, GitHubServiceError, getFileContent } from '@/lib/github';
+import { getAllRepoFilesWithTar, GitHubServiceError, getFileContent } from '@/lib/github';
 
 // Define the file type for our test
 interface RepoFile {
@@ -39,7 +39,7 @@ describe('GitHub Tarball Integration', () => {
 
     try {
       debugLog('Fetching repository files...');
-      const result = await getAllRepoFilesWithZip(
+      const result = await getAllRepoFilesWithTar(
         TEST_REPO_OWNER,
         TEST_REPO_NAME,
         TEST_BRANCH,
@@ -51,7 +51,8 @@ describe('GitHub Tarball Integration', () => {
       debugLog('Sample files:', result.files.slice(0, 3).map(f => ({
         path: f.path,
         size: f.size,
-        type: f.type
+        type: f.type,
+        content: f.content ? f.content.substring(0, 100) : undefined
       })));
 
       expect(Array.isArray(result.files)).toBe(true);
@@ -102,13 +103,13 @@ describe('GitHub Tarball Integration', () => {
   it('should handle errors gracefully', async () => {
     // Test error handling for non-existent repository
     await expect(
-      getAllRepoFilesWithZip('nonexistent-owner', 'nonexistent-repo', 'main')
+      getAllRepoFilesWithTar('nonexistent-owner', 'nonexistent-repo', 'main')
     ).rejects.toThrow(GitHubServiceError);
   });
   
   it('should use cache for subsequent requests', async () => {
     // First request - should fetch from GitHub
-    const firstResult = await getAllRepoFilesWithZip(
+    const firstResult = await getAllRepoFilesWithTar(
       TEST_REPO_OWNER,
       TEST_REPO_NAME,
       TEST_BRANCH,
@@ -121,7 +122,7 @@ describe('GitHub Tarball Integration', () => {
     );
     
     // Second request - should use cache
-    const secondResult = await getAllRepoFilesWithZip(
+    const secondResult = await getAllRepoFilesWithTar(
       TEST_REPO_OWNER,
       TEST_REPO_NAME,
       TEST_BRANCH,
@@ -149,7 +150,7 @@ describe('GitHub Tarball Integration', () => {
 
     try {
       debugLog('Fetching repository files...');
-      const result = await getAllRepoFilesWithZip(
+      const result = await getAllRepoFilesWithTar(
         TEST_REPO_OWNER,
         TEST_REPO_NAME,
         TEST_BRANCH,
@@ -161,7 +162,8 @@ describe('GitHub Tarball Integration', () => {
       debugLog('Sample files:', result.files.slice(0, 3).map(f => ({
         path: f.path,
         size: f.size,
-        type: f.type
+        type: f.type,
+        content: f.content ? f.content.substring(0, 100) : undefined
       })));
 
       // Basic assertions

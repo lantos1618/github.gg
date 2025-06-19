@@ -798,14 +798,14 @@ export interface WorkflowRun {
   status: any;
   conclusion: any;
   workflow_id: number;
-  check_suite_id: number;
-  check_suite_node_id: string;
+  check_suite_id?: number;
+  check_suite_node_id?: string;
   url: string;
   html_url: string;
-  pull_requests: any[];
+  pull_requests: any[] | null;
   created_at: string;
   updated_at: string;
-  actor: any;
+  actor?: any;
   run_attempt: number;
   run_started_at: string;
   triggering_actor: any;
@@ -836,7 +836,7 @@ export interface PullRequest {
   comments_url: string;
   statuses_url: string;
   number: number;
-  state: 'open' | 'closed';
+  state: string;
   locked: boolean;
   title: string;
   user: any;
@@ -847,7 +847,7 @@ export interface PullRequest {
   merged_at: string | null;
   merge_commit_sha: string | null;
   assignee: any | null;
-  assignees: any[];
+  assignees: any[] | null;
   requested_reviewers: any[];
   requested_teams: any[];
   labels: any[];
@@ -859,17 +859,17 @@ export interface PullRequest {
   author_association: string;
   auto_merge: any | null;
   active_lock_reason: string | null;
-  merged: boolean;
-  mergeable: boolean | null;
-  mergeable_state: string;
-  merged_by: any | null;
-  comments: number;
-  review_comments: number;
-  maintainer_can_modify: boolean;
-  commits: number;
-  additions: number;
-  deletions: number;
-  changed_files: number;
+  merged?: boolean;
+  mergeable?: boolean | null;
+  mergeable_state?: string;
+  merged_by?: any | null;
+  comments?: number;
+  review_comments?: number;
+  maintainer_can_modify?: boolean;
+  commits?: number;
+  additions?: number;
+  deletions?: number;
+  changed_files?: number;
 }
 
 export interface RepositoryEvent {
@@ -969,7 +969,7 @@ export async function getRepoWorkflowRuns(
     
     return {
       total_count: data.total_count,
-      workflow_runs: data.workflow_runs,
+      workflow_runs: data.workflow_runs as unknown as WorkflowRun[],
     };
   } catch (error: any) {
     console.error('Error fetching repository workflow runs:', error);
@@ -1018,7 +1018,7 @@ export async function getRepoPullRequests(
       },
     });
     
-    return data;
+    return data as unknown as PullRequest[];
   } catch (error: any) {
     console.error('Error fetching repository pull requests:', error);
     throw new GitHubServiceError(

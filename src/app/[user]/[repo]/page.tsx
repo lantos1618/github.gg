@@ -4,12 +4,13 @@ import { trpc } from '@/lib/trpc/client';
 import { useParams } from 'next/navigation';
 import { useRepoStore } from '@/app/providers';
 import { useEffect } from 'react';
+import { LoadingWave, AnimatedTick } from '@/components/LoadingWave';
 
 export default function RepoPage() {
   const params = useParams();
   const user = params.user as string;
   const repo = params.repo as string;
-  const { setFiles, files, copyAllContent } = useRepoStore();
+  const { setFiles, files, copyAllContent, isCopying, copied } = useRepoStore();
 
   const { data: repoData, isLoading, error } = trpc.github.files.useQuery({
     owner: user,
@@ -50,12 +51,17 @@ export default function RepoPage() {
           </h1>
           <button
             onClick={copyAllContent}
-            className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2"
+            disabled={isCopying}
+            className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed min-w-[160px] justify-center"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
             </svg>
-            Copy All Content
+            <span>
+              {isCopying ? 'Copying' : copied ? 'Copied!' : 'Copy All Content'}
+            </span>
+            {isCopying && <LoadingWave size="sm" color="white" />}
+            {copied && <AnimatedTick size="sm" color="#10b981" />}
           </button>
         </div>
         

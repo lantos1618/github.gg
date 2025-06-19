@@ -10,19 +10,33 @@ interface RepoFile {
 
 interface RepoStore {
   files: RepoFile[]
+  isCopying: boolean
+  copied: boolean
   setFiles: (files: RepoFile[]) => void
-  copyAllContent: () => void
+  copyAllContent: () => Promise<void>
 }
 
 export const useRepoStore = create<RepoStore>((set, get): RepoStore => ({
   files: [],
+  isCopying: false,
+  copied: false,
   setFiles: (files: RepoFile[]) => set({ files }),
-  copyAllContent: () => {
-    const { files } = get()
-    const allContent = files
-      .map((file: RepoFile) => `// ${file.path}\n${file.content}`)
-      .join('\n\n')
-    navigator.clipboard.writeText(allContent)
+  copyAllContent: async () => {
+    set({ isCopying: true, copied: false })
+    try {
+      const { files } = get()
+      const allContent = files
+        .map((file: RepoFile) => `// ${file.path}\n${file.content}`)
+        .join('\n\n')
+      await navigator.clipboard.writeText(allContent)
+      // Add a small delay to show the loading animation
+      await new Promise(resolve => setTimeout(resolve, 800))
+      set({ copied: true })
+      // Reset copied state after showing tick
+      setTimeout(() => set({ copied: false }), 2000)
+    } finally {
+      set({ isCopying: false })
+    }
   }
 }))
 

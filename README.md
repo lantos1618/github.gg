@@ -1,137 +1,36 @@
-# GitHub.gg
-
-A modern GitHub repository analyzer built with Next.js, NextAuth.js, and Octokit, powered by Bun.
-
-## Features
-
-- 🔒 Secure authentication with GitHub OAuth
-- 📊 Repository analysis and statistics
-- 🚀 Fast and responsive UI
-- ⚡ Optimized for performance with Bun
-- 🏗️ TypeScript first-class support
-- 🧪 Built-in testing with Bun
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
-### Prerequisites
-
-- [Bun](https://bun.sh/) (recommended) or Node.js 18+
-- GitHub OAuth App credentials
-
-### Quick Start with Bun
+First, run the development server:
 
 ```bash
-# Install Bun (if not installed)
-curl -fsSL https://bun.sh/install | bash
-
-# Install dependencies
-bun install
-
-# Start development server
-bun dev
-```
-
-### Traditional Setup (Node.js)
-
-If you prefer using Node.js:
-
-```bash
-# Install dependencies
-npm install
-# or
-yarn
-
-# Start development server
 npm run dev
 # or
 yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-### Environment Setup
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-1. Create a `.env.local` file in the root directory:
-   ```bash
-   cp .env.local.example .env.local
-   ```
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-2. Configure the environment variables (see [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) for details):
-   ```env
-   # NextAuth
-   NEXTAUTH_SECRET=your-secret-here
-   NEXTAUTH_URL=http://localhost:3000
-   
-   # GitHub OAuth
-   GITHUB_CLIENT_ID=your-github-client-id
-   GITHUB_CLIENT_SECRET=your-github-client-secret
-   ```
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-3. Install dependencies:
-   ```bash
-   npm install
-   # or
-   yarn
-   ```
+## Learn More
 
-### Development
+To learn more about Next.js, take a look at the following resources:
 
-1. Start the development server:
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   ```
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-2. Open [http://localhost:3000](http://localhost:3000) in your browser.
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-### Testing Authentication
+## Deploy on Vercel
 
-To test the authentication flow:
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-1. Start the development server
-2. Navigate to the login page or click the "Sign in with GitHub" button
-3. Authorize the application with your GitHub account
-4. You should be redirected back to the application
-
-For automated testing, you can use the test script:
-
-```bash
-# (Test script removed; see project for available scripts)
-```
-
-## Production Deployment
-
-### Vercel
-
-1. Push your code to a GitHub repository
-2. Import the repository on [Vercel](https://vercel.com/import)
-3. Add the required environment variables in the Vercel dashboard
-4. Deploy!
-
-## API Reference
-
-### Authentication
-
-All API routes are protected and require authentication. Include the session token in your requests.
-
-### Rate Limiting
-
-- Unauthenticated: 10 requests per hour
-- Authenticated: 100 requests per hour
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## License
-
-Distributed under the MIT License. See `LICENSE` for more information.
-
-## Contact
-
-Your Name - [@yourtwitter](https://twitter.com/yourtwitter) - email@example.com
-
-Project Link: [https://github.com/yourusername/github.gg](https://github.com/yourusername/github.gg)
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

@@ -43,3 +43,9 @@ html, body {
   scrollbar-width: thin;
   scrollbar-color: #94a3b8 #e2e8f0;
 }
+
+@layer utilities {
+  .container {
+    @apply max-w-7xl mx-auto;
+  }
+}

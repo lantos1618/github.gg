@@ -33,6 +33,8 @@
 - [x] **Test GitHub authentication flow** - Simplified to use Better Auth's useSession directly
 - [x] **Streamline auth client** - Removed unnecessary complexity, using Better Auth's built-in hooks
 - [x] **Simplify useAuth hook** - Now uses Better Auth's useSession directly instead of tRPC
+- [x] Refactor user auth display in navbar to a dropdown menu for better UX.
+- [x] Improve Navbar elegance and styling.
 
 ## Next Steps
 - [ ] Add error handling for missing GitHub tokens

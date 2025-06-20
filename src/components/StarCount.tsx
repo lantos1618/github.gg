@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Star } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Spinner } from '@/components/ui/spinner';
 
 interface StarCountProps {
   owner: string;
@@ -91,8 +92,12 @@ export function StarCount({ owner, repo, className = '' }: StarCountProps) {
         )}
       </span>
       <span className="font-semibold">Stargazers</span>
-      <span className="px-2 py-0.5 rounded-full text-base font-semibold min-w-[3rem] text-center">
-        {starCount !== null ? starCount.toLocaleString() : "..."}
+      <span className="px-2 py-0.5 rounded-full text-base font-semibold w-16 text-center flex items-center justify-center">
+        {starCount !== null ? (
+          starCount.toLocaleString()
+        ) : (
+          <Spinner size={14} />
+        )}
       </span>
       <style jsx>{`
         .star-svg {

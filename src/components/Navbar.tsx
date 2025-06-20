@@ -15,13 +15,32 @@ import { LogOut, Settings, User, Github } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Spinner } from '@/components/ui/spinner';
+import { useEffect, useState } from 'react';
 
 export function Navbar() {
   const { isSignedIn, isLoading, user, signIn, signOut, isSigningOut } = useAuth();
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 0);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
-    <nav className="sticky top-0 z-50 w-full backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center px-4 sm:px-6">
+    <nav className={`sticky top-0 z-50 w-full backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 ${
+      isScrolled 
+        ? 'border-b border-transparent bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-blue-500/10 shadow-lg' 
+        : ''
+    }`}>
+      <div className={`container flex h-16 items-center px-4 sm:px-6 ${
+        isScrolled 
+          ? 'border-b border-gradient-to-r from-purple-500/20 via-pink-500/20 to-blue-500/20' 
+          : ''
+      }`}>
         {/* Logo/Brand */}
         <Link href="/" className="mr-auto flex items-center gap-2">
           <span className="font-bold">

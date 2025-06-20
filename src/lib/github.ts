@@ -106,6 +106,28 @@ export class GitHubService {
     });
   }
 
+  async getRepositoryInfo(owner: string, repo: string) {
+    try {
+      const { data } = await this.octokit.repos.get({
+        owner,
+        repo,
+      });
+      return {
+        stargazers_count: data.stargazers_count,
+        forks_count: data.forks_count,
+        watchers_count: data.watchers_count,
+        // Add any other repo data you need here
+      };
+    } catch (error: unknown) {
+      const e = error as { status?: number; message?: string };
+      if (e.status === 404) {
+        throw new Error(`Repository ${owner}/${repo} not found`);
+      }
+      console.error(`Failed to get repository info for ${owner}/${repo}:`, error);
+      throw new Error(`Failed to fetch repository data from GitHub.`);
+    }
+  }
+
   async getRepositoryFiles(
     owner: string,
     repo: string,

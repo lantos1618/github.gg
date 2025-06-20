@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Spinner } from '@/components/ui/spinner';
+import { trpc } from '@/lib/trpc/client';
 
 interface StarCountProps {
   owner: string;
@@ -12,24 +13,16 @@ interface StarCountProps {
 }
 
 export function StarCount({ owner, repo, className = '' }: StarCountProps) {
-  const [starCount, setStarCount] = useState<number | null>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [burst, setBurst] = useState(false);
 
-  useEffect(() => {
-    const fetchStarCount = async () => {
-      try {
-        const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
-        if (response.ok) {
-          const data = await response.json();
-          setStarCount(data.stargazers_count);
-        }
-      } catch {
-        // silent fail
-      }
-    };
-    fetchStarCount();
-  }, [owner, repo]);
+  const { data: repoInfo, isLoading, error } = trpc.github.getRepoInfo.useQuery(
+    { owner, repo },
+    {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      refetchOnWindowFocus: false,
+    }
+  );
 
   const handleClick = () => {
     setBurst(true);
@@ -93,10 +86,12 @@ export function StarCount({ owner, repo, className = '' }: StarCountProps) {
       </span>
       <span className="font-semibold">Stargazers</span>
       <span className="px-2 py-0.5 rounded-full text-base font-semibold w-16 text-center flex items-center justify-center">
-        {starCount !== null ? (
-          starCount.toLocaleString()
-        ) : (
+        {isLoading ? (
           <Spinner size={14} />
+        ) : error ? (
+          'N/A'
+        ) : (
+          repoInfo?.stargazers_count.toLocaleString()
         )}
       </span>
       <style jsx>{`

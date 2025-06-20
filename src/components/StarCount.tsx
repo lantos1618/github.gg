@@ -36,7 +36,7 @@ export function StarCount({ owner, repo, className = '' }: StarCountProps) {
     setTimeout(() => {
       setBurst(false);
       window.open(`https://github.com/${owner}/${repo}`, '_blank');
-    }, 300);
+    }, 600);
   };
 
   return (
@@ -65,30 +65,35 @@ export function StarCount({ owner, repo, className = '' }: StarCountProps) {
         {/* Enhanced burst animation with multiple dots */}
         {burst && (
           <span className="absolute inset-0 pointer-events-none">
-            {[...Array(12)].map((_, i) => (
-              <span
-                key={i}
-                className={`burst-dot burst-dot-${i}`}
-                style={{
-                  position: 'absolute',
-                  left: '50%',
-                  top: '50%',
-                  width: 4,
-                  height: 4,
-                  background: '#f59e0b',
-                  borderRadius: '50%',
-                  transform: `translate(-50%, -50%) rotate(${i * 30}deg) translateY(-20px)`,
-                  '--angle': `${i * 30}deg`,
-                  '--delay': `${i * 50}ms`
-                } as React.CSSProperties}
-              />
-            ))}
+            {(() => {
+              const dotCount = 5;
+              return [...Array(dotCount)].map((_, i) => {
+                const angle = (360 / dotCount) * i;
+                return (
+                  <span
+                    key={i}
+                    className={`burst-dot burst-dot-${i}`}
+                    style={{
+                      position: 'absolute',
+                      left: '50%',
+                      top: '50%',
+                      width: 4,
+                      height: 4,
+                      background: '#f59e0b',
+                      borderRadius: '50%',
+                      transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-20px)`,
+                      '--angle': `${angle}deg`
+                    } as React.CSSProperties}
+                  />
+                );
+              });
+            })()}
           </span>
         )}
       </span>
-      <span className="font-semibold">Stars on GitHub</span>
-      <span className="px-2 py-0.5 rounded-full text-sm font-medium min-w-[3rem] text-center">
-        {starCount !== null ? starCount.toLocaleString() : <LoadingWave size="xs" color="black" />}
+      <span className="font-semibold">Stargazers</span>
+      <span className="px-2 py-0.5 rounded-full text-base font-semibold min-w-[3rem] text-center">
+        {starCount !== null ? starCount.toLocaleString() : "..."}
       </span>
       <style jsx>{`
         .star-svg {
@@ -96,26 +101,21 @@ export function StarCount({ owner, repo, className = '' }: StarCountProps) {
           fill: none;
         }
         .burst-dot {
-          opacity: 0;
-          animation: burst 0.3s forwards;
-          animation-delay: var(--delay);
+          opacity: 1;
+          animation: burst 0.5s forwards;
         }
         @keyframes burst {
-          0% { 
-            opacity: 1; 
-            transform: scale(0.3) translate(-50%, -50%) rotate(var(--angle)) translateY(0); 
+          0% {
+            opacity: 1;
+            transform: scale(0.3) translate(-50%, -50%) rotate(var(--angle)) translateY(0);
           }
-          20% { 
-            opacity: 1; 
-            transform: scale(1.5) translate(-50%, -50%) rotate(var(--angle)) translateY(-15px); 
+          60% {
+            opacity: 1;
+            transform: scale(1.2) translate(-50%, -50%) rotate(var(--angle)) translateY(-25px);
           }
-          60% { 
-            opacity: 0.8; 
-            transform: scale(1.2) translate(-50%, -50%) rotate(var(--angle)) translateY(-25px); 
-          }
-          100% { 
-            opacity: 0; 
-            transform: scale(0.5) translate(-50%, -50%) rotate(var(--angle)) translateY(-35px); 
+          100% {
+            opacity: 0;
+            transform: scale(1) translate(-50%, -50%) rotate(var(--angle)) translateY(-35px);
           }
         }
       `}</style>

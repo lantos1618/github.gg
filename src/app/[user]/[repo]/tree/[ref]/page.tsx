@@ -21,33 +21,40 @@ export default function RepoTreePage() {
     copied 
   } = useRepoData();
 
+  if (isLoading) {
+    return (
+      <RepoLayout>
+        <RepoHeaderSkeleton />
+        <div className="mb-4 text-sm text-gray-600">
+          Branch: <Skeleton className="inline-block h-4 w-20" />
+        </div>
+        <FileListSkeleton />
+      </RepoLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <RepoLayout>
+        <RepoStatus error={error} />
+      </RepoLayout>
+    );
+  }
+
   return (
     <RepoLayout>
-      <RepoStatus isLoading={isLoading} error={error} />
-      {isLoading ? (
-        <>
-          <RepoHeaderSkeleton />
-          <div className="mb-4 text-sm text-gray-600">
-            Branch: <Skeleton className="inline-block h-4 w-20" />
-          </div>
-          <FileListSkeleton />
-        </>
-      ) : !error && (
-        <>
-          <RepoHeader
-            user={params.user}
-            repo={params.repo}
-            onCopyAll={copyAllContent}
-            isCopying={isCopying}
-            copied={copied}
-            fileCount={totalFiles}
-          />
-          <div className="mb-4 text-sm text-gray-600">
-            Branch: <span className="font-mono">{params.ref}</span>
-          </div>
-          <FileList files={files} />
-        </>
-      )}
+      <RepoHeader
+        user={params.user}
+        repo={params.repo}
+        onCopyAll={copyAllContent}
+        isCopying={isCopying}
+        copied={copied}
+        fileCount={totalFiles}
+      />
+      <div className="mb-4 text-sm text-gray-600">
+        Branch: <span className="font-mono">{params.ref}</span>
+      </div>
+      <FileList files={files} />
     </RepoLayout>
   );
 } 

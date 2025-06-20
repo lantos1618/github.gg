@@ -20,27 +20,34 @@ export default function RepoPage() {
     copied 
   } = useRepoData();
 
+  if (isLoading) {
+    return (
+      <RepoLayout>
+        <RepoHeaderSkeleton />
+        <FileListSkeleton />
+      </RepoLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <RepoLayout>
+        <RepoStatus error={error} />
+      </RepoLayout>
+    );
+  }
+
   return (
     <RepoLayout>
-      <RepoStatus isLoading={isLoading} error={error} />
-      {isLoading ? (
-        <>
-          <RepoHeaderSkeleton />
-          <FileListSkeleton />
-        </>
-      ) : !error && (
-        <>
-          <RepoHeader
-            user={params.user}
-            repo={params.repo}
-            onCopyAll={copyAllContent}
-            isCopying={isCopying}
-            copied={copied}
-            fileCount={totalFiles}
-          />
-          <FileList files={files} />
-        </>
-      )}
+      <RepoHeader
+        user={params.user}
+        repo={params.repo}
+        onCopyAll={copyAllContent}
+        isCopying={isCopying}
+        copied={copied}
+        fileCount={totalFiles}
+      />
+      <FileList files={files} />
     </RepoLayout>
   );
 } 

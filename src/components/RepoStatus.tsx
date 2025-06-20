@@ -9,17 +9,6 @@ export function RepoStatus({
   isLoading, 
   error
 }: RepoStatusProps) {
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex items-center gap-3">
-          <span className="text-lg text-black">Loading</span>
-          <LoadingWave size="md" color="black" />
-        </div>
-      </div>
-    );
-  }
-
   if (error) {
     const isNotFound = error.message.includes('not found') || error.message.includes('404');
     const isUnauthorized = error.message.includes('unauthorized') || error.message.includes('401');

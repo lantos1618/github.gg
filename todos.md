@@ -31,6 +31,10 @@
 - [x] **Database Schema Improvements**: Added composite unique index on accounts table for better data integrity
 - [x] **Copy All Safety**: Added size limit check (10MB) to prevent browser hanging on large repositories
 - [x] **Enhanced Error Handling**: Better error messages and user feedback for copy operations
+- [x] **Toast Notifications**: Replaced `alert()` with elegant toast notifications using `sonner`
+- [x] **Environment Validation**: Added Zod validation for all environment variables to fail fast with clear errors
+- [x] **Code Refactoring**: Broke down complex `extractTarball` method into smaller, more maintainable functions
+- [x] **Skeleton Loaders**: Added skeleton loading states for better UX during data fetching
 
 ## 🚧 In Progress
 

@@ -2,13 +2,12 @@ import { ReactNode } from 'react';
 
 interface RepoLayoutProps {
   children: ReactNode;
-  className?: string;
 }
 
-export function RepoLayout({ children, className = "" }: RepoLayoutProps) {
+export function RepoLayout({ children }: RepoLayoutProps) {
   return (
-    <div className={`min-h-screen p-8 bg-gray-50 ${className}`}>
-      <div className="max-w-5xl mx-auto">
+    <div className="bg-gray-50 min-h-screen">
+      <div className="container mx-auto px-4 py-8 max-w-5xl">
         {children}
       </div>
     </div>

@@ -5,6 +5,9 @@ import { RepoHeader } from '@/components/RepoHeader';
 import { RepoLayout } from '@/components/RepoLayout';
 import { RepoStatus } from '@/components/RepoStatus';
 import { FileList } from '@/components/FileList';
+import { RepoHeaderSkeleton } from '@/components/RepoHeaderSkeleton';
+import { FileListSkeleton } from '@/components/FileListSkeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function RepoTreePathPage() {
   const { 
@@ -26,7 +29,17 @@ export default function RepoTreePathPage() {
   return (
     <RepoLayout>
       <RepoStatus isLoading={isLoading} error={error} />
-      {!isLoading && !error && (
+      {isLoading ? (
+        <>
+          <RepoHeaderSkeleton />
+          <div className="mb-4 text-sm text-gray-600">
+            Branch: <Skeleton className="inline-block h-4 w-20" />
+            {' • '}
+            Path: <Skeleton className="inline-block h-4 w-32" />
+          </div>
+          <FileListSkeleton />
+        </>
+      ) : !error && (
         <>
           <RepoHeader
             user={params.user}

@@ -106,28 +106,34 @@ export default function Home() {
       {/* Hero Section */}
       <div className="relative flex items-center justify-center min-h-[80vh] p-8">
         <ScrollingRepos />
-        <motion.div 
-          className="relative z-10 max-w-2xl mx-auto text-center bg-gray-50/20 backdrop-blur-sm p-12 rounded-2xl shadow-lg border border-gray-100/30"
+        <motion.div
+          className="relative z-10 max-w-3xl mx-auto text-center bg-gray-50/20 backdrop-blur-sm p-12 rounded-2xl shadow-lg border border-gray-100/30"
           initial="hidden"
           animate="visible"
           variants={staggerChildren}
         >
-          <motion.h1 
-            className="text-6xl font-bold text-black mb-8 tracking-tight"
+          <motion.h1
+            className="text-6xl font-bold text-black mb-6 tracking-tight"
             variants={fadeUpVariants}
             transition={{ duration: 0.5 }}
           >
             github.gg
           </motion.h1>
-          
-          <motion.p 
-            className="text-xl text-gray-900 leading-relaxed"
+
+          <motion.p
+            className="text-2xl font-medium text-gray-900"
             variants={fadeUpVariants}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
           >
-            We&apos;re building something amazing. 
-            <br />
-            Stay tuned.
+            The missing intelligence layer for GitHub.
+          </motion.p>
+          <motion.p
+            className="text-lg text-gray-700 mt-4 max-w-xl mx-auto"
+            variants={fadeUpVariants}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
+            Analyze, visualize, and understand your repositories like never
+            before.
           </motion.p>
         </motion.div>
       </div>

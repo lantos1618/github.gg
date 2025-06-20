@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { RepoFile } from '@/types/repo'
+import { toast } from 'sonner'
 
 interface RepoStore {
   // Data
@@ -51,12 +52,12 @@ export const useRepoStore = create<RepoStore>((set, get): RepoStore => ({
         .join('\n\n')
       await navigator.clipboard.writeText(allContent)
       setCopied(true)
+      toast.success('All content copied to clipboard!')
       
       setTimeout(() => setCopied(false), 2000)
     } catch (error) {
       console.error('Failed to copy content:', error)
-      // Show error to user (you might want to add a toast notification here)
-      alert(error instanceof Error ? error.message : 'Failed to copy content')
+      toast.error(error instanceof Error ? error.message : 'Failed to copy content')
     } finally {
       setIsCopying(false)
     }

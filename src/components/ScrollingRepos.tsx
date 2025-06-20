@@ -4,8 +4,11 @@ import { popularRepos } from '@/lib/mock-data';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 
-const NUM_ROWS = 2;
-const ITEMS_PER_ROW = 3;
+const NUM_ROWS = 8;
+const ITEMS_PER_ROW = 8;
+const pastelColors = [
+  '#FFD1D1', '#FFEACC', '#FEFFD8', '#E2FFDB', '#D4F9FF', '#D0E2FF', '#DDD9FF', '#FFE3FF'
+];
 
 export const ScrollingRepos = () => {
   const router = useRouter();
@@ -19,26 +22,28 @@ export const ScrollingRepos = () => {
 
   return (
     <div 
-      className="absolute inset-0 w-full overflow-hidden select-none bg-gray-200" 
+      className="absolute inset-0 w-full overflow-hidden select-none" 
       aria-hidden="true"
     >
       {rows.map((row, idx) => (
         <motion.div
           key={idx}
-          className="flex whitespace-nowrap py-10"
+          className="flex whitespace-nowrap py-4"
           initial={{ opacity: 0 }}
-          animate={{ opacity: 0.7 }}
+          animate={{ opacity: 1 }}
           transition={{ duration: 1.5 }}
           style={{
-            animation: `scroll${idx % 2 === 0 ? 'Left' : 'Right'} 90s linear infinite`,
+            animation: `scroll${idx % 2 === 0 ? 'Left' : 'Right'} 180s linear infinite`,
           }}
         >
           {/* Duplicate the row to create seamless loop */}
-          {[...row, ...row].map((repo, repoIdx) => (
+          {[...row, ...row].map((repo, repoIdx) => {
+            const color = pastelColors[(idx * ITEMS_PER_ROW + (repoIdx % ITEMS_PER_ROW)) % pastelColors.length];
+            return (
             <motion.button
               key={`${repo.name}-${repoIdx}`}
               onClick={() => router.push(`/${repo.owner}/${repo.name}`)}
-              className="inline-flex items-center mx-12 group cursor-pointer focus-visible:outline-none"
+              className="inline-flex items-center mx-4 group cursor-pointer focus-visible:outline-none"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               transition={{ type: "spring", stiffness: 400, damping: 17 }}
@@ -46,9 +51,9 @@ export const ScrollingRepos = () => {
               tabIndex={-1}
             >
               <motion.div 
-                className="text-sm bg-gray-900/20 px-6 py-3 rounded-lg border border-transparent"
+                className="text-sm px-4 py-2 rounded-lg border border-transparent"
+                style={{ backgroundColor: color }}
                 whileHover={{ 
-                  backgroundColor: "rgba(17, 24, 39, 0.25)",
                   borderColor: "rgba(17, 24, 39, 0.5)"
                 }}
               >
@@ -69,7 +74,7 @@ export const ScrollingRepos = () => {
                 </div>
               </motion.div>
             </motion.button>
-          ))}
+          )})}
         </motion.div>
       ))}
 

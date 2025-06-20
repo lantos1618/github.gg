@@ -31,16 +31,8 @@ export function Navbar() {
   }, []);
 
   return (
-    <nav className={`sticky top-0 z-50 w-full backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 ${
-      isScrolled 
-        ? 'border-b border-transparent bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-blue-500/10 shadow-lg' 
-        : ''
-    }`}>
-      <div className={`container flex h-16 items-center px-4 sm:px-6 ${
-        isScrolled 
-          ? 'border-b border-gradient-to-r from-purple-500/20 via-pink-500/20 to-blue-500/20' 
-          : ''
-      }`}>
+    <nav className={`sticky top-0 z-50 w-full backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 relative`}>
+      <div className="container flex h-16 items-center px-4 sm:px-6">
         {/* Logo/Brand */}
         <Link href="/" className="mr-auto flex items-center gap-2">
           <span className="font-bold">

@@ -30,9 +30,11 @@
 - [x] Implement proper Better Auth client integration following TanStack example
 - [x] Clean up unnecessary files and dependencies (removed NextAuth packages, old session endpoint)
 - [x] Add path filtering to GitHub file queries (filter files by directory path)
+- [x] **Test GitHub authentication flow** - Simplified to use Better Auth's useSession directly
+- [x] **Streamline auth client** - Removed unnecessary complexity, using Better Auth's built-in hooks
+- [x] **Simplify useAuth hook** - Now uses Better Auth's useSession directly instead of tRPC
 
 ## Next Steps
-- [ ] Test GitHub authentication flow
 - [ ] Add error handling for missing GitHub tokens
 - [ ] Create more GitHub API endpoints (issues, PRs, etc.)
 - [ ] Add rate limiting to context
@@ -41,4 +43,7 @@
 - [ ] Test account linking flow for additional scopes
 - [ ] **URGENT: Fix GitHub token issue - current token appears invalid/expired**
 - [ ] Add database connection pooling for production
-- [ ] Test Better Auth session persistence across page reloads 
+- [ ] Test Better Auth session persistence across page reloads
+- [ ] Add loading states for auth operations
+- [ ] Create dedicated sign-in page for better UX
+- [ ] Add auth state persistence across browser sessions 

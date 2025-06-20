@@ -13,8 +13,8 @@ interface RepoTreePathParams {
   user: string;
   repo: string;
   ref: string;
-  path: string;
-  [key: string]: string;
+  path: string[];
+  [key: string]: string | string[];
 }
 
 export default function RepoTreePathPage() {
@@ -29,11 +29,14 @@ export default function RepoTreePathPage() {
     setFiles
   } = useRepoStore();
 
+  // Join the path segments back together
+  const path = Array.isArray(params.path) ? params.path.join('/') : params.path;
+
   const { data, isLoading, error } = trpc.github.files.useQuery({
     owner: params.user,
     repo: params.repo,
     ref: params.ref,
-    path: params.path,
+    path: path,
   });
 
   useEffect(() => {
@@ -57,10 +60,10 @@ export default function RepoTreePathPage() {
           />
           <div className="mb-4 text-sm text-gray-600">
             Branch: <span className="font-mono">{params.ref}</span>
-            {params.path && (
+            {path && (
               <>
                 {' • '}
-                Path: <span className="font-mono">{params.path}</span>
+                Path: <span className="font-mono">{path}</span>
               </>
             )}
           </div>

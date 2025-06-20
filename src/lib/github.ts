@@ -2,6 +2,7 @@ import { Octokit } from '@octokit/rest';
 import { auth } from './auth';
 import * as tar from 'tar-stream';
 import { Readable } from 'stream';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const gunzip = require('gunzip-maybe');
 
 export const DEFAULT_MAX_FILES = 300;
@@ -49,11 +50,12 @@ export class GitHubService {
       // First, test the token by making a simple API call
       try {
         await this.octokit.rest.users.getAuthenticated();
-      } catch (authError: any) {
-        if (authError.status === 401) {
+      } catch (authError: unknown) {
+        const error = authError as { status?: number; message?: string };
+        if (error.status === 401) {
           throw new Error('GitHub token is invalid or expired. Please check your GITHUB_PUBLIC_API_KEY environment variable.');
         }
-        throw new Error(`GitHub authentication failed: ${authError.message}`);
+        throw new Error(`GitHub authentication failed: ${error.message}`);
       }
 
       // If no ref provided, get the default branch
@@ -65,11 +67,12 @@ export class GitHubService {
             repo,
           });
           targetRef = repoInfo.data.default_branch;
-        } catch (repoError: any) {
-          if (repoError.status === 404) {
+        } catch (repoError: unknown) {
+          const error = repoError as { status?: number; message?: string };
+          if (error.status === 404) {
             throw new Error(`Repository ${owner}/${repo} not found or not accessible`);
           }
-          throw new Error(`Failed to get repository info: ${repoError.message}`);
+          throw new Error(`Failed to get repository info: ${error.message}`);
         }
       }
 
@@ -81,11 +84,12 @@ export class GitHubService {
           repo,
           ref: targetRef,
         });
-      } catch (tarballError: any) {
-        if (tarballError.status === 404) {
+      } catch (tarballError: unknown) {
+        const error = tarballError as { status?: number; message?: string };
+        if (error.status === 404) {
           throw new Error(`Branch or tag '${targetRef}' not found in repository ${owner}/${repo}`);
         }
-        throw new Error(`Failed to get tarball: ${tarballError.message}`);
+        throw new Error(`Failed to get tarball: ${error.message}`);
       }
 
       // The response contains a redirect URL, not the actual data
@@ -256,7 +260,7 @@ export class GitHubService {
             const content = Buffer.concat(chunks).toString('utf8');
             files.push({ path: cleanPath, content });
             fileCount++;
-          } catch (e) {
+          } catch {
             console.warn(`Skipping file that could not be decoded as UTF-8: ${cleanPath}`);
           }
         }
@@ -271,7 +275,7 @@ export class GitHubService {
     await new Promise<void>((resolve, reject) => {
       extract.on('finish', resolve);
       extract.on('error', reject);
-      stream.pipe(gunzip()).pipe(extract as any).on('error', reject);
+      stream.pipe(gunzip()).pipe(extract as unknown as NodeJS.ReadableStream).on('error', reject);
     }).catch(error => {
         console.error('Error processing tarball stream:', error);
         // Don't re-throw, just return whatever files we managed to extract.

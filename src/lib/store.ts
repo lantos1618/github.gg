@@ -1,7 +1,5 @@
 import { create } from 'zustand'
-import { StateCreator } from 'zustand'
-import { RepoFile, RepoParams } from '@/types/repo'
-import { trpc } from '@/lib/trpc/client'
+import { RepoFile } from '@/types/repo'
 
 interface RepoStore {
   // Data

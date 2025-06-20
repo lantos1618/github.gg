@@ -1,5 +1,3 @@
-import { TRPCClientErrorLike } from '@trpc/client';
-import { TRPCDefaultErrorShape } from '@trpc/server';
 import { LoadingWave } from './LoadingWave';
 
 interface RepoStatusProps {

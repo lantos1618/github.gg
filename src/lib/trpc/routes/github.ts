@@ -1,7 +1,6 @@
-import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
+import { router, publicProcedure } from '@/lib/trpc/trpc';
 import { z } from 'zod';
 import { createGitHubService, DEFAULT_MAX_FILES, GitHubFilesResponse } from '@/lib/github';
-import { auth } from '@/lib/auth';
 import { TRPCError } from '@trpc/server';
 
 export const githubRouter = router({
@@ -25,35 +24,37 @@ export const githubRouter = router({
         );
 
         return result;
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('GitHub files query error:', error);
         
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
         // Provide specific error messages based on the error type
-        if (error.message?.includes('token is invalid or expired')) {
+        if (errorMessage?.includes('token is invalid or expired')) {
           throw new TRPCError({
             code: 'UNAUTHORIZED',
             message: 'GitHub token is invalid or expired. Please check your authentication.',
           });
         }
         
-        if (error.message?.includes('Repository') && error.message?.includes('not found')) {
+        if (errorMessage?.includes('Repository') && errorMessage?.includes('not found')) {
           throw new TRPCError({
             code: 'NOT_FOUND',
-            message: error.message,
+            message: errorMessage,
           });
         }
         
-        if (error.message?.includes('Branch or tag')) {
+        if (errorMessage?.includes('Branch or tag')) {
           throw new TRPCError({
             code: 'NOT_FOUND',
-            message: error.message,
+            message: errorMessage,
           });
         }
         
         // Generic error for other cases
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: error.message || 'Failed to extract repository files',
+          message: errorMessage || 'Failed to extract repository files',
         });
       }
     }),

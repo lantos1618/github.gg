@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { Star } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { LoadingWave } from './LoadingWave';
 
 interface StarCountProps {
   owner: string;
@@ -24,7 +23,7 @@ export function StarCount({ owner, repo, className = '' }: StarCountProps) {
           const data = await response.json();
           setStarCount(data.stargazers_count);
         }
-      } catch (error) {
+      } catch {
         // silent fail
       }
     };

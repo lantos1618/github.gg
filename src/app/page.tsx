@@ -76,7 +76,7 @@ export default function Home() {
               "Collaboration analytics & team insights",
               "Performance optimization suggestions",
               "Security vulnerability scanning"
-            ].map((item, index) => (
+            ].map((item) => (
               <motion.li 
                 key={item}
                 className="flex items-start"

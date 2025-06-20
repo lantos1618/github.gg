@@ -3,8 +3,11 @@
 import { useParams } from 'next/navigation';
 import { useRepoStore } from '@/lib/store';
 import { useEffect } from 'react';
-import { RepoLayout, RepoHeader, FileList, RepoStatus } from '@/components';
 import { trpc } from '@/lib/trpc/client';
+import { RepoHeader } from '@/components/RepoHeader';
+import { RepoLayout } from '@/components/RepoLayout';
+import { RepoStatus } from '@/components/RepoStatus';
+import { FileList } from '@/components/FileList';
 
 interface RepoTreePathParams {
   user: string;

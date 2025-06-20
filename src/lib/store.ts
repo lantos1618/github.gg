@@ -17,6 +17,9 @@ interface RepoStore {
   setCopied: (copied: boolean) => void
 }
 
+// Maximum content size in characters (10MB equivalent)
+const MAX_COPY_SIZE = 10 * 1024 * 1024;
+
 export const useRepoStore = create<RepoStore>((set, get): RepoStore => ({
   // Initial state
   files: [],
@@ -35,6 +38,14 @@ export const useRepoStore = create<RepoStore>((set, get): RepoStore => ({
     setCopied(false)
     
     try {
+      // Calculate total content size
+      const totalSize = files.reduce((size, file) => size + file.content.length + file.path.length + 10, 0);
+      
+      if (totalSize > MAX_COPY_SIZE) {
+        const sizeInMB = (totalSize / (1024 * 1024)).toFixed(1);
+        throw new Error(`Content too large (${sizeInMB}MB). Maximum size is ${MAX_COPY_SIZE / (1024 * 1024)}MB.`);
+      }
+
       const allContent = files
         .map((file: RepoFile) => `// ${file.path}\n${file.content}`)
         .join('\n\n')
@@ -44,6 +55,8 @@ export const useRepoStore = create<RepoStore>((set, get): RepoStore => ({
       setTimeout(() => setCopied(false), 2000)
     } catch (error) {
       console.error('Failed to copy content:', error)
+      // Show error to user (you might want to add a toast notification here)
+      alert(error instanceof Error ? error.message : 'Failed to copy content')
     } finally {
       setIsCopying(false)
     }

@@ -1,49 +1,27 @@
 'use client';
 
-import { useParams } from 'next/navigation';
-import { useRepoStore } from '@/lib/store';
-import { useEffect } from 'react';
-import { trpc } from '@/lib/trpc/client';
+import { useRepoData } from '@/lib/hooks/useRepoData';
 import { RepoHeader } from '@/components/RepoHeader';
 import { RepoLayout } from '@/components/RepoLayout';
 import { RepoStatus } from '@/components/RepoStatus';
 import { FileList } from '@/components/FileList';
 
-interface RepoTreePathParams {
-  user: string;
-  repo: string;
-  ref: string;
-  path: string[];
-  [key: string]: string | string[];
-}
-
 export default function RepoTreePathPage() {
-  const params = useParams<RepoTreePathParams>();
-  
   const { 
+    params,
+    isLoading, 
+    error, 
     files, 
     totalFiles, 
     copyAllContent, 
     isCopying, 
-    copied,
-    setFiles
-  } = useRepoStore();
+    copied 
+  } = useRepoData();
 
-  // Join the path segments back together
-  const path = Array.isArray(params.path) ? params.path.join('/') : params.path;
-
-  const { data, isLoading, error } = trpc.github.files.useQuery({
-    owner: params.user,
-    repo: params.repo,
-    ref: params.ref,
-    path: path,
-  });
-
-  useEffect(() => {
-    if (data) {
-      setFiles(data.files, data.totalFiles);
-    }
-  }, [data, setFiles]);
+  // Get the normalized path for display
+  const path = params.path 
+    ? (Array.isArray(params.path) ? params.path.join('/') : params.path)
+    : undefined;
 
   return (
     <RepoLayout>

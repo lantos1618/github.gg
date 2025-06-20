@@ -1,44 +1,22 @@
 'use client';
 
-import { useParams } from 'next/navigation';
-import { useRepoStore } from '@/lib/store';
-import { useEffect } from 'react';
+import { useRepoData } from '@/lib/hooks/useRepoData';
 import { RepoHeader } from '@/components/RepoHeader';
 import { RepoLayout } from '@/components/RepoLayout';
 import { RepoStatus } from '@/components/RepoStatus';
 import { FileList } from '@/components/FileList';
-import { trpc } from '@/lib/trpc/client';
-
-interface RepoTreeParams {
-  user: string;
-  repo: string;
-  ref: string;
-  [key: string]: string;
-}
 
 export default function RepoTreePage() {
-  const params = useParams<RepoTreeParams>();
-  
   const { 
+    params,
+    isLoading, 
+    error, 
     files, 
     totalFiles, 
     copyAllContent, 
     isCopying, 
-    copied,
-    setFiles
-  } = useRepoStore();
-
-  const { data, isLoading, error } = trpc.github.files.useQuery({
-    owner: params.user,
-    repo: params.repo,
-    ref: params.ref,
-  });
-
-  useEffect(() => {
-    if (data) {
-      setFiles(data.files, data.totalFiles);
-    }
-  }, [data, setFiles]);
+    copied 
+  } = useRepoData();
 
   return (
     <RepoLayout>

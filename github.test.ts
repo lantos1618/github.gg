@@ -1,55 +1,55 @@
 #!/usr/bin/env bun
 
-// Load environment variables
+import { test, expect } from 'bun:test';
 import { config } from 'dotenv';
 config({ path: '.env.local' });
-
 import { GitHubService } from './src/lib/github';
 
-async function testGitHubAPI() {
-  console.log('🧪 Testing GitHub API...\n');
-
-  // Create GitHub service
+test("GitHubService fetches files correctly", async () => {
   const githubService = new GitHubService();
-  console.log('✅ GitHub service created');
+  const result = await githubService.getRepositoryFiles('preactjs', 'preact', undefined, 5);
 
-  // Test with preact repository
-  console.log('📦 Testing with preactjs/preact repository...');
+  expect(result.owner).toBe('preactjs');
+  expect(result.repo).toBe('preact');
+  expect(result.files.length).toBeGreaterThan(0);
+  expect(result.files.length).toBeLessThanOrEqual(5);
+});
+
+test("GitHubService handles non-existent repositories", async () => {
+  const githubService = new GitHubService();
   
-  const result = await githubService.getRepositoryFiles(
-    'preactjs',
-    'preact',
-    undefined,
-    5 // Just get 5 files for testing
+  await expect(
+    githubService.getRepositoryFiles('nonexistent', 'repo-that-does-not-exist', undefined, 10)
+  ).rejects.toThrow('Repository nonexistent/repo-that-does-not-exist not found or not accessible');
+});
+
+test("GitHubService respects file limit", async () => {
+  const githubService = new GitHubService();
+  const result = await githubService.getRepositoryFiles('preactjs', 'preact', undefined, 3);
+
+  expect(result.files.length).toBeLessThanOrEqual(3);
+  expect(result.totalFiles).toBeGreaterThanOrEqual(result.files.length);
+});
+
+test("GitHubService filters binary files correctly", async () => {
+  const githubService = new GitHubService();
+  const result = await githubService.getRepositoryFiles('preactjs', 'preact', undefined, 50);
+
+  // Check that no binary files are included
+  const binaryExtensions = ['.exe', '.dll', '.so', '.dylib', '.bin', '.obj', '.o'];
+  const hasBinaryFiles = result.files.some(file => 
+    binaryExtensions.some(ext => file.path.endsWith(ext))
   );
-
-  console.log('\n✅ SUCCESS! GitHub API is working correctly');
-  console.log(`📊 Results:`);
-  console.log(`   Owner: ${result.owner}`);
-  console.log(`   Repo: ${result.repo}`);
-  console.log(`   Ref: ${result.ref}`);
-  console.log(`   Total Files: ${result.totalFiles}`);
-  console.log(`   Sample Files:`);
-  result.files.slice(0, 3).forEach((file, i) => {
-    console.log(`     ${i + 1}. ${file.path} (${file.content.length} chars)`);
-  });
-
-  // Basic validation
-  if (result.owner !== 'preactjs') {
-    throw new Error('Owner mismatch');
-  }
-  if (result.repo !== 'preact') {
-    throw new Error('Repo mismatch');
-  }
-  if (result.files.length === 0) {
-    throw new Error('No files returned');
-  }
-  if (result.files.length > 5) {
-    throw new Error('Too many files returned');
-  }
   
-  console.log('\n🎉 All tests passed!');
-}
+  expect(hasBinaryFiles).toBe(false);
+});
 
-// Run the test
-testGitHubAPI().catch(console.error); 
+test("GitHubService handles specific refs", async () => {
+  const githubService = new GitHubService();
+  const result = await githubService.getRepositoryFiles('preactjs', 'preact', 'main', 5);
+
+  expect(result.owner).toBe('preactjs');
+  expect(result.repo).toBe('preact');
+  expect(result.ref).toBe('main');
+  expect(result.files.length).toBeGreaterThan(0);
+}); 

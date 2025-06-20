@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, boolean, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -34,4 +34,7 @@ export const accounts = pgTable('accounts', {
   refreshTokenExpiresAt: timestamp('refresh_token_expires_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
-}); 
+}, (table) => ({
+  // Ensure a user can only link a specific provider account once
+  providerUserIdx: uniqueIndex('provider_user_idx').on(table.providerId, table.userId),
+})); 

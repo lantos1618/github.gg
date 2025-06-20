@@ -10,7 +10,11 @@
     "test": "bun test",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:setup": "./scripts/setup-db.sh",
+    "db:start": "docker-compose up -d postgres",
+    "db:stop": "docker-compose down",
+    "db:reset": "docker-compose down -v && ./scripts/setup-db.sh"
   },
   "dependencies": {
     "@auth/core": "^0.39.1",
@@ -28,6 +32,7 @@
     "drizzle-orm": "^0.44.2",
     "framer-motion": "^12.18.1",
     "gunzip-maybe": "^1.4.2",
+    "lucide-react": "^0.518.0",
     "next": "15.3.4",
     "postgres": "^3.4.7",
     "react": "^19.0.0",

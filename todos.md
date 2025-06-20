@@ -18,6 +18,10 @@
 - [x] Improve GitHub service error handling with specific error messages
 - [x] Add GitHub API connection test endpoint for debugging
 - [x] Add token validation and format checking
+- [x] Create navbar with star and sign-in functionality
+- [x] Add dynamic star count from GitHub API
+- [x] Set up PostgreSQL database with Docker
+- [x] Create database setup scripts and documentation
 
 ## Next Steps
 - [ ] Test GitHub authentication flow
@@ -27,4 +31,6 @@
 - [ ] Set up server-side helpers for SSR
 - [ ] Add user profile management routes
 - [ ] Test account linking flow for additional scopes
-- [ ] **URGENT: Fix GitHub token issue - current token appears invalid/expired** 
+- [ ] **URGENT: Fix GitHub token issue - current token appears invalid/expired**
+- [ ] Integrate Better Auth client properly for session management
+- [ ] Add database connection pooling for production 

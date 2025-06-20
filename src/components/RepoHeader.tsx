@@ -1,6 +1,7 @@
 'use client';
 
 import { LoadingWave, AnimatedTick } from './LoadingWave';
+import Link from 'next/link';
 
 interface RepoHeaderProps {
   user: string;
@@ -24,32 +25,39 @@ export function RepoHeader({
   return (
     <div className="flex justify-between items-center mb-8 bg-white p-6 rounded-lg shadow-sm">
       <div>
-        <a 
-          href={githubUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group cursor-pointer"
-        >
-          <h1 className="text-3xl font-bold text-gray-800 group-hover:text-gray-600 transition-colors">
-            {user}/{repo}
-          </h1>
-          <div className="flex items-center gap-2 mt-1">
-            {fileCount !== undefined && (
-              <p className="text-sm text-gray-600">
-                {fileCount} file{fileCount !== 1 ? 's' : ''}
-              </p>
-            )}
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              className="h-4 w-4 text-gray-400 group-hover:text-gray-600 transition-colors" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </div>
-        </a>
+        <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-1">
+          <Link 
+            href={`/${user}`}
+            className="hover:text-gray-600 transition-colors"
+          >
+            {user}
+          </Link>
+          <span className="text-gray-800">/</span>
+          <a 
+            href={githubUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-gray-600 transition-colors"
+          >
+            {repo}
+          </a>
+        </h1>
+        <div className="flex items-center gap-2 mt-1">
+          {fileCount !== undefined && (
+            <p className="text-sm text-gray-600">
+              {fileCount} file{fileCount !== 1 ? 's' : ''}
+            </p>
+          )}
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            className="h-4 w-4 text-gray-400" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+        </div>
       </div>
       <button
         onClick={onCopyAll}

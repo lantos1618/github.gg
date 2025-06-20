@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 
 interface LoadingWaveProps {
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   color?: string;
   className?: string;
 }
@@ -14,6 +14,7 @@ export function LoadingWave({
   className = '' 
 }: LoadingWaveProps) {
   const sizeClasses = {
+    xs: 'w-2 h-2',
     sm: 'w-3 h-3',
     md: 'w-4 h-4',
     lg: 'w-5 h-5'
@@ -28,9 +29,8 @@ export function LoadingWave({
           key={index}
           className={`${sizeClasses[size]} rounded-full`}
           style={{ backgroundColor: color }}
-          animate={{
-            y: [0, -12, 0],
-          }}
+          initial={{ y: 0 }}
+          animate={{ y: [0, -12, 0] }}
           transition={{
             duration: 0.6,
             repeat: Infinity,

@@ -3,7 +3,10 @@
 import { useParams } from 'next/navigation';
 import { useRepoStore } from '@/lib/store';
 import { useEffect } from 'react';
-import { RepoLayout, RepoHeader, FileList, RepoStatus } from '@/components';
+import { RepoLayout } from '@/components/RepoLayout';
+import { RepoHeader } from '@/components/RepoHeader';
+import { FileList } from '@/components/FileList';
+import { RepoStatus } from '@/components/RepoStatus';
 import { trpc } from '@/lib/trpc/client';
 
 interface RepoPageParams {

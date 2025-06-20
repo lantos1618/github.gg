@@ -3,6 +3,7 @@
 import { popularRepos } from '@/lib/mock-data';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 const NUM_ROWS = 8;
 const ITEMS_PER_ROW = 8;
@@ -10,7 +11,7 @@ const pastelColors = [
   '#FFD1D1', '#FFEACC', '#FEFFD8', '#E2FFDB', '#D4F9FF', '#D0E2FF', '#DDD9FF', '#FFE3FF'
 ];
 
-export const ScrollingRepos = () => {
+export const ScrollingRepos = ({ className }: { className?: string }) => {
   const router = useRouter();
   
   // We need NUM_ROWS * ITEMS_PER_ROW repos.
@@ -22,7 +23,7 @@ export const ScrollingRepos = () => {
 
   return (
     <div 
-      className="absolute inset-0 w-full overflow-hidden select-none" 
+      className={cn("absolute inset-0 w-full overflow-hidden select-none", className)} 
       aria-hidden="true"
     >
       {rows.map((row, idx) => (

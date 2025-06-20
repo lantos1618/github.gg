@@ -105,7 +105,7 @@ export default function Home() {
     <main className="min-h-screen bg-white">
       {/* Hero Section */}
       <div className="relative flex items-center justify-center min-h-[80vh] p-8">
-        <ScrollingRepos />
+        <ScrollingRepos className="translate-y-40" />
         <motion.div
           className="relative z-10 max-w-3xl mx-auto text-center bg-gray-50/20 backdrop-blur-md p-12 rounded-2xl shadow-lg border border-gray-100/30"
           initial="hidden"

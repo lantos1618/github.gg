@@ -91,8 +91,6 @@ bun run db:studio
 | `BETTER_AUTH_SECRET` | Secret for session encryption | Yes |
 | `GITHUB_CLIENT_ID` | GitHub OAuth App Client ID | Yes |
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth App Client Secret | Yes |
-| `NEXTAUTH_URL` | Base URL of your app | Yes |
-| `NEXTAUTH_SECRET` | NextAuth secret | Yes |
 
 ## Contributing
 

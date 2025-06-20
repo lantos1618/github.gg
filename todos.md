@@ -22,6 +22,14 @@
 - [x] Add dynamic star count from GitHub API
 - [x] Set up PostgreSQL database with Docker
 - [x] Create database setup scripts and documentation
+- [x] Fix Navbar to use Better Auth instead of old GitHub OAuth
+- [x] Add proper session management with Better Auth API endpoints
+- [x] Configure Better Auth for Vercel deployment with DATABASE_URL
+- [x] Create useAuth hook with TanStack Query for client-side session management
+- [x] Add user avatar/name display in navbar when signed in
+- [x] Implement proper Better Auth client integration following TanStack example
+- [x] Clean up unnecessary files and dependencies (removed NextAuth packages, old session endpoint)
+- [x] Add path filtering to GitHub file queries (filter files by directory path)
 
 ## Next Steps
 - [ ] Test GitHub authentication flow
@@ -32,5 +40,5 @@
 - [ ] Add user profile management routes
 - [ ] Test account linking flow for additional scopes
 - [ ] **URGENT: Fix GitHub token issue - current token appears invalid/expired**
-- [ ] Integrate Better Auth client properly for session management
-- [ ] Add database connection pooling for production 
+- [ ] Add database connection pooling for production
+- [ ] Test Better Auth session persistence across page reloads 

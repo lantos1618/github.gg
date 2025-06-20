@@ -16,7 +16,7 @@ export const auth = betterAuth({
             scope: ['repo', 'read:user', 'user:email'],
         }
     },
-
-    /** if no database is provided, the user data will be stored in memory.
-     * Make sure to provide a database to persist user data **/
+    session: {
+        expiresIn: 60 * 60 * 24 * 7, // 7 days
+    },
 });

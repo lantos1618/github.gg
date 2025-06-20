@@ -17,9 +17,6 @@
     "db:reset": "docker-compose down -v && ./scripts/setup-db.sh"
   },
   "dependencies": {
-    "@auth/core": "^0.39.1",
-    "@auth/drizzle-adapter": "^1.9.1",
-    "@auth/nextjs": "^0.0.0-380f8d56",
     "@octokit/rest": "^22.0.0",
     "@tanstack/react-query": "^5.80.10",
     "@trpc/client": "^11.4.2",

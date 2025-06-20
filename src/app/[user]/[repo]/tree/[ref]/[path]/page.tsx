@@ -33,6 +33,7 @@ export default function RepoTreePathPage() {
     owner: params.user,
     repo: params.repo,
     ref: params.ref,
+    path: params.path,
   });
 
   useEffect(() => {

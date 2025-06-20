@@ -10,6 +10,7 @@ export const githubRouter = router({
       owner: z.string(),
       repo: z.string(),
       ref: z.string().optional(),
+      path: z.string().optional(),
       maxFiles: z.number().min(1).max(1000).default(DEFAULT_MAX_FILES), // Limit to prevent abuse
     }))
     .query(async ({ input, ctx }): Promise<GitHubFilesResponse> => {
@@ -20,7 +21,8 @@ export const githubRouter = router({
           input.owner,
           input.repo,
           input.ref,
-          input.maxFiles
+          input.maxFiles,
+          input.path
         );
 
         return result;

@@ -44,7 +44,8 @@ export class GitHubService {
     owner: string,
     repo: string,
     ref?: string,
-    maxFiles: number = DEFAULT_MAX_FILES
+    maxFiles: number = DEFAULT_MAX_FILES,
+    path?: string
   ): Promise<GitHubFilesResponse> {
     try {
       // First, test the token by making a simple API call
@@ -102,8 +103,8 @@ export class GitHubService {
       }
 
       const buffer = await downloadResponse.arrayBuffer();
-      const files = await this.extractTarball(buffer, maxFiles);
-
+      const files = await this.extractTarball(buffer, maxFiles, path);
+      
       return {
         files,
         totalFiles: files.length,
@@ -117,7 +118,7 @@ export class GitHubService {
     }
   }
 
-  private async extractTarball(buffer: ArrayBuffer, maxFiles: number): Promise<GitHubFile[]> {
+  private async extractTarball(buffer: ArrayBuffer, maxFiles: number, path?: string): Promise<GitHubFile[]> {
     const files: GitHubFile[] = [];
     let fileCount = 0;
 
@@ -190,6 +191,11 @@ export class GitHubService {
     const shouldProcessFile = (filePath: string): boolean => {
       const lowerFilePath = filePath.toLowerCase();
       const fileName = filePath.split('/').pop() || '';
+
+      // 0. Filter by path if specified
+      if (path && !filePath.startsWith(path + '/') && filePath !== path) {
+        return false;
+      }
 
       // 1. Deny if it's in a denied directory.
       if (deniedPaths.some(p => lowerFilePath.startsWith(p))) {

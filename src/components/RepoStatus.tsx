@@ -1,12 +1,8 @@
-import { LoadingWave } from './LoadingWave';
-
 interface RepoStatusProps {
-  isLoading?: boolean;
   error?: { message: string } | null;
 }
 
 export function RepoStatus({ 
-  isLoading, 
   error
 }: RepoStatusProps) {
   if (error) {

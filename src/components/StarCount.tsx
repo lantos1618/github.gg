@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Spinner } from '@/components/ui/spinner';

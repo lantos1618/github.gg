@@ -6,6 +6,7 @@ import { db } from '@/db';
 import { cachedRepos } from '@/db/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import { POPULAR_REPOS } from '@/lib/constants';
+import { shuffleArray } from '@/lib/utils';
 
 // Cache duration: 1 hour
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
@@ -101,109 +102,115 @@ export const githubRouter = router({
     .query(async ({ input, ctx }) => {
       try {
         const githubService = await createGitHubService(ctx.session, ctx.req);
-        const now = new Date();
-        const cacheThreshold = new Date(now.getTime() - CACHE_DURATION);
+        
+        // 1. Build a definitive list of repo identifiers
+        const repoIdentifiers = new Map<string, { owner: string; name: string; special?: boolean }>();
 
-        // Get cached repos that are not stale
-        const cachedReposData = await db
-          .select()
-          .from(cachedRepos)
-          .where(gt(cachedRepos.lastFetched, cacheThreshold))
-          .limit(input.limit);
-
-        // If we have enough fresh cached data, return it
-        if (cachedReposData.length >= input.limit) {
-          return cachedReposData.map(repo => ({
-            owner: repo.owner,
-            name: repo.name,
-            description: repo.description,
-            stargazersCount: repo.stargazersCount,
-            forksCount: repo.forksCount,
-            language: repo.language,
-            topics: repo.topics,
-            url: `https://github.com/${repo.owner}/${repo.name}`,
-          }));
-        }
-
-        // Otherwise, fetch fresh data
-        const repos: {owner: string, name: string}[] = [];
-
-        // If user is authenticated, get their repos
+        // If user is authenticated, add their repos first to prioritize them
+        let userRepos: { owner: string; name: string }[] = [];
         if (ctx.session?.user?.id) {
           try {
-            const userRepos = await githubService.getUserRepositories();
-            // Take up to half of the limit from user repos
-            repos.push(...userRepos.slice(0, Math.floor(input.limit / 2)));
+            userRepos = await githubService.getUserRepositories();
+            userRepos.forEach(repo => {
+              const key = `${repo.owner}/${repo.name}`;
+              if (!repoIdentifiers.has(key)) {
+                repoIdentifiers.set(key, { ...repo, special: POPULAR_REPOS.find(p => p.owner === repo.owner && p.name === repo.name)?.special });
+              }
+            });
           } catch (error) {
-            console.warn('Failed to fetch user repos, falling back to popular repos only');
+            console.warn('Failed to fetch user repos, continuing with popular repos.');
           }
         }
 
-        // Fill remaining slots with popular repos from constants
-        if (repos.length < input.limit) {
-          const remainingSlots = input.limit - repos.length;
-          const popularReposToUse = POPULAR_REPOS.slice(0, remainingSlots);
-          repos.push(...popularReposToUse);
-        }
+        // Shuffle all popular repos
+        const allPopularRepos = shuffleArray(POPULAR_REPOS);
+
+        // Add popular repos until the limit is reached, avoiding duplicates
+        allPopularRepos.forEach(repo => {
+          if (repoIdentifiers.size < input.limit) {
+            const key = `${repo.owner}/${repo.name}`;
+            if (!repoIdentifiers.has(key)) {
+              repoIdentifiers.set(key, repo);
+            }
+          }
+        });
         
-        // Fetch detailed info for all repos
-        const reposWithDetails = await Promise.all(
-          repos.map(async (repo) => {
+        const targetRepoList = Array.from(repoIdentifiers.values());
+
+        // 2. Get cached data
+        const now = new Date();
+        const cacheThreshold = new Date(now.getTime() - CACHE_DURATION);
+        const allCachedRepos = await db.select().from(cachedRepos);
+        const cachedReposMap = new Map(allCachedRepos.map(r => [`${r.owner}/${r.name}`, r]));
+        
+        const reposFromCache: any[] = [];
+        const reposToFetch: { owner: string; name: string; special?: boolean }[] = [];
+
+        // 3. Differentiate between cached and to-be-fetched repos
+        targetRepoList.forEach(repo => {
+          const cached = cachedReposMap.get(`${repo.owner}/${repo.name}`);
+          if (cached && cached.lastFetched > cacheThreshold) {
+            reposFromCache.push({ ...cached, special: repo.special });
+          } else {
+            reposToFetch.push(repo);
+          }
+        });
+
+        // 4. Fetch details for non-cached repos
+        const fetchedReposWithDetails = await Promise.all(
+          reposToFetch.map(async (repo) => {
             try {
               const details = await githubService.getRepositoryDetails(repo.owner, repo.name);
               const userId = ctx.session?.user?.id ?? null;
               
-              // Cache the repo details
-              await db
-                .insert(cachedRepos)
-                .values({
-                  owner: details.owner,
-                  name: details.name,
+              // Cache the new details
+              await db.insert(cachedRepos).values({
+                owner: details.owner,
+                name: details.name,
+                description: details.description,
+                stargazersCount: details.stargazersCount,
+                forksCount: details.forksCount,
+                language: details.language,
+                topics: details.topics,
+                isUserRepo: !!userId,
+                userId: userId,
+                lastFetched: new Date(),
+              }).onConflictDoUpdate({
+                target: [cachedRepos.owner, cachedRepos.name],
+                set: {
                   description: details.description,
                   stargazersCount: details.stargazersCount,
                   forksCount: details.forksCount,
                   language: details.language,
                   topics: details.topics,
-                  isUserRepo: !!userId && (await githubService.getUserRepositories()).some(r => r.owner === details.owner && r.name === details.name),
-                  userId: userId,
                   lastFetched: new Date(),
-                })
-                .onConflictDoUpdate({
-                  target: [cachedRepos.owner, cachedRepos.name],
-                  set: {
-                    description: details.description,
-                    stargazersCount: details.stargazersCount,
-                    forksCount: details.forksCount,
-                    language: details.language,
-                    topics: details.topics,
-                    lastFetched: new Date(),
-                  },
-                });
+                },
+              });
 
-              return details;
+              return { ...details, special: repo.special };
             } catch (error) {
               console.warn(`Failed to fetch details for ${repo.owner}/${repo.name}:`, error);
-              // Return basic info if detailed fetch fails
-              return {
-                owner: repo.owner,
-                name: repo.name,
-                description: 'Could not fetch details',
-                stargazersCount: 0,
-                forksCount: 0,
-              };
+              return null;
             }
           })
         );
         
-        return reposWithDetails.filter(Boolean);
+        // 5. Combine and sort
+        const combinedRepos = [...reposFromCache, ...fetchedReposWithDetails.filter(Boolean)];
+        
+        const finalRepoMap = new Map(combinedRepos.map(r => [`${r.owner}/${r.name}`, r]));
+        const sortedRepos = targetRepoList
+          .map(repo => finalRepoMap.get(`${repo.owner}/${repo.name}`))
+          .filter(Boolean);
+
+        return sortedRepos;
 
       } catch (error: unknown) {
         console.error('Failed to get repos for scrolling:', error);
         
-        // Return basic popular repos as fallback
+        // Fallback to basic popular repos
         return POPULAR_REPOS.slice(0, input.limit).map(repo => ({
-          owner: repo.owner,
-          name: repo.name,
+          ...repo,
           description: 'Could not fetch details',
           stargazersCount: 0,
           forksCount: 0,

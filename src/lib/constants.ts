@@ -1,5 +1,8 @@
 // Curated list of popular repos to show when user is not logged in or as fallback
 export const POPULAR_REPOS = [
+  { owner: 'Mail-0', name: 'Zero', special: true },
+  { owner: 'lantos1618', name: 'github.gg', special: true },
+  { owner: 'ossdotnow', name: 'ossdotnow', special: true },
   { owner: 'facebook', name: 'react' },
   { owner: 'vuejs', name: 'vue' },
   { owner: 'tensorflow', name: 'tensorflow' },

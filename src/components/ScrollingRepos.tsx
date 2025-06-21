@@ -10,6 +10,13 @@ import { useMemo } from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import React from 'react';
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import { useAuth } from '@/lib/hooks/useAuth';
+
+const SPECIAL_REPOS = [
+  'Mail-0/Zero',
+  'lantos1618/github.gg',
+  'ossdotnow/ossdotnow'
+];
 
 const CustomTooltipContent = React.forwardRef<
   React.ElementRef<typeof TooltipPrimitive.Content>,
@@ -40,7 +47,7 @@ const pastelColors = [
   '#FFD1D1', '#FFEACC', '#FEFFD8', '#E2FFDB', '#D4F9FF', '#D0E2FF', '#DDD9FF', '#FFE3FF'
 ];
 
-type RepoData = Partial<RepoSummary> & { owner: string; name: string, stars?: string | number };
+type RepoData = Partial<RepoSummary> & { owner: string; name: string, stars?: string | number, special?: boolean };
 
 const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, isSkeleton?: boolean }) => {
   const router = useRouter();
@@ -50,13 +57,17 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
   const stars = repo.stargazersCount ? formatStars(repo.stargazersCount) : '0';
   const description = repo.description || 'No description available.';
   const tooltipColor = useMemo(() => darkenColor(color, 40), [color]);
+  const isSpecial = repo.special;
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <div className="inline-flex items-center mx-4">
           <motion.div
-            className="text-sm px-4 py-2 rounded-lg relative flex items-center justify-center"
+            className={cn(
+              "text-sm px-4 py-2 rounded-lg relative flex items-center justify-center",
+              isSpecial && "special-repo-shimmer"
+            )}
             style={{ 
               backgroundColor: color,
               minWidth: '220px', 
@@ -64,6 +75,11 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
             }}
             whileTap={{ scale: 0.95, transition: { type: "spring", stiffness: 400, damping: 17 } }}
           >
+            {isSpecial && (
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="absolute -top-2 -left-2 text-amber-500 transform -rotate-20">
+                <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/>
+              </svg>
+            )}
             <AnimatePresence>
               {isSkeleton && (
                 <motion.div
@@ -130,16 +146,10 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
 };
 
 export const ScrollingRepos = ({ className }: { className?: string }) => {
-  const { data: fetchedRepos, isLoading } = useReposForScrolling(NUM_ROWS * ITEMS_PER_ROW);
+  const { data: reposToDisplay, isLoading } = useReposForScrolling(NUM_ROWS * ITEMS_PER_ROW);
 
-  const reposToDisplay = useMemo(() => {
-    return (fetchedRepos && fetchedRepos.length > 0)
-      ? fetchedRepos
-      : POPULAR_REPOS.slice(0, NUM_ROWS * ITEMS_PER_ROW).map(r => ({ ...r, stargazersCount: 0 }));
-  }, [fetchedRepos]);
-  
   const rows = Array.from({ length: NUM_ROWS }, (_, i) => 
-    reposToDisplay.slice(i * ITEMS_PER_ROW, (i + 1) * ITEMS_PER_ROW)
+    (reposToDisplay || []).slice(i * ITEMS_PER_ROW, (i + 1) * ITEMS_PER_ROW)
   );
 
   const rowColors = useMemo(() => {
@@ -160,7 +170,7 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
               className="flex whitespace-nowrap py-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.5, delay: isLoading ? 0.5 : 0 }}
               style={{
                 animation: `scroll${idx % 2 === 0 ? 'Left' : 'Right'} 180s linear infinite`,
               }}
@@ -168,7 +178,7 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
               {Array.from({ length: SCROLL_FACTOR }).flatMap((_, i) =>
                 row.map((repo, repoIdx) => {
                   const color = colorsForRow[repoIdx % colorsForRow.length];
-                  const isSkeleton = !repo.stargazersCount;
+                  const isSkeleton = isLoading || !repo.stargazersCount;
                   const key = `${idx}-${repo.owner}-${repo.name}-${repoIdx}-${i}`;
                   return <RepoItem key={key} repo={repo} color={color} isSkeleton={isSkeleton} />;
                 })
@@ -194,6 +204,25 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
 
           .animate-shimmer {
             animation: shimmer 1.5s infinite;
+          }
+
+          .special-repo-shimmer::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: linear-gradient(
+              100deg,
+              rgba(255, 255, 255, 0) 20%,
+              rgba(255, 255, 255, 0.4) 50%,
+              rgba(255, 255, 255, 0) 80%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+            pointer-events: none;
+            border-radius: inherit;
           }
 
           @media (prefers-reduced-motion: reduce) {

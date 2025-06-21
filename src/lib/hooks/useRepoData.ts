@@ -4,7 +4,9 @@ import { useParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { useRepoStore } from '@/lib/store';
 import { trpc } from '@/lib/trpc/client';
-import { useQuery } from '@tanstack/react-query';
+import { useAuth } from './useAuth';
+import { POPULAR_REPOS } from '../constants';
+import { RepoSummary } from '../github/types';
 
 interface RepoParams {
   user: string;
@@ -54,6 +56,30 @@ export function useRepoData() {
   };
 } 
 
-export const useReposForScrolling = (limit: number = 64) => {
-  return trpc.github.getReposForScrolling.useQuery({ limit });
+type RepoForScrolling = Partial<RepoSummary> & { owner: string; name: string, special?: boolean };
+
+export const useReposForScrolling = (
+  limit: number = 64, 
+  options: Parameters<typeof trpc.github.getReposForScrolling.useQuery>[1] = {}
+) => {
+  const auth = useAuth();
+  
+  const getInitialData = (): RepoForScrolling[] => {
+    return POPULAR_REPOS.slice(0, limit).map(r => ({ ...r, stargazersCount: 0, description: '' }));
+  };
+
+  const query = trpc.github.getReposForScrolling.useQuery(
+    { limit }, 
+    {
+      enabled: !auth.isLoading,
+      initialData: getInitialData(),
+      retry: false,
+      ...options,
+    }
+  );
+
+  return {
+    ...query,
+    data: query.data as RepoForScrolling[] | undefined,
+  };
 }; 

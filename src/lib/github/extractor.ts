@@ -46,7 +46,7 @@ export async function extractTarball(
       if (fileCount < maxFiles) {
         try {
           const content = Buffer.concat(chunks).toString('utf8');
-          files.push({ path: cleanPath, content });
+          files.push({ path: cleanPath, content, size: header.size || 0, type: 'file' });
           fileCount++;
         } catch {
           console.warn(`Skipping file that could not be decoded as UTF-8: ${cleanPath}`);

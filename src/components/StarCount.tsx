@@ -37,7 +37,7 @@ export function StarCount({ owner, repo, className = '' }: StarCountProps) {
       onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`relative inline-flex items-center gap-2 px-2 py-1 transition-all duration-300 text-black ${className}`}
+      className={`relative inline-flex items-center gap-2 px-1 sm:px-2 py-1 transition-all duration-300 text-black ${className}`}
       style={{ background: 'none', border: 'none', borderRadius: '9999px', cursor: 'pointer' }}
     >
       {/* Star Icon with rounded corners, spins and fills gold on hover */}
@@ -84,7 +84,7 @@ export function StarCount({ owner, repo, className = '' }: StarCountProps) {
           </span>
         )}
       </span>
-      <span className="font-semibold">Stargazers</span>
+      <span className="font-semibold hidden sm:inline">Stargazers</span>
       <span className="px-2 py-0.5 rounded-full text-base font-semibold w-16 text-center flex items-center justify-center">
         {isLoading ? (
           <Spinner size={14} />

@@ -1,7 +1,7 @@
-import { pgTable, text, timestamp, uuid, boolean, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, boolean, uniqueIndex, integer, jsonb, varchar } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
-  id: uuid('id').primaryKey().defaultRandom(),
+  id: text('id').primaryKey(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
   emailVerified: boolean('email_verified').default(false),
@@ -11,9 +11,9 @@ export const users = pgTable('users', {
 });
 
 export const sessions = pgTable('sessions', {
-  id: uuid('id').primaryKey().defaultRandom(),
+  id: text('id').primaryKey(),
   token: text('token').notNull().unique(),
-  userId: uuid('user_id').references(() => users.id).notNull(),
+  userId: text('user_id').references(() => users.id).notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
@@ -22,8 +22,8 @@ export const sessions = pgTable('sessions', {
 });
 
 export const accounts = pgTable('accounts', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').references(() => users.id).notNull(),
+  id: text('id').primaryKey(),
+  userId: text('user_id').references(() => users.id).notNull(),
   providerId: text('provider_id').notNull(),
   accountId: text('account_id').notNull(),
   scope: text('scope'),
@@ -37,4 +37,44 @@ export const accounts = pgTable('accounts', {
 }, (table) => ({
   // Ensure a user can only link a specific provider account once
   providerUserIdx: uniqueIndex('provider_user_idx').on(table.providerId, table.userId),
+}));
+
+export const cachedRepos = pgTable('cached_repos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  owner: varchar('owner', { length: 255 }).notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  stargazersCount: integer('stargazers_count').notNull().default(0),
+  forksCount: integer('forks_count').notNull().default(0),
+  language: text('language'),
+  topics: jsonb('topics').$type<string[]>(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  lastFetched: timestamp('last_fetched').notNull().defaultNow(),
+  isUserRepo: boolean('is_user_repo').notNull().default(false),
+  userId: text('user_id').references(() => users.id),
+}, (table) => ({
+  // Ensure unique repos per user
+  userRepoIdx: uniqueIndex('user_repo_idx').on(table.owner, table.name),
+  // Ensure unique global repos
+  globalRepoIdx: uniqueIndex('global_repo_idx').on(table.owner, table.name),
+}));
+
+export const trendingRepos = pgTable('trending_repos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  owner: text('owner').notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  stargazersCount: integer('stargazers_count').notNull().default(0),
+  forksCount: integer('forks_count').notNull().default(0),
+  language: text('language'),
+  topics: jsonb('topics').$type<string[]>(),
+  starsToday: integer('stars_today').notNull().default(0),
+  starsThisWeek: integer('stars_this_week').notNull().default(0),
+  starsThisMonth: integer('stars_this_month').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  lastFetched: timestamp('last_fetched').notNull().defaultNow(),
+}, (table) => ({
+  // Ensure unique trending repos
+  trendingRepoIdx: uniqueIndex('trending_repo_idx').on(table.owner, table.name),
 })); 

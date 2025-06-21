@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { useRepoStore } from '@/lib/store';
 import { trpc } from '@/lib/trpc/client';
+import { useQuery } from '@tanstack/react-query';
 
 interface RepoParams {
   user: string;
@@ -31,7 +32,13 @@ export function useRepoData() {
 
   useEffect(() => {
     if (data) {
-      store.setFiles(data.files, data.totalFiles);
+      // Convert GitHubFile[] to RepoFile[] format
+      const repoFiles = data.files.map(file => ({
+        path: file.path,
+        content: file.content || '',
+        size: file.size,
+      }));
+      store.setFiles(repoFiles, data.totalFiles);
     }
   }, [data, store.setFiles]);
 
@@ -46,3 +53,7 @@ export function useRepoData() {
     copied: store.copied,
   };
 } 
+
+export const useReposForScrolling = (limit: number = 64) => {
+  return trpc.github.getReposForScrolling.useQuery({ limit });
+}; 

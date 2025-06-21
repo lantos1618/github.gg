@@ -1,9 +1,7 @@
 #!/usr/bin/env bun
 
 import { test, expect } from 'bun:test';
-import { config } from 'dotenv';
-config({ path: '.env.local' });
-import { GitHubService } from './src/lib/github';
+import { GitHubService } from '../src/lib/github';
 
 test("GitHubService fetches files correctly", async () => {
   const githubService = new GitHubService();

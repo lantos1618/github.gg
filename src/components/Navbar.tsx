@@ -21,10 +21,11 @@ export function Navbar() {
 
   return (
     <nav className={`sticky top-0 z-50 w-full backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 relative`}>
-      <div className="container flex h-16 items-center px-4 sm:px-6">
+      <div className="container flex h-14 items-center px-4 sm:px-6">
         {/* Logo/Brand */}
         <Link href="/" className="mr-auto flex items-center gap-2">
-          <span className="font-bold">
+          <span className="font-bold sm:hidden">gh.gg</span>
+          <span className="font-bold hidden sm:inline">
             github.gg
           </span>
         </Link>
@@ -73,9 +74,9 @@ export function Navbar() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button onClick={signIn}>
-              <Github className="mr-2 h-4 w-4" />
-              Sign In
+            <Button onClick={signIn} size="sm" className="px-2 sm:px-3">
+              <Github className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Sign In</span>
             </Button>
           )}
         </div>

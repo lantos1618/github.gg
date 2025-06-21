@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import dotenv from 'dotenv';
+
+// Load .env.local for environments that don't automatically (e.g., bun test)
+dotenv.config({ path: '.env.local' });
 
 const envSchema = z.object({
   // Database

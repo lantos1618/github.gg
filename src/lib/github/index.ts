@@ -1,11 +1,12 @@
 import { Octokit } from '@octokit/rest';
 import { auth } from '../auth';
 import { env } from '../env';
-import { GitHubFilesResponse, RepositoryInfo, DEFAULT_MAX_FILES } from './types';
+import { GitHubFilesResponse, RepositoryInfo, DEFAULT_MAX_FILES, RepoSummary } from './types';
 import { extractTarball } from './extractor';
+import { POPULAR_REPOS } from '../constants';
 
 export { DEFAULT_MAX_FILES } from './types';
-export type { GitHubFile, GitHubFilesResponse, RepositoryInfo } from './types';
+export type { GitHubFile, GitHubFilesResponse, RepositoryInfo, RepoSummary } from './types';
 
 export class GitHubService {
   private octokit: Octokit;
@@ -45,6 +46,58 @@ export class GitHubService {
       }
       console.error(`Failed to get repository info for ${owner}/${repo}:`, error);
       throw new Error(`Failed to fetch repository data from GitHub.`);
+    }
+  }
+
+  async getRepositoryDetails(owner: string, repo: string): Promise<RepoSummary> {
+    try {
+      const { data } = await this.octokit.repos.get({
+        owner,
+        repo,
+      });
+      
+      return {
+        owner: data.owner.login,
+        name: data.name,
+        description: data.description || undefined,
+        stargazersCount: data.stargazers_count,
+        forksCount: data.forks_count,
+        language: data.language || undefined,
+        topics: data.topics || undefined,
+        url: data.html_url,
+      };
+    } catch (error: unknown) {
+      const e = error as { status?: number; message?: string };
+      if (e.status === 404) {
+        throw new Error(`Repository ${owner}/${repo} not found`);
+      }
+      console.error(`Failed to get repository details for ${owner}/${repo}:`, error);
+      throw new Error(`Failed to fetch repository details from GitHub.`);
+    }
+  }
+
+  async getUserRepositories(username?: string): Promise<RepoSummary[]> {
+    try {
+      // If no username provided, get authenticated user's repos
+      const endpoint = username 
+        ? this.octokit.repos.listForUser({ username, per_page: 100, sort: 'updated' })
+        : this.octokit.repos.listForAuthenticatedUser({ per_page: 100, sort: 'updated' });
+
+      const { data } = await endpoint;
+      
+      return data.map(repo => ({
+        owner: repo.owner.login,
+        name: repo.name,
+        description: repo.description || undefined,
+        stargazersCount: repo.stargazers_count || 0,
+        forksCount: repo.forks_count || 0,
+        language: repo.language || undefined,
+        topics: repo.topics || undefined,
+        url: repo.html_url,
+      }));
+    } catch (error: unknown) {
+      console.error('Failed to get user repositories:', error);
+      throw new Error('Failed to fetch user repositories from GitHub.');
     }
   }
 
@@ -121,7 +174,7 @@ export class GitHubService {
         ref: targetRef,
       };
     } catch (error) {
-      console.error('GitHub service error:', error);
+      // Don't log here; let the caller handle logging
       throw error;
     }
   }

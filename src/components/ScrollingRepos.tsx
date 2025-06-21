@@ -3,13 +3,14 @@
 import { POPULAR_REPOS } from '@/lib/constants';
 import { useReposForScrolling } from '@/lib/hooks/useRepoData';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { RepoSummary } from '@/lib/github/types';
 import { useMemo } from 'react';
 
 const NUM_ROWS = 8;
 const ITEMS_PER_ROW = 8;
+const SCROLL_FACTOR = 2; // Creates a longer, seamless row for scrolling
 const pastelColors = [
   '#FFD1D1', '#FFEACC', '#FEFFD8', '#E2FFDB', '#D4F9FF', '#D0E2FF', '#DDD9FF', '#FFE3FF'
 ];
@@ -25,25 +26,38 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
 
   return (
     <div className="inline-flex items-center mx-4">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.4 }}
-        className="text-sm px-4 py-2 rounded-lg relative overflow-hidden"
-        style={{ backgroundColor: color }}
+      <div
+        className="text-sm px-4 py-2 rounded-lg relative overflow-hidden flex items-center justify-center"
+        style={{ 
+          backgroundColor: color,
+          minWidth: '220px', // Prevent layout shifts
+          minHeight: '40px',
+        }}
       >
-        {isSkeleton && (
-           <div 
-             className="absolute inset-0 animate-shimmer"
-             style={{
-                backgroundImage: 'linear-gradient(to right, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%)',
-                backgroundSize: '200% 100%',
-             }}
-           />
-        )}
-        <div 
+        <AnimatePresence>
+          {isSkeleton && (
+            <motion.div
+              key="skeleton"
+              className="absolute inset-0"
+              initial={{ opacity: 1 }}
+              exit={{ opacity: 0, transition: { duration: 0.4 } }}
+            >
+              <div 
+                className="w-full h-full animate-shimmer"
+                style={{
+                  backgroundImage: 'linear-gradient(to right, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%)',
+                  backgroundSize: '200% 100%',
+                }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        <motion.div
           className="flex items-center space-x-2"
-          style={{ visibility: isSkeleton ? 'hidden' : 'visible' }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: isSkeleton ? 0 : 1 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
         >
           <span className="font-mono text-gray-950 font-medium">{owner}/</span>
           <span className="font-mono font-bold text-gray-950">{name}</span>
@@ -58,18 +72,25 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
             </svg>
             {stars}
           </div>
-        </div>
-
-        {!isSkeleton && (
-          <motion.button
-            onClick={() => router.push(`/${owner}/${name}`)}
-            className="absolute inset-0 cursor-pointer"
-            aria-label={`View ${owner}/${name} repository`}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          />
-        )}
-      </motion.div>
+        </motion.div>
+        
+        <AnimatePresence>
+          {!isSkeleton && (
+            <motion.div
+              className="absolute inset-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <button
+                onClick={() => router.push(`/${owner}/${name}`)}
+                className="absolute inset-0 cursor-pointer"
+                aria-label={`View ${owner}/${name} repository`}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };
@@ -78,19 +99,9 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
   const { data: fetchedRepos, isLoading } = useReposForScrolling(NUM_ROWS * ITEMS_PER_ROW);
 
   const reposToDisplay = useMemo(() => {
-    const initialRepos: RepoData[] = POPULAR_REPOS.slice(0, NUM_ROWS * ITEMS_PER_ROW);
-    
-    if (!fetchedRepos) {
-      return initialRepos;
-    }
-
-    const fetchedMap = new Map(fetchedRepos.map(r => [`${r.owner}/${r.name}`, r]));
-    
-    return initialRepos.map(initialRepo => {
-      const key = `${initialRepo.owner}/${initialRepo.name}`;
-      return fetchedMap.has(key) ? fetchedMap.get(key)! : initialRepo;
-    });
-
+    return (fetchedRepos && fetchedRepos.length > 0)
+      ? fetchedRepos
+      : POPULAR_REPOS.slice(0, NUM_ROWS * ITEMS_PER_ROW);
   }, [fetchedRepos]);
   
   const rows = Array.from({ length: NUM_ROWS }, (_, i) => 
@@ -113,11 +124,14 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
             animation: `scroll${idx % 2 === 0 ? 'Left' : 'Right'} 180s linear infinite`,
           }}
         >
-          {[...row, ...row].map((repo, repoIdx) => {
-            const color = pastelColors[(idx * ITEMS_PER_ROW + (repoIdx % ITEMS_PER_ROW)) % pastelColors.length];
-            const isSkeleton = !repo.stargazersCount;
-            return <RepoItem key={`${repo.owner}-${repo.name}-${repoIdx}`} repo={repo} color={color} isSkeleton={isSkeleton} />;
-          })}
+          {Array.from({ length: SCROLL_FACTOR }).flatMap((_, i) =>
+            row.map((repo, repoIdx) => {
+              const color = pastelColors[(idx * ITEMS_PER_ROW + repoIdx) % pastelColors.length];
+              const isSkeleton = !repo.stargazersCount;
+              const key = `${idx}-${repo.owner}-${repo.name}-${repoIdx}-${i}`;
+              return <RepoItem key={key} repo={repo} color={color} isSkeleton={isSkeleton} />;
+            })
+          )}
         </motion.div>
       ))}
 

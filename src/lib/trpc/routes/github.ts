@@ -4,7 +4,7 @@ import { createGitHubService, DEFAULT_MAX_FILES, GitHubFilesResponse } from '@/l
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
 import { cachedRepos } from '@/db/schema';
-import { eq, and, lt } from 'drizzle-orm';
+import { eq, and, gt } from 'drizzle-orm';
 import { POPULAR_REPOS } from '@/lib/constants';
 
 // Cache duration: 1 hour
@@ -108,7 +108,7 @@ export const githubRouter = router({
         const cachedReposData = await db
           .select()
           .from(cachedRepos)
-          .where(lt(cachedRepos.lastFetched, cacheThreshold))
+          .where(gt(cachedRepos.lastFetched, cacheThreshold))
           .limit(input.limit);
 
         // If we have enough fresh cached data, return it

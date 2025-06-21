@@ -56,16 +56,19 @@ export function useRepoData() {
   };
 } 
 
-type RepoForScrolling = Partial<RepoSummary> & { owner: string; name: string, special?: boolean };
-
 export const useReposForScrolling = (
   limit: number = 64, 
   options: Parameters<typeof trpc.github.getReposForScrolling.useQuery>[1] = {}
 ) => {
   const auth = useAuth();
   
-  const getInitialData = (): RepoForScrolling[] => {
-    return POPULAR_REPOS.slice(0, limit).map(r => ({ ...r, stargazersCount: 0, description: '' }));
+  const getInitialData = (): RepoSummary[] => {
+    return POPULAR_REPOS.slice(0, limit).map(r => ({ 
+      ...r, 
+      stargazersCount: 0, 
+      forksCount: 0,
+      description: '' 
+    }));
   };
 
   const query = trpc.github.getReposForScrolling.useQuery(
@@ -80,6 +83,6 @@ export const useReposForScrolling = (
 
   return {
     ...query,
-    data: query.data as RepoForScrolling[] | undefined,
+    data: query.data as RepoSummary[] | undefined,
   };
 }; 

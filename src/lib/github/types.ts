@@ -33,4 +33,5 @@ export interface RepoSummary {
   starsToday?: number;
   starsThisWeek?: number;
   starsThisMonth?: number;
+  special?: boolean;
 } 

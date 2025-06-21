@@ -1,10 +1,9 @@
 import { router, publicProcedure } from '@/lib/trpc/trpc';
 import { z } from 'zod';
-import { createGitHubService, DEFAULT_MAX_FILES, GitHubFilesResponse } from '@/lib/github';
+import { createGitHubService, DEFAULT_MAX_FILES, GitHubFilesResponse, RepoSummary } from '@/lib/github';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
 import { cachedRepos } from '@/db/schema';
-import { eq, and, gt } from 'drizzle-orm';
 import { POPULAR_REPOS } from '@/lib/constants';
 import { shuffleArray } from '@/lib/utils';
 
@@ -118,7 +117,7 @@ export const githubRouter = router({
               }
             });
           } catch (error) {
-            console.warn('Failed to fetch user repos, continuing with popular repos.');
+            console.warn('Failed to fetch user repos, continuing with popular repos.', error);
           }
         }
 
@@ -143,7 +142,7 @@ export const githubRouter = router({
         const allCachedRepos = await db.select().from(cachedRepos);
         const cachedReposMap = new Map(allCachedRepos.map(r => [`${r.owner}/${r.name}`, r]));
         
-        const reposFromCache: any[] = [];
+        const reposFromCache: RepoSummary[] = [];
         const reposToFetch: { owner: string; name: string; special?: boolean }[] = [];
 
         // 3. Differentiate between cached and to-be-fetched repos
@@ -196,12 +195,13 @@ export const githubRouter = router({
         );
         
         // 5. Combine and sort
-        const combinedRepos = [...reposFromCache, ...fetchedReposWithDetails.filter(Boolean)];
+        const validFetchedRepos = fetchedReposWithDetails.filter(Boolean) as RepoSummary[];
+        const combinedRepos = [...reposFromCache, ...validFetchedRepos];
         
         const finalRepoMap = new Map(combinedRepos.map(r => [`${r.owner}/${r.name}`, r]));
         const sortedRepos = targetRepoList
           .map(repo => finalRepoMap.get(`${repo.owner}/${repo.name}`))
-          .filter(Boolean);
+          .filter(Boolean) as RepoSummary[];
 
         return sortedRepos;
 

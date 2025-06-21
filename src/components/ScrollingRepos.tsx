@@ -1,25 +1,18 @@
 'use client';
 
-import { POPULAR_REPOS } from '@/lib/constants';
 import { useReposForScrolling } from '@/lib/hooks/useRepoData';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn, formatStars, shuffleArray, darkenColor } from '@/lib/utils';
 import { RepoSummary } from '@/lib/github/types';
 import { useMemo } from 'react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import React from 'react';
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { useAuth } from '@/lib/hooks/useAuth';
 
-const SPECIAL_REPOS = [
-  'Mail-0/Zero',
-  'lantos1618/github.gg',
-  'ossdotnow/ossdotnow'
-];
 
 const CustomTooltipContent = React.forwardRef<
-  React.ElementRef<typeof TooltipPrimitive.Content>,
+  React.ComponentRef<typeof TooltipPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> & { color: string }
 >(({ color, className, sideOffset = 4, ...props }, ref) => (
   <TooltipPrimitive.Portal>

@@ -3,7 +3,6 @@ import { auth } from '../auth';
 import { env } from '../env';
 import { GitHubFilesResponse, RepositoryInfo, DEFAULT_MAX_FILES, RepoSummary } from './types';
 import { extractTarball } from './extractor';
-import { POPULAR_REPOS } from '../constants';
 
 export { DEFAULT_MAX_FILES } from './types';
 export type { GitHubFile, GitHubFilesResponse, RepositoryInfo, RepoSummary } from './types';

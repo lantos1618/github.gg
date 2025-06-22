@@ -58,11 +58,11 @@ export function useRepoData() {
 
 export const useReposForScrolling = (
   limit: number = 64, 
-  options: Parameters<typeof trpc.github.getReposForScrolling.useQuery>[1] = {}
+  options: Parameters<typeof trpc.github.getReposForScrollingCached.useQuery>[1] = {}
 ) => {
   const auth = useAuth();
 
-  const query = trpc.github.getReposForScrolling.useQuery(
+  const query = trpc.github.getReposForScrollingCached.useQuery(
     { limit }, 
     {
       enabled: !auth.isLoading,
@@ -76,6 +76,36 @@ export const useReposForScrolling = (
       },
       staleTime: 5 * 60 * 1000, // 5 minutes
       refetchOnWindowFocus: false, // Don't refetch when window gains focus
+      ...options,
+    }
+  );
+
+  return {
+    ...query,
+    data: query.data as RepoSummary[] | undefined,
+  };
+};
+
+export const useUserReposForScrolling = (
+  limit: number = 10,
+  options: Parameters<typeof trpc.github.getReposForScrollingWithUser.useQuery>[1] = {}
+) => {
+  const auth = useAuth();
+
+  const query = trpc.github.getReposForScrollingWithUser.useQuery(
+    { limit },
+    {
+      enabled: !auth.isLoading && auth.isSignedIn,
+      retry: (failureCount, error) => {
+        // Don't retry on authentication errors
+        if (error?.data?.code === 'UNAUTHORIZED') {
+          return false;
+        }
+        // Retry up to 2 times for other errors
+        return failureCount < 2;
+      },
+      staleTime: 10 * 60 * 1000, // 10 minutes for user repos
+      refetchOnWindowFocus: false,
       ...options,
     }
   );

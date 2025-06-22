@@ -1,4 +1,4 @@
-import { router, publicProcedure } from '@/lib/trpc/trpc';
+import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
 import { z } from 'zod';
 import { createGitHubService, DEFAULT_MAX_FILES, GitHubFilesResponse, RepoSummary } from '@/lib/github';
 import { TRPCError } from '@trpc/server';
@@ -95,7 +95,140 @@ export const githubRouter = router({
       }
     }),
 
-    // Get repositories for ScrollingRepos component with caching
+    // Get cached repositories for immediate ScrollingRepos rendering
+    getReposForScrollingCached: publicProcedure
+    .input(z.object({
+      limit: z.number().min(1).max(100).default(64), // 8 rows * 8 items
+    }))
+    .query(async ({ input, ctx }) => {
+      try {
+        // 1. Get cached repos immediately
+        const now = new Date();
+        const cacheThreshold = new Date(now.getTime() - CACHE_DURATION);
+        const allCachedRepos = await db.select().from(cachedRepos);
+        
+        // Filter for fresh cached repos
+        const freshCachedRepos = allCachedRepos
+          .filter(repo => repo.lastFetched > cacheThreshold)
+          .map(repo => ({
+            ...repo,
+            special: POPULAR_REPOS.find(p => p.owner === repo.owner && p.name === repo.name)?.special
+          }));
+
+        // 2. If we have enough cached repos, return them immediately
+        if (freshCachedRepos.length >= input.limit) {
+          // Shuffle and return cached repos
+          return shuffleArray(freshCachedRepos).slice(0, input.limit);
+        }
+
+        // 3. If not enough cached repos, fill with popular repos
+        const popularReposNeeded = input.limit - freshCachedRepos.length;
+        const popularRepos = shuffleArray(POPULAR_REPOS)
+          .slice(0, popularReposNeeded)
+          .map(repo => ({
+            ...repo,
+            description: 'Loading repository details...',
+            stargazersCount: 0,
+            forksCount: 0,
+            language: null,
+            topics: [],
+            isUserRepo: false,
+            userId: null,
+            lastFetched: new Date(0), // Mark as stale
+          }));
+
+        return [...freshCachedRepos, ...popularRepos];
+
+      } catch (error: unknown) {
+        console.error('Failed to get cached repos for scrolling:', error);
+        
+        // Fallback to basic popular repos
+        return POPULAR_REPOS.slice(0, input.limit).map(repo => ({
+          ...repo,
+          description: 'Could not fetch details',
+          stargazersCount: 0,
+          forksCount: 0,
+        }));
+      }
+    }),
+
+    // Get user repositories and sprinkle them into the scrolling grid
+    getReposForScrollingWithUser: protectedProcedure
+    .input(z.object({
+      limit: z.number().min(1).max(20).default(10), // Limit user repos
+    }))
+    .query(async ({ input, ctx }) => {
+      try {
+        const githubService = await createGitHubService(ctx.session, ctx.req);
+        
+        // Get user repos
+        const userRepos = await githubService.getUserRepositories();
+        const limitedUserRepos = userRepos.slice(0, input.limit);
+
+        // Check cache for user repos
+        const now = new Date();
+        const cacheThreshold = new Date(now.getTime() - CACHE_DURATION);
+        const allCachedRepos = await db.select().from(cachedRepos);
+        const cachedReposMap = new Map(allCachedRepos.map(r => [`${r.owner}/${r.name}`, r]));
+
+        const userReposWithDetails = await Promise.allSettled(
+          limitedUserRepos.map(async (repo) => {
+            const cached = cachedReposMap.get(`${repo.owner}/${repo.name}`);
+            
+            if (cached && cached.lastFetched > cacheThreshold) {
+              // Use cached data
+              return { ...cached, isUserRepo: true };
+            }
+
+            try {
+              // Fetch fresh data
+              const details = await githubService.getRepositoryDetails(repo.owner, repo.name);
+              
+              // Cache the new details
+              await db.insert(cachedRepos).values({
+                owner: details.owner,
+                name: details.name,
+                description: details.description,
+                stargazersCount: details.stargazersCount,
+                forksCount: details.forksCount,
+                language: details.language,
+                topics: details.topics,
+                isUserRepo: true,
+                userId: ctx.user.id,
+                lastFetched: new Date(),
+              }).onConflictDoUpdate({
+                target: [cachedRepos.owner, cachedRepos.name],
+                set: {
+                  description: details.description,
+                  stargazersCount: details.stargazersCount,
+                  forksCount: details.forksCount,
+                  language: details.language,
+                  topics: details.topics,
+                  isUserRepo: true,
+                  userId: ctx.user.id,
+                  lastFetched: new Date(),
+                },
+              });
+
+              return { ...details, isUserRepo: true };
+            } catch (error) {
+              console.warn(`Failed to fetch details for user repo ${repo.owner}/${repo.name}:`, error);
+              return null;
+            }
+          })
+        );
+
+        return userReposWithDetails
+          .filter(result => result.status === 'fulfilled' && result.value)
+          .map(result => (result as PromiseFulfilledResult<RepoSummary>).value);
+
+      } catch (error: unknown) {
+        console.error('Failed to get user repos for scrolling:', error);
+        return [];
+      }
+    }),
+
+    // Legacy procedure - keeping for backward compatibility
     getReposForScrolling: publicProcedure
     .input(z.object({
       limit: z.number().min(1).max(100).default(64), // 8 rows * 8 items

@@ -1,6 +1,6 @@
 'use client';
 
-import { useReposForScrolling } from '@/lib/hooks/useRepoData';
+import { useReposForScrolling, useUserReposForScrolling } from '@/lib/hooks/useRepoData';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn, formatStars, shuffleArray } from '@/lib/utils';
@@ -67,7 +67,7 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
   const isPlaceholder = repo.isPlaceholder;
 
   const { ultraLightColor, lightColor, darkColor } = useMemo(() => {
-    const ultraLightColor = chroma(color).brighten(.2).hex();
+    const ultraLightColor = chroma(color).brighten(.8).hex();
     const lightColor = chroma(color).brighten(.2).hex();
     const darkColor = chroma(color).darken(1.5).saturate(0.8).hex();
     return { ultraLightColor, lightColor, darkColor };
@@ -96,13 +96,8 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
             whileTap={{ scale: 0.95, transition: { type: "spring", stiffness: 400, damping: 17 } }}
           >
             {isSpecial && (
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="absolute -top-2 -left-2 text-amber-500 transform -rotate-20">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="absolute -top-3 -left-3 text-amber-400 transform -rotate-40">
                 <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/>
-              </svg>
-            )}
-            {isUserRepo && (
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="absolute -top-1 -right-1 text-blue-500">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
               </svg>
             )}
             <div className="flex items-center justify-center text-center space-x-2">
@@ -148,45 +143,49 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
 RepoItem.displayName = 'RepoItem';
 
 export const ScrollingRepos = ({ className }: { className?: string }) => {
-  const { data: streamingRepos, isLoading } = useReposForScrolling(TOTAL_REPOS);
+  const { data: cachedRepos, isLoading: isCachedLoading } = useReposForScrolling(TOTAL_REPOS);
+  const { data: userRepos, isLoading: isUserLoading } = useUserReposForScrolling(10);
   
-  // Initialize with popular repos immediately for visual continuity
-  const [repos, setRepos] = useState<RepoData[]>(() => {
-    return POPULAR_REPOS.slice(0, TOTAL_REPOS).map(repo => ({
-      ...repo,
-      stargazersCount: 1200,
-      description: "Loading repository details...",
-      isPlaceholder: true,
-      special: repo.special
-    }));
-  });
+  // Initialize with cached repos immediately for visual continuity
+  const [repos, setRepos] = useState<RepoData[]>([]);
 
-  // Update repos as streaming data arrives
+  // Update repos as cached data arrives
   useEffect(() => {
-    if (streamingRepos && streamingRepos.length > 0) {
+    if (cachedRepos && cachedRepos.length > 0) {
+      setRepos(cachedRepos.map(repo => ({
+        ...repo,
+        isUserRepo: false,
+        isPlaceholder: false
+      })));
+    }
+  }, [cachedRepos]);
+
+  // Sprinkle in user repos when they arrive
+  useEffect(() => {
+    if (userRepos && userRepos.length > 0 && repos.length > 0) {
       setRepos(prev => {
         const newRepos = [...prev];
         
-        streamingRepos.forEach(streamingRepo => {
-          const isUserRepo = (streamingRepo as any).isUserRepo;
-          const repoKey = `${streamingRepo.owner}/${streamingRepo.name}`;
-          
-          // Find existing repo in the grid
+        userRepos.forEach(userRepo => {
+          // Check if user repo already exists
           const existingIndex = newRepos.findIndex(repo => 
-            repo.owner === streamingRepo.owner && repo.name === streamingRepo.name
+            repo.owner === userRepo.owner && repo.name === userRepo.name
           );
           
           if (existingIndex !== -1) {
-            // Update existing repo with real data
+            // Update existing repo to mark as user repo
             newRepos[existingIndex] = { 
-              ...streamingRepo, 
-              isUserRepo: isUserRepo || false,
-              isPlaceholder: false // Remove placeholder status
+              ...newRepos[existingIndex], 
+              ...userRepo,
+              isUserRepo: true 
             };
-          } else if (isUserRepo) {
+          } else {
             // Insert new user repo at random position
             const randomIndex = Math.floor(Math.random() * newRepos.length);
-            newRepos.splice(randomIndex, 0, { ...streamingRepo, isUserRepo: true, isPlaceholder: false });
+            newRepos.splice(randomIndex, 0, { 
+              ...userRepo, 
+              isUserRepo: true 
+            });
             // Remove last repo to maintain grid size
             newRepos.pop();
           }
@@ -195,7 +194,7 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
         return newRepos;
       });
     }
-  }, [streamingRepos]);
+  }, [userRepos, repos.length]);
 
   // Distribute repos across rows for circular scrolling
   const rows = useMemo(() => {
@@ -258,7 +257,7 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
                       <RepoItem 
                         repo={repo} 
                         color={color} 
-                        isSkeleton={isLoading && repo.isPlaceholder} 
+                        isSkeleton={isCachedLoading && repo.isPlaceholder} 
                       />
                     </motion.div>
                   );

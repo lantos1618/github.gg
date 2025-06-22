@@ -42,7 +42,7 @@ export function useRepoData() {
       }));
       store.setFiles(repoFiles, data.totalFiles);
     }
-  }, [data, store.setFiles]);
+  }, [data]);
 
   return {
     params,
@@ -76,7 +76,15 @@ export const useReposForScrolling = (
     {
       enabled: !auth.isLoading,
       initialData: getInitialData(),
-      retry: false,
+      retry: (failureCount, error) => {
+        // Don't retry on authentication errors
+        if (error?.data?.code === 'UNAUTHORIZED') {
+          return false;
+        }
+        // Retry up to 2 times for other errors
+        return failureCount < 2;
+      },
+      staleTime: 5 * 60 * 1000, // 5 minutes
       ...options,
     }
   );

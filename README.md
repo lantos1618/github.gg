@@ -17,7 +17,7 @@ A modern GitHub repository analyzer built with Next.js, Better Auth, and Octokit
 ### Prerequisites
 
 * Bun (recommended) or Node.js 18+
-* Docker (for database)
+* Docker (for local database)
 * GitHub OAuth App credentials
 
 ### 1. Clone and Install
@@ -28,19 +28,7 @@ cd github.gg
 bun install
 ```
 
-### 2. Set Up Database
-
-```bash
-# Start PostgreSQL with Docker and run migrations
-bun run db:setup
-```
-
-This will:
-- Start a PostgreSQL container
-- Create the database schema
-- Run all migrations
-
-### 3. Configure Environment
+### 2. Set Up Environment
 
 Copy the example environment file and configure your GitHub OAuth credentials:
 
@@ -53,6 +41,16 @@ Update the following variables in `.env.local`:
 - `GITHUB_CLIENT_SECRET`: Your GitHub OAuth App Client Secret
 - `BETTER_AUTH_SECRET`: A secure random string for session encryption
 
+### 3. Start Database (Local Development)
+
+```bash
+# Start PostgreSQL with Docker
+bun run db:start
+
+# Run database migrations
+bun run db:push
+```
+
 ### 4. Start Development Server
 
 ```bash
@@ -63,25 +61,33 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Database Management
 
-### Start Database
+### Local Development
 ```bash
+# Start database
 bun run db:start
-```
 
-### Stop Database
-```bash
+# Stop database
 bun run db:stop
-```
 
-### Reset Database (⚠️ Destructive)
-```bash
+# Reset database (⚠️ Destructive - drops all data)
 bun run db:reset
+
+# View database in Drizzle Studio
+bun run db:studio
+
+# Generate new migration
+bun run db:generate
+
+# Apply migrations
+bun run db:push
 ```
 
-### View Database Schema
-```bash
-bun run db:studio
-```
+### Production Deployment (Vercel)
+
+For production deployments:
+1. Set `DATABASE_URL` in your Vercel environment variables
+2. Add `bun run db:push` to your build command or as a post-deploy hook
+3. No Docker needed - Vercel handles the database connection
 
 ## Environment Variables
 
@@ -91,6 +97,21 @@ bun run db:studio
 | `BETTER_AUTH_SECRET` | Secret for session encryption | Yes |
 | `GITHUB_CLIENT_ID` | GitHub OAuth App Client ID | Yes |
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth App Client Secret | Yes |
+| `NEXT_PUBLIC_APP_URL` | Your app's public URL | Yes |
+| `GITHUB_PUBLIC_API_KEY` | GitHub API key for unauthenticated requests | No |
+| `GEMINI_API_KEY` | Google Gemini API key for AI analysis | No |
+
+## Development vs Production
+
+### Local Development
+- Uses Docker Compose for PostgreSQL
+- Loads environment from `.env.local`
+- Run `bun run db:push` to apply migrations
+
+### Production (Vercel)
+- Uses production PostgreSQL (e.g., Vercel Postgres, Supabase, etc.)
+- Environment variables set in Vercel dashboard
+- Migrations run during build or deployment
 
 ## Contributing
 

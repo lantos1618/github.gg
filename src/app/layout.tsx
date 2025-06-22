@@ -32,6 +32,24 @@ export default function RootLayout({
       >
         <TRPCProvider>
           <Navbar />
+          {process.env.NODE_ENV === 'development' && (
+            <div style={{
+              position: 'fixed',
+              top: 12,
+              right: 12,
+              zIndex: 1000,
+              background: '#e11d48',
+              color: 'white',
+              padding: '4px 12px',
+              borderRadius: '6px',
+              fontWeight: 700,
+              letterSpacing: 1,
+              fontSize: 14,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+            }}>
+              DEV
+            </div>
+          )}
           <main>{children}</main>
           <Toaster position="top-right" richColors />
         </TRPCProvider>

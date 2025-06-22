@@ -6,6 +6,8 @@ import { db } from '@/db';
 import { cachedRepos } from '@/db/schema';
 import { POPULAR_REPOS } from '@/lib/constants';
 import { shuffleArray } from '@/lib/utils';
+import { eq } from 'drizzle-orm';
+import { user } from '@/db/schema';
 
 // Cache duration: 1 hour
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
@@ -156,35 +158,51 @@ export const githubRouter = router({
         });
 
         // 4. Fetch details for non-cached repos
-        const fetchedReposWithDetails = await Promise.all(
+        const fetchedReposWithDetails = await Promise.allSettled(
           reposToFetch.map(async (repo) => {
             try {
               const details = await githubService.getRepositoryDetails(repo.owner, repo.name);
               const userId = ctx.session?.user?.id ?? null;
               
-              // Cache the new details
-              await db.insert(cachedRepos).values({
-                owner: details.owner,
-                name: details.name,
-                description: details.description,
-                stargazersCount: details.stargazersCount,
-                forksCount: details.forksCount,
-                language: details.language,
-                topics: details.topics,
-                isUserRepo: !!userId,
-                userId: userId,
-                lastFetched: new Date(),
-              }).onConflictDoUpdate({
-                target: [cachedRepos.owner, cachedRepos.name],
-                set: {
+              // Only set userId if user exists in database
+              let finalUserId = null;
+              if (userId) {
+                try {
+                  const userExists = await db.select().from(user).where(eq(user.id, userId)).limit(1);
+                  finalUserId = userExists.length > 0 ? userId : null;
+                } catch {
+                  console.warn(`User ${userId} not found in database, caching repo without user association`);
+                  finalUserId = null;
+                }
+              }
+              
+              // Cache the new details with proper error handling
+              try {
+                await db.insert(cachedRepos).values({
+                  owner: details.owner,
+                  name: details.name,
                   description: details.description,
                   stargazersCount: details.stargazersCount,
                   forksCount: details.forksCount,
                   language: details.language,
                   topics: details.topics,
+                  isUserRepo: !!finalUserId,
+                  userId: finalUserId,
                   lastFetched: new Date(),
-                },
-              });
+                }).onConflictDoUpdate({
+                  target: [cachedRepos.owner, cachedRepos.name],
+                  set: {
+                    description: details.description,
+                    stargazersCount: details.stargazersCount,
+                    forksCount: details.forksCount,
+                    language: details.language,
+                    topics: details.topics,
+                    lastFetched: new Date(),
+                  },
+                });
+              } catch (dbError) {
+                console.warn(`Failed to cache repo ${repo.owner}/${repo.name}:`, dbError);
+              }
 
               return { ...details, special: repo.special };
             } catch (error) {
@@ -195,7 +213,9 @@ export const githubRouter = router({
         );
         
         // 5. Combine and sort
-        const validFetchedRepos = fetchedReposWithDetails.filter(Boolean) as RepoSummary[];
+        const validFetchedRepos = fetchedReposWithDetails
+          .filter(result => result.status === 'fulfilled' && result.value)
+          .map(result => (result as PromiseFulfilledResult<RepoSummary>).value);
         const combinedRepos = [...reposFromCache, ...validFetchedRepos];
         
         const finalRepoMap = new Map(combinedRepos.map(r => [`${r.owner}/${r.name}`, r]));
@@ -230,6 +250,18 @@ export const githubRouter = router({
         const details = await githubService.getRepositoryDetails(input.owner, input.repo);
         const userId = ctx.session?.user?.id ?? null;
         
+        // Only set userId if user exists in database
+        let finalUserId = null;
+        if (userId) {
+          try {
+            const userExists = await db.select().from(user).where(eq(user.id, userId)).limit(1);
+            finalUserId = userExists.length > 0 ? userId : null;
+          } catch {
+            console.warn(`User ${userId} not found in database, caching repo without user association`);
+            finalUserId = null;
+          }
+        }
+        
         await db
           .insert(cachedRepos)
           .values({
@@ -240,8 +272,8 @@ export const githubRouter = router({
             forksCount: details.forksCount,
             language: details.language,
             topics: details.topics,
-            isUserRepo: !!userId,
-            userId: userId,
+            isUserRepo: !!finalUserId,
+            userId: finalUserId,
             lastFetched: new Date(),
           })
           .onConflictDoUpdate({
@@ -256,7 +288,7 @@ export const githubRouter = router({
             },
           });
 
-        return { ...details, userId };
+        return { ...details, userId: finalUserId };
       } catch (error: unknown) {
         console.error('Failed to refresh repo cache:', error);
         throw new TRPCError({

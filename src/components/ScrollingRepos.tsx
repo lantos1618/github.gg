@@ -5,11 +5,10 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn, formatStars, shuffleArray, darkenColor } from '@/lib/utils';
 import { RepoSummary } from '@/lib/github/types';
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import React from 'react';
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-
 
 const CustomTooltipContent = React.forwardRef<
   React.ComponentRef<typeof TooltipPrimitive.Content>,
@@ -42,7 +41,7 @@ const pastelColors = [
 
 type RepoData = Partial<RepoSummary> & { owner: string; name: string, stars?: string | number, special?: boolean };
 
-const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, isSkeleton?: boolean }) => {
+const RepoItem = React.memo(({ repo, color, isSkeleton }: { repo: RepoData; color: string, isSkeleton?: boolean }) => {
   const router = useRouter();
   
   const owner = repo.owner;
@@ -51,6 +50,11 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
   const description = repo.description || 'No description available.';
   const tooltipColor = useMemo(() => darkenColor(color, 40), [color]);
   const isSpecial = repo.special;
+
+  // Memoize click handler to prevent unnecessary re-renders
+  const handleClick = useCallback(() => {
+    router.push(`/${owner}/${name}`);
+  }, [router, owner, name]);
 
   return (
     <Tooltip>
@@ -73,8 +77,10 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
                 <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/>
               </svg>
             )}
-            <AnimatePresence>
-              {isSkeleton && (
+            
+            {/* Single AnimatePresence to handle all state changes */}
+            <AnimatePresence mode="wait">
+              {isSkeleton ? (
                 <motion.div
                   key="skeleton"
                   className="absolute inset-0"
@@ -87,6 +93,20 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
                       backgroundImage: 'linear-gradient(to right, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%)',
                       backgroundSize: '200% 100%',
                     }}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="content"
+                  className="absolute inset-0"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <button
+                    onClick={handleClick}
+                    className="absolute inset-0 cursor-pointer"
+                    aria-label={`View ${owner}/${name} repository`}
                   />
                 </motion.div>
               )}
@@ -109,23 +129,6 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
                 {stars}
               </div>
             </div>
-            
-            <AnimatePresence>
-              {!isSkeleton && (
-                <motion.div
-                  className="absolute inset-0"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  <button
-                    onClick={() => router.push(`/${owner}/${name}`)}
-                    className="absolute inset-0 cursor-pointer"
-                    aria-label={`View ${owner}/${name} repository`}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
           </motion.div>
         </div>
       </TooltipTrigger>
@@ -136,18 +139,59 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
       )}
     </Tooltip>
   );
-};
+});
+RepoItem.displayName = 'RepoItem';
 
 export const ScrollingRepos = ({ className }: { className?: string }) => {
   const { data: reposToDisplay, isLoading } = useReposForScrolling(NUM_ROWS * ITEMS_PER_ROW);
 
-  const rows = Array.from({ length: NUM_ROWS }, (_, i) => 
-    (reposToDisplay || []).slice(i * ITEMS_PER_ROW, (i + 1) * ITEMS_PER_ROW)
-  );
+  // Fix: Properly distribute repos across rows, handling cases where we have fewer than 64 repos
+  const rows = useMemo(() => {
+    const repos = reposToDisplay || [];
+    const totalRepos = repos.length;
+    
+    // If we have fewer repos than needed, distribute them evenly
+    if (totalRepos < NUM_ROWS * ITEMS_PER_ROW) {
+      const reposPerRow = Math.ceil(totalRepos / NUM_ROWS);
+      return Array.from({ length: NUM_ROWS }, (_, i) => {
+        const startIndex = i * reposPerRow;
+        const endIndex = Math.min(startIndex + reposPerRow, totalRepos);
+        return repos.slice(startIndex, endIndex);
+      });
+    }
+    
+    // Normal case: exactly NUM_ROWS * ITEMS_PER_ROW repos
+    return Array.from({ length: NUM_ROWS }, (_, i) => 
+      repos.slice(i * ITEMS_PER_ROW, (i + 1) * ITEMS_PER_ROW)
+    );
+  }, [reposToDisplay]);
 
+  // Memoize row colors to prevent unnecessary re-renders
   const rowColors = useMemo(() => {
     return Array.from({ length: NUM_ROWS }, () => shuffleArray(pastelColors));
   }, []);
+
+  // Fix: Create duplicated rows properly, ensuring each row has enough items for seamless scrolling
+  const duplicatedRows = useMemo(() => {
+    return rows.map(row => {
+      // If row is empty, return empty array
+      if (row.length === 0) return [];
+      
+      // If row has fewer items than needed for seamless scrolling, repeat the items
+      const itemsNeeded = ITEMS_PER_ROW * SCROLL_FACTOR;
+      if (row.length >= itemsNeeded) {
+        // We have enough items, just duplicate the entire row
+        return Array.from({ length: SCROLL_FACTOR }).flatMap(() => row);
+      } else {
+        // We need to repeat items to fill the space
+        const repeatedItems = [];
+        for (let i = 0; i < itemsNeeded; i++) {
+          repeatedItems.push(row[i % row.length]);
+        }
+        return repeatedItems;
+      }
+    });
+  }, [rows]);
 
   return (
     <TooltipProvider>
@@ -157,9 +201,28 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
       >
         {rows.map((row, idx) => {
           const colorsForRow = rowColors[idx];
+          const duplicatedRow = duplicatedRows[idx];
+          
+          // Skip rendering empty rows
+          if (row.length === 0) {
+            return (
+              <motion.div
+                key={`row-${idx}`}
+                className="flex whitespace-nowrap py-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.3 }} // Dimmed for empty rows
+                transition={{ duration: 0.5, delay: isLoading ? 0.5 : 0 }}
+              >
+                <div className="text-gray-400 text-sm px-4">
+                  Loading repositories...
+                </div>
+              </motion.div>
+            );
+          }
+          
           return (
             <motion.div
-              key={idx}
+              key={`row-${idx}`}
               className="flex whitespace-nowrap py-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -168,14 +231,13 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
                 animation: `scroll${idx % 2 === 0 ? 'Left' : 'Right'} 180s linear infinite`,
               }}
             >
-              {Array.from({ length: SCROLL_FACTOR }).flatMap((_, i) =>
-                row.map((repo, repoIdx) => {
-                  const color = colorsForRow[repoIdx % colorsForRow.length];
-                  const isSkeleton = isLoading || !repo.stargazersCount;
-                  const key = `${idx}-${repo.owner}-${repo.name}-${repoIdx}-${i}`;
-                  return <RepoItem key={key} repo={repo} color={color} isSkeleton={isSkeleton} />;
-                })
-              )}
+              {duplicatedRow.map((repo, repoIdx) => {
+                const color = colorsForRow[repoIdx % colorsForRow.length];
+                const isSkeleton = isLoading || !repo.stargazersCount;
+                // Simplified key that doesn't include loop index
+                const key = `${idx}-${repo.owner}-${repo.name}-${repoIdx}`;
+                return <RepoItem key={key} repo={repo} color={color} isSkeleton={isSkeleton} />;
+              })}
             </motion.div>
           );
         })}

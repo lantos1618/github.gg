@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 // Load .env.local for environments that don't automatically (e.g., bun test)
 dotenv.config({ path: '.env.local' });
 
+
 const envSchema = z.object({
   // Database
   DATABASE_URL: z.string().url(),
@@ -14,6 +15,9 @@ const envSchema = z.object({
   
   // GitHub API
   GITHUB_PUBLIC_API_KEY: z.string().min(1),
+  
+  // AI Analysis
+  GEMINI_API_KEY: z.string().min(1),
   
   // Auth
   BETTER_AUTH_SECRET: z.string().min(1),

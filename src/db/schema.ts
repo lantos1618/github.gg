@@ -1,43 +1,54 @@
 import { pgTable, text, timestamp, uuid, boolean, uniqueIndex, integer, jsonb, varchar } from 'drizzle-orm/pg-core';
 
-export const users = pgTable('users', {
+export const user = pgTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
-  emailVerified: boolean('email_verified').default(false),
+  emailVerified: boolean('emailVerified').default(false),
   image: text('image'),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
+  createdAt: timestamp('createdAt').defaultNow(),
+  updatedAt: timestamp('updatedAt').defaultNow(),
 });
 
-export const sessions = pgTable('sessions', {
+export const session = pgTable('session', {
   id: text('id').primaryKey(),
   token: text('token').notNull().unique(),
-  userId: text('user_id').references(() => users.id).notNull(),
-  expiresAt: timestamp('expires_at').notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
-  ipAddress: text('ip_address'),
-  userAgent: text('user_agent'),
+  userId: text('userId').references(() => user.id).notNull(),
+  expiresAt: timestamp('expiresAt').notNull(),
+  createdAt: timestamp('createdAt').defaultNow(),
+  updatedAt: timestamp('updatedAt').defaultNow(),
+  ipAddress: text('ipAddress'),
+  userAgent: text('userAgent'),
 });
 
-export const accounts = pgTable('accounts', {
+export const account = pgTable('account', {
   id: text('id').primaryKey(),
-  userId: text('user_id').references(() => users.id).notNull(),
-  providerId: text('provider_id').notNull(),
-  accountId: text('account_id').notNull(),
+  userId: text('userId').references(() => user.id).notNull(),
+  providerId: text('providerId').notNull(),
+  accountId: text('accountId').notNull(),
   scope: text('scope'),
-  idToken: text('id_token'),
-  accessToken: text('access_token'),
-  refreshToken: text('refresh_token'),
-  accessTokenExpiresAt: timestamp('access_token_expires_at'),
-  refreshTokenExpiresAt: timestamp('refresh_token_expires_at'),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
+  idToken: text('idToken'),
+  accessToken: text('accessToken'),
+  refreshToken: text('refreshToken'),
+  accessTokenExpiresAt: timestamp('accessTokenExpiresAt'),
+  refreshTokenExpiresAt: timestamp('refreshTokenExpiresAt'),
+  createdAt: timestamp('createdAt').defaultNow(),
+  updatedAt: timestamp('updatedAt').defaultNow(),
 }, (table) => ({
   // Ensure a user can only link a specific provider account once
   providerUserIdx: uniqueIndex('provider_user_idx').on(table.providerId, table.userId),
 }));
+
+export const verification = pgTable('verification', {
+  id: text('id').primaryKey(),
+  userId: text('userId').references(() => user.id),
+  identifier: text('identifier').notNull(),
+  value: text('value'),
+  token: text('token').unique(),
+  expiresAt: timestamp('expiresAt').notNull(),
+  createdAt: timestamp('createdAt').defaultNow(),
+  updatedAt: timestamp('updatedAt').defaultNow(),
+});
 
 export const cachedRepos = pgTable('cached_repos', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -51,7 +62,7 @@ export const cachedRepos = pgTable('cached_repos', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   lastFetched: timestamp('last_fetched').notNull().defaultNow(),
   isUserRepo: boolean('is_user_repo').notNull().default(false),
-  userId: text('user_id').references(() => users.id),
+  userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
 }, (table) => ({
   // Ensure unique repos per user
   userRepoIdx: uniqueIndex('user_repo_idx').on(table.owner, table.name),
@@ -77,4 +88,23 @@ export const trendingRepos = pgTable('trending_repos', {
 }, (table) => ({
   // Ensure unique trending repos
   trendingRepoIdx: uniqueIndex('trending_repo_idx').on(table.owner, table.name),
+}));
+
+export const insightsCache = pgTable('insights_cache', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').references(() => user.id).notNull(),
+  repoOwner: text('repo_owner').notNull(),
+  repoName: text('repo_name').notNull(),
+  ref: text('ref').default('main'),
+  insights: jsonb('insights').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  // Ensure unique insights per user, repo, and ref
+  insightsUniqueIdx: uniqueIndex('insights_unique_idx').on(
+    table.userId,
+    table.repoOwner,
+    table.repoName,
+    table.ref
+  ),
 })); 

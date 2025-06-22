@@ -66,10 +66,11 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
   const isUserRepo = repo.isUserRepo;
   const isPlaceholder = repo.isPlaceholder;
 
-  const { lightColor, darkColor } = useMemo(() => {
-    const light = color;
-    const dark = chroma(color).darken(1.4).saturate(0.5).hex();
-    return { lightColor: light, darkColor: dark };
+  const { ultraLightColor, lightColor, darkColor } = useMemo(() => {
+    const ultraLightColor = chroma(color).brighten(.2).hex();
+    const lightColor = chroma(color).brighten(.2).hex();
+    const darkColor = chroma(color).darken(1.5).saturate(0.8).hex();
+    return { ultraLightColor, lightColor, darkColor };
   }, [color]);
 
   const handleClick = useCallback(() => {
@@ -132,11 +133,11 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
         </div>
       </TooltipTrigger>
       {!isSkeleton && (
-        <CustomTooltipContent backgroundColor={darkColor} textColor={lightColor}>
+        <CustomTooltipContent backgroundColor={darkColor} textColor={ultraLightColor}>
           <p className="max-w-xs">
             {isPlaceholder 
-              ? "Popular repository - loading details..." 
-              : description
+              ? "Loading repository details..." 
+              : description || "No description available."
             }
           </p>
         </CustomTooltipContent>
@@ -149,12 +150,12 @@ RepoItem.displayName = 'RepoItem';
 export const ScrollingRepos = ({ className }: { className?: string }) => {
   const { data: streamingRepos, isLoading } = useReposForScrolling(TOTAL_REPOS);
   
-  // Initialize with popular repos immediately
+  // Initialize with popular repos immediately for visual continuity
   const [repos, setRepos] = useState<RepoData[]>(() => {
     return POPULAR_REPOS.slice(0, TOTAL_REPOS).map(repo => ({
       ...repo,
       stargazersCount: 1200,
-      description: "Popular repository",
+      description: "Loading repository details...",
       isPlaceholder: true,
       special: repo.special
     }));
@@ -166,21 +167,28 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
       setRepos(prev => {
         const newRepos = [...prev];
         
-        // Find user repos that aren't already in the grid
         streamingRepos.forEach(streamingRepo => {
           const isUserRepo = (streamingRepo as any).isUserRepo;
-          if (isUserRepo) {
-            const exists = newRepos.some(repo => 
-              repo.owner === streamingRepo.owner && repo.name === streamingRepo.name
-            );
-            
-            if (!exists) {
-              // Insert user repo at random position
-              const randomIndex = Math.floor(Math.random() * newRepos.length);
-              newRepos.splice(randomIndex, 0, { ...streamingRepo, isUserRepo: true });
-              // Remove last repo to maintain grid size
-              newRepos.pop();
-            }
+          const repoKey = `${streamingRepo.owner}/${streamingRepo.name}`;
+          
+          // Find existing repo in the grid
+          const existingIndex = newRepos.findIndex(repo => 
+            repo.owner === streamingRepo.owner && repo.name === streamingRepo.name
+          );
+          
+          if (existingIndex !== -1) {
+            // Update existing repo with real data
+            newRepos[existingIndex] = { 
+              ...streamingRepo, 
+              isUserRepo: isUserRepo || false,
+              isPlaceholder: false // Remove placeholder status
+            };
+          } else if (isUserRepo) {
+            // Insert new user repo at random position
+            const randomIndex = Math.floor(Math.random() * newRepos.length);
+            newRepos.splice(randomIndex, 0, { ...streamingRepo, isUserRepo: true, isPlaceholder: false });
+            // Remove last repo to maintain grid size
+            newRepos.pop();
           }
         });
         

@@ -61,21 +61,11 @@ export const useReposForScrolling = (
   options: Parameters<typeof trpc.github.getReposForScrolling.useQuery>[1] = {}
 ) => {
   const auth = useAuth();
-  
-  const getInitialData = (): RepoSummary[] => {
-    return POPULAR_REPOS.slice(0, limit).map(r => ({ 
-      ...r, 
-      stargazersCount: 1200, // Use number for consistency
-      forksCount: 0,
-      description: 'Popular repository' 
-    }));
-  };
 
   const query = trpc.github.getReposForScrolling.useQuery(
     { limit }, 
     {
       enabled: !auth.isLoading,
-      initialData: getInitialData(),
       retry: (failureCount, error) => {
         // Don't retry on authentication errors
         if (error?.data?.code === 'UNAUTHORIZED') {

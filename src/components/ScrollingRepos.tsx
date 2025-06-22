@@ -14,31 +14,32 @@ import chroma from 'chroma-js';
 
 const CustomTooltipContent = React.forwardRef<
   React.ComponentRef<typeof TooltipPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> & { color: string }
->(({ color, className, sideOffset = 4, ...props }, ref) => {
-  const brightenedColor = chroma(color).brighten(0.4).hex();
-  
+  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> & { 
+    backgroundColor: string;
+    textColor: string;
+  }
+>(({ backgroundColor, textColor, className, sideOffset = 4, ...props }, ref) => {
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Content
         ref={ref}
         sideOffset={sideOffset}
         className={cn(
-          "z-50 overflow-hidden rounded-md px-3 py-1.5 text-sm text-gray-950",
+          "z-50 overflow-hidden rounded-md px-3 py-1.5 text-sm",
           className
         )}
-        style={{ backgroundColor: brightenedColor, border: 'none' }}
+        style={{ backgroundColor: backgroundColor, color: textColor, border: 'none' }}
         {...props}
       >
         {props.children}
-        <TooltipPrimitive.Arrow style={{ fill: brightenedColor }} />
+        <TooltipPrimitive.Arrow style={{ fill: backgroundColor }} />
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>
   );
 });
 CustomTooltipContent.displayName = 'CustomTooltipContent';
 
-const NUM_ROWS = 8;
+const NUM_ROWS = 10;
 const ITEMS_PER_ROW = 8;
 const TOTAL_REPOS = NUM_ROWS * ITEMS_PER_ROW;
 const pastelColors = [
@@ -57,7 +58,6 @@ type RepoData = Partial<RepoSummary> & {
 
 const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, isSkeleton?: boolean }) => {
   const router = useRouter();
-  
   const owner = repo.owner;
   const name = repo.name;
   const stars = repo.stargazersCount ? formatStars(repo.stargazersCount) : '0';
@@ -66,7 +66,12 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
   const isUserRepo = repo.isUserRepo;
   const isPlaceholder = repo.isPlaceholder;
 
-  // Memoize click handler to prevent unnecessary re-renders
+  const { lightColor, darkColor } = useMemo(() => {
+    const light = color;
+    const dark = chroma(color).darken(1.4).saturate(0.5).hex();
+    return { lightColor: light, darkColor: dark };
+  }, [color]);
+
   const handleClick = useCallback(() => {
     router.push(`/${owner}/${name}`);
   }, [router, owner, name]);
@@ -82,7 +87,8 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
               isUserRepo && "ring-2 ring-blue-500 ring-opacity-50"
             )}
             style={{ 
-              backgroundColor: color,
+              backgroundColor: lightColor,
+              color: darkColor,
               minWidth: '220px', 
               minHeight: '40px',
             }}
@@ -93,19 +99,17 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
                 <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/>
               </svg>
             )}
-            
             {isUserRepo && (
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="absolute -top-1 -right-1 text-blue-500">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
               </svg>
             )}
-            
             <div className="flex items-center justify-center text-center space-x-2">
-              <span className="font-mono text-gray-950">
+              <span className="font-mono">
                 <span className="font-medium">{owner}/</span>
                 <span className="font-bold">{name}</span>
               </span>
-              <div className="flex items-center text-xs text-gray-950">
+              <div className="flex items-center text-xs">
                 <svg 
                   className="w-3 h-3 mr-0.5" 
                   fill="currentColor" 
@@ -117,7 +121,6 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
                 {stars}
               </div>
             </div>
-            
             {!isSkeleton && (
               <button
                 onClick={handleClick}
@@ -129,7 +132,7 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
         </div>
       </TooltipTrigger>
       {!isSkeleton && (
-        <CustomTooltipContent color={color}>
+        <CustomTooltipContent backgroundColor={darkColor} textColor={lightColor}>
           <p className="max-w-xs">
             {isPlaceholder 
               ? "Popular repository - loading details..." 
@@ -141,6 +144,7 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
     </Tooltip>
   );
 };
+RepoItem.displayName = 'RepoItem';
 
 export const ScrollingRepos = ({ className }: { className?: string }) => {
   const { data: streamingRepos, isLoading } = useReposForScrolling(TOTAL_REPOS);

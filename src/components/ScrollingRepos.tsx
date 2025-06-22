@@ -3,53 +3,68 @@
 import { useReposForScrolling } from '@/lib/hooks/useRepoData';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn, formatStars, shuffleArray, darkenColor } from '@/lib/utils';
+import { cn, formatStars, shuffleArray } from '@/lib/utils';
 import { RepoSummary } from '@/lib/github/types';
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState, useEffect } from 'react';
 import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import React from 'react';
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import { POPULAR_REPOS } from '@/lib/constants';
+import chroma from 'chroma-js';
 
 const CustomTooltipContent = React.forwardRef<
   React.ComponentRef<typeof TooltipPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> & { color: string }
->(({ color, className, sideOffset = 4, ...props }, ref) => (
-  <TooltipPrimitive.Portal>
-    <TooltipPrimitive.Content
-      ref={ref}
-      sideOffset={sideOffset}
-      className={cn(
-        "z-50 overflow-hidden rounded-md px-3 py-1.5 text-sm text-white animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
-        className
-      )}
-      style={{ backgroundColor: color, border: 'none' }}
-      {...props}
-    >
-      {props.children}
-      <TooltipPrimitive.Arrow style={{ fill: color }} />
-    </TooltipPrimitive.Content>
-  </TooltipPrimitive.Portal>
-));
+>(({ color, className, sideOffset = 4, ...props }, ref) => {
+  const brightenedColor = chroma(color).brighten(0.4).hex();
+  
+  return (
+    <TooltipPrimitive.Portal>
+      <TooltipPrimitive.Content
+        ref={ref}
+        sideOffset={sideOffset}
+        className={cn(
+          "z-50 overflow-hidden rounded-md px-3 py-1.5 text-sm text-gray-950",
+          className
+        )}
+        style={{ backgroundColor: brightenedColor, border: 'none' }}
+        {...props}
+      >
+        {props.children}
+        <TooltipPrimitive.Arrow style={{ fill: brightenedColor }} />
+      </TooltipPrimitive.Content>
+    </TooltipPrimitive.Portal>
+  );
+});
 CustomTooltipContent.displayName = 'CustomTooltipContent';
 
 const NUM_ROWS = 8;
 const ITEMS_PER_ROW = 8;
-const SCROLL_FACTOR = 2; // Creates a longer, seamless row for scrolling
+const TOTAL_REPOS = NUM_ROWS * ITEMS_PER_ROW;
 const pastelColors = [
   '#FFD1D1', '#FFEACC', '#FEFFD8', '#E2FFDB', '#D4F9FF', '#D0E2FF', '#DDD9FF', '#FFE3FF'
 ];
 
-type RepoData = Partial<RepoSummary> & { owner: string; name: string, stars?: string | number, special?: boolean };
+type RepoData = Partial<RepoSummary> & { 
+  owner: string; 
+  name: string; 
+  stars?: string | number; 
+  special?: boolean;
+  isUserRepo?: boolean;
+  isPlaceholder?: boolean;
+  stargazersCount?: number | string;
+};
 
-const RepoItem = React.memo(({ repo, color, isSkeleton }: { repo: RepoData; color: string, isSkeleton?: boolean }) => {
+const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, isSkeleton?: boolean }) => {
   const router = useRouter();
   
   const owner = repo.owner;
   const name = repo.name;
   const stars = repo.stargazersCount ? formatStars(repo.stargazersCount) : '0';
   const description = repo.description || 'No description available.';
-  const tooltipColor = useMemo(() => darkenColor(color, 40), [color]);
   const isSpecial = repo.special;
+  const isUserRepo = repo.isUserRepo;
+  const isPlaceholder = repo.isPlaceholder;
 
   // Memoize click handler to prevent unnecessary re-renders
   const handleClick = useCallback(() => {
@@ -63,7 +78,8 @@ const RepoItem = React.memo(({ repo, color, isSkeleton }: { repo: RepoData; colo
           <motion.div
             className={cn(
               "text-sm px-4 py-2 rounded-lg relative flex items-center justify-center",
-              isSpecial && "special-repo-shimmer"
+              isSpecial && "special-repo-shimmer",
+              isUserRepo && "ring-2 ring-blue-500 ring-opacity-50"
             )}
             style={{ 
               backgroundColor: color,
@@ -78,39 +94,11 @@ const RepoItem = React.memo(({ repo, color, isSkeleton }: { repo: RepoData; colo
               </svg>
             )}
             
-            {/* Single AnimatePresence to handle all state changes */}
-            <AnimatePresence mode="wait">
-              {isSkeleton ? (
-                <motion.div
-                  key="skeleton"
-                  className="absolute inset-0"
-                  initial={{ opacity: 1 }}
-                  exit={{ opacity: 0, transition: { duration: 0.4 } }}
-                >
-                  <div 
-                    className="w-full h-full animate-shimmer"
-                    style={{
-                      backgroundImage: 'linear-gradient(to right, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%)',
-                      backgroundSize: '200% 100%',
-                    }}
-                  />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="content"
-                  className="absolute inset-0"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  <button
-                    onClick={handleClick}
-                    className="absolute inset-0 cursor-pointer"
-                    aria-label={`View ${owner}/${name} repository`}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {isUserRepo && (
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="absolute -top-1 -right-1 text-blue-500">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            )}
             
             <div className="flex items-center justify-center text-center space-x-2">
               <span className="font-mono text-gray-950">
@@ -129,69 +117,93 @@ const RepoItem = React.memo(({ repo, color, isSkeleton }: { repo: RepoData; colo
                 {stars}
               </div>
             </div>
+            
+            {!isSkeleton && (
+              <button
+                onClick={handleClick}
+                className="absolute inset-0 cursor-pointer"
+                aria-label={`View ${owner}/${name} repository`}
+              />
+            )}
           </motion.div>
         </div>
       </TooltipTrigger>
       {!isSkeleton && (
-        <CustomTooltipContent color={tooltipColor}>
-          <p className="max-w-xs">{description}</p>
+        <CustomTooltipContent color={color}>
+          <p className="max-w-xs">
+            {isPlaceholder 
+              ? "Popular repository - loading details..." 
+              : description
+            }
+          </p>
         </CustomTooltipContent>
       )}
     </Tooltip>
   );
-});
-RepoItem.displayName = 'RepoItem';
+};
 
 export const ScrollingRepos = ({ className }: { className?: string }) => {
-  const { data: reposToDisplay, isLoading } = useReposForScrolling(NUM_ROWS * ITEMS_PER_ROW);
+  const { data: streamingRepos, isLoading } = useReposForScrolling(TOTAL_REPOS);
+  
+  // Initialize with popular repos immediately
+  const [repos, setRepos] = useState<RepoData[]>(() => {
+    return POPULAR_REPOS.slice(0, TOTAL_REPOS).map(repo => ({
+      ...repo,
+      stargazersCount: 1200,
+      description: "Popular repository",
+      isPlaceholder: true,
+      special: repo.special
+    }));
+  });
 
-  // Fix: Properly distribute repos across rows, handling cases where we have fewer than 64 repos
-  const rows = useMemo(() => {
-    const repos = reposToDisplay || [];
-    const totalRepos = repos.length;
-    
-    // If we have fewer repos than needed, distribute them evenly
-    if (totalRepos < NUM_ROWS * ITEMS_PER_ROW) {
-      const reposPerRow = Math.ceil(totalRepos / NUM_ROWS);
-      return Array.from({ length: NUM_ROWS }, (_, i) => {
-        const startIndex = i * reposPerRow;
-        const endIndex = Math.min(startIndex + reposPerRow, totalRepos);
-        return repos.slice(startIndex, endIndex);
+  // Update repos as streaming data arrives
+  useEffect(() => {
+    if (streamingRepos && streamingRepos.length > 0) {
+      setRepos(prev => {
+        const newRepos = [...prev];
+        
+        // Find user repos that aren't already in the grid
+        streamingRepos.forEach(streamingRepo => {
+          const isUserRepo = (streamingRepo as any).isUserRepo;
+          if (isUserRepo) {
+            const exists = newRepos.some(repo => 
+              repo.owner === streamingRepo.owner && repo.name === streamingRepo.name
+            );
+            
+            if (!exists) {
+              // Insert user repo at random position
+              const randomIndex = Math.floor(Math.random() * newRepos.length);
+              newRepos.splice(randomIndex, 0, { ...streamingRepo, isUserRepo: true });
+              // Remove last repo to maintain grid size
+              newRepos.pop();
+            }
+          }
+        });
+        
+        return newRepos;
       });
     }
-    
-    // Normal case: exactly NUM_ROWS * ITEMS_PER_ROW repos
+  }, [streamingRepos]);
+
+  // Distribute repos across rows for circular scrolling
+  const rows = useMemo(() => {
     return Array.from({ length: NUM_ROWS }, (_, i) => 
       repos.slice(i * ITEMS_PER_ROW, (i + 1) * ITEMS_PER_ROW)
     );
-  }, [reposToDisplay]);
+  }, [repos]);
 
-  // Memoize row colors to prevent unnecessary re-renders
+  // Memoize row colors - create stable color assignments
   const rowColors = useMemo(() => {
-    return Array.from({ length: NUM_ROWS }, () => shuffleArray(pastelColors));
-  }, []);
-
-  // Fix: Create duplicated rows properly, ensuring each row has enough items for seamless scrolling
-  const duplicatedRows = useMemo(() => {
-    return rows.map(row => {
-      // If row is empty, return empty array
-      if (row.length === 0) return [];
-      
-      // If row has fewer items than needed for seamless scrolling, repeat the items
-      const itemsNeeded = ITEMS_PER_ROW * SCROLL_FACTOR;
-      if (row.length >= itemsNeeded) {
-        // We have enough items, just duplicate the entire row
-        return Array.from({ length: SCROLL_FACTOR }).flatMap(() => row);
-      } else {
-        // We need to repeat items to fill the space
-        const repeatedItems = [];
-        for (let i = 0; i < itemsNeeded; i++) {
-          repeatedItems.push(row[i % row.length]);
-        }
-        return repeatedItems;
+    return Array.from({ length: NUM_ROWS }, (_, rowIndex) => {
+      // Use a deterministic shuffle based on row index
+      const shuffled = [...pastelColors];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = (rowIndex * 7 + i) % (i + 1);
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
+      return shuffled;
     });
-  }, [rows]);
+  }, []);
 
   return (
     <TooltipProvider>
@@ -201,24 +213,6 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
       >
         {rows.map((row, idx) => {
           const colorsForRow = rowColors[idx];
-          const duplicatedRow = duplicatedRows[idx];
-          
-          // Skip rendering empty rows
-          if (row.length === 0) {
-            return (
-              <motion.div
-                key={`row-${idx}`}
-                className="flex whitespace-nowrap py-4"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.3 }} // Dimmed for empty rows
-                transition={{ duration: 0.5, delay: isLoading ? 0.5 : 0 }}
-              >
-                <div className="text-gray-400 text-sm px-4">
-                  Loading repositories...
-                </div>
-              </motion.div>
-            );
-          }
           
           return (
             <motion.div
@@ -226,18 +220,38 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
               className="flex whitespace-nowrap py-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: isLoading ? 0.5 : 0 }}
+              transition={{ duration: 0.5, delay: idx * 0.1 }}
               style={{
                 animation: `scroll${idx % 2 === 0 ? 'Left' : 'Right'} 180s linear infinite`,
               }}
             >
-              {duplicatedRow.map((repo, repoIdx) => {
-                const color = colorsForRow[repoIdx % colorsForRow.length];
-                const isSkeleton = isLoading || !repo.stargazersCount;
-                // Simplified key that doesn't include loop index
-                const key = `${idx}-${repo.owner}-${repo.name}-${repoIdx}`;
-                return <RepoItem key={key} repo={repo} color={color} isSkeleton={isSkeleton} />;
-              })}
+              {/* Duplicate row for seamless scrolling */}
+              {Array.from({ length: 2 }).flatMap((_, duplicateIndex) =>
+                row.map((repo, repoIdx) => {
+                  const color = colorsForRow[repoIdx % colorsForRow.length];
+                  const key = `${idx}-${repo.owner}-${repo.name}-${repoIdx}-${duplicateIndex}`;
+                  
+                  return (
+                    <motion.div
+                      key={key}
+                      initial={{ opacity: 0, scale: 0.8, y: -20 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.8, y: 20 }}
+                      transition={{ 
+                        type: "spring", 
+                        stiffness: 400,
+                        delay: repo.isUserRepo ? 0.2 : 0 
+                      }}
+                    >
+                      <RepoItem 
+                        repo={repo} 
+                        color={color} 
+                        isSkeleton={isLoading && repo.isPlaceholder} 
+                      />
+                    </motion.div>
+                  );
+                })
+              )}
             </motion.div>
           );
         })}

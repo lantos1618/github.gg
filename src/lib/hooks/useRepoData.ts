@@ -65,9 +65,9 @@ export const useReposForScrolling = (
   const getInitialData = (): RepoSummary[] => {
     return POPULAR_REPOS.slice(0, limit).map(r => ({ 
       ...r, 
-      stargazersCount: 0, 
+      stargazersCount: 1200, // Use number for consistency
       forksCount: 0,
-      description: '' 
+      description: 'Popular repository' 
     }));
   };
 
@@ -85,6 +85,7 @@ export const useReposForScrolling = (
         return failureCount < 2;
       },
       staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false, // Don't refetch when window gains focus
       ...options,
     }
   );

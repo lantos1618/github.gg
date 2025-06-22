@@ -112,7 +112,9 @@ export const githubRouter = router({
         if (ctx.session?.user?.id) {
           try {
             userRepos = await githubService.getUserRepositories();
-            userRepos.forEach(repo => {
+            // Limit user repos to 6 (most recent/relevant)
+            const limitedUserRepos = userRepos.slice(0, 6);
+            limitedUserRepos.forEach(repo => {
               const key = `${repo.owner}/${repo.name}`;
               if (!repoIdentifiers.has(key)) {
                 repoIdentifiers.set(key, { ...repo, special: POPULAR_REPOS.find(p => p.owner === repo.owner && p.name === repo.name)?.special });

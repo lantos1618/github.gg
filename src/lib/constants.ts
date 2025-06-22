@@ -1,8 +1,5 @@
 // Curated list of popular repos to show when user is not logged in or as fallback
 export const POPULAR_REPOS = [
-  { owner: 'Mail-0', name: 'Zero', special: true },
-  { owner: 'lantos1618', name: 'github.gg', special: true },
-  { owner: 'ossdotnow', name: 'ossdotnow', special: true },
   { owner: 'facebook', name: 'react' },
   { owner: 'vuejs', name: 'vue' },
   { owner: 'tensorflow', name: 'tensorflow' },
@@ -69,4 +66,18 @@ export const POPULAR_REPOS = [
   { owner: 'neovim', name: 'neovim' },
   { owner: 'atom', name: 'atom' },
   { owner: 'sublimehq', name: 'sublime_text' }
+];
+
+export const SPONSOR_REPOS = [
+  { owner: 'Mail-0', name: 'Zero', special: true },
+  { owner: 'lantos1618', name: 'github.gg', special: true },
+  { owner: 'ossdotnow', name: 'ossdotnow', special: true },
+  { owner: 'vercel', name: 'next.js', special: true },
+  { owner: 'stripe', name: 'stripe-react-native', special: true },
+  { owner: 'calcom', name: 'cal.com', special: true },
+  { owner: 'supabase', name: 'supabase', special: true },
+  { owner: 'langchain-ai', name: 'langchain', special: true },
+  { owner: 'openai', name: 'openai-cookbook', special: true },
+  { owner: 'wasp-lang', name: 'wasp', special: true },
+  { owner: 'twentyhq', name: 'twenty', special: true },
 ]; 

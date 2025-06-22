@@ -4,7 +4,7 @@ import { createGitHubService, DEFAULT_MAX_FILES, GitHubFilesResponse, RepoSummar
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
 import { cachedRepos } from '@/db/schema';
-import { POPULAR_REPOS } from '@/lib/constants';
+import { POPULAR_REPOS, SPONSOR_REPOS } from '@/lib/constants';
 import { shuffleArray } from '@/lib/utils';
 import { eq } from 'drizzle-orm';
 import { user } from '@/db/schema';
@@ -421,6 +421,31 @@ export const githubRouter = router({
       } catch (error: unknown) {
         console.error('Failed to check cache status:', error);
         return { needsRefresh: false, totalCached: 0, staleCount: 0, oldestCache: null };
+      }
+    }),
+
+    // Get Sponsor repositories
+    getSponsorRepos: publicProcedure
+    .query(async ({ ctx }) => {
+      try {
+        const githubService = await createGitHubService(ctx.session, ctx.req);
+        
+        const sponsorDetails = await Promise.allSettled(
+          SPONSOR_REPOS.map(repo => 
+            githubService.getRepositoryDetails(repo.owner, repo.name)
+          )
+        );
+        
+        return sponsorDetails
+          .filter(result => result.status === 'fulfilled' && result.value)
+          .map(result => ({ 
+            ...(result as PromiseFulfilledResult<RepoSummary>).value, 
+            isSponsor: true 
+          }));
+
+      } catch (error) {
+        console.error('Failed to get sponsor repos:', error);
+        return [];
       }
     }),
 

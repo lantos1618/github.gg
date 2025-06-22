@@ -1,11 +1,11 @@
 'use client';
 
-import { useReposForScrolling, useUserReposForScrolling, useCacheStatus, useUserRepoNames } from '@/lib/hooks/useRepoData';
+import { useReposForScrolling, useSponsorRepos, useUserRepoNames } from '@/lib/hooks/useRepoData';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn, formatStars, shuffleArray } from '@/lib/utils';
 import { RepoSummary } from '@/lib/github/types';
-import { useMemo, useCallback, useState, useEffect } from 'react';
+import { useMemo, useCallback, useState, useEffect, forwardRef } from 'react';
 import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import React from 'react';
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
@@ -13,7 +13,7 @@ import { POPULAR_REPOS } from '@/lib/constants';
 import chroma from 'chroma-js';
 import { useAuth } from '@/lib/hooks/useAuth';
 
-const CustomTooltipContent = React.forwardRef<
+const CustomTooltipContent = forwardRef<
   React.ComponentRef<typeof TooltipPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> & { 
     backgroundColor: string;
@@ -53,30 +53,47 @@ type RepoData = Partial<RepoSummary> & {
   stars?: string | number; 
   special?: boolean;
   isUserRepo?: boolean;
+  isSponsor?: boolean;
   isPlaceholder?: boolean;
   stargazersCount?: number | string;
 };
 
 const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, isSkeleton?: boolean }) => {
   const router = useRouter();
-  const owner = repo.owner;
-  const name = repo.name;
+  const { owner, name, description, special, isUserRepo, isSponsor } = repo;
   const stars = repo.stargazersCount ? formatStars(repo.stargazersCount) : '0';
-  const description = repo.description || 'No description available.';
-  const isSpecial = repo.special;
-  const isUserRepo = repo.isUserRepo;
-  const isPlaceholder = repo.isPlaceholder;
 
   const { ultraLightColor, lightColor, darkColor } = useMemo(() => {
-    const ultraLightColor = chroma(color).brighten(.8).hex();
-    const lightColor = chroma(color).brighten(.2).hex();
-    const darkColor = chroma(color).darken(1.5).saturate(0.8).hex();
-    return { ultraLightColor, lightColor, darkColor };
+    const baseColor = chroma(color);
+    return {
+      ultraLightColor: baseColor.brighten(0.8).hex(),
+      lightColor: baseColor.brighten(0.2).hex(),
+      darkColor: baseColor.darken(1.5).saturate(0.8).hex(),
+    };
   }, [color]);
 
   const handleClick = useCallback(() => {
     router.push(`/${owner}/${name}`);
   }, [router, owner, name]);
+
+  const style = useMemo(() => {
+    const size = isSponsor
+      ? { minWidth: '220px', minHeight: '64px' }
+      : { minWidth: '220px', minHeight: '40px' };
+      
+    const border = isSponsor
+      ? { borderColor: 'black' }
+      : isUserRepo
+      ? { borderColor: darkColor }
+      : { borderColor: 'transparent' };
+
+    return {
+      backgroundColor: lightColor,
+      color: darkColor,
+      ...size,
+      ...border,
+    };
+  }, [isSponsor, isUserRepo, darkColor, lightColor]);
 
   return (
     <Tooltip>
@@ -84,22 +101,16 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
         <div className="inline-flex items-center mx-4">
           <motion.div
             className={cn(
-              "text-sm px-4 py-2 rounded-lg relative flex items-center justify-center",
-              isSpecial && "special-repo-shimmer",
-              isUserRepo && "ring-2 ring-blue-500 ring-opacity-50"
+              "text-sm px-4 py-2 rounded-lg relative flex items-center justify-center border-2",
+              special && "special-repo-shimmer",
             )}
-            style={{ 
-              backgroundColor: lightColor,
-              color: darkColor,
-              minWidth: '220px', 
-              minHeight: '40px',
-            }}
+            style={style}
             whileTap={{ scale: 0.95, transition: { type: "spring", stiffness: 400, damping: 17 } }}
           >
-            {isSpecial && (
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="absolute -top-3 -left-3 text-amber-400 transform -rotate-40">
-                <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/>
-              </svg>
+            {isSponsor && (
+              <div className="absolute -top-px -right-px bg-black text-white text-xs font-bold px-2 py-0.5 rounded-bl-md rounded-tr-lg">
+                Sponsor
+              </div>
             )}
             <div className="flex items-center justify-center text-center space-x-2">
               <span className="font-mono">
@@ -131,7 +142,7 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
       {!isSkeleton && (
         <CustomTooltipContent backgroundColor={darkColor} textColor={ultraLightColor}>
           <p className="max-w-xs">
-            {isPlaceholder 
+            {repo.isPlaceholder 
               ? "Loading repository details..." 
               : description || "No description available."
             }
@@ -144,76 +155,49 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
 RepoItem.displayName = 'RepoItem';
 
 export const ScrollingRepos = ({ className }: { className?: string }) => {
-  const { data: cachedRepos, isLoading: isCachedLoading } = useReposForScrolling(TOTAL_REPOS);
-  const { data: userRepos } = useUserReposForScrolling(10);
-  const { data: cacheStatus } = useCacheStatus();
+  const { data: popularRepos, isLoading: isPopularLoading } = useReposForScrolling(80);
+  const { data: sponsorRepos, isLoading: isSponsorLoading } = useSponsorRepos();
   const { data: userRepoNames } = useUserRepoNames();
   const auth = useAuth();
   
-  const [repos, setRepos] = useState<RepoData[]>([]);
   const userRepoIds = useMemo(() => new Set(userRepoNames || []), [userRepoNames]);
 
-  // Set initial repos from cache and update when user repos are identified
-  useEffect(() => {
-    if (cachedRepos) {
-      setRepos(cachedRepos.map(repo => {
-        const repoKey = `${repo.owner}/${repo.name}`;
-        return {
-          ...repo,
-          isUserRepo: userRepoIds.has(repoKey),
-          isPlaceholder: !repo.description,
-        };
-      }));
-    }
-  }, [cachedRepos, userRepoIds]);
-
-  // Smoothly insert or update user repos with fresh data
-  useEffect(() => {
-    if (userRepos && userRepos.length > 0) {
-      setRepos(prevRepos => {
-        const newRepos = [...prevRepos];
-        let hasChanges = false;
-        
-        userRepos.forEach(userRepo => {
-          const repoKey = `${userRepo.owner}/${userRepo.name}`;
-          const existingIndex = newRepos.findIndex(r => `${r.owner}/${r.name}` === repoKey);
-          
-          if (existingIndex !== -1) {
-            // Update existing repo with fresher data, ensuring it's marked as a user repo
-            newRepos[existingIndex] = { 
-              ...newRepos[existingIndex],
-              ...userRepo,
-              isUserRepo: true 
-            };
-            hasChanges = true;
-          } else {
-            // Insert new user repo at a random position
-            const randomIndex = Math.floor(Math.random() * newRepos.length);
-            newRepos.splice(randomIndex, 0, { ...userRepo, isUserRepo: true });
-            newRepos.pop(); // Maintain grid size
-            hasChanges = true;
-          }
-        });
-        
-        return hasChanges ? newRepos : prevRepos;
-      });
-    }
-  }, [userRepos]);
-
-  // Background cache refresh if needed
-  useEffect(() => {
-    if (cacheStatus?.needsRefresh && auth.isSignedIn) {
-      // This is where a mutation to refresh the cache would be called
-      console.log('Cache needs refresh, triggering background update...');
-    }
-  }, [cacheStatus?.needsRefresh, auth.isSignedIn]);
-
-  // Distribute repos across rows for circular scrolling
   const rows = useMemo(() => {
-    return Array.from({ length: NUM_ROWS }, (_, i) => 
-      repos.slice(i * ITEMS_PER_ROW, (i + 1) * ITEMS_PER_ROW)
+    const allRepos: RepoData[] = [];
+    const loggedIn = auth.isSignedIn;
+
+    const sponsors = sponsorRepos || [];
+    const popular = popularRepos || [];
+    
+    // 1. Add Sponsors (2 rows)
+    allRepos.push(...shuffleArray(sponsors).slice(0, 16));
+    
+    // 2. Add User's Repos (if logged in, 2 rows)
+    const userReposFromPopular = loggedIn 
+      ? popular.filter(p => userRepoIds.has(`${p.owner}/${p.name}`)) 
+      : [];
+    allRepos.push(...shuffleArray(userReposFromPopular).slice(0, 16));
+    
+    // 3. Fill with Popular Repos
+    const excludedRepos = new Set(allRepos.map(r => `${r.owner}/${r.name}`));
+    const remainingPopular = popular.filter(p => !excludedRepos.has(`${p.owner}/${p.name}`));
+    allRepos.push(...shuffleArray(remainingPopular));
+
+    // Mark repo types
+    const finalRepos = allRepos.map(repo => ({
+      ...repo,
+      isSponsor: sponsors.some(s => s.owner === repo.owner && s.name === repo.name),
+      isUserRepo: userRepoIds.has(`${repo.owner}/${repo.name}`),
+    })).slice(0, 80); // Ensure total does not exceed 80
+
+    // Distribute into rows
+    return Array.from({ length: 10 }, (_, i) => 
+      finalRepos.slice(i * 8, (i + 1) * 8)
     );
-  }, [repos]);
+
+  }, [popularRepos, sponsorRepos, userRepoIds, auth.isSignedIn]);
+  
+  const isLoading = isPopularLoading || (auth.isSignedIn && isSponsorLoading);
 
   // Memoize row colors - create stable color assignments
   const rowColors = useMemo(() => {
@@ -240,7 +224,7 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
           return (
             <motion.div
               key={`row-${idx}`}
-              className="flex whitespace-nowrap py-4"
+              className="flex items-center whitespace-nowrap py-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: idx * 0.1 }}
@@ -256,6 +240,10 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
                   return (
                     <motion.div
                       key={`${idx}-${repo.owner}-${repo.name}-${repoIdx}-${duplicateIndex}-${repo.isUserRepo ? 'user' : 'cached'}`}
+                      style={{
+                        // @ts-ignore - Experimental property
+                        viewTransitionName: `repo-${repo.owner}-${repo.name}-${repoIdx}-${duplicateIndex}`
+                      }}
                       initial={{ opacity: 0, scale: 0.8, y: -20 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.8, y: 20 }}
@@ -268,7 +256,7 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
                       <RepoItem 
                         repo={repo} 
                         color={color} 
-                        isSkeleton={isCachedLoading && repo.isPlaceholder} 
+                        isSkeleton={isLoading && repo.isPlaceholder} 
                       />
                     </motion.div>
                   );

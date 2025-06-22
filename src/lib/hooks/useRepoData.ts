@@ -126,4 +126,13 @@ export const useUserRepoNames = () => {
     staleTime: 15 * 60 * 1000, // Cache for 15 minutes
     refetchOnWindowFocus: false,
   });
+};
+
+export const useSponsorRepos = () => {
+  const auth = useAuth();
+  return trpc.github.getSponsorRepos.useQuery(undefined, {
+    enabled: !auth.isLoading,
+    staleTime: 60 * 60 * 1000, // Cache for 1 hour
+    refetchOnWindowFocus: false,
+  });
 }; 

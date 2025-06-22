@@ -66,16 +66,9 @@ export const useReposForScrolling = (
     { limit }, 
     {
       enabled: !auth.isLoading,
-      retry: (failureCount, error) => {
-        // Don't retry on authentication errors
-        if (error?.data?.code === 'UNAUTHORIZED') {
-          return false;
-        }
-        // Retry up to 2 times for other errors
-        return failureCount < 2;
-      },
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      refetchOnWindowFocus: false, // Don't refetch when window gains focus
+      retry: false, // No retries for cached data
+      staleTime: 0, // Always fresh since it's just cached data
+      refetchOnWindowFocus: false,
       ...options,
     }
   );
@@ -84,6 +77,16 @@ export const useReposForScrolling = (
     ...query,
     data: query.data as RepoSummary[] | undefined,
   };
+};
+
+export const useCacheStatus = () => {
+  const auth = useAuth();
+
+  return trpc.github.checkCacheStatus.useQuery(undefined, {
+    enabled: !auth.isLoading,
+    staleTime: 30 * 1000, // Check every 30 seconds
+    refetchOnWindowFocus: false,
+  });
 };
 
 export const useUserReposForScrolling = (
@@ -114,4 +117,13 @@ export const useUserReposForScrolling = (
     ...query,
     data: query.data as RepoSummary[] | undefined,
   };
+};
+
+export const useUserRepoNames = () => {
+  const auth = useAuth();
+  return trpc.github.getUserRepoNames.useQuery(undefined, {
+    enabled: !auth.isLoading && auth.isSignedIn,
+    staleTime: 15 * 60 * 1000, // Cache for 15 minutes
+    refetchOnWindowFocus: false,
+  });
 }; 

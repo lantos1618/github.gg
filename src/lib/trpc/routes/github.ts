@@ -102,53 +102,21 @@ export const githubRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       try {
-        // 1. Get cached repos immediately
-        const now = new Date();
-        const cacheThreshold = new Date(now.getTime() - CACHE_DURATION);
+        // Only return cached repos - no API calls, super fast
         const allCachedRepos = await db.select().from(cachedRepos);
         
-        // Filter for fresh cached repos
-        const freshCachedRepos = allCachedRepos
-          .filter(repo => repo.lastFetched > cacheThreshold)
-          .map(repo => ({
-            ...repo,
-            special: POPULAR_REPOS.find(p => p.owner === repo.owner && p.name === repo.name)?.special
-          }));
+        // Add special flag and shuffle
+        const reposWithSpecial = allCachedRepos.map(repo => ({
+          ...repo,
+          special: POPULAR_REPOS.find(p => p.owner === repo.owner && p.name === repo.name)?.special
+        }));
 
-        // 2. If we have enough cached repos, return them immediately
-        if (freshCachedRepos.length >= input.limit) {
-          // Shuffle and return cached repos
-          return shuffleArray(freshCachedRepos).slice(0, input.limit);
-        }
-
-        // 3. If not enough cached repos, fill with popular repos
-        const popularReposNeeded = input.limit - freshCachedRepos.length;
-        const popularRepos = shuffleArray(POPULAR_REPOS)
-          .slice(0, popularReposNeeded)
-          .map(repo => ({
-            ...repo,
-            description: 'Loading repository details...',
-            stargazersCount: 0,
-            forksCount: 0,
-            language: null,
-            topics: [],
-            isUserRepo: false,
-            userId: null,
-            lastFetched: new Date(0), // Mark as stale
-          }));
-
-        return [...freshCachedRepos, ...popularRepos];
+        // Return shuffled cached repos
+        return shuffleArray(reposWithSpecial).slice(0, input.limit);
 
       } catch (error: unknown) {
         console.error('Failed to get cached repos for scrolling:', error);
-        
-        // Fallback to basic popular repos
-        return POPULAR_REPOS.slice(0, input.limit).map(repo => ({
-          ...repo,
-          description: 'Could not fetch details',
-          stargazersCount: 0,
-          forksCount: 0,
-        }));
+        return [];
       }
     }),
 
@@ -430,6 +398,41 @@ export const githubRouter = router({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to refresh repository cache',
         });
+      }
+    }),
+
+    // Check if cache needs refresh
+    checkCacheStatus: publicProcedure
+    .query(async () => {
+      try {
+        const now = new Date();
+        const cacheThreshold = new Date(now.getTime() - CACHE_DURATION);
+        const allCachedRepos = await db.select().from(cachedRepos);
+        
+        const staleRepos = allCachedRepos.filter(repo => repo.lastFetched < cacheThreshold);
+        const needsRefresh = staleRepos.length > 0;
+        
+        return {
+          needsRefresh,
+          totalCached: allCachedRepos.length,
+          staleCount: staleRepos.length,
+          oldestCache: allCachedRepos.length > 0 ? Math.min(...allCachedRepos.map(r => r.lastFetched.getTime())) : null
+        };
+      } catch (error: unknown) {
+        console.error('Failed to check cache status:', error);
+        return { needsRefresh: false, totalCached: 0, staleCount: 0, oldestCache: null };
+      }
+    }),
+
+    getUserRepoNames: protectedProcedure
+    .query(async ({ ctx }) => {
+      try {
+        const githubService = await createGitHubService(ctx.session, ctx.req);
+        const userRepos = await githubService.getUserRepositories(); 
+        return userRepos.map(repo => `${repo.owner}/${repo.name}`);
+      } catch (error) {
+        console.error('Failed to get user repo names:', error);
+        return [];
       }
     }),
 }); 

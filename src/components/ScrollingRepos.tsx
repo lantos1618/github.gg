@@ -1,6 +1,6 @@
 'use client';
 
-import { useReposForScrolling, useUserReposForScrolling } from '@/lib/hooks/useRepoData';
+import { useReposForScrolling, useUserReposForScrolling, useCacheStatus, useUserRepoNames } from '@/lib/hooks/useRepoData';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn, formatStars, shuffleArray } from '@/lib/utils';
@@ -11,6 +11,7 @@ import React from 'react';
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { POPULAR_REPOS } from '@/lib/constants';
 import chroma from 'chroma-js';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 const CustomTooltipContent = React.forwardRef<
   React.ComponentRef<typeof TooltipPrimitive.Content>,
@@ -144,57 +145,68 @@ RepoItem.displayName = 'RepoItem';
 
 export const ScrollingRepos = ({ className }: { className?: string }) => {
   const { data: cachedRepos, isLoading: isCachedLoading } = useReposForScrolling(TOTAL_REPOS);
-  const { data: userRepos, isLoading: isUserLoading } = useUserReposForScrolling(10);
+  const { data: userRepos } = useUserReposForScrolling(10);
+  const { data: cacheStatus } = useCacheStatus();
+  const { data: userRepoNames } = useUserRepoNames();
+  const auth = useAuth();
   
-  // Initialize with cached repos immediately for visual continuity
   const [repos, setRepos] = useState<RepoData[]>([]);
+  const userRepoIds = useMemo(() => new Set(userRepoNames || []), [userRepoNames]);
 
-  // Update repos as cached data arrives
+  // Set initial repos from cache and update when user repos are identified
   useEffect(() => {
-    if (cachedRepos && cachedRepos.length > 0) {
-      setRepos(cachedRepos.map(repo => ({
-        ...repo,
-        isUserRepo: false,
-        isPlaceholder: false
-      })));
+    if (cachedRepos) {
+      setRepos(cachedRepos.map(repo => {
+        const repoKey = `${repo.owner}/${repo.name}`;
+        return {
+          ...repo,
+          isUserRepo: userRepoIds.has(repoKey),
+          isPlaceholder: !repo.description,
+        };
+      }));
     }
-  }, [cachedRepos]);
+  }, [cachedRepos, userRepoIds]);
 
-  // Sprinkle in user repos when they arrive
+  // Smoothly insert or update user repos with fresh data
   useEffect(() => {
-    if (userRepos && userRepos.length > 0 && repos.length > 0) {
-      setRepos(prev => {
-        const newRepos = [...prev];
+    if (userRepos && userRepos.length > 0) {
+      setRepos(prevRepos => {
+        const newRepos = [...prevRepos];
+        let hasChanges = false;
         
         userRepos.forEach(userRepo => {
-          // Check if user repo already exists
-          const existingIndex = newRepos.findIndex(repo => 
-            repo.owner === userRepo.owner && repo.name === userRepo.name
-          );
+          const repoKey = `${userRepo.owner}/${userRepo.name}`;
+          const existingIndex = newRepos.findIndex(r => `${r.owner}/${r.name}` === repoKey);
           
           if (existingIndex !== -1) {
-            // Update existing repo to mark as user repo
+            // Update existing repo with fresher data, ensuring it's marked as a user repo
             newRepos[existingIndex] = { 
-              ...newRepos[existingIndex], 
+              ...newRepos[existingIndex],
               ...userRepo,
               isUserRepo: true 
             };
+            hasChanges = true;
           } else {
-            // Insert new user repo at random position
+            // Insert new user repo at a random position
             const randomIndex = Math.floor(Math.random() * newRepos.length);
-            newRepos.splice(randomIndex, 0, { 
-              ...userRepo, 
-              isUserRepo: true 
-            });
-            // Remove last repo to maintain grid size
-            newRepos.pop();
+            newRepos.splice(randomIndex, 0, { ...userRepo, isUserRepo: true });
+            newRepos.pop(); // Maintain grid size
+            hasChanges = true;
           }
         });
         
-        return newRepos;
+        return hasChanges ? newRepos : prevRepos;
       });
     }
-  }, [userRepos, repos.length]);
+  }, [userRepos]);
+
+  // Background cache refresh if needed
+  useEffect(() => {
+    if (cacheStatus?.needsRefresh && auth.isSignedIn) {
+      // This is where a mutation to refresh the cache would be called
+      console.log('Cache needs refresh, triggering background update...');
+    }
+  }, [cacheStatus?.needsRefresh, auth.isSignedIn]);
 
   // Distribute repos across rows for circular scrolling
   const rows = useMemo(() => {
@@ -240,11 +252,10 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
               {Array.from({ length: 2 }).flatMap((_, duplicateIndex) =>
                 row.map((repo, repoIdx) => {
                   const color = colorsForRow[repoIdx % colorsForRow.length];
-                  const key = `${idx}-${repo.owner}-${repo.name}-${repoIdx}-${duplicateIndex}`;
                   
                   return (
                     <motion.div
-                      key={key}
+                      key={`${idx}-${repo.owner}-${repo.name}-${repoIdx}-${duplicateIndex}-${repo.isUserRepo ? 'user' : 'cached'}`}
                       initial={{ opacity: 0, scale: 0.8, y: -20 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.8, y: 20 }}

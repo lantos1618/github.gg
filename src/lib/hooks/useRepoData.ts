@@ -2,58 +2,58 @@
 
 import { useParams } from 'next/navigation';
 import { useEffect } from 'react';
-import { useRepoStore } from '@/lib/store';
 import { trpc } from '@/lib/trpc/client';
+import { RepoFile } from '@/types/repo';
 import { useAuth } from './useAuth';
 import { RepoSummary } from '../github/types';
+import { useRepoStore } from '@/lib/store';
 
-interface RepoParams {
+export interface RepoParams {
   user: string;
   repo: string;
   ref?: string;
-  path?: string | string[];
-  [key: string]: string | string[] | undefined;
+  path?: string;
 }
 
-export function useRepoData() {
-  const params = useParams<RepoParams>();
-  const store = useRepoStore();
+function getRepoId({ user, repo, ref, path }: RepoParams) {
+  return [user, repo, ref || 'main', path || ''].filter(Boolean).join('/');
+}
 
-  // Normalize path parameter
-  const path = params.path 
-    ? (Array.isArray(params.path) ? params.path.join('/') : params.path)
-    : undefined;
+export function useRepoData(overrideParams?: RepoParams) {
+  // Next.js Params expects an index signature, so cast to any for flexibility
+  const routeParams = useParams() as any as RepoParams;
+  const params = overrideParams ?? routeParams;
+  const repoId = getRepoId(params);
+  const store = useRepoStore();
 
   const { data, isLoading, error } = trpc.github.files.useQuery({
     owner: params.user,
     repo: params.repo,
     ref: params.ref,
-    path: path,
+    path: params.path,
   });
 
-  const setFiles = store.setFiles;
   useEffect(() => {
     if (data) {
-      const repoFiles = data.files.map(file => ({
+      const repoFiles = data.files.map((file: { path: string; content: string; size: number }) => ({
         path: file.path,
         content: file.content || '',
         size: file.size,
       }));
-      setFiles(repoFiles, data.totalFiles);
+      store.setRepoFiles(repoId, repoFiles, data.totalFiles);
     }
-  }, [data, setFiles]);
+  }, [data, repoId, store]);
+
+  const repoData = store.repos[repoId] || { files: [], totalFiles: 0 };
 
   return {
     params,
     isLoading,
     error,
-    files: store.files,
-    totalFiles: store.totalFiles,
-    copyAllContent: store.copyAllContent,
-    isCopying: store.isCopying,
-    copied: store.copied,
+    files: repoData.files,
+    totalFiles: repoData.totalFiles,
   };
-} 
+}
 
 export const useReposForScrolling = (
   limit: number = 64, 

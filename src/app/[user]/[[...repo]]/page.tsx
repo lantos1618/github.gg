@@ -1,30 +1,38 @@
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRepoData } from '@/lib/hooks/useRepoData';
+import { useCopyRepoFiles } from '@/lib/hooks/useCopyRepoFiles';
 import { RepoLayout } from '@/components/RepoLayout';
 import { RepoHeader } from '@/components/RepoHeader';
 import { FileList } from '@/components/FileList';
 import { RepoFile } from '@/types/repo';
 // TODO: Import your Gemini AI integration for wiki generation
 
+// Helper to parse repo, ref, and path from catch-all
+function parseRepoParams(user: string, repoParams: string[] = []) {
+  // /[user]/[repo]
+  if (repoParams.length === 1) {
+    return { repo: repoParams[0], ref: undefined, path: undefined };
+  }
+  // /[user]/[repo]/tree/[ref]/[...path]
+  if (repoParams[1] === 'tree') {
+    const ref = repoParams[2];
+    const path = repoParams.length > 3 ? repoParams.slice(3).join('/') : undefined;
+    return { repo: repoParams[0], ref, path };
+  }
+  // fallback
+  return { repo: repoParams[0] || '', ref: undefined, path: undefined };
+}
+
 export default function RepoCatchAllPage({ params }: { params: { user: string; repo?: string[] } }) {
-  // params.repo is an array: [repo, 'tree', ref, ...path]
   const repoParams = params.repo || [];
-  const { 
-    isLoading, 
-    error, 
-    files, 
-    totalFiles, 
-    copyAllContent, 
-    isCopying, 
-    copied 
+  const { repo } = parseRepoParams(params.user, repoParams);
+
+  const {
+    files,
+    totalFiles,
   } = useRepoData();
 
-  // Parse repo, ref, and path
-  const repo = repoParams[0] || '';
-  const isTree = repoParams[1] === 'tree';
-  const ref = isTree ? repoParams[2] : null;
-  const path = isTree ? repoParams.slice(3) : [];
+  const { copyAllContent, isCopying, copied } = useCopyRepoFiles(files as RepoFile[]);
 
   // Wiki state
   const [wiki, setWiki] = useState<string | null>(null);

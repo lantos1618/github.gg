@@ -24,6 +24,7 @@ export function useRepoData(overrideParams?: RepoParams) {
   const routeParams = useParams() as any as RepoParams;
   const params = overrideParams ?? routeParams;
   const repoId = getRepoId(params);
+  const setRepoFiles = useRepoStore(state => state.setRepoFiles);
   const store = useRepoStore();
 
   const { data, isLoading, error } = trpc.github.files.useQuery({
@@ -40,9 +41,10 @@ export function useRepoData(overrideParams?: RepoParams) {
         content: file.content || '',
         size: file.size,
       }));
-      store.setRepoFiles(repoId, repoFiles, data.totalFiles);
+      setRepoFiles(repoId, repoFiles, data.totalFiles);
     }
-  }, [data, repoId, store]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, repoId, setRepoFiles]);
 
   const repoData = store.repos[repoId] || { files: [], totalFiles: 0 };
 

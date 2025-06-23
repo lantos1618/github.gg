@@ -4,9 +4,9 @@ import { createGitHubService, DEFAULT_MAX_FILES, GitHubFilesResponse, RepoSummar
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
 import { cachedRepos } from '@/db/schema';
-import { POPULAR_REPOS, SPONSOR_REPOS } from '@/lib/constants';
+import { CACHED_REPOS } from '@/lib/constants';
 import { shuffleArray } from '@/lib/utils';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { user } from '@/db/schema';
 
 // Cache duration: 1 hour
@@ -100,18 +100,27 @@ export const githubRouter = router({
     .input(z.object({
       limit: z.number().min(1).max(100).default(64), // 8 rows * 8 items
     }))
-    .query(async ({ input, ctx }) => {
+    .query(async ({ input }): Promise<RepoSummary[]> => {
       try {
-        // Only return cached repos - no API calls, super fast
-        const allCachedRepos = await db.select().from(cachedRepos);
-        
-        // Add special flag and shuffle
-        const reposWithSpecial = allCachedRepos.map(repo => ({
+        // Fetch a random sample of cached repos, fetching more than needed for variety.
+        const sampledCachedRepos = await db
+          .select()
+          .from(cachedRepos)
+          .orderBy(sql`RANDOM()`) // Use RANDOM() for efficient random sampling in SQL
+          .limit(input.limit * 2); // Fetch double the required limit to ensure a good shuffle pool
+
+        // Create a quick lookup map for special repositories.
+        const specialReposMap = new Map(
+          CACHED_REPOS.filter(p => p.special).map(p => [`${p.owner}/${p.name}`, true])
+        );
+
+        // Add the 'special' flag to the sampled repos.
+        const reposWithSpecial = sampledCachedRepos.map(repo => ({
           ...repo,
-          special: POPULAR_REPOS.find(p => p.owner === repo.owner && p.name === repo.name)?.special
+          special: specialReposMap.has(`${repo.owner}/${repo.name}`)
         }));
 
-        // Return shuffled cached repos
+        // Shuffle the sampled list and return the requested number of repos.
         return shuffleArray(reposWithSpecial).slice(0, input.limit);
 
       } catch (error: unknown) {
@@ -218,7 +227,7 @@ export const githubRouter = router({
             limitedUserRepos.forEach(repo => {
               const key = `${repo.owner}/${repo.name}`;
               if (!repoIdentifiers.has(key)) {
-                repoIdentifiers.set(key, { ...repo, special: POPULAR_REPOS.find(p => p.owner === repo.owner && p.name === repo.name)?.special });
+                repoIdentifiers.set(key, { ...repo, special: CACHED_REPOS.find(p => p.owner === repo.owner && p.name === repo.name)?.special });
               }
             });
           } catch (error) {
@@ -227,7 +236,7 @@ export const githubRouter = router({
         }
 
         // Shuffle all popular repos
-        const allPopularRepos = shuffleArray(POPULAR_REPOS);
+        const allPopularRepos = shuffleArray(CACHED_REPOS);
 
         // Add popular repos until the limit is reached, avoiding duplicates
         allPopularRepos.forEach(repo => {
@@ -332,7 +341,7 @@ export const githubRouter = router({
         console.error('Failed to get repos for scrolling:', error);
         
         // Fallback to basic popular repos
-        return POPULAR_REPOS.slice(0, input.limit).map(repo => ({
+        return CACHED_REPOS.slice(0, input.limit).map(repo => ({
           ...repo,
           description: 'Could not fetch details',
           stargazersCount: 0,
@@ -431,7 +440,7 @@ export const githubRouter = router({
         const githubService = await createGitHubService(ctx.session, ctx.req);
         
         const sponsorDetails = await Promise.allSettled(
-          SPONSOR_REPOS.map(repo => 
+          CACHED_REPOS.filter(repo => repo.sponsor).map(repo => 
             githubService.getRepositoryDetails(repo.owner, repo.name)
           )
         );

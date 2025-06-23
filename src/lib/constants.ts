@@ -1,5 +1,12 @@
 // Curated list of popular repos to show when user is not logged in or as fallback
-export const POPULAR_REPOS = [
+type CachedRepo = {
+  owner: string;
+  name: string;
+  special?: boolean;
+  sponsor?: boolean;
+}
+
+export const CACHED_REPOS: CachedRepo[] = [
   { owner: 'facebook', name: 'react' },
   { owner: 'vuejs', name: 'vue' },
   { owner: 'tensorflow', name: 'tensorflow' },
@@ -65,19 +72,16 @@ export const POPULAR_REPOS = [
   { owner: 'romkatv', name: 'powerlevel10k' },
   { owner: 'neovim', name: 'neovim' },
   { owner: 'atom', name: 'atom' },
-  { owner: 'sublimehq', name: 'sublime_text' }
-];
-
-export const SPONSOR_REPOS = [
-  { owner: 'Mail-0', name: 'Zero', special: true },
-  { owner: 'lantos1618', name: 'github.gg', special: true },
-  { owner: 'ossdotnow', name: 'ossdotnow', special: true },
-  { owner: 'vercel', name: 'next.js', special: true },
-  { owner: 'stripe', name: 'stripe-react-native', special: true },
-  { owner: 'calcom', name: 'cal.com', special: true },
-  { owner: 'supabase', name: 'supabase', special: true },
-  { owner: 'langchain-ai', name: 'langchain', special: true },
-  { owner: 'openai', name: 'openai-cookbook', special: true },
-  { owner: 'wasp-lang', name: 'wasp', special: true },
-  { owner: 'twentyhq', name: 'twenty', special: true },
+  { owner: 'sublimehq', name: 'sublime_text' },
+  { owner: 'Mail-0', name: 'Zero', special: true, sponsor: true },
+  { owner: 'lantos1618', name: 'github.gg', special: true, sponsor: true },
+  { owner: 'ossdotnow', name: 'ossdotnow', special: true, sponsor: true },
+  { owner: 'vercel', name: 'next.js', special: true, sponsor: true },
+  { owner: 'stripe', name: 'stripe-react-native', special: true, sponsor: true },
+  { owner: 'calcom', name: 'cal.com', special: true, sponsor: true },
+  { owner: 'supabase', name: 'supabase', special: true, sponsor: true },
+  { owner: 'langchain-ai', name: 'langchain', special: true, sponsor: true },
+  { owner: 'openai', name: 'openai-cookbook', special: true, sponsor: true },
+  { owner: 'wasp-lang', name: 'wasp', special: true, sponsor: true },
+  { owner: 'twentyhq', name: 'twenty', special: true, sponsor: true },
 ]; 

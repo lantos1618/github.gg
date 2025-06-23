@@ -2,14 +2,13 @@
 
 import { useReposForScrolling, useSponsorRepos, useUserRepoNames } from '@/lib/hooks/useRepoData';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { cn, formatStars, shuffleArray } from '@/lib/utils';
 import { RepoSummary } from '@/lib/github/types';
-import { useMemo, useCallback, useState, useEffect, forwardRef } from 'react';
+import { useMemo, useCallback, forwardRef } from 'react';
 import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import React from 'react';
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { POPULAR_REPOS } from '@/lib/constants';
 import chroma from 'chroma-js';
 import { useAuth } from '@/lib/hooks/useAuth';
 
@@ -41,8 +40,6 @@ const CustomTooltipContent = forwardRef<
 CustomTooltipContent.displayName = 'CustomTooltipContent';
 
 const NUM_ROWS = 10;
-const ITEMS_PER_ROW = 8;
-const TOTAL_REPOS = NUM_ROWS * ITEMS_PER_ROW;
 const pastelColors = [
   '#FFD1D1', '#FFEACC', '#FEFFD8', '#E2FFDB', '#D4F9FF', '#D0E2FF', '#DDD9FF', '#FFE3FF'
 ];
@@ -241,7 +238,6 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
                     <motion.div
                       key={`${idx}-${repo.owner}-${repo.name}-${repoIdx}-${duplicateIndex}-${repo.isUserRepo ? 'user' : 'cached'}`}
                       style={{
-                        // @ts-ignore - Experimental property
                         viewTransitionName: `repo-${repo.owner}-${repo.name}-${repoIdx}-${duplicateIndex}`
                       }}
                       initial={{ opacity: 0, scale: 0.8, y: -20 }}

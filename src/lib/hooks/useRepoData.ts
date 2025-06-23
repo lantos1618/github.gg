@@ -5,7 +5,6 @@ import { useEffect } from 'react';
 import { useRepoStore } from '@/lib/store';
 import { trpc } from '@/lib/trpc/client';
 import { useAuth } from './useAuth';
-import { POPULAR_REPOS } from '../constants';
 import { RepoSummary } from '../github/types';
 
 interface RepoParams {
@@ -32,17 +31,17 @@ export function useRepoData() {
     path: path,
   });
 
+  const setFiles = store.setFiles;
   useEffect(() => {
     if (data) {
-      // Convert GitHubFile[] to RepoFile[] format
       const repoFiles = data.files.map(file => ({
         path: file.path,
         content: file.content || '',
         size: file.size,
       }));
-      store.setFiles(repoFiles, data.totalFiles);
+      setFiles(repoFiles, data.totalFiles);
     }
-  }, [data]);
+  }, [data, setFiles]);
 
   return {
     params,

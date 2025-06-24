@@ -1,6 +1,6 @@
 'use client';
 
-import { useReposForScrolling, useSponsorRepos, useUserRepoNames } from '@/lib/hooks/useRepoData';
+import { useReposForScrolling, useSponsorRepos, useUserRepoNames, useUserReposForScrolling } from '@/lib/hooks/useRepoData';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { cn, formatStars, shuffleArray } from '@/lib/utils';
@@ -155,6 +155,7 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
   const { data: popularRepos, isLoading: isPopularLoading } = useReposForScrolling(80);
   const { data: sponsorRepos, isLoading: isSponsorLoading } = useSponsorRepos();
   const { data: userRepoNames } = useUserRepoNames();
+  const { data: userRepos, isLoading: isUserReposLoading } = useUserReposForScrolling(10);
   const auth = useAuth();
   
   const userRepoIds = useMemo(() => new Set(userRepoNames || []), [userRepoNames]);
@@ -165,15 +166,15 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
 
     const sponsors = sponsorRepos || [];
     const popular = popularRepos || [];
+    const userSpecific = userRepos || [];
     
     // 1. Add Sponsors (2 rows)
     allRepos.push(...shuffleArray(sponsors).slice(0, 16));
     
     // 2. Add User's Repos (if logged in, 2 rows)
-    const userReposFromPopular = loggedIn 
-      ? popular.filter(p => userRepoIds.has(`${p.owner}/${p.name}`)) 
-      : [];
-    allRepos.push(...shuffleArray(userReposFromPopular).slice(0, 16));
+    if (loggedIn) {
+      allRepos.push(...shuffleArray(userSpecific).slice(0, 16));
+    }
     
     // 3. Fill with Popular Repos
     const excludedRepos = new Set(allRepos.map(r => `${r.owner}/${r.name}`));
@@ -184,7 +185,7 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
     const finalRepos = allRepos.map(repo => ({
       ...repo,
       isSponsor: sponsors.some(s => s.owner === repo.owner && s.name === repo.name),
-      isUserRepo: userRepoIds.has(`${repo.owner}/${repo.name}`),
+      isUserRepo: userRepoIds.has(`${repo.owner}/${repo.name}`) || userSpecific.some(u => u.owner === repo.owner && u.name === repo.name),
     })).slice(0, 80); // Ensure total does not exceed 80
 
     // Distribute into rows
@@ -192,9 +193,9 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
       finalRepos.slice(i * 8, (i + 1) * 8)
     );
 
-  }, [popularRepos, sponsorRepos, userRepoIds, auth.isSignedIn]);
+  }, [popularRepos, sponsorRepos, userRepoNames, userRepos, auth.isSignedIn]);
   
-  const isLoading = isPopularLoading || (auth.isSignedIn && isSponsorLoading);
+  const isLoading = isPopularLoading || (auth.isSignedIn && (isSponsorLoading || isUserReposLoading));
 
   // Memoize row colors - create stable color assignments
   const rowColors = useMemo(() => {

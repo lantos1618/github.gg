@@ -102,11 +102,12 @@ export const githubRouter = router({
     }))
     .query(async ({ input }): Promise<RepoSummary[]> => {
       try {
-        // Fetch a random sample of cached repos, fetching more than needed for variety.
+        // Fetch a random sample of global/public cached repos only
         const sampledCachedRepos = await db
           .select()
           .from(cachedRepos)
-          .orderBy(sql`RANDOM()`) // Use RANDOM() for efficient random sampling in SQL
+          .where(sql`${cachedRepos.isUserRepo} = false AND ${cachedRepos.userId} IS NULL`)
+          .orderBy(sql`RANDOM()`)
           .limit(input.limit * 2); // Fetch double the required limit to ensure a good shuffle pool
 
         // Create a quick lookup map for special repositories.
@@ -121,7 +122,21 @@ export const githubRouter = router({
         }));
 
         // Shuffle the sampled list and return the requested number of repos.
-        return shuffleArray(reposWithSpecial).slice(0, input.limit);
+        const shuffled = shuffleArray(reposWithSpecial).slice(0, input.limit);
+        if (shuffled.length === 0) {
+          // Fallback: return CACHED_REPOS if cache is empty, mapping to RepoSummary shape
+          return CACHED_REPOS.slice(0, input.limit).map(repo => ({
+            ...repo,
+            description: '',
+            stargazersCount: 0,
+            forksCount: 0,
+            language: '',
+            topics: [],
+            special: repo.special || false,
+            sponsor: repo.sponsor || false,
+          }));
+        }
+        return shuffled;
 
       } catch (error: unknown) {
         console.error('Failed to get cached repos for scrolling:', error);
@@ -136,16 +151,18 @@ export const githubRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       try {
+        const userId = ctx.user.id;
+
         const githubService = await createGitHubService(ctx.session, ctx.req);
         
         // Get user repos
         const userRepos = await githubService.getUserRepositories();
         const limitedUserRepos = userRepos.slice(0, input.limit);
 
-        // Check cache for user repos
+        // Check cache for user repos (filter by userId)
         const now = new Date();
         const cacheThreshold = new Date(now.getTime() - CACHE_DURATION);
-        const allCachedRepos = await db.select().from(cachedRepos);
+        const allCachedRepos = await db.select().from(cachedRepos).where(eq(cachedRepos.userId, userId));
         const cachedReposMap = new Map(allCachedRepos.map(r => [`${r.owner}/${r.name}`, r]));
 
         const userReposWithDetails = await Promise.allSettled(
@@ -161,7 +178,7 @@ export const githubRouter = router({
               // Fetch fresh data
               const details = await githubService.getRepositoryDetails(repo.owner, repo.name);
               
-              // Cache the new details
+              // Cache the new details (upsert by owner, name, and userId)
               await db.insert(cachedRepos).values({
                 owner: details.owner,
                 name: details.name,
@@ -171,10 +188,10 @@ export const githubRouter = router({
                 language: details.language,
                 topics: details.topics,
                 isUserRepo: true,
-                userId: ctx.user.id,
+                userId: userId,
                 lastFetched: new Date(),
               }).onConflictDoUpdate({
-                target: [cachedRepos.owner, cachedRepos.name],
+                target: [cachedRepos.owner, cachedRepos.name, cachedRepos.userId],
                 set: {
                   description: details.description,
                   stargazersCount: details.stargazersCount,
@@ -182,7 +199,7 @@ export const githubRouter = router({
                   language: details.language,
                   topics: details.topics,
                   isUserRepo: true,
-                  userId: ctx.user.id,
+                  userId: userId,
                   lastFetched: new Date(),
                 },
               });

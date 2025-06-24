@@ -24,7 +24,7 @@ export function RepoHeader({
 
   return (
     <div className="max-w-screen-xl w-full mx-auto px-4">
-      <div className="flex flex-col gap-4 mb-8 bg-white p-6 rounded-lg shadow-sm">
+      <div className="flex flex-col gap-4 mb-8 bg-white p-8 rounded-xl shadow-lg border border-gray-200 mt-8">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-1">

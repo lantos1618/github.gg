@@ -4,17 +4,16 @@ import { useRepoData } from '@/lib/hooks/useRepoData';
 import { useCopyRepoFiles } from '@/lib/hooks/useCopyRepoFiles';
 import { RepoHeader } from '@/components/RepoHeader';
 import { useRouter, usePathname } from 'next/navigation';
-import { REPO_TABS, buildRepoUrl } from '@/lib/repoTabs';
+import { REPO_TABS } from '@/lib/repoTabs';
 import RepoTabs from '@/components/RepoTabs';
 
 export default function InsightsClientView({ user, repo, refName, path }: { user: string; repo: string; refName?: string; path?: string }) {
-  const { files, totalFiles, isLoading } = useRepoData({ user, repo });
+  const { files, totalFiles } = useRepoData({ user, repo });
   const { copyAllContent, isCopying, copied } = useCopyRepoFiles(files);
 
   // Tabs logic (client-side)
   const router = useRouter();
   const pathname = usePathname();
-  const userRepo = { user, repo };
   const activeTab = REPO_TABS.find(tab => {
     if (tab.url) return pathname === tab.url(user, repo, refName, path);
     return pathname.endsWith(`/${tab.key}`);

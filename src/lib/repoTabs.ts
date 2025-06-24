@@ -1,8 +1,10 @@
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
+
 export type RepoTab = {
   key: string;
   label: string;
   url?: (user: string, repo: string, ref?: string, path?: string) => string;
-  onClick?: (user: string, repo: string, router: any, ref?: string, path?: string) => void;
+  onClick?: (user: string, repo: string, router: AppRouterInstance, ref?: string, path?: string) => void;
 };
 
 export function buildRepoUrl({

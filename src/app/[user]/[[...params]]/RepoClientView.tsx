@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from 'react';
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import { useCopyRepoFiles } from '@/lib/hooks/useCopyRepoFiles';
 import { RepoHeader } from '@/components/RepoHeader';
@@ -8,7 +7,7 @@ import { FileList } from '@/components/FileList';
 import { RepoFile } from '@/types/repo';
 import RepoSkeleton from '@/components/RepoSkeleton';
 import { useRouter, usePathname } from 'next/navigation';
-import { REPO_TABS, buildRepoUrl } from '@/lib/repoTabs';
+import { REPO_TABS } from '@/lib/repoTabs';
 import RepoTabs from '@/components/RepoTabs';
 
 interface RepoClientViewProps {
@@ -32,7 +31,6 @@ export default function RepoClientView({ user, repo, refName, path }: RepoClient
   // Tabs logic (client-side)
   const router = useRouter();
   const pathname = usePathname();
-  const userRepo = { user, repo };
   const activeTab = REPO_TABS.find(tab => {
     if (tab.url) return pathname === tab.url(user, repo, refName, path);
     return pathname.endsWith(`/${tab.key}`);

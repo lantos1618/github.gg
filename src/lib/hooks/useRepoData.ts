@@ -3,7 +3,6 @@
 import { useParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { trpc } from '@/lib/trpc/client';
-import { RepoFile } from '@/types/repo';
 import { useAuth } from './useAuth';
 import { RepoSummary } from '../github/types';
 import { useRepoStore } from '@/lib/store';
@@ -43,7 +42,6 @@ export function useRepoData(overrideParams?: RepoParams) {
       }));
       setRepoFiles(repoId, repoFiles, data.totalFiles);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, repoId, setRepoFiles]);
 
   const repoData = store.repos[repoId] || { files: [], totalFiles: 0 };

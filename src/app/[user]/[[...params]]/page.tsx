@@ -1,18 +1,11 @@
 import RepoClientView from './RepoClientView';
 import InsightsClientView from './InsightsClientView';
 import { RepoLayout } from '@/components/RepoLayout';
-import RepoTabsWrapper from '@/components/RepoTabsWrapper';
 
 // Placeholder: Replace with real data fetching
 async function checkRepoExists(user: string, repo: string) {
   // TODO: Implement real repo existence check
   return !!repo;
-}
-
-async function checkFolderExists(user: string, repo: string, ref: string | undefined, path: string | undefined) {
-  // TODO: Implement real folder existence check
-  // For now, return true if path is not 'missing-folder'
-  return path !== 'missing-folder';
 }
 
 function parseRepoParams(user: string, repoParams: string[] = []) {
@@ -53,12 +46,6 @@ export default async function Page({ params }: { params: Promise<{ user: string;
   // 3. Determine active tab
   const isInsightsRoute = repoParams[repoParams.length - 1] === 'insights';
   const activeTab = isInsightsRoute ? 'insights' : 'wiki';
-
-  // 4. Tabs config
-  const tabs = [
-    { key: 'wiki', label: 'Wiki' },
-    { key: 'insights', label: 'Insights' },
-  ];
 
   // 5. Render layout with tabs and content
   return (

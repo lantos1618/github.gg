@@ -1,4 +1,7 @@
 import RepoClientView from './RepoClientView';
+import InsightsClientView from './InsightsClientView';
+import { RepoLayout } from '@/components/RepoLayout';
+import RepoTabsWrapper from '@/components/RepoTabsWrapper';
 
 // Placeholder: Replace with real data fetching
 async function checkRepoExists(user: string, repo: string) {
@@ -32,13 +35,9 @@ function getCurrentPath(repoParams: string[] = []) {
 
 export default async function Page({ params }: { params: Promise<{ user: string; params?: string[] }> }) {
   const awaitedParams = await params;
-  console.log('awaitedParams', awaitedParams);
   const repoParams = awaitedParams.params || [];
   const { repo, ref, path } = parseRepoParams(awaitedParams.user, repoParams);
   const currentPath = getCurrentPath(repoParams);
-
-  // Debug log
-  console.log('DEBUG:', { repoParams, repo, ref, path });
 
   // 1. If no repo param, render user profile
   if (!repo) {
@@ -51,21 +50,31 @@ export default async function Page({ params }: { params: Promise<{ user: string;
     return <div style={{ padding: 32, textAlign: 'center' }}><h1>404</h1><p>Repository not found.</p></div>;
   }
 
-  // 3. If last segment is 'insights', always render Insights view
+  // 3. Determine active tab
   const isInsightsRoute = repoParams[repoParams.length - 1] === 'insights';
-  if (isInsightsRoute) {
-    return <div style={{ padding: 32, textAlign: 'center' }}><h1>Insights View</h1><p>This is where the insights for the repo would be rendered.</p></div>;
-  }
+  const activeTab = isInsightsRoute ? 'insights' : 'wiki';
 
-  // 4. Otherwise, render the repo client view
+  // 4. Tabs config
+  const tabs = [
+    { key: 'wiki', label: 'Wiki' },
+    { key: 'insights', label: 'Insights' },
+  ];
+
+  // 5. Render layout with tabs and content
   return (
-    <RepoClientView
-      params={awaitedParams}
-      user={awaitedParams.user}
-      repo={repo}
-      refName={ref}
-      path={path}
-      currentPath={currentPath}
-    />
+    <RepoLayout>
+      {activeTab === 'insights' ? (
+        <InsightsClientView user={awaitedParams.user} repo={repo} refName={ref} path={path} />
+      ) : (
+        <RepoClientView
+          params={awaitedParams}
+          user={awaitedParams.user}
+          repo={repo}
+          refName={ref}
+          path={path}
+          currentPath={currentPath}
+        />
+      )}
+    </RepoLayout>
   );
 } 

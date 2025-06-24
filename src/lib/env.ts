@@ -26,6 +26,10 @@ const envSchema = z.object({
   // App
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   NEXT_PUBLIC_APP_URL: z.string().url(),
+
+  // Analytics
+  NEXT_PUBLIC_POSTHOG_KEY: z.string().min(1),
+  NEXT_PUBLIC_POSTHOG_HOST: z.string().min(1),
 });
 
 export const env = envSchema.parse(process.env); 

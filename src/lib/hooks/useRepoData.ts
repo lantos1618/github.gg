@@ -20,8 +20,8 @@ function getRepoId({ user, repo, ref, path }: RepoParams) {
 
 export function useRepoData(overrideParams?: RepoParams) {
   // Next.js Params expects an index signature, so cast to any for flexibility
-  const routeParams = useParams() as any as RepoParams;
-  const params = overrideParams ?? routeParams;
+  const { user, repo, ref, path } = useParams<{ user: string; repo: string; ref?: string; path?: string }>();
+  const params = overrideParams ?? { user, repo, ref, path };
   const repoId = getRepoId(params);
   const setRepoFiles = useRepoStore(state => state.setRepoFiles);
   const store = useRepoStore();

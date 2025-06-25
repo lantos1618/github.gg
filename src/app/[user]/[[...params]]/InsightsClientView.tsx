@@ -5,26 +5,93 @@ import { useCopyRepoFiles } from '@/lib/hooks/useCopyRepoFiles';
 import { RepoHeader } from '@/components/RepoHeader';
 import RepoTabsBar from '@/components/RepoTabsBar';
 import { trpc } from '@/lib/trpc/client';
-import ReactMarkdown from 'react-markdown';
 import { LoadingWave } from '@/components/LoadingWave';
 import { useEffect, useState } from 'react';
+// Lexical imports for shadcn-editor markdown rendering
+import { LexicalComposer } from '@lexical/react/LexicalComposer';
+import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
+import { ContentEditable } from '@lexical/react/LexicalContentEditable';
+import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
+import { HeadingNode, QuoteNode } from '@lexical/rich-text';
+import { ListNode, ListItemNode } from '@lexical/list';
+import { CodeNode, CodeHighlightNode } from '@lexical/code';
+import { TableNode, TableCellNode, TableRowNode } from '@lexical/table';
+import { LinkNode, AutoLinkNode } from '@lexical/link';
+import { OverflowNode } from '@lexical/overflow';
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
+import { $getRoot } from 'lexical';
+import { useEffect as useLexicalEffect } from 'react';
+import { $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 
+// No-op error boundary for Lexical
+function NoopErrorBoundary({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
+
+// Read-only Markdown viewer using Lexical
+function MarkdownViewer({ markdown }: { markdown: string }) {
+  const initialConfig = {
+    namespace: 'InsightsMarkdownViewer',
+    theme: {},
+    editable: false,
+    nodes: [
+      HeadingNode,
+      QuoteNode,
+      ListNode,
+      ListItemNode,
+      CodeNode,
+      CodeHighlightNode,
+      TableNode,
+      TableCellNode,
+      TableRowNode,
+      LinkNode,
+      AutoLinkNode,
+      OverflowNode,
+    ],
+    onError: (error: Error) => {
+      console.error(error);
+    },
+  };
+
+  // Load markdown into Lexical editor
+  function MarkdownContentLoader({ markdown }: { markdown: string }) {
+    const [editor] = useLexicalComposerContext();
+    useLexicalEffect(() => {
+      editor.update(() => {
+        const root = $getRoot();
+        root.clear();
+        $convertFromMarkdownString(markdown, TRANSFORMERS);
+      });
+    }, [editor, markdown]);
+    return null;
+  }
+
+  return (
+    <LexicalComposer initialConfig={initialConfig}>
+      <MarkdownContentLoader markdown={markdown} />
+      <RichTextPlugin
+        contentEditable={<ContentEditable className="markdown-content prose prose-lg max-w-none" />}
+        placeholder={null}
+        ErrorBoundary={NoopErrorBoundary}
+      />
+      <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+    </LexicalComposer>
+  );
+}
+
+// Main Insights Client View
 export default function InsightsClientView({ user, repo, refName, path }: { user: string; repo: string; refName?: string; path?: string }) {
   const { files, totalFiles, isLoading: filesLoading } = useRepoData({ user, repo });
   const { copyAllContent, isCopying, copied } = useCopyRepoFiles(files);
-  
   const [insightsData, setInsightsData] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Use mutation instead of query to avoid batching issues
   const generateInsightsMutation = trpc.insights.generateInsights.useMutation();
 
   useEffect(() => {
     if (files.length > 0 && !filesLoading && !insightsData && !isLoading) {
       setIsLoading(true);
       setError(null);
-      
       generateInsightsMutation.mutate(
         {
           user,
@@ -63,7 +130,6 @@ export default function InsightsClientView({ user, repo, refName, path }: { user
         fileCount={totalFiles}
       />
       <RepoTabsBar user={user} repo={repo} refName={refName} path={path} />
-      
       <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
         {overallLoading ? (
           <div className="flex flex-col items-center justify-center min-h-[400px]">
@@ -77,9 +143,7 @@ export default function InsightsClientView({ user, repo, refName, path }: { user
             <p className="text-sm text-gray-500 mt-2">{error}</p>
           </div>
         ) : insightsData ? (
-          <div className="prose prose-lg max-w-none">
-            <ReactMarkdown>{insightsData}</ReactMarkdown>
-          </div>
+          <MarkdownViewer markdown={insightsData} />
         ) : (
           <div className="text-center py-8">
             <h2 className="text-xl font-semibold text-gray-600 mb-2">No Insights Available</h2>

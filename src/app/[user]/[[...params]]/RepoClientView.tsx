@@ -7,6 +7,7 @@ import { FileList } from '@/components/FileList';
 import { RepoFile } from '@/types/repo';
 import RepoSkeleton from '@/components/RepoSkeleton';
 import RepoTabsBar from '@/components/RepoTabsBar';
+import { RepoStatus } from '@/components/RepoStatus';
 
 interface RepoClientViewProps {
   user: string;
@@ -22,6 +23,7 @@ export default function RepoClientView({ user, repo, refName, path }: RepoClient
     files,
     totalFiles,
     isLoading,
+    error,
   } = useRepoData({ user, repo, ref: refName, path });
 
   const { copyAllContent, isCopying, copied } = useCopyRepoFiles(files as RepoFile[]);
@@ -41,6 +43,7 @@ export default function RepoClientView({ user, repo, refName, path }: RepoClient
         <div style={{ maxHeight: 400, overflowY: 'auto', border: '1px solid #eee', borderRadius: 8, padding: 16 }}>
           {isLoading ? <RepoSkeleton /> : <FileList files={files as RepoFile[]} />}
         </div>
+        <RepoStatus error={error} />
       </div>
     </>
   );

@@ -17,6 +17,11 @@
 - [x] Copy all content functionality
 - [x] Dynamic routing for user/repo/path structure
 
+### Bug Fixes ✅
+- [x] **GitHub URL Path Parsing Fix**: Fixed bug where GitHub URLs with `/tree/branch/path` structure were incorrectly parsing `tree` as the branch name instead of `master`
+- [x] **Error Handling**: Added proper error bubbling from GitHub API to end users with descriptive error messages
+- [x] **Path Parsing Tests**: Added comprehensive test suite to verify GitHub URL parsing logic works correctly
+
 ### Smart Repository System ✅
 - [x] **Database Schema**: Added `cached_repos` and `trending_repos` tables for intelligent caching
 - [x] **GitHub Service**: Extended with methods to fetch user repos and popular repos

@@ -1,6 +1,6 @@
 import { protectedProcedure } from '@/lib/trpc/trpc';
 import { githubRouter } from '@/lib/trpc/routes/github';
-import { insightsRouter } from '@/lib/trpc/routes/insights';
+import { scorecardRouter } from '@/lib/trpc/routes/scorecard';
 import { z } from 'zod';
 import { router } from '@/lib/trpc/trpc';
 
@@ -33,8 +33,8 @@ export const appRouter = router({
   // GitHub routes
   github: githubRouter,
   
-  // Insights routes
-  insights: insightsRouter,
+  // Scorecard routes
+  scorecard: scorecardRouter,
 });
 
 export type AppRouter = typeof appRouter; 

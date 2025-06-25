@@ -38,7 +38,7 @@ export default function RepoClientView({ user, repo, refName, path }: RepoClient
         copied={copied}
         fileCount={totalFiles}
       />
-      <RepoTabsBar user={user} repo={repo} refName={refName} path={path} />
+      <RepoTabsBar />
       <div className="max-w-screen-xl w-full mx-auto px-4 mt-8">
         <div style={{ maxHeight: 400, overflowY: 'auto', border: '1px solid #eee', borderRadius: 8, padding: 16 }}>
           {isLoading ? <RepoSkeleton /> : <FileList files={files as RepoFile[]} />}

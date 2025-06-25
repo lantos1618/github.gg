@@ -1,5 +1,5 @@
 import path from "path"
-import InsightsClientView from './InsightsClientView';
+import ScorecardClientView from './ScorecardClientView';
 import RepoClientView from './RepoClientView';
 import DiagramClientView from './DiagramClientView';
 import { notFound } from 'next/navigation';
@@ -52,11 +52,11 @@ export default async function Page({ params }: PageProps) {
   if (!user) return notFound();
   if (!repo) return <UserClientView user={user} />;
 
-  // there is a bug where porjects might actually have the ending /insights or /diagram we should quickly just test for that
+  // there is a bug where projects might actually have the ending /scorecard or /diagram we should quickly just test for that
 
-  if (currentPath.endsWith('/insights')) {
+  if (currentPath.endsWith('/scorecard')) {
     return (
-      <InsightsClientView user={user} repo={repo} refName={ref} path={path} />
+      <ScorecardClientView user={user} repo={repo} refName={ref} path={path} />
     );
   }
 

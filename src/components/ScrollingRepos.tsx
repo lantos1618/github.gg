@@ -193,7 +193,7 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
       finalRepos.slice(i * 8, (i + 1) * 8)
     );
 
-  }, [popularRepos, sponsorRepos, userRepoNames, userRepos, auth.isSignedIn]);
+  }, [popularRepos, sponsorRepos, userRepoNames, userRepos, auth.isSignedIn,]);
   
   const isLoading = isPopularLoading || (auth.isSignedIn && (isSponsorLoading || isUserReposLoading));
 

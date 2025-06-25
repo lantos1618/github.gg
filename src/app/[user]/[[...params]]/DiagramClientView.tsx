@@ -18,7 +18,7 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
                 copied={copied}
                 fileCount={totalFiles}
             />
-            <RepoTabsBar user={user} repo={repo} refName={refName} path={path} />
+            <RepoTabsBar />
             <div className="max-w-screen-xl w-full mx-auto px-4 text-center mt-8">
                 <h1>Diagram View</h1>
                 <p>This is a placeholder for the diagram view for <b>{user}/{repo}</b>.</p>

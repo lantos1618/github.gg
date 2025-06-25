@@ -1,67 +1,40 @@
 "use client";
-import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRouter, usePathname } from 'next/navigation';
+import { useMemo } from 'react';
 
 export type RepoTab = {
   key: string;
   label: string;
+  path: string;
 };
 
 export const REPO_TABS: RepoTab[] = [
-  { key: 'wiki', label: 'Wiki' },
-  { key: 'insights', label: 'Insights' },
-  { key: 'diagram', label: 'Diagram' },
+  { key: 'files', label: 'Files', path: '' },
+  { key: 'scorecard', label: 'Scorecard', path: 'scorecard' },
+  { key: 'diagram', label: 'Diagram', path: 'diagram' },
 ];
 
-const TAB_SUFFIXES = REPO_TABS.map(tab => tab.key);
-
-function stripTabFromUrl(url: string) {
-  for (const suffix of TAB_SUFFIXES) {
-    if (url.endsWith(`/${suffix}`)) {
-      return url.slice(0, -suffix.length - 1);
-    }
-  }
-  return url;
-}
-
-function getActiveTab(pathname: string): string {
-  for (const tab of REPO_TABS) {
-    if (pathname.endsWith(`/${tab.key}`)) {
-      return tab.key;
-    }
-  }
-  return 'wiki'; // Default to wiki
-}
-
-function handleTabChangeFactory(router: AppRouterInstance) {
-  return (key: string) => {
-    const { pathname } = window.location;
-    const baseUrl = stripTabFromUrl(pathname);
-    if (key === 'wiki') {
-      if (pathname !== baseUrl) {
-        router.replace(baseUrl);
-      } else {
-        window.location.reload();
-      }
-    } else {
-      router.replace(`${baseUrl}/${key}`);
-    }
-  };
-}
-
-interface RepoTabsBarProps {
-  user: string;
-  repo: string;
-  refName?: string;
-  path?: string;
-}
-
-export default function RepoTabsBar({ user, repo, refName, path }: RepoTabsBarProps) {
+export default function RepoTabsBar() {
   const router = useRouter();
   const pathname = usePathname();
-  const activeTab = getActiveTab(pathname);
-  const handleTabChange = handleTabChangeFactory(router);
+
+  const { activeTab, basePath } = useMemo(() => {
+    const segments = pathname.replace(/\/$/, '').split('/');
+    const lastSegment = segments[segments.length - 1];
+    const activeTab = REPO_TABS.find(tab => tab.path === lastSegment)?.key || 'files';
+    const basePath = REPO_TABS.some(tab => tab.path === lastSegment) 
+      ? segments.slice(0, -1).join('/') 
+      : pathname.replace(/\/$/, '');
+    
+    return { activeTab, basePath };
+  }, [pathname]);
+
+  const handleTabChange = (key: string) => {
+    const tab = REPO_TABS.find(t => t.key === key);
+    const newPath = tab?.path ? `${basePath}/${tab.path}` : basePath;
+    router.replace(newPath);
+  };
 
   return (
     <div className="max-w-screen-xl w-full mx-auto px-4">

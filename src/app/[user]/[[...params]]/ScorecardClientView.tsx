@@ -31,7 +31,7 @@ function NoopErrorBoundary({ children }: { children: React.ReactNode }) {
 // Read-only Markdown viewer using Lexical
 function MarkdownViewer({ markdown }: { markdown: string }) {
   const initialConfig = {
-    namespace: 'InsightsMarkdownViewer',
+    namespace: 'ScorecardMarkdownViewer',
     theme: {},
     editable: false,
     nodes: [
@@ -79,20 +79,20 @@ function MarkdownViewer({ markdown }: { markdown: string }) {
   );
 }
 
-// Main Insights Client View
-export default function InsightsClientView({ user, repo, refName, path }: { user: string; repo: string; refName?: string; path?: string }) {
-  const { files, totalFiles, isLoading: filesLoading } = useRepoData({ user, repo });
+// Main Scorecard Client View
+export default function ScorecardClientView({ user, repo, refName,  path }: { user: string; repo: string; refName?: string; path?: string }) {
+  const { files, totalFiles, isLoading: filesLoading } = useRepoData({ user, repo, ref: refName, path });
   const { copyAllContent, isCopying, copied } = useCopyRepoFiles(files);
-  const [insightsData, setInsightsData] = useState<string | null>(null);
+  const [scorecardData, setScorecardData] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const generateInsightsMutation = trpc.insights.generateInsights.useMutation();
+  const generateScorecardMutation = trpc.scorecard.generateScorecard.useMutation();
 
   useEffect(() => {
-    if (files.length > 0 && !filesLoading && !insightsData && !isLoading) {
+    if (files.length > 0 && !filesLoading && !scorecardData && !isLoading) {
       setIsLoading(true);
       setError(null);
-      generateInsightsMutation.mutate(
+      generateScorecardMutation.mutate(
         {
           user,
           repo,
@@ -105,17 +105,17 @@ export default function InsightsClientView({ user, repo, refName, path }: { user
         },
         {
           onSuccess: (data) => {
-            setInsightsData(data.insights);
+            setScorecardData(data.scorecard);
             setIsLoading(false);
           },
           onError: (err) => {
-            setError(err.message || 'Failed to generate insights');
+            setError(err.message || 'Failed to generate scorecard');
             setIsLoading(false);
           },
         }
       );
     }
-  }, [files, filesLoading, insightsData, isLoading, user, repo, refName, generateInsightsMutation]);
+  }, [files, filesLoading, scorecardData, isLoading, user, repo, refName, generateScorecardMutation]);
 
   const overallLoading = filesLoading || isLoading;
 
@@ -129,7 +129,7 @@ export default function InsightsClientView({ user, repo, refName, path }: { user
         copied={copied}
         fileCount={totalFiles}
       />
-      <RepoTabsBar user={user} repo={repo} refName={refName} path={path} />
+      <RepoTabsBar  />
       <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
         {overallLoading ? (
           <div className="flex flex-col items-center justify-center min-h-[400px]">
@@ -139,15 +139,15 @@ export default function InsightsClientView({ user, repo, refName, path }: { user
         ) : error ? (
           <div className="text-center py-8">
             <h2 className="text-xl font-semibold text-red-600 mb-2">Analysis Failed</h2>
-            <p className="text-gray-600">Unable to generate insights for this repository.</p>
+            <p className="text-gray-600">Unable to generate scorecard for this repository.</p>
             <p className="text-sm text-gray-500 mt-2">{error}</p>
           </div>
-        ) : insightsData ? (
-          <MarkdownViewer markdown={insightsData} />
+        ) : scorecardData ? (
+          <MarkdownViewer markdown={scorecardData} />
         ) : (
           <div className="text-center py-8">
-            <h2 className="text-xl font-semibold text-gray-600 mb-2">No Insights Available</h2>
-            <p className="text-gray-500">Unable to generate insights for this repository.</p>
+            <h2 className="text-xl font-semibold text-gray-600 mb-2">No Scorecard Available</h2>
+            <p className="text-gray-500">Unable to generate scorecard for this repository.</p>
           </div>
         )}
       </div>

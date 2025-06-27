@@ -10,7 +10,6 @@ const ensureDbConnection = async () => {
   try {
     // Test the connection
     await db.execute(sql`SELECT 1`);
-    console.log('✅ Database connection verified for Better Auth');
     return true;
   } catch (error) {
     console.error('❌ Database connection failed for Better Auth:', error);

@@ -2,10 +2,20 @@
 
 import { LoadingWave, AnimatedTick } from './LoadingWave';
 import Link from 'next/link';
+import { trpc } from '@/lib/trpc/client';
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface RepoHeaderProps {
   user: string;
   repo: string;
+  refName?: string;
+  onBranchChange?: (branch: string) => void;
   onCopyAll: () => void;
   isCopying: boolean;
   copied: boolean;
@@ -15,12 +25,17 @@ interface RepoHeaderProps {
 export function RepoHeader({ 
   user, 
   repo, 
+  refName,
+  onBranchChange,
   onCopyAll, 
   isCopying, 
   copied, 
   fileCount
 }: RepoHeaderProps) {
   const githubUrl = `https://github.com/${user}/${repo}`;
+
+  const { data: branches = [], isLoading: loadingBranches, error: branchError } =
+    trpc.github.getBranches.useQuery({ owner: user, repo });
 
   return (
     <div className="max-w-screen-xl w-full mx-auto px-4">
@@ -50,6 +65,29 @@ export function RepoHeader({
                   {fileCount} file{fileCount !== 1 ? 's' : ''}
                 </p>
               )}
+              <div className="ml-2">
+                {loadingBranches ? (
+                  <span className="text-xs text-gray-400">Loading branches...</span>
+                ) : branchError ? (
+                  <span className="text-xs text-red-500">{branchError.message || 'Failed to load branches'}</span>
+                ) : branches.length > 0 ? (
+                  <Select
+                    value={refName || branches[0]}
+                    onValueChange={val => onBranchChange && onBranchChange(val)}
+                  >
+                    <SelectTrigger className="w-[120px] text-xs">
+                      <SelectValue placeholder="Select branch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {branches.map(branch => (
+                        <SelectItem key={branch} value={branch} className="text-xs">
+                          {branch}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : null}
+              </div>
               <svg 
                 xmlns="http://www.w3.org/2000/svg" 
                 className="h-4 w-4 text-gray-400" 

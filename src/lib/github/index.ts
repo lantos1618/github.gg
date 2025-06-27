@@ -177,6 +177,20 @@ export class GitHubService {
       throw error;
     }
   }
+
+  async getBranches(owner: string, repo: string): Promise<string[]> {
+    try {
+      const { data } = await this.octokit.repos.listBranches({ owner, repo, per_page: 100 });
+      return data.map(branch => branch.name);
+    } catch (error: unknown) {
+      const e = error as { status?: number; message?: string };
+      if (e.status === 404) {
+        throw new Error(`Repository ${owner}/${repo} not found`);
+      }
+      console.error(`Failed to get branches for ${owner}/${repo}:`, error);
+      throw new Error(`Failed to fetch branches from GitHub.`);
+    }
+  }
 }
 
 // Factory function to create GitHub service with session

@@ -486,4 +486,29 @@ export const githubRouter = router({
         return [];
       }
     }),
+
+    getBranches: publicProcedure
+      .input(z.object({
+        owner: z.string(),
+        repo: z.string(),
+      }))
+      .query(async ({ input, ctx }) => {
+        try {
+          const githubService = await createGitHubService(ctx.session, ctx.req);
+          const branches = await githubService.getBranches(input.owner, input.repo);
+          return branches;
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          if (errorMessage.includes('not found')) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: errorMessage,
+            });
+          }
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to get branches',
+          });
+        }
+      }),
 }); 

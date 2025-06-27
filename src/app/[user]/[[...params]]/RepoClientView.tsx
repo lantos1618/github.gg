@@ -8,6 +8,7 @@ import { RepoFile } from '@/types/repo';
 import RepoSkeleton from '@/components/RepoSkeleton';
 import RepoTabsBar from '@/components/RepoTabsBar';
 import { RepoStatus } from '@/components/RepoStatus';
+import { useRouter } from 'next/navigation';
 
 interface RepoClientViewProps {
   user: string;
@@ -27,12 +28,21 @@ export default function RepoClientView({ user, repo, refName, path }: RepoClient
   } = useRepoData({ user, repo, ref: refName, path });
 
   const { copyAllContent, isCopying, copied } = useCopyRepoFiles(files as RepoFile[]);
+  const router = useRouter();
+
+  const handleBranchChange = (branch: string) => {
+    let newPath = `/${user}/${repo}/tree/${branch}`;
+    if (path) newPath += `/${path}`;
+    router.push(newPath);
+  };
 
   return (
     <>
       <RepoHeader
         user={user}
         repo={repo}
+        refName={refName}
+        onBranchChange={handleBranchChange}
         onCopyAll={copyAllContent}
         isCopying={isCopying}
         copied={copied}

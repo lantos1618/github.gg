@@ -12,6 +12,7 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { tomorrow } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { useRouter } from 'next/navigation';
 
 // Main Scorecard Client View
 export default function ScorecardClientView({ user, repo, refName,  path }: { user: string; repo: string; refName?: string; path?: string }) {
@@ -22,6 +23,15 @@ export default function ScorecardClientView({ user, repo, refName,  path }: { us
   const [error, setError] = useState<string | null>(null);
   const [hasGenerated, setHasGenerated] = useState(false);
   const generateScorecardMutation = trpc.scorecard.generateScorecard.useMutation();
+  const router = useRouter();
+
+  const handleBranchChange = (branch: string) => {
+    // Build new route: /user/repo/tree/branch/path/scorecard (if path), else /user/repo/tree/branch/scorecard
+    let newPath = `/${user}/${repo}/tree/${branch}`;
+    if (path) newPath += `/${path}`;
+    newPath += '/scorecard';
+    router.push(newPath);
+  };
 
   // Debug logging
   console.log('ScorecardClientView Debug:', { 
@@ -98,6 +108,8 @@ export default function ScorecardClientView({ user, repo, refName,  path }: { us
       <RepoHeader
         user={user}
         repo={repo}
+        refName={refName}
+        onBranchChange={handleBranchChange}
         onCopyAll={copyAllContent}
         isCopying={isCopying}
         copied={copied}

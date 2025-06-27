@@ -11,6 +11,7 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
+import { useRouter } from 'next/navigation';
 
 const DIAGRAM_TYPES = [
   { value: 'flowchart', label: 'Flowchart' },
@@ -77,6 +78,7 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
     const [editableCode, setEditableCode] = useState('');
     // State for last code panel size
     const [lastCodePanelSize, setLastCodePanelSize] = useState(30);
+    const router = useRouter();
 
     // Debounce files and diagramType to avoid double-firing
     const debouncedFiles = useDebouncedValue(files, 300);
@@ -218,11 +220,21 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
         setShowCodePanel((prev) => !prev);
     };
 
+    const handleBranchChange = (branch: string) => {
+        // Build new route: /user/repo/tree/branch/path/diagram (if path), else /user/repo/tree/branch/diagram
+        let newPath = `/${user}/${repo}/tree/${branch}`;
+        if (path) newPath += `/${path}`;
+        newPath += '/diagram';
+        router.push(newPath);
+    };
+
     return (
         <>
             <RepoHeader
                 user={user}
                 repo={repo}
+                refName={refName}
+                onBranchChange={handleBranchChange}
                 onCopyAll={copyAllContent}
                 isCopying={isCopying}
                 copied={copied}

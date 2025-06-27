@@ -5,6 +5,7 @@ import { RepoHeader } from '@/components/RepoHeader';
 import RepoTabsBar from '@/components/RepoTabsBar';
 import { RepoFile } from '@/types/repo';
 import { useRouter } from 'next/navigation';
+import { trpc } from '@/lib/trpc/client';
 
 interface RepoPageLayoutProps {
   user: string;
@@ -37,6 +38,10 @@ export default function RepoPageLayout({
   const { copyAllContent, isCopying, copied } = useCopyRepoFiles(files as RepoFile[]);
   const router = useRouter();
 
+  // Fetch default branch
+  const { data: repoMeta, isLoading: loadingMeta } = trpc.github.getRepoMeta.useQuery({ owner: user, repo });
+  const defaultBranch = repoMeta?.default_branch;
+
   // Unified branch change handler
   const handleBranchChange = (branch: string) => {
     let newPath = `/${user}/${repo}/tree/${branch}`;
@@ -51,6 +56,7 @@ export default function RepoPageLayout({
         user={user}
         repo={repo}
         refName={refName}
+        defaultBranch={defaultBranch}
         onBranchChange={handleBranchChange}
         onCopyAll={copyAllContent}
         isCopying={isCopying}

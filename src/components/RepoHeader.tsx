@@ -15,6 +15,7 @@ interface RepoHeaderProps {
   user: string;
   repo: string;
   refName?: string;
+  defaultBranch?: string;
   onBranchChange?: (branch: string) => void;
   onCopyAll: () => void;
   isCopying: boolean;
@@ -26,6 +27,7 @@ export function RepoHeader({
   user, 
   repo, 
   refName,
+  defaultBranch,
   onBranchChange,
   onCopyAll, 
   isCopying, 
@@ -72,7 +74,7 @@ export function RepoHeader({
                   <span className="text-xs text-red-500">{branchError.message || 'Failed to load branches'}</span>
                 ) : branches.length > 0 ? (
                   <Select
-                    value={refName || branches[0]}
+                    value={refName || defaultBranch || branches[0]}
                     onValueChange={val => onBranchChange && onBranchChange(val)}
                   >
                     <SelectTrigger className="w-[120px] text-xs">

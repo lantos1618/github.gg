@@ -37,6 +37,7 @@ export class GitHubService {
         stargazers_count: data.stargazers_count,
         forks_count: data.forks_count,
         watchers_count: data.watchers_count,
+        default_branch: data.default_branch,
       };
     } catch (error: unknown) {
       const e = error as { status?: number; message?: string };
@@ -64,6 +65,7 @@ export class GitHubService {
         language: data.language || undefined,
         topics: data.topics || undefined,
         url: data.html_url,
+        default_branch: data.default_branch,
       };
     } catch (error: unknown) {
       const e = error as { status?: number; message?: string };

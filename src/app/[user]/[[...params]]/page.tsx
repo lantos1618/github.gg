@@ -23,7 +23,8 @@ function UserClientView({ user }: { user: string }) {
 }
 
 export default async function Page({ params }: PageProps) {
-  const parsed = parseRepoPath(params);
+  const awaitedParams = await params;
+  const parsed = parseRepoPath(awaitedParams);
   const { user, repo, ref, path, tab, currentPath } = parsed;
 
   if (!user) return notFound();

@@ -19,6 +19,7 @@ export interface RepositoryInfo {
   stargazers_count: number;
   forks_count: number;
   watchers_count: number;
+  default_branch: string;
 }
 
 export interface RepoSummary {
@@ -30,6 +31,7 @@ export interface RepoSummary {
   language?: string | null;
   topics?: string[] | null;
   url?: string;
+  default_branch?: string;
   starsToday?: number;
   starsThisWeek?: number;
   starsThisMonth?: number;

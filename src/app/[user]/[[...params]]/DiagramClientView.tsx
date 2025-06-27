@@ -115,19 +115,6 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
         }
     });
 
-    const retryDiagramMutation = trpc.diagram.retryDiagram.useMutation({
-        onSuccess: (data) => {
-            setDiagramCode(data.diagramCode);
-            setError(null);
-            setLastError(''); // Clear error on success
-        },
-        onError: (err) => {
-            const errorMessage = err.message || 'Failed to retry diagram generation';
-            setError(errorMessage);
-            setLastError(errorMessage);
-        }
-    });
-
     // Only auto-generate if input changes and not errored
     useEffect(() => {
         if (!debouncedFiles || debouncedFiles.length === 0) return;
@@ -177,14 +164,16 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
         if (!previousDiagramCode || !lastError) return;
         
         setError(null);
-        retryDiagramMutation.mutate({
+        generateDiagramMutation.mutate({
             user,
             repo,
             ref: refName || 'main',
+            files: debouncedFiles.map(f => ({ path: f.path, content: f.content, size: f.size })),
             diagramType: debouncedDiagramType,
             options,
             previousResult: previousDiagramCode,
             lastError: lastError,
+            isRetry: true,
         });
     };
 
@@ -270,19 +259,13 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
                         <div className="text-lg text-blue-700 font-medium">Generating diagram...</div>
                     </div>
                 )}
-                {retryDiagramMutation.isPending && (
-                    <div className="my-8 flex flex-col items-center gap-4">
-                        <LoadingWave size="lg" color="#3b82f6" />
-                        <div className="text-lg text-blue-700 font-medium">Retrying diagram generation...</div>
-                    </div>
-                )}
                 {error && (
                     <div className="my-8">
                         <div className="text-red-600 mb-4">{error}</div>
                         <div className="flex gap-2 justify-center">
                             <button 
                                 onClick={handleRetry}
-                                disabled={generateDiagramMutation.isPending || retryDiagramMutation.isPending}
+                                disabled={generateDiagramMutation.isPending}
                                 className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
                             >
                                 {generateDiagramMutation.isPending ? 'Retrying...' : 'Retry'}
@@ -290,10 +273,10 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
                             {previousDiagramCode && (
                                 <button 
                                     onClick={handleRetryWithContext}
-                                    disabled={generateDiagramMutation.isPending || retryDiagramMutation.isPending}
+                                    disabled={generateDiagramMutation.isPending}
                                     className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
                                 >
-                                    {retryDiagramMutation.isPending ? 'Retrying with Context...' : 'Retry with Previous Result'}
+                                    {generateDiagramMutation.isPending ? 'Retrying with Context...' : 'Retry with Previous Result'}
                                 </button>
                             )}
                         </div>
@@ -365,7 +348,7 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
                                       setLastError(`Render error: ${err}`);
                                     }
                                   }} />
-                                  {(generateDiagramMutation.isPending || retryDiagramMutation.isPending) && (
+                                  {(generateDiagramMutation.isPending) && (
                                     <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 z-10">
                                       <div className="flex flex-col items-center gap-2">
                                         <LoadingWave />
@@ -379,10 +362,10 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
                                     <div className="text-red-600 mb-2">Diagram failed to render. {renderError}</div>
                                     <button
                                       onClick={handleRetryWithContext}
-                                      disabled={generateDiagramMutation.isPending || retryDiagramMutation.isPending}
+                                      disabled={generateDiagramMutation.isPending}
                                       className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
                                     >
-                                      {retryDiagramMutation.isPending ? 'Regenerating...' : 'Regenerate (Fix)'}
+                                      Regenerate (Fix)
                                     </button>
                                   </div>
                                 )}
@@ -400,7 +383,7 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
                                     setLastError(`Render error: ${err}`);
                                   }
                                 }} />
-                                {(generateDiagramMutation.isPending || retryDiagramMutation.isPending) && (
+                                {(generateDiagramMutation.isPending) && (
                                   <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 z-10">
                                     <div className="flex flex-col items-center gap-2">
                                       <LoadingWave />
@@ -414,10 +397,10 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
                                   <div className="text-red-600 mb-2">Diagram failed to render. {renderError}</div>
                                   <button
                                     onClick={handleRetryWithContext}
-                                    disabled={generateDiagramMutation.isPending || retryDiagramMutation.isPending}
+                                    disabled={generateDiagramMutation.isPending}
                                     className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
                                   >
-                                    {retryDiagramMutation.isPending ? 'Regenerating...' : 'Regenerate (Fix)'}
+                                    Regenerate (Fix)
                                   </button>
                                 </div>
                               )}

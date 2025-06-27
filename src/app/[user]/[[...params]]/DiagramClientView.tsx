@@ -6,6 +6,11 @@ import RepoTabsBar from '@/components/RepoTabsBar';
 import { useState, useEffect, useRef } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import mermaid from 'mermaid';
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
 
 const DIAGRAM_TYPES = [
   { value: 'flowchart', label: 'Flowchart' },
@@ -66,20 +71,57 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
     const [lastInput, setLastInput] = useState<{diagramType: DiagramType; filesHash: string}|null>(null);
     const [manualRetryKey, setManualRetryKey] = useState(0);
     const [renderError, setRenderError] = useState<string>('');
+    const [previousDiagramCode, setPreviousDiagramCode] = useState<string>(''); // Store previous result for retry
+    const [lastError, setLastError] = useState<string>(''); // Store last error for context
+    const [showCodePanel, setShowCodePanel] = useState(false); // Toggle for code panel
+    const [editableCode, setEditableCode] = useState('');
+    // State for last code panel size
+    const [lastCodePanelSize, setLastCodePanelSize] = useState(30);
 
     // Debounce files and diagramType to avoid double-firing
     const debouncedFiles = useDebouncedValue(files, 300);
     const debouncedDiagramType = useDebouncedValue(diagramType, 200);
 
+    // Keyboard shortcut to close code panel
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape' && showCodePanel) {
+                setShowCodePanel(false);
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [showCodePanel]);
+
     const generateDiagramMutation = trpc.diagram.generateDiagram.useMutation({
         onSuccess: (data) => {
             setDiagramCode(data.diagramCode);
             setError(null);
-            setLastInput({diagramType: debouncedDiagramType, filesHash: JSON.stringify(debouncedFiles.map(f => f.path+f.content.length))});
+            setLastError(''); // Clear error on success
+            setLastInput({
+                diagramType: debouncedDiagramType, 
+                filesHash: JSON.stringify(debouncedFiles.map(f => f.path+f.content.length))
+            });
         },
         onError: (err) => {
-            setError(err.message || 'Failed to generate diagram');
-            setDiagramCode('');
+            const errorMessage = err.message || 'Failed to generate diagram';
+            setError(errorMessage);
+            setLastError(errorMessage); // Store error for retry context
+            // Don't clear diagramCode on error - preserve previous result
+        }
+    });
+
+    const retryDiagramMutation = trpc.diagram.retryDiagram.useMutation({
+        onSuccess: (data) => {
+            setDiagramCode(data.diagramCode);
+            setError(null);
+            setLastError(''); // Clear error on success
+        },
+        onError: (err) => {
+            const errorMessage = err.message || 'Failed to retry diagram generation';
+            setError(errorMessage);
+            setLastError(errorMessage);
         }
     });
 
@@ -90,6 +132,11 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
         const inputChanged = !lastInput || lastInput.diagramType !== debouncedDiagramType || lastInput.filesHash !== filesHash;
         if (inputChanged) {
             setError(null);
+            setLastError('');
+            // Store current diagram code before clearing (for potential retry)
+            if (diagramCode) {
+                setPreviousDiagramCode(diagramCode);
+            }
             setDiagramCode('');
             setLastInput(null); // reset so we can set it on success
             generateDiagramMutation.mutate({
@@ -99,6 +146,12 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
                 files: debouncedFiles.map(f => ({ path: f.path, content: f.content, size: f.size })),
                 diagramType: debouncedDiagramType,
                 options,
+                // Pass retry context if this is a retry
+                ...(manualRetryKey > 0 && {
+                    previousResult: previousDiagramCode,
+                    lastError: lastError,
+                    isRetry: true,
+                }),
             });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,9 +165,57 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
 
     const handleRetry = () => {
         setError(null);
-        setDiagramCode('');
+        // Don't clear diagramCode - preserve the previous result
         setLastInput(null);
         setManualRetryKey(k => k + 1);
+    };
+
+    const handleRetryWithContext = () => {
+        if (!previousDiagramCode || !lastError) return;
+        
+        setError(null);
+        retryDiagramMutation.mutate({
+            user,
+            repo,
+            ref: refName || 'main',
+            diagramType: debouncedDiagramType,
+            options,
+            previousResult: previousDiagramCode,
+            lastError: lastError,
+        });
+    };
+
+    // Show previous result if available and current generation failed
+    const displayDiagramCode = diagramCode || (error && previousDiagramCode ? previousDiagramCode : '');
+
+    // Sync editableCode with diagramCode when diagramCode changes (but not when user is editing)
+    useEffect(() => {
+        if (!showCodePanel) setEditableCode(displayDiagramCode);
+    }, [displayDiagramCode, showCodePanel]);
+
+    // Copy handlers
+    const handleCopyMermaid = () => {
+        navigator.clipboard.writeText(editableCode || displayDiagramCode);
+    };
+    const handleCopyDiagram = () => {
+        // Try to copy the SVG from the MermaidRenderer
+        const svg = document.querySelector('.mermaid svg');
+        if (svg) {
+            const serializer = new XMLSerializer();
+            const svgString = serializer.serializeToString(svg);
+            navigator.clipboard.writeText(svgString);
+        }
+    };
+
+    // When code is edited, update the preview live
+    const handleCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        setEditableCode(e.target.value);
+        setDiagramCode(e.target.value);
+    };
+
+    // When toggling code panel, set showCodePanel and remember last size
+    const handleToggleCodePanel = () => {
+        setShowCodePanel((prev) => !prev);
     };
 
     return (
@@ -128,7 +229,7 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
                 fileCount={totalFiles}
             />
             <RepoTabsBar />
-            <div className="max-w-screen-xl w-full mx-auto px-4 text-center mt-8">
+            <div className="w-full px-0 text-center mt-8">
                 <h1>Diagram View</h1>
                 <div className="mb-4 flex justify-center items-center gap-2">
                     <label htmlFor="diagram-type">Diagram Type:</label>
@@ -144,43 +245,164 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
                     </select>
                 </div>
                 {generateDiagramMutation.isPending && <div className="my-8 text-lg">Generating diagram...</div>}
+                {retryDiagramMutation.isPending && <div className="my-8 text-lg">Retrying diagram generation...</div>}
                 {error && (
                     <div className="my-8">
                         <div className="text-red-600 mb-4">{error}</div>
-                        <button 
-                            onClick={handleRetry}
-                            disabled={generateDiagramMutation.isPending}
-                            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
-                        >
-                            {generateDiagramMutation.isPending ? 'Retrying...' : 'Retry'}
-                        </button>
-                    </div>
-                )}
-                {diagramCode && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-                        <div>
-                            <h2 className="font-bold mb-2">Mermaid Code</h2>
-                            <pre className="bg-gray-100 p-4 rounded text-left overflow-x-auto text-xs md:text-sm">{diagramCode}</pre>
-                        </div>
-                        <div>
-                            <h2 className="font-bold mb-2">Preview</h2>
-                            <MermaidRenderer code={diagramCode} onRenderError={setRenderError} />
-                            {renderError && (
-                                <div className="mt-4 flex flex-col items-center">
-                                    <div className="text-red-600 mb-2">Diagram failed to render. {renderError}</div>
-                                    <button
-                                        onClick={handleRetry}
-                                        disabled={generateDiagramMutation.isPending}
-                                        className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
-                                    >
-                                        {generateDiagramMutation.isPending ? 'Regenerating...' : 'Regenerate (Fix)'}
-                                    </button>
-                                </div>
+                        <div className="flex gap-2 justify-center">
+                            <button 
+                                onClick={handleRetry}
+                                disabled={generateDiagramMutation.isPending || retryDiagramMutation.isPending}
+                                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+                            >
+                                {generateDiagramMutation.isPending ? 'Retrying...' : 'Retry'}
+                            </button>
+                            {previousDiagramCode && (
+                                <button 
+                                    onClick={handleRetryWithContext}
+                                    disabled={generateDiagramMutation.isPending || retryDiagramMutation.isPending}
+                                    className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+                                >
+                                    {retryDiagramMutation.isPending ? 'Retrying with Context...' : 'Retry with Previous Result'}
+                                </button>
                             )}
                         </div>
+                        {previousDiagramCode && (
+                            <div className="mt-4 text-sm text-gray-600">
+                                Previous diagram result is preserved below. You can retry generation or continue using the previous result.
+                            </div>
+                        )}
                     </div>
                 )}
-                {!generateDiagramMutation.isPending && !diagramCode && !error && (
+                {displayDiagramCode && (
+                    <div className="w-full bg-white border rounded-lg shadow overflow-hidden" style={{minHeight: 500}}>
+                        {/* Header with controls */}
+                        <div className="flex items-center gap-2 p-4 border-b bg-gray-50 justify-start">
+                            <button
+                                onClick={handleToggleCodePanel}
+                                className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center gap-2"
+                            >
+                                {showCodePanel ? (
+                                    <>
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                        Hide Code
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                        </svg>
+                                        Show Code
+                                    </>
+                                )}
+                            </button>
+                            <button
+                                onClick={handleCopyMermaid}
+                                className="bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium py-2 px-4 rounded-lg transition-colors duration-200"
+                            >Copy Mermaid</button>
+                            <button
+                                onClick={handleCopyDiagram}
+                                className="bg-green-100 hover:bg-green-200 text-green-700 font-medium py-2 px-4 rounded-lg transition-colors duration-200"
+                            >Copy Diagram</button>
+                        </div>
+                        {/* Resizable panels: code and preview */}
+                        {showCodePanel ? (
+                          <ResizablePanelGroup direction="horizontal">
+                            <ResizablePanel minSize={10} maxSize={60} defaultSize={lastCodePanelSize} onResize={setLastCodePanelSize} className="bg-gray-50 border-r">
+                              <div className="flex-1 flex flex-col p-4 h-full">
+                                <h2 className="font-bold mb-2 text-left">Mermaid Code</h2>
+                                <textarea
+                                  className="bg-white p-4 rounded border text-left overflow-x-auto text-xs md:text-sm font-mono w-full h-full min-h-[300px] resize-vertical"
+                                  value={editableCode}
+                                  onChange={handleCodeChange}
+                                  spellCheck={false}
+                                  disabled={generateDiagramMutation.isPending}
+                                  style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}
+                                  wrap="soft"
+                                />
+                              </div>
+                            </ResizablePanel>
+                            <ResizableHandle withHandle />
+                            <ResizablePanel minSize={30} defaultSize={100 - lastCodePanelSize} className="bg-white">
+                              <div className="flex flex-col p-4 h-full">
+                                <h2 className="font-bold mb-2 text-left">Preview</h2>
+                                <div className="relative">
+                                  <MermaidRenderer code={editableCode || displayDiagramCode} onRenderError={(err) => {
+                                    setRenderError(err);
+                                    if (err && !lastError) {
+                                      setLastError(`Render error: ${err}`);
+                                    }
+                                  }} />
+                                  {(generateDiagramMutation.isPending || retryDiagramMutation.isPending) && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 z-10">
+                                      <div className="flex flex-col items-center gap-2">
+                                        <svg className="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                                        </svg>
+                                        <span className="text-blue-700 font-medium">Generating diagram...</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                {renderError && (
+                                  <div className="mt-4 flex flex-col items-center">
+                                    <div className="text-red-600 mb-2">Diagram failed to render. {renderError}</div>
+                                    <button
+                                      onClick={handleRetryWithContext}
+                                      disabled={generateDiagramMutation.isPending || retryDiagramMutation.isPending}
+                                      className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+                                    >
+                                      {retryDiagramMutation.isPending ? 'Regenerating...' : 'Regenerate (Fix)'}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </ResizablePanel>
+                          </ResizablePanelGroup>
+                        ) : (
+                          <div className="bg-white w-full">
+                            <div className="flex flex-col p-4 h-full">
+                              <h2 className="font-bold mb-2 text-left">Preview</h2>
+                              <div className="relative">
+                                <MermaidRenderer code={editableCode || displayDiagramCode} onRenderError={(err) => {
+                                  setRenderError(err);
+                                  if (err && !lastError) {
+                                    setLastError(`Render error: ${err}`);
+                                  }
+                                }} />
+                                {(generateDiagramMutation.isPending || retryDiagramMutation.isPending) && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 z-10">
+                                    <div className="flex flex-col items-center gap-2">
+                                      <svg className="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                                      </svg>
+                                      <span className="text-blue-700 font-medium">Generating diagram...</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              {renderError && (
+                                <div className="mt-4 flex flex-col items-center">
+                                  <div className="text-red-600 mb-2">Diagram failed to render. {renderError}</div>
+                                  <button
+                                    onClick={handleRetryWithContext}
+                                    disabled={generateDiagramMutation.isPending || retryDiagramMutation.isPending}
+                                    className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+                                  >
+                                    {retryDiagramMutation.isPending ? 'Regenerating...' : 'Regenerate (Fix)'}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                    </div>
+                )}
+                {!generateDiagramMutation.isPending && !displayDiagramCode && !error && (
                     <p className="text-gray-500 mt-8">No diagram generated yet.</p>
                 )}
             </div>

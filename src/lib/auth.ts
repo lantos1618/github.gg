@@ -22,6 +22,7 @@ const ensureDbConnection = async () => {
 const createAuth = () => {
   
   return betterAuth({
+    trustedOrigins: ["https://github.gg", "https://dev.github.gg"],
     database: drizzleAdapter(db, {
       schema,
       provider: 'pg',

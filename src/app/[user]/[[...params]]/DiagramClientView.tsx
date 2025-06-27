@@ -3,6 +3,7 @@ import { useRepoData } from '@/lib/hooks/useRepoData';
 import { useCopyRepoFiles } from '@/lib/hooks/useCopyRepoFiles';
 import { RepoHeader } from '@/components/RepoHeader';
 import RepoTabsBar from '@/components/RepoTabsBar';
+import { LoadingWave } from '@/components/LoadingWave';
 import { useState, useEffect, useRef } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import mermaid from 'mermaid';
@@ -244,20 +245,37 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
             <div className="w-full px-0 text-center mt-8">
                 <h1>Diagram View</h1>
                 <div className="mb-4 flex justify-center items-center gap-2">
-                    <label htmlFor="diagram-type">Diagram Type:</label>
-                    <select
-                        id="diagram-type"
-                        value={diagramType}
-                        onChange={e => setDiagramType(e.target.value as DiagramType)}
-                        className="border rounded px-2 py-1"
-                    >
+                    <span className="mr-2 font-medium">Diagram Type:</span>
+                    <div className="flex gap-2">
                         {DIAGRAM_TYPES.map(dt => (
-                            <option key={dt.value} value={dt.value}>{dt.label}</option>
+                            <button
+                                key={dt.value}
+                                onClick={() => setDiagramType(dt.value as DiagramType)}
+                                className={`px-4 py-1 rounded border transition-colors duration-150 font-medium
+                                    ${diagramType === dt.value
+                                        ? 'bg-blue-600 text-white border-blue-700 shadow'
+                                        : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'}
+                                `}
+                                disabled={diagramType === dt.value}
+                                type="button"
+                            >
+                                {dt.label}
+                            </button>
                         ))}
-                    </select>
+                    </div>
                 </div>
-                {generateDiagramMutation.isPending && <div className="my-8 text-lg">Generating diagram...</div>}
-                {retryDiagramMutation.isPending && <div className="my-8 text-lg">Retrying diagram generation...</div>}
+                {generateDiagramMutation.isPending && (
+                    <div className="my-8 flex flex-col items-center gap-4">
+                        <LoadingWave size="lg" color="#3b82f6" />
+                        <div className="text-lg text-blue-700 font-medium">Generating diagram...</div>
+                    </div>
+                )}
+                {retryDiagramMutation.isPending && (
+                    <div className="my-8 flex flex-col items-center gap-4">
+                        <LoadingWave size="lg" color="#3b82f6" />
+                        <div className="text-lg text-blue-700 font-medium">Retrying diagram generation...</div>
+                    </div>
+                )}
                 {error && (
                     <div className="my-8">
                         <div className="text-red-600 mb-4">{error}</div>
@@ -350,10 +368,7 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
                                   {(generateDiagramMutation.isPending || retryDiagramMutation.isPending) && (
                                     <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 z-10">
                                       <div className="flex flex-col items-center gap-2">
-                                        <svg className="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                                        </svg>
+                                        <LoadingWave />
                                         <span className="text-blue-700 font-medium">Generating diagram...</span>
                                       </div>
                                     </div>
@@ -388,10 +403,7 @@ function DiagramClientView({ user, repo, refName, path }: { user: string; repo: 
                                 {(generateDiagramMutation.isPending || retryDiagramMutation.isPending) && (
                                   <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 z-10">
                                     <div className="flex flex-col items-center gap-2">
-                                      <svg className="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                                      </svg>
+                                      <LoadingWave />
                                       <span className="text-blue-700 font-medium">Generating diagram...</span>
                                     </div>
                                   </div>

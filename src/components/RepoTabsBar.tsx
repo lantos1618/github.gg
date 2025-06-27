@@ -2,18 +2,7 @@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRouter, usePathname } from 'next/navigation';
 import { useMemo } from 'react';
-
-export type RepoTab = {
-  key: string;
-  label: string;
-  path: string;
-};
-
-export const REPO_TABS: RepoTab[] = [
-  { key: 'files', label: 'Files', path: '' },
-  { key: 'scorecard', label: 'Scorecard', path: 'scorecard' },
-  { key: 'diagram', label: 'Diagram', path: 'diagram' },
-];
+import { REPO_TABS, RepoTab } from '@/lib/repoTabs';
 
 export default function RepoTabsBar() {
   const router = useRouter();

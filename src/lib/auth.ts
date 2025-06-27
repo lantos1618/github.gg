@@ -20,7 +20,6 @@ const ensureDbConnection = async () => {
 
 // Create auth instance with proper database connection
 const createAuth = () => {
-  console.log('🔧 Initializing Better Auth with database connection...');
   
   return betterAuth({
     database: drizzleAdapter(db, {

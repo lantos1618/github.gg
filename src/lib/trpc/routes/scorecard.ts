@@ -15,7 +15,6 @@ import { env } from '@/lib/env';
 async function callGeminiForScorecard(files: Array<{ path: string; content: string }>, repoName: string): Promise<string> {
 
 
-  console.log("GEMINI_API_KEY", env.GEMINI_API_KEY)
   const ai = new GoogleGenAI({
     apiKey: env.GEMINI_API_KEY,
   });
@@ -84,8 +83,16 @@ ${files.map(file => `\n--- ${file.path} ---\n${file.content}`).join('\n')}`;
     return fullResponse;
   } catch (error) {
     console.error('Gemini API error:', error);
-    // Fallback to mock data if API fails
-    return `# 🏆 Project Scorecard: ${repoName}`;
+    // Bubble up the error message if available
+    let message = 'Gemini API error';
+    if (error instanceof Error) {
+      message = error.message;
+    } else if (typeof error === 'string') {
+      message = error;
+    } else if (error && typeof error === 'object' && 'message' in error) {
+      message = String(error.message);
+    }
+    throw new Error(message);
   }
 }
 

@@ -210,3 +210,93 @@ html, body {
     @apply bg-background text-foreground;
   }
 }
+
+/*
+.prose {
+  @apply max-w-none; 
+}
+.prose h1 {
+  @apply text-3xl font-bold my-4;
+}
+.prose h2 {
+  @apply text-2xl font-semibold my-3;
+}
+.prose h3 {
+  @apply text-xl font-semibold my-2;
+}
+.prose p {
+  @apply my-2 leading-relaxed;
+}
+.prose a {
+  @apply text-primary hover:underline;
+}
+.prose ul,
+.prose ol {
+  @apply my-2 ml-6;
+}
+.prose li {
+  @apply my-1;
+}
+.prose blockquote {
+  @apply border-l-4 border-border pl-4 italic my-4 text-muted-foreground;
+}
+.prose code {
+  @apply bg-muted text-muted-foreground px-1 py-0.5 rounded-sm font-mono text-sm;
+}
+.prose pre {
+  @apply bg-muted p-4 rounded-md overflow-x-auto my-4;
+}
+.prose pre code {
+  @apply bg-transparent p-0;
+}
+.prose table {
+  @apply w-full my-4 border-collapse border border-border;
+}
+.prose th,
+.prose td {
+  @apply border border-border px-4 py-2 text-left;
+}
+.prose th {
+  @apply bg-muted font-semibold;
+}
+.prose img {
+  @apply my-4 rounded-md;
+}
+.prose hr {
+  @apply my-6 border-border;
+}
+
+.dark .prose-invert h1,
+.dark .prose-invert h2,
+.dark .prose-invert h3,
+.dark .prose-invert h4,
+.dark .prose-invert h5,
+.dark .prose-invert h6 {
+  @apply text-foreground;
+}
+.dark .prose-invert p,
+.dark .prose-invert li,
+.dark .prose-invert blockquote {
+  @apply text-muted-foreground;
+}
+.dark .prose-invert a {
+  @apply text-primary;
+}
+.dark .prose-invert code {
+  @apply bg-muted text-foreground;
+}
+.dark .prose-invert pre {
+  @apply bg-muted;
+}
+.dark .prose-invert pre code {
+  @apply text-foreground;
+}
+.dark .prose-invert th {
+  @apply text-foreground bg-muted;
+}
+.dark .prose-invert table,
+.dark .prose-invert th,
+.dark .prose-invert td {
+  @apply border-border;
+}
+*/

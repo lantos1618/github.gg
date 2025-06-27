@@ -3,6 +3,7 @@ import ScorecardClientView from './ScorecardClientView';
 import RepoClientView from './RepoClientView';
 import DiagramClientView from './DiagramClientView';
 import { notFound } from 'next/navigation';
+import { getTabPaths } from '@/lib/repoTabs';
 
 interface PageProps {
   params: {
@@ -29,31 +30,57 @@ export default async function Page({ params }: PageProps) {
   let ref: string | undefined;
   let pathParts: string[] = [];
   
+  const TAB_PATHS = getTabPaths();
+
   if (rest.length > 0) {
     repo = rest[0];
     
     if (rest.length > 1) {
-      // Check if the second segment is 'tree' (GitHub URL structure)
-      if (rest[1] === 'tree' && rest.length > 2) {
-        // Format: /user/repo/tree/branch/path
-        ref = rest[2];
-        pathParts = rest.slice(3);
+      // Check if the last segment is a tab path
+      const lastSegment = rest[rest.length - 1];
+      const isTabPath = TAB_PATHS.includes(lastSegment);
+      
+      if (isTabPath) {
+        // If it's a tab path, don't treat any segment as ref
+        // Just use the repo name and let the tab views handle the rest
+        ref = undefined;
+        pathParts = [];
       } else {
-        // Format: /user/repo/branch/path (direct branch reference)
-        ref = rest[1];
-        pathParts = rest.slice(2);
+        // Check if the second segment is 'tree' (GitHub URL structure)
+        if (rest[1] === 'tree' && rest.length > 2) {
+          // Format: /user/repo/tree/branch/path
+          ref = rest[2];
+          pathParts = rest.slice(3);
+        } else {
+          // Format: /user/repo/branch/path (direct branch reference)
+          ref = rest[1];
+          pathParts = rest.slice(2);
+        }
       }
     }
   }
   
   const path = pathParts.length > 0 ? pathParts.join('/') : undefined;
-  const currentPath = `/${[user, repo, ref, ...pathParts].filter(Boolean).join('/')}`;
+  
+  // Build currentPath correctly - include the tab path if it exists
+  const pathSegments = [user, repo];
+  if (ref) pathSegments.push(ref);
+  if (pathParts.length > 0) pathSegments.push(...pathParts);
+  
+  // Check if the last segment is a tab path and include it
+  if (rest.length > 1) {
+    const lastSegment = rest[rest.length - 1];
+    if (TAB_PATHS.includes(lastSegment)) {
+      pathSegments.push(lastSegment);
+    }
+  }
+  
+  const currentPath = `/${pathSegments.filter(Boolean).join('/')}`;
 
   if (!user) return notFound();
   if (!repo) return <UserClientView user={user} />;
 
-  // there is a bug where projects might actually have the ending /scorecard or /diagram we should quickly just test for that
-
+  // Check for tab paths
   if (currentPath.endsWith('/scorecard')) {
     return (
       <ScorecardClientView user={user} repo={repo} refName={ref} path={path} />

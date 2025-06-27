@@ -1,6 +1,7 @@
 import { protectedProcedure } from '@/lib/trpc/trpc';
 import { githubRouter } from '@/lib/trpc/routes/github';
 import { scorecardRouter } from '@/lib/trpc/routes/scorecard';
+import { diagramRouter } from '@/lib/trpc/routes/diagram';
 import { z } from 'zod';
 import { router } from '@/lib/trpc/trpc';
 
@@ -35,6 +36,9 @@ export const appRouter = router({
   
   // Scorecard routes
   scorecard: scorecardRouter,
+  
+  // Diagram routes
+  diagram: diagramRouter,
 });
 
 export type AppRouter = typeof appRouter; 

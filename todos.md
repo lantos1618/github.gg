@@ -14,7 +14,7 @@
 - [x] Repository file listing
 - [x] File content viewing
 - [x] Intelligent file filtering (excludes binaries, build artifacts)
-- [x] Copy all content functionality
+- [x] Copy Code content functionality
 - [x] Dynamic routing for user/repo/path structure
 
 ### Bug Fixes ✅
@@ -57,7 +57,7 @@
 - [x] **Eliminated Code Duplication**: Created `useRepoData` hook to abstract common logic across repository pages
 - [x] **Proper Test Suite**: Converted `github.test.ts` to use proper `bun:test` with multiple test cases
 - [x] **Database Schema Improvements**: Added composite unique index on accounts table for better data integrity
-- [x] **Copy All Safety**: Added size limit check (10MB) to prevent browser hanging on large repositories
+- [x] **Copy Code Safety**: Added size limit check (10MB) to prevent browser hanging on large repositories
 - [x] **Enhanced Error Handling**: Better error messages and user feedback for copy operations
 - [x] **Toast Notifications**: Replaced `alert()` with elegant toast notifications using `sonner`
 - [x] **Environment Validation**: Added Zod validation for all environment variables to fail fast with clear errors

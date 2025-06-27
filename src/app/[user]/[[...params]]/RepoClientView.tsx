@@ -1,60 +1,29 @@
 "use client";
-
-import { useRepoData } from '@/lib/hooks/useRepoData';
-import { useCopyRepoFiles } from '@/lib/hooks/useCopyRepoFiles';
-import { RepoHeader } from '@/components/RepoHeader';
+import RepoPageLayout from '@/components/layouts/RepoPageLayout';
 import { FileList } from '@/components/FileList';
-import { RepoFile } from '@/types/repo';
 import RepoSkeleton from '@/components/RepoSkeleton';
-import RepoTabsBar from '@/components/RepoTabsBar';
 import { RepoStatus } from '@/components/RepoStatus';
-import { useRouter } from 'next/navigation';
 
 interface RepoClientViewProps {
   user: string;
   repo: string;
   refName?: string;
   path?: string;
-  currentPath: string;
-  params: { user: string; repo?: string[] };
+  tab?: string;
+  currentPath?: string;
 }
 
-export default function RepoClientView({ user, repo, refName, path }: RepoClientViewProps) {
-  const {
-    files,
-    totalFiles,
-    isLoading,
-    error,
-  } = useRepoData({ user, repo, ref: refName, path });
-
-  const { copyAllContent, isCopying, copied } = useCopyRepoFiles(files as RepoFile[]);
-  const router = useRouter();
-
-  const handleBranchChange = (branch: string) => {
-    let newPath = `/${user}/${repo}/tree/${branch}`;
-    if (path) newPath += `/${path}`;
-    router.push(newPath);
-  };
-
+export default function RepoClientView({ user, repo, refName, path, tab, currentPath }: RepoClientViewProps) {
   return (
-    <>
-      <RepoHeader
-        user={user}
-        repo={repo}
-        refName={refName}
-        onBranchChange={handleBranchChange}
-        onCopyAll={copyAllContent}
-        isCopying={isCopying}
-        copied={copied}
-        fileCount={totalFiles}
-      />
-      <RepoTabsBar />
-      <div className="max-w-screen-xl w-full mx-auto px-4 mt-8">
-        <div style={{ maxHeight: 400, overflowY: 'auto', border: '1px solid #eee', borderRadius: 8, padding: 16 }}>
-          {isLoading ? <RepoSkeleton /> : <FileList files={files as RepoFile[]} />}
+    <RepoPageLayout user={user} repo={repo} refName={refName} path={path} tab={tab} currentPath={currentPath}>
+      {({ files, isLoading, error }) => (
+        <div className="max-w-screen-xl w-full mx-auto px-4 mt-8">
+          <div style={{ maxHeight: 400, overflowY: 'auto', border: '1px solid #eee', borderRadius: 8, padding: 16 }}>
+            {isLoading ? <RepoSkeleton /> : <FileList files={files} />}
+          </div>
+          <RepoStatus error={error} />
         </div>
-        <RepoStatus error={error} />
-      </div>
-    </>
+      )}
+    </RepoPageLayout>
   );
 } 

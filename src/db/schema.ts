@@ -61,13 +61,11 @@ export const cachedRepos = pgTable('cached_repos', {
   topics: jsonb('topics').$type<string[]>(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   lastFetched: timestamp('last_fetched').notNull().defaultNow(),
-  isUserRepo: boolean('is_user_repo').notNull().default(false),
   userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
 }, (table) => ({
-  // Ensure unique repos per user
-  userRepoIdx: uniqueIndex('user_repo_idx').on(table.owner, table.name),
-  // Ensure unique global repos
-  globalRepoIdx: uniqueIndex('global_repo_idx').on(table.owner, table.name),
+  // This new index is the core of the fix.
+  // It ensures a repo is unique per user, and allows one global entry where userId is null.
+  repoIdentifierIdx: uniqueIndex('repo_identifier_idx').on(table.owner, table.name, table.userId),
 }));
 
 export const trendingRepos = pgTable('trending_repos', {

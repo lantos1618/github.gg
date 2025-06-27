@@ -24,9 +24,7 @@ CREATE TABLE "cached_repos" (
 	"topics" jsonb,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	"last_fetched" timestamp DEFAULT now() NOT NULL,
-	"is_user_repo" boolean DEFAULT false NOT NULL,
-	"user_id" text,
-	"diagram_data" text
+	"user_id" text
 );
 --> statement-breakpoint
 CREATE TABLE "insights_cache" (
@@ -98,7 +96,6 @@ ALTER TABLE "insights_cache" ADD CONSTRAINT "insights_cache_user_id_user_id_fk" 
 ALTER TABLE "session" ADD CONSTRAINT "session_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "verification" ADD CONSTRAINT "verification_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "provider_user_idx" ON "account" USING btree ("providerId","userId");--> statement-breakpoint
-CREATE UNIQUE INDEX "user_repo_idx" ON "cached_repos" USING btree ("owner","name");--> statement-breakpoint
-CREATE UNIQUE INDEX "global_repo_idx" ON "cached_repos" USING btree ("owner","name");--> statement-breakpoint
+CREATE UNIQUE INDEX "repo_identifier_idx" ON "cached_repos" USING btree ("owner","name","user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "insights_unique_idx" ON "insights_cache" USING btree ("user_id","repo_owner","repo_name","ref");--> statement-breakpoint
 CREATE UNIQUE INDEX "trending_repo_idx" ON "trending_repos" USING btree ("owner","name");

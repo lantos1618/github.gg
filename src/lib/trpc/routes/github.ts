@@ -106,7 +106,7 @@ export const githubRouter = router({
         const sampledCachedRepos = await db
           .select()
           .from(cachedRepos)
-          .where(sql`${cachedRepos.isUserRepo} = false AND ${cachedRepos.userId} IS NULL`)
+          .where(sql`${cachedRepos.userId} IS NULL`)
           .orderBy(sql`RANDOM()`)
           .limit(input.limit * 2); // Fetch double the required limit to ensure a good shuffle pool
 
@@ -187,7 +187,6 @@ export const githubRouter = router({
                 forksCount: details.forksCount,
                 language: details.language,
                 topics: details.topics,
-                isUserRepo: true,
                 userId: userId,
                 lastFetched: new Date(),
               }).onConflictDoUpdate({
@@ -198,8 +197,6 @@ export const githubRouter = router({
                   forksCount: details.forksCount,
                   language: details.language,
                   topics: details.topics,
-                  isUserRepo: true,
-                  userId: userId,
                   lastFetched: new Date(),
                 },
               });
@@ -307,28 +304,30 @@ export const githubRouter = router({
               
               // Cache the new details with proper error handling
               try {
-                await db.insert(cachedRepos).values({
-                  owner: details.owner,
-                  name: details.name,
-                  description: details.description,
-                  stargazersCount: details.stargazersCount,
-                  forksCount: details.forksCount,
-                  language: details.language,
-                  topics: details.topics,
-                  isUserRepo: !!finalUserId,
-                  userId: finalUserId,
-                  lastFetched: new Date(),
-                }).onConflictDoUpdate({
-                  target: [cachedRepos.owner, cachedRepos.name],
-                  set: {
+                await db
+                  .insert(cachedRepos)
+                  .values({
+                    owner: details.owner,
+                    name: details.name,
                     description: details.description,
                     stargazersCount: details.stargazersCount,
                     forksCount: details.forksCount,
                     language: details.language,
                     topics: details.topics,
+                    userId: finalUserId,
                     lastFetched: new Date(),
-                  },
-                });
+                  })
+                  .onConflictDoUpdate({
+                    target: [cachedRepos.owner, cachedRepos.name, cachedRepos.userId],
+                    set: {
+                      description: details.description,
+                      stargazersCount: details.stargazersCount,
+                      forksCount: details.forksCount,
+                      language: details.language,
+                      topics: details.topics,
+                      lastFetched: new Date(),
+                    },
+                  });
               } catch (dbError) {
                 console.warn(`Failed to cache repo ${repo.owner}/${repo.name}:`, dbError);
               }
@@ -401,12 +400,11 @@ export const githubRouter = router({
             forksCount: details.forksCount,
             language: details.language,
             topics: details.topics,
-            isUserRepo: !!finalUserId,
             userId: finalUserId,
             lastFetched: new Date(),
           })
           .onConflictDoUpdate({
-            target: [cachedRepos.owner, cachedRepos.name],
+            target: [cachedRepos.owner, cachedRepos.name, cachedRepos.userId],
             set: {
               description: details.description,
               stargazersCount: details.stargazersCount,

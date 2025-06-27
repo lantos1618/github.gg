@@ -1,5 +1,5 @@
 {
-  "id": "ddd90d49-9e1b-4b2d-9085-32351488fc0d",
+  "id": "627c2c66-abd8-4b90-932a-5fa6bd2e26a8",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -196,29 +196,16 @@
           "notNull": true,
           "default": "now()"
         },
-        "is_user_repo": {
-          "name": "is_user_repo",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
         "user_id": {
           "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "diagram_data": {
-          "name": "diagram_data",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         }
       },
       "indexes": {
-        "user_repo_idx": {
-          "name": "user_repo_idx",
+        "repo_identifier_idx": {
+          "name": "repo_identifier_idx",
           "columns": [
             {
               "expression": "owner",
@@ -231,24 +218,9 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "global_repo_idx": {
-          "name": "global_repo_idx",
-          "columns": [
-            {
-              "expression": "owner",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
             },
             {
-              "expression": "name",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

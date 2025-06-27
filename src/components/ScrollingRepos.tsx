@@ -182,18 +182,24 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
     allRepos.push(...shuffleArray(remainingPopular));
 
     // Mark repo types
-    const finalRepos = allRepos.map(repo => ({
-      ...repo,
-      isSponsor: sponsors.some(s => s.owner === repo.owner && s.name === repo.name),
-      isUserRepo: userRepoIds.has(`${repo.owner}/${repo.name}`) || userSpecific.some(u => u.owner === repo.owner && u.name === repo.name),
-    })).slice(0, 80); // Ensure total does not exceed 80
+    const finalRepos = allRepos.map(repo => {
+      const isSponsor = sponsors.some(s => s.owner === repo.owner && s.name === repo.name);
+      // A repo is a user repo if it came from the `userSpecific` fetch.
+      const isUserRepo = userSpecific.some(u => u.owner === repo.owner && u.name === repo.name);
+      
+      return {
+        ...repo,
+        isSponsor,
+        isUserRepo,
+      };
+    }).slice(0, 80); // Ensure total does not exceed 80
 
     // Distribute into rows
     return Array.from({ length: 10 }, (_, i) => 
       finalRepos.slice(i * 8, (i + 1) * 8)
     );
 
-  }, [popularRepos, sponsorRepos, userRepoNames, userRepos, auth.isSignedIn,]);
+  }, [popularRepos, sponsorRepos, userRepoNames, userRepos, auth.isSignedIn, userRepoIds]);
   
   const isLoading = isPopularLoading || (auth.isSignedIn && (isSponsorLoading || isUserReposLoading));
 

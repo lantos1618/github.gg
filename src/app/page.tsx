@@ -3,6 +3,12 @@
 import { ScrollingRepos } from '@/components/ScrollingRepos';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Circle } from 'lucide-react';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { useEffect, useState } from 'react';
+
+// Use environment variables for GitHub App config (must be NEXT_PUBLIC_ to be available client-side)
+const GITHUB_APP_ID = Number(process.env.NEXT_PUBLIC_GITHUB_APP_ID) || 1475386; // Your GitHub App ID
+const GITHUB_APP_SLUG = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || 'gh-gg-dev'; // Your GitHub App slug
 
 const fadeUpVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -101,6 +107,28 @@ const roadmapItems = [
 ];
 
 export default function Home() {
+  const { isSignedIn, isLoading, user, signIn } = useAuth();
+  const [checkingInstall, setCheckingInstall] = useState(false);
+  const [hasInstallation, setHasInstallation] = useState<boolean | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isSignedIn && user) {
+      setCheckingInstall(true);
+      // Check if the user has the GitHub App installed
+      fetch('/api/auth/check-installation')
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) {
+            throw new Error(data.error);
+          }
+          setHasInstallation(data.hasInstallation);
+        })
+        .catch(() => setError('Failed to check GitHub App installation.'))
+        .finally(() => setCheckingInstall(false));
+    }
+  }, [isSignedIn, user]);
+
   return (
     <main className="min-h-screen bg-white">
       {/* Hero Section */}
@@ -137,112 +165,46 @@ export default function Home() {
           </motion.p>
         </motion.div>
       </div>
-      
+
       {/* Roadmap Section */}
-      <motion.section 
-        className="max-w-4xl mx-auto px-8 py-16" 
-        aria-labelledby="roadmap-heading"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
-        variants={staggerChildren}
-      >
-        <div className="text-center mb-12">
-          <motion.h2 
-            id="roadmap-heading" 
-            className="text-3xl font-bold text-black mb-4"
-            variants={fadeUpVariants}
+      <div className="py-20 px-8">
+        <div className="max-w-6xl mx-auto">
+          <motion.h2
+            className="text-4xl font-bold text-center mb-12"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
           >
             Roadmap
           </motion.h2>
-          <motion.p 
-            className="text-gray-600 text-lg"
-            variants={fadeUpVariants}
+          <motion.div
+            className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+            variants={staggerChildren}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
           >
-            Our journey to revolutionize GitHub analytics
-          </motion.p>
-        </div>
-        
-        <motion.div 
-          className="space-y-6"
-          variants={staggerChildren}
-        >
-          {roadmapItems.map((item, index) => (
-            <motion.div 
-              key={item.title}
-              className={`flex items-start p-6 rounded-xl border transition-all duration-300 ${
-                item.completed 
-                  ? 'bg-green-50 border-green-200 shadow-sm' 
-                  : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-              }`}
-              variants={fadeUpVariants}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-            >
-              <div className="flex-shrink-0 mr-4 mt-1">
-                {item.completed ? (
-                  <CheckCircle2 className="w-6 h-6 text-green-600" />
-                ) : (
-                  <Circle className="w-6 h-6 text-gray-400" />
-                )}
-              </div>
-              <div className="flex-1">
-                <h3 className={`text-lg font-semibold mb-2 ${
-                  item.completed ? 'text-green-800' : 'text-gray-900'
-                }`}>
-                  {item.title}
-                </h3>
-                <p className={`text-sm ${
-                  item.completed ? 'text-green-700' : 'text-gray-600'
-                }`}>
-                  {item.description}
-                </p>
-              </div>
-              {item.completed && (
-                <div className="flex-shrink-0 ml-4">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    Completed
-                  </span>
+            {roadmapItems.map((item, index) => (
+              <motion.div
+                key={index}
+                className="bg-white p-6 rounded-lg shadow-md border border-gray-200"
+                variants={fadeUpVariants}
+              >
+                <div className="flex items-start gap-3 mb-3">
+                  {item.completed ? (
+                    <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+                  ) : (
+                    <Circle className="w-6 h-6 text-gray-400 flex-shrink-0 mt-0.5" />
+                  )}
+                  <h3 className="font-semibold text-lg">{item.title}</h3>
                 </div>
-              )}
-            </motion.div>
-          ))}
-        </motion.div>
-        
-        {/* Progress Summary */}
-        <motion.div 
-          className="mt-12 p-6 bg-blue-50 rounded-xl border border-blue-200"
-          variants={fadeUpVariants}
-          transition={{ duration: 0.5, delay: 0.6 }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-blue-900">Progress</h3>
-            <span className="text-2xl font-bold text-blue-600">
-              {roadmapItems.filter(item => item.completed).length}/{roadmapItems.length}
-            </span>
-          </div>
-          <div className="w-full bg-blue-200 rounded-full h-2">
-            <div 
-              className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-              style={{ 
-                width: `${(roadmapItems.filter(item => item.completed).length / roadmapItems.length) * 100}%` 
-              }}
-            ></div>
-          </div>
-        </motion.div>
-        
-        {/* Footer */}
-        <motion.footer 
-          className="mt-16 pt-8 border-t border-gray-200 text-center"
-          variants={fadeUpVariants}
-          transition={{ duration: 0.5, delay: 0.7 }}
-        >
-          <p className="text-gray-900">
-            Ready to level up your GitHub game? 
-            <br />
-            <span className="text-black font-medium">Coming soon to a repository near you.</span>
-          </p>
-        </motion.footer>
-      </motion.section>
+                <p className="text-gray-600 ml-9">{item.description}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </div>
     </main>
   );
 }

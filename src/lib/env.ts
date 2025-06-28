@@ -20,6 +20,7 @@ const envSchema = z.object({
   GITHUB_APP_ID: z.string().min(1),
   GITHUB_APP_NAME: z.string().min(1),
   NEXT_PUBLIC_GITHUB_APP_NAME: z.string().min(1),
+  NEXT_PUBLIC_GITHUB_APP_ID: z.string().min(1),
   GITHUB_WEBHOOK_SECRET: z.string().min(1),
   GITHUB_PRIVATE_KEY: z.string().min(1),
   

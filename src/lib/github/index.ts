@@ -18,11 +18,6 @@ export class GitHubService {
       throw new Error('No GitHub token available');
     }
 
-    // Validate token format
-    if (!authToken.startsWith('ghp_') && !authToken.startsWith('gho_') && !authToken.startsWith('ghu_')) {
-      console.warn('GitHub token format appears invalid. Expected format: ghp_xxxxxxxxxxxxxxxxxxxx');
-    }
-
     this.octokit = new Octokit({
       auth: authToken,
     });

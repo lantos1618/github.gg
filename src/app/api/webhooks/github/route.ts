@@ -22,10 +22,18 @@ webhooks.on('installation.created', async ({ payload }) => {
 
     const accountType = 'type' in account ? account.type : 'User';
     
+    // Extract account details based on type
+    const accountLogin = 'login' in account ? account.login : account.slug;
+    const accountAvatarUrl = account.avatar_url;
+    const accountName = 'name' in account ? account.name : accountLogin;
+    
     await db.insert(githubAppInstallations).values({
       installationId: payload.installation.id,
       accountId: account.id,
       accountType,
+      accountLogin,
+      accountAvatarUrl,
+      accountName,
       repositorySelection: payload.installation.repository_selection,
     } as any);
 

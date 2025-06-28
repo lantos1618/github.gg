@@ -77,6 +77,34 @@ export async function getInstallationIdForAccount(accountId: number): Promise<nu
   }
 }
 
+// Get user details from installation
+export async function getUserFromInstallation(installationId: number) {
+  try {
+    const installation = await db.query.githubAppInstallations.findFirst({
+      where: eq(githubAppInstallations.installationId, installationId),
+    });
+    
+    if (!installation) {
+      return null;
+    }
+
+    // Use the stored account details from the database
+    // No need to call GitHub API with installation token
+    return {
+      id: installation.accountId.toString(),
+      name: installation.accountName || installation.accountLogin,
+      email: undefined, // We don't store email for privacy reasons
+      image: installation.accountAvatarUrl || undefined,
+      login: installation.accountLogin,
+      installationId,
+      accountType: installation.accountType as 'User' | 'Organization'
+    };
+  } catch (error) {
+    console.error('Failed to get user from installation:', error);
+    return null;
+  }
+}
+
 // Check if a repository is accessible through any installation
 export async function isRepoAccessible(owner: string, repo: string): Promise<boolean> {
   try {

@@ -2,7 +2,6 @@
   "version": "5",
   "dialect": "postgresql",
   "entries": [
-    {
-    }
+    
   ]
 }

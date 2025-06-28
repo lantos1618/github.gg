@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean, uniqueIndex, integer, jsonb, varchar } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, boolean, uniqueIndex, integer, jsonb, varchar, serial } from 'drizzle-orm/pg-core';
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
@@ -105,21 +105,24 @@ export const insightsCache = pgTable('insights_cache', {
     table.repoName,
     table.ref
   ),
-})); 
+}));
 
 // GitHub App Installation Tables
 export const githubAppInstallations = pgTable('github_app_installations', {
-  id: integer('id').primaryKey().notNull(),
+  id: uuid('id').primaryKey().defaultRandom(),
   installationId: integer('installation_id').notNull().unique(),
   accountId: integer('account_id').notNull(),
   accountType: varchar('account_type', { length: 20 }).notNull(), // 'User' or 'Organization'
+  accountLogin: varchar('account_login', { length: 255 }).notNull(), // GitHub username/org name
+  accountAvatarUrl: text('account_avatar_url'), // Avatar URL
+  accountName: text('account_name'), // Display name
   repositorySelection: varchar('repository_selection', { length: 20 }).notNull(), // 'all' or 'selected'
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
 export const installationRepositories = pgTable('installation_repositories', {
-  id: integer('id').primaryKey().notNull(),
+  id: uuid('id').primaryKey().defaultRandom(),
   installationId: integer('installation_id').references(() => githubAppInstallations.installationId),
   repositoryId: integer('repository_id').notNull(),
   fullName: varchar('full_name', { length: 255 }).notNull(),

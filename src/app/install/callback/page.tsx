@@ -18,8 +18,8 @@ export default function InstallCallbackPage() {
 
     if (installationId) {
       if (setupAction === 'install') {
-        setStatus('success');
-        setMessage('GitHub App installed successfully! You can now analyze private repositories.');
+        // Create session from installation
+        createSessionFromInstallation(parseInt(installationId));
       } else if (setupAction === 'update') {
         setStatus('success');
         setMessage('GitHub App updated successfully!');
@@ -32,6 +32,30 @@ export default function InstallCallbackPage() {
       setMessage('No installation ID found.');
     }
   }, [searchParams]);
+
+  const createSessionFromInstallation = async (installationId: number) => {
+    try {
+      const response = await fetch('/api/auth/github-app', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ installationId }),
+      });
+
+      if (response.ok) {
+        setStatus('success');
+        setMessage('GitHub App installed successfully! You are now logged in.');
+      } else {
+        setStatus('error');
+        setMessage('Failed to create session. Please try again.');
+      }
+    } catch (error) {
+      console.error('Failed to create session:', error);
+      setStatus('error');
+      setMessage('Failed to create session. Please try again.');
+    }
+  };
 
   const handleContinue = () => {
     router.push('/');

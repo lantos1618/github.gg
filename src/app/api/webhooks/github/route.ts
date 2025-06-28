@@ -57,6 +57,12 @@ webhooks.on('installation.deleted', async ({ payload }) => {
   console.log('Installation deleted:', payload.installation.id);
   
   try {
+    // First, delete all related repository records
+    await db.delete(installationRepositories)
+      .where(eq(installationRepositories.installationId, payload.installation.id));
+    console.log(`Deleted repository records for installation ${payload.installation.id}`);
+    
+    // Then delete the installation record
     await db.delete(githubAppInstallations)
       .where(eq(githubAppInstallations.installationId, payload.installation.id));
     console.log(`Successfully deleted installation ${payload.installation.id}`);

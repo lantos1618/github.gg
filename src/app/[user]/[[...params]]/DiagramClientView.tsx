@@ -14,16 +14,7 @@ import {
 } from "@/components/ui/resizable";
 import { useRouter } from 'next/navigation';
 import RepoPageLayout from '@/components/layouts/RepoPageLayout';
-
-const DIAGRAM_TYPES = [
-  { value: 'flowchart', label: 'Flowchart' },
-  { value: 'sequence', label: 'Sequence Diagram' },
-  { value: 'class', label: 'Class Diagram' },
-  { value: 'state', label: 'State Diagram' },
-  { value: 'pie', label: 'Pie Chart' },
-];
-
-type DiagramType = 'flowchart'|'sequence'|'class'|'state'|'pie';
+import { DiagramType, DIAGRAM_TYPES } from '@/lib/types/diagram';
 
 function MermaidRenderer({ code, onRenderError }: { code: string, onRenderError?: (err: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);

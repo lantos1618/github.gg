@@ -1,32 +1,6 @@
-import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { generateRepoDiagramVercel } from '@/lib/ai/diagram';
-
-const diagramInputSchema = z.object({
-  user: z.string(),
-  repo: z.string(),
-  ref: z.string().optional().default('main'),
-  files: z.array(z.object({
-    path: z.string(),
-    content: z.string(),
-    size: z.number().optional(),
-  })),
-  diagramType: z.enum(['flowchart', 'sequence', 'class', 'state', 'pie']).default('flowchart'),
-  options: z.record(z.any()).optional(),
-  // Retry context
-  previousResult: z.string().optional(),
-  lastError: z.string().optional(),
-  isRetry: z.boolean().optional().default(false),
-});
-
-const diagramOutputSchema = z.object({
-  diagramCode: z.string(),
-  format: z.string().default('mermaid'),
-  diagramType: z.enum(['flowchart', 'sequence', 'class', 'state', 'pie']),
-  cached: z.boolean(),
-  stale: z.boolean(),
-  lastUpdated: z.date(),
-});
+import { diagramInputSchema, diagramOutputSchema } from '@/lib/types/diagram';
 
 export const diagramRouter = router({
   generateDiagram: protectedProcedure

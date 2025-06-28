@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
+import { DiagramType } from '@/lib/types/diagram';
 
 export const diagramSchema = z.object({
   diagramCode: z.string(),
@@ -9,7 +10,7 @@ export const diagramSchema = z.object({
 export interface DiagramAnalysisParams {
   files: Array<{ path: string; content: string }>;
   repoName: string;
-  diagramType: 'flowchart' | 'sequence' | 'class' | 'state' | 'pie';
+  diagramType: DiagramType;
   options?: Record<string, any>;
   // Retry context
   previousResult?: string;
@@ -42,14 +43,31 @@ ${lastError ? `Previous error: ${lastError}` : 'Previous result had rendering is
 Please fix the issues in the previous diagram and provide an improved version. Focus on making the Mermaid syntax valid and improving the diagram structure.`;
   } else {
     prompt += `\nAnalyze the following repository files and generate a concise, accurate Mermaid ${diagramType} diagram.
-- make sure to wrap titles and descriptions in quotes to escape special characters e.g. "
-    - E("lib/github")
-    - subgraph "Next.js Frontend"
-    - A["User clicks button"]
-    - B[("Database Query")]
-    - C{{"API Response"}}
 
+---
+HERE IS AN EXAMPLE OF A GOOD, VALID MERMAID FLOWCHART:
 
+flowchart TD
+    A["User visits /"] --> B{{"Next.js Server"}};
+    B --> C["src/app/page.tsx"];
+    C --> D["components/ScrollingRepos"];
+    D --> E("trpc.github.getReposForScrolling");
+    E --> F[("Database: cached_repos")];
+
+HERE IS AN EXAMPLE OF A GOOD, VALID GANTT DIAGRAM:
+
+USE TODO.MD OR README.MD AS A REFERENCE FOR THE TASKS TO INCLUDE IN THE GANTT DIAGRAM. 
+YOU CAN ALSO MAKE (suggested) TASKS FOR THE GANTT DIAGRAM.
+
+gantt
+    title A Gantt Diagram
+    dateFormat  X
+    axisFormat %m/%d/%Y
+    section Section
+    Task1 :a1, 2025-01-01, 2025-01-05
+    Task2 :a2, 2025-01-06, 2025-01-10
+
+The example above uses quotes for node text to handle special characters like '/'. Apply this pattern.
 
 REPOSITORY: ${repoName}
 FILES: ${files.length} files

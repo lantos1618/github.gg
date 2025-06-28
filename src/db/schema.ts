@@ -34,6 +34,7 @@ export const account = pgTable('account', {
   refreshTokenExpiresAt: timestamp('refreshTokenExpiresAt'),
   createdAt: timestamp('createdAt').defaultNow(),
   updatedAt: timestamp('updatedAt').defaultNow(),
+  installationId: integer('installation_id'),
 }, (table) => ({
   // Ensure a user can only link a specific provider account once
   providerUserIdx: uniqueIndex('provider_user_idx').on(table.providerId, table.userId),

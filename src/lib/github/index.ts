@@ -24,9 +24,9 @@ export class GitHubService {
   }
 
   // New method to get Octokit instance for a specific repository
-  static async createForRepo(owner: string, repo: string): Promise<GitHubService> {
+  static async createForRepo(owner: string, repo: string, session?: unknown, req?: Request): Promise<GitHubService> {
     try {
-      const octokit = await getBestOctokitForRepo(owner, repo);
+      const octokit = await getBestOctokitForRepo(owner, repo, session, req);
       const service = new GitHubService();
       (service as any).octokit = octokit;
       return service;

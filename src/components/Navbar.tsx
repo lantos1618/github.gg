@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { useGitHubAppAuth } from '@/lib/hooks/useGitHubAppAuth';
 import { StarCount } from './StarCount';
 import {
   DropdownMenu,
@@ -20,36 +19,34 @@ import { useEffect, useState } from 'react';
 
 export function Navbar() {
   const { isSignedIn, isLoading, user, signIn, signOut } = useAuth();
-  const { session: appSession } = useGitHubAppAuth();
   const [checkingInstall, setCheckingInstall] = useState(false);
-  const [hasInstallation, setHasInstallation] = useState<boolean | null>(null);
+  const [hasLinkedInstallation, setHasLinkedInstallation] = useState<boolean | null>(null);
   const [installationId, setInstallationId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isSignedIn) {
-      setHasInstallation(null);
+      setHasLinkedInstallation(null);
       setInstallationId(null);
       setCheckingInstall(false);
       return;
     }
     setCheckingInstall(true);
-    fetch('/api/auth/check-installation')
+    fetch('/api/auth/link-installation')
       .then(res => res.json())
       .then(data => {
         if (data.error) throw new Error(data.error);
-        setHasInstallation(data.hasInstallation);
-        if (data.installationId) setInstallationId(data.installationId);
-        else setInstallationId(null);
+        setHasLinkedInstallation(data.hasLinkedInstallation);
+        setInstallationId(data.installationId);
       })
       .catch(() => {
-        setHasInstallation(null);
+        setHasLinkedInstallation(null);
         setInstallationId(null);
       })
       .finally(() => setCheckingInstall(false));
   }, [isSignedIn, user]);
 
-  // Show bell notification when user is signed in but hasn't installed the app
-  const showInstallNotification = isSignedIn && user && hasInstallation === false;
+  // Show bell notification when user is signed in but hasn't linked an installation
+  const showInstallNotification = isSignedIn && user && hasLinkedInstallation === false;
 
   return (
     <nav className={`sticky top-0 z-50 w-full backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 relative`}>
@@ -99,27 +96,27 @@ export function Navbar() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {/* Only one actionable install/manage item, with tooltip */}
+                {/* Installation status and management */}
                 {checkingInstall ? (
                   <DropdownMenuItem disabled>
                     <Spinner size={16} className="mr-2" />
                     <span>Checking installation...</span>
                   </DropdownMenuItem>
-                ) : hasInstallation === false ? (
+                ) : hasLinkedInstallation === false ? (
                   <DropdownMenuItem asChild className="bg-green-50 dark:bg-green-950/20 hover:bg-green-100 dark:hover:bg-green-950/30">
                     <a href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_NAME}/installations/new`} target="_blank" rel="noopener noreferrer">
-                      <GitHub className="mr-2 h-4 w-4 text-green-600" />
+                      <Github className="mr-2 h-4 w-4 text-green-600" />
                       <span className="text-green-800 dark:text-green-200 font-medium">Install GitHub App</span>
                     </a>
                   </DropdownMenuItem>
-                ) : hasInstallation === true && installationId ? (
+                ) : hasLinkedInstallation === true && installationId ? (
                   <DropdownMenuItem asChild>
                     <a href={`https://github.com/settings/installations/${installationId}`} target="_blank" rel="noopener noreferrer">
                       <Settings className="mr-2 h-4 w-4" />
                       <span>Manage GitHub App</span>
                     </a>
                   </DropdownMenuItem>
-                ) : hasInstallation === true ? (
+                ) : hasLinkedInstallation === true ? (
                   <DropdownMenuItem asChild>
                     <a href="https://github.com/settings/installations" target="_blank" rel="noopener noreferrer">
                       <Settings className="mr-2 h-4 w-4" />
@@ -145,7 +142,7 @@ export function Navbar() {
             </DropdownMenu>
           ) : (
             <Button onClick={signIn} size="sm" className="px-2 sm:px-3">
-              <GitHub className="h-4 w-4 sm:mr-2" />
+              <Github className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Sign in with GitHub</span>
             </Button>
           )}

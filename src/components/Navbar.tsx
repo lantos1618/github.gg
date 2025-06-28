@@ -48,6 +48,9 @@ export function Navbar() {
       .finally(() => setCheckingInstall(false));
   }, [isSignedIn, user]);
 
+  // Show bell notification when user is signed in but hasn't installed the app
+  const showInstallNotification = isSignedIn && user && hasInstallation === false;
+
   return (
     <nav className={`sticky top-0 z-50 w-full backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 relative`}>
       <div className="container flex h-14 items-center px-4 sm:px-6">
@@ -72,11 +75,20 @@ export function Navbar() {
           ) : isSignedIn && user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                  <Avatar className="h-10 w-10">
                     <AvatarImage src={user.image!} alt={user.name} />
                     <AvatarFallback>{user.name?.[0]}</AvatarFallback>
                   </Avatar>
+                  {/* Solid bell notification icon (no tooltip) */}
+                  {showInstallNotification && (
+                    <button type="button" tabIndex={0} className="absolute -top-2 -left-2 p-0 m-0 bg-transparent border-none focus:outline-none pointer-events-auto z-20" aria-label="Install the GitHub App to enable private repo access and advanced features." style={{ width: 32, height: 32, background: 'rgba(0,0,0,0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {/* Solid bell SVG */}
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5 text-red-500">
+                        <path d="M12 2C8.13 2 5 5.13 5 9v4.586l-.707.707A1 1 0 0 0 5 16h14a1 1 0 0 0 .707-1.707L19 13.586V9c0-3.87-3.13-7-7-7zm0 20a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22z" />
+                      </svg>
+                    </button>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -87,6 +99,35 @@ export function Navbar() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                {/* Only one actionable install/manage item, with tooltip */}
+                {checkingInstall ? (
+                  <DropdownMenuItem disabled>
+                    <Spinner size={16} className="mr-2" />
+                    <span>Checking installation...</span>
+                  </DropdownMenuItem>
+                ) : hasInstallation === false ? (
+                  <DropdownMenuItem asChild className="bg-green-50 dark:bg-green-950/20 hover:bg-green-100 dark:hover:bg-green-950/30">
+                    <a href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_NAME}/installations/new`} target="_blank" rel="noopener noreferrer">
+                      <GitHub className="mr-2 h-4 w-4 text-green-600" />
+                      <span className="text-green-800 dark:text-green-200 font-medium">Install GitHub App</span>
+                    </a>
+                  </DropdownMenuItem>
+                ) : hasInstallation === true && installationId ? (
+                  <DropdownMenuItem asChild>
+                    <a href={`https://github.com/settings/installations/${installationId}`} target="_blank" rel="noopener noreferrer">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Manage GitHub App</span>
+                    </a>
+                  </DropdownMenuItem>
+                ) : hasInstallation === true ? (
+                  <DropdownMenuItem asChild>
+                    <a href="https://github.com/settings/installations" target="_blank" rel="noopener noreferrer">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Manage GitHub App</span>
+                    </a>
+                  </DropdownMenuItem>
+                ) : null}
+                
                 <DropdownMenuItem>
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
@@ -96,32 +137,6 @@ export function Navbar() {
                   <span>Settings</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                {checkingInstall ? (
-                  <DropdownMenuItem disabled>
-                    Checking installation...
-                  </DropdownMenuItem>
-                ) : hasInstallation === false ? (
-                  <DropdownMenuItem asChild>
-                    <a href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_NAME}/installations/new`} target="_blank" rel="noopener noreferrer">
-                      <Github className="mr-2 h-4 w-4" />
-                      <span>Install GitHub App</span>
-                    </a>
-                  </DropdownMenuItem>
-                ) : hasInstallation === true && installationId ? (
-                  <DropdownMenuItem asChild>
-                    <a href={`https://github.com/settings/installations/${installationId}`} target="_blank" rel="noopener noreferrer" className="text-red-600">
-                      <Github className="mr-2 h-4 w-4" />
-                      <span>Uninstall GitHub App</span>
-                    </a>
-                  </DropdownMenuItem>
-                ) : hasInstallation === true ? (
-                  <DropdownMenuItem asChild>
-                    <a href="https://github.com/settings/installations" target="_blank" rel="noopener noreferrer" className="text-red-600">
-                      <Github className="mr-2 h-4 w-4" />
-                      <span>Uninstall GitHub App</span>
-                    </a>
-                  </DropdownMenuItem>
-                ) : null}
                 <DropdownMenuItem onClick={signOut}>
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Sign out</span>
@@ -130,7 +145,7 @@ export function Navbar() {
             </DropdownMenu>
           ) : (
             <Button onClick={signIn} size="sm" className="px-2 sm:px-3">
-              <Github className="h-4 w-4 sm:mr-2" />
+              <GitHub className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Sign in with GitHub</span>
             </Button>
           )}

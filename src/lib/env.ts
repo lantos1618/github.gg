@@ -16,6 +16,13 @@ const envSchema = z.object({
   // GitHub API
   GITHUB_PUBLIC_API_KEY: z.string().min(1),
   
+  // GitHub App Configuration
+  GITHUB_APP_ID: z.string().min(1),
+  GITHUB_APP_NAME: z.string().min(1),
+  NEXT_PUBLIC_GITHUB_APP_NAME: z.string().min(1),
+  GITHUB_WEBHOOK_SECRET: z.string().min(1),
+  GITHUB_PRIVATE_KEY: z.string().min(1),
+  
   // AI Analysis
   GEMINI_API_KEY: z.string().min(1),
   

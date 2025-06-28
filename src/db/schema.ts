@@ -106,3 +106,25 @@ export const insightsCache = pgTable('insights_cache', {
     table.ref
   ),
 })); 
+
+// GitHub App Installation Tables
+export const githubAppInstallations = pgTable('github_app_installations', {
+  id: integer('id').primaryKey().notNull(),
+  installationId: integer('installation_id').notNull().unique(),
+  accountId: integer('account_id').notNull(),
+  accountType: varchar('account_type', { length: 20 }).notNull(), // 'User' or 'Organization'
+  repositorySelection: varchar('repository_selection', { length: 20 }).notNull(), // 'all' or 'selected'
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const installationRepositories = pgTable('installation_repositories', {
+  id: integer('id').primaryKey().notNull(),
+  installationId: integer('installation_id').references(() => githubAppInstallations.installationId),
+  repositoryId: integer('repository_id').notNull(),
+  fullName: varchar('full_name', { length: 255 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => ({
+  // Ensure unique repos per installation
+  installationRepoIdx: uniqueIndex('installation_repo_idx').on(table.installationId, table.repositoryId),
+})); 

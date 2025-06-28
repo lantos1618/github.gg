@@ -3,6 +3,7 @@ import { auth } from '../auth';
 import { env } from '../env';
 import { GitHubFilesResponse, RepositoryInfo, DEFAULT_MAX_FILES, RepoSummary } from './types';
 import { extractTarball } from './extractor';
+import { getBestOctokitForRepo } from './app';
 
 export { DEFAULT_MAX_FILES } from './types';
 export type { GitHubFile, GitHubFilesResponse, RepositoryInfo, RepoSummary } from './types';
@@ -25,6 +26,20 @@ export class GitHubService {
     this.octokit = new Octokit({
       auth: authToken,
     });
+  }
+
+  // New method to get Octokit instance for a specific repository
+  static async createForRepo(owner: string, repo: string): Promise<GitHubService> {
+    try {
+      const octokit = await getBestOctokitForRepo(owner, repo);
+      const service = new GitHubService();
+      (service as any).octokit = octokit;
+      return service;
+    } catch (error) {
+      console.warn(`Failed to get GitHub App access for ${owner}/${repo}, falling back to OAuth:`, error);
+      // Fallback to OAuth-based service
+      return new GitHubService();
+    }
   }
 
   async getRepositoryInfo(owner: string, repo: string): Promise<RepositoryInfo> {

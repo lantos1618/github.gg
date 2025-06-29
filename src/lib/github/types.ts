@@ -1,3 +1,46 @@
+// GitHub API response types
+export interface RepositoryInfo {
+  name: string;
+  description: string | null;
+  stargazersCount: number;
+  forksCount: number;
+  language: string | null;
+  topics: string[];
+  url: string;
+  defaultBranch: string;
+  updatedAt: string;
+}
+
+export interface RepoSummary {
+  owner: string;
+  name: string;
+  description?: string;
+  stargazersCount: number;
+  forksCount: number;
+  language?: string;
+  topics?: string[];
+  url: string;
+}
+
+export interface GitHubFilesResponse {
+  files: Array<{
+    name: string;
+    path: string;
+    size: number;
+    type: 'file' | 'directory';
+    content?: string;
+  }>;
+  totalFiles: number;
+  owner: string;
+  repo: string;
+  ref: string;
+}
+
+// Authentication types
+export type BetterAuthSession = Awaited<ReturnType<typeof import('@/lib/auth').auth.api.getSession>>;
+export type FlexibleOctokit = import('@octokit/rest').Octokit;
+
+// Service configuration
 export const DEFAULT_MAX_FILES = 1000;
 
 export interface GitHubFile {
@@ -5,35 +48,4 @@ export interface GitHubFile {
   type: 'file' | 'dir';
   size: number;
   content: string;
-}
-
-export interface GitHubFilesResponse {
-  files: GitHubFile[];
-  totalFiles: number;
-  owner: string;
-  repo: string;
-  ref?: string;
-}
-
-export interface RepositoryInfo {
-  stargazers_count: number;
-  forks_count: number;
-  watchers_count: number;
-  default_branch: string;
-}
-
-export interface RepoSummary {
-  owner: string;
-  name: string;
-  description?: string | null;
-  stargazersCount: number;
-  forksCount: number;
-  language?: string | null;
-  topics?: string[] | null;
-  url?: string;
-  default_branch?: string;
-  starsToday?: number;
-  starsThisWeek?: number;
-  starsThisMonth?: number;
-  special?: boolean;
 } 

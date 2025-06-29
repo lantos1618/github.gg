@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { createGitHubService, DEFAULT_MAX_FILES, GitHubFilesResponse, RepoSummary } from '@/lib/github';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
-import { cachedRepos, user, account } from '@/db/schema';
+import { cachedRepos, user, account, installationRepositories } from '@/db/schema';
 import { CACHED_REPOS } from '@/lib/constants';
 import { shuffleArray } from '@/lib/utils';
 import { eq, sql, and } from 'drizzle-orm';
@@ -630,5 +630,30 @@ export const githubRouter = router({
           
           return { canUseApp: false, reason: 'GitHub App installation invalid' };
         }
+      }),
+
+    // --- Get repositories for the user's GitHub App installation (fallback for user repos) ---
+    getInstallationRepositories: protectedProcedure
+      .input(z.object({ limit: z.number().min(1).max(100).default(20) }))
+      .query(async ({ input, ctx }) => {
+        // Get the user's linked installationId
+        const userAccount = await db.query.account.findFirst({
+          where: and(
+            eq(account.userId, ctx.user.id),
+            eq(account.providerId, 'github')
+          ),
+        });
+        const installationId = userAccount?.installationId;
+        if (!installationId) return [];
+        // Query installationRepositories for this installation
+        const repos = await db.query.installationRepositories.findMany({
+          where: eq(installationRepositories.installationId, installationId),
+          limit: input.limit,
+        });
+        // Map to { owner, name, repositoryId }
+        return repos.map(r => {
+          const [owner, name] = r.fullName.split('/');
+          return { owner, name, repositoryId: r.repositoryId };
+        });
       }),
 }); 

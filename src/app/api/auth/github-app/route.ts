@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSessionFromInstallation, setSession, getSession } from '@/lib/github-app-auth';
+import { GitHubAppSessionManager } from '@/lib/auth';
+import { db } from '@/db';
+import { githubAppInstallations } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 export async function GET() {
   try {
-    const session = await getSession();
+    const session = await GitHubAppSessionManager.getSession();
     
     if (!session) {
       return NextResponse.json({ session: null });
@@ -43,7 +46,7 @@ export async function POST(request: NextRequest) {
     // Create session from installation
     let session: any = null;
     try {
-      session = await createSessionFromInstallation(installationId);
+      session = await GitHubAppSessionManager.createSessionFromInstallation(installationId);
     } catch (err) {
       let details = err;
       if (typeof err === 'object' && err !== null) {
@@ -66,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Set session in cookies
-    await setSession(session);
+    await GitHubAppSessionManager.setSession(session);
 
     return NextResponse.json({ 
       success: true, 
@@ -96,8 +99,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE() {
   // Clear session
-  const { clearSession } = await import('@/lib/github-app-auth');
-  await clearSession();
+  await GitHubAppSessionManager.clearSession();
   
   return NextResponse.json({ success: true });
 } 

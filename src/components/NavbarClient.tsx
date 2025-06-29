@@ -1,6 +1,9 @@
 'use client';
 
-import { UnifiedSession } from '@/lib/auth-server';
+import { Button } from '@/components/ui/button';
+import type { UnifiedSession } from '@/lib/auth';
+import { useAuth } from '@/lib/auth/client';
+import { signIn, signOut } from '@/lib/auth/client';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,9 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { LogOut, Settings, User, Github } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { signIn, signOut } from '@/lib/auth-client';
 import { trpc } from '@/lib/trpc/client';
 
 interface NavbarClientProps {

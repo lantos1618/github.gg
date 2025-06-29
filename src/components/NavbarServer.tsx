@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getUnifiedSession } from '@/lib/auth-server';
+import { getUnifiedSession } from '@/lib/auth';
 import { StarCount } from './StarCount';
 import { NavbarClient } from './NavbarClient';
 

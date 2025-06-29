@@ -1,6 +1,6 @@
 'use client';
 
-import { useReposForScrolling, useSponsorRepos, useUserRepoNames, useUserReposForScrolling } from '@/lib/hooks/useRepoData';
+import { useReposForScrolling, useSponsorRepos, useUserRepoNames, useUserReposForScrolling, useInstallationRepositories } from '@/lib/hooks/useRepoData';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { cn, formatStars, shuffleArray } from '@/lib/utils';
@@ -10,7 +10,15 @@ import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/toolti
 import React from 'react';
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import chroma from 'chroma-js';
-import { useAuth } from '@/lib/hooks/useAuth';
+import { useAuth } from '@/lib/auth/client';
+import { useEffect, useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Star, GitFork, Calendar, TrendingUp, Clock, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { trpc } from '@/lib/trpc/client';
 
 const CustomTooltipContent = forwardRef<
   React.ComponentRef<typeof TooltipPrimitive.Content>,
@@ -155,7 +163,8 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
   const { data: popularRepos, isLoading: isPopularLoading } = useReposForScrolling(80);
   const { data: sponsorRepos, isLoading: isSponsorLoading } = useSponsorRepos();
   const { data: userRepoNames } = useUserRepoNames();
-  const { data: userRepos, isLoading: isUserReposLoading } = useUserReposForScrolling(10);
+  const { data: userRepos, isLoading: isUserReposLoading, error: userReposError } = useUserReposForScrolling(10);
+  const { data: installationRepos, isLoading: isInstallationReposLoading } = useInstallationRepositories(10);
   const auth = useAuth();
   
   const userRepoIds = useMemo(() => new Set(userRepoNames || []), [userRepoNames]);
@@ -166,7 +175,21 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
 
     const sponsors = sponsorRepos || [];
     const popular = popularRepos || [];
-    const userSpecific = userRepos || [];
+    let userSpecific: RepoData[] = [];
+    if (loggedIn) {
+      if (userRepos && userRepos.length > 0) {
+        userSpecific = userRepos;
+      } else if (installationRepos && installationRepos.length > 0) {
+        userSpecific = installationRepos.map(r => ({
+          owner: r.owner,
+          name: r.name,
+          stargazersCount: 0,
+          forksCount: 0,
+          description: '',
+          isUserRepo: true,
+        }));
+      }
+    }
     
     // 1. Add Sponsors (2 rows)
     allRepos.push(...shuffleArray(sponsors).slice(0, 16));
@@ -199,7 +222,7 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
       finalRepos.slice(i * 8, (i + 1) * 8)
     );
 
-  }, [popularRepos, sponsorRepos, userRepoNames, userRepos, auth.isSignedIn, userRepoIds]);
+  }, [popularRepos, sponsorRepos, userRepoNames, userRepos, auth.isSignedIn, userRepoIds, installationRepos]);
   
   const isLoading = isPopularLoading || (auth.isSignedIn && (isSponsorLoading || isUserReposLoading));
 

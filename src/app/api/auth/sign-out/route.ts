@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { clearSession } from '@/lib/github-app-auth';
+import { GitHubAppSessionManager } from '@/lib/auth';
 import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { account } from '@/db/schema';
@@ -10,8 +10,8 @@ export async function POST(request: Request) {
     // Get the current session to find the user
     const session = await auth.api.getSession(request);
     
-    // Clear any GitHub App sessions
-    await clearSession();
+    // Clear GitHub App session
+    await GitHubAppSessionManager.clearSession();
     
     // If user is signed in, clear their installation ID
     if (session?.user?.id) {

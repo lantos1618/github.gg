@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { trpc } from '@/lib/trpc/client';
-import { useAuth } from './useAuth';
+import { useAuth } from '@/lib/auth/client';
 import { RepoSummary } from '../github/types';
 import { useRepoStore } from '@/lib/store';
 
@@ -35,11 +35,15 @@ export function useRepoData(overrideParams?: RepoParams) {
 
   useEffect(() => {
     if (data) {
-      const repoFiles = data.files.map((file: { path: string; content: string; size: number }) => ({
-        path: file.path,
-        content: file.content || '',
-        size: file.size,
-      }));
+      const repoFiles = data.files
+        .filter((file): file is { name: string; path: string; content: string; size: number; type: 'file' | 'directory' } => 
+          file.type === 'file' && typeof file.content === 'string'
+        )
+        .map((file) => ({
+          path: file.path,
+          content: file.content,
+          size: file.size,
+        }));
       setRepoFiles(repoId, repoFiles, data.totalFiles);
     }
   }, [data, repoId, setRepoFiles]);
@@ -134,4 +138,20 @@ export const useSponsorRepos = () => {
     staleTime: 60 * 60 * 1000, // Cache for 1 hour
     refetchOnWindowFocus: false,
   });
+};
+
+export const useInstallationRepositories = (
+  limit: number = 20,
+  options: Parameters<typeof trpc.github.getInstallationRepositories.useQuery>[1] = {}
+) => {
+  const auth = useAuth();
+  return trpc.github.getInstallationRepositories.useQuery(
+    { limit },
+    {
+      enabled: !auth.isLoading && auth.isSignedIn,
+      staleTime: 10 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      ...options,
+    }
+  );
 }; 

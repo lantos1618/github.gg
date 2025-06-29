@@ -8,6 +8,7 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { tomorrow } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 import { useRepoData } from '@/lib/hooks/useRepoData';
 
 export default function ScorecardClientView({ user, repo, refName, path, tab, currentPath }: { user: string; repo: string; refName?: string; path?: string; tab?: string; currentPath?: string }) {
@@ -18,7 +19,7 @@ export default function ScorecardClientView({ user, repo, refName, path, tab, cu
   const generateScorecardMutation = trpc.scorecard.generateScorecard.useMutation();
 
   // Get repo data
-  const { files, totalFiles, isLoading: filesLoading, error: filesError } = useRepoData({ user, repo, ref: refName, path });
+  const { files, isLoading: filesLoading, error: filesError } = useRepoData({ user, repo, ref: refName, path });
 
   useEffect(() => {
     if (user || repo) {
@@ -57,7 +58,13 @@ export default function ScorecardClientView({ user, repo, refName, path, tab, cu
         }
       );
     }
-  }, [files, filesLoading, isLoading, hasGenerated, user, repo, refName]);
+  }, [files, filesLoading, isLoading, hasGenerated, user, repo, refName, generateScorecardMutation]);
+
+  const handleRetry = () => {
+    setError(null);
+    setHasGenerated(false);
+    setIsLoading(false);
+  };
 
   const overallLoading = filesLoading || isLoading;
 
@@ -80,18 +87,14 @@ export default function ScorecardClientView({ user, repo, refName, path, tab, cu
               {filesLoading && <p className="text-sm text-gray-500 mt-2">Files: {files.length}</p>}
               {!filesLoading && isLoading && <p className="text-sm text-gray-500 mt-2">Generating scorecard...</p>}
             </div>
+          ) : error ? (
+            <ErrorDisplay
+              error={error}
+              isPending={generateScorecardMutation.isPending}
+              onRetry={handleRetry}
+            />
           ) : scorecardData ? (
             <MarkdownCardRenderer markdown={scorecardData} />
-          ) : error ? (
-            <div className="text-center py-8">
-              <h2 className="text-xl font-semibold text-red-600 mb-2">Analysis Failed</h2>
-              <p className="text-gray-600">Unable to generate scorecard for this repository.</p>
-              <p className="text-sm text-gray-500 mt-2">
-                {error.toLowerCase().includes('quota') || error.includes('429')
-                  ? 'The AI analysis quota has been exceeded. Please try again later or check your Gemini API plan.'
-                  : error}
-              </p>
-            </div>
           ) : (
             <div className="text-center py-8">
               <h2 className="text-xl font-semibold text-gray-600 mb-2">No Scorecard Available</h2>

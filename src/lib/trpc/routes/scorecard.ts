@@ -34,8 +34,13 @@ export const scorecardRouter = router({
           lastUpdated: new Date(),
         };
       } catch (error) {
-        console.error('Error generating scorecard:', error);
-        throw new Error('Failed to generate repository scorecard');
+        console.error('🔥 Raw error in scorecard route:', error);
+        console.error('🔥 Error type:', typeof error);
+        console.error('🔥 Error message:', error instanceof Error ? error.message : 'No message');
+        console.error('🔥 Error stack:', error instanceof Error ? error.stack : 'No stack');
+        
+        const userFriendlyMessage = error instanceof Error ? error.message : 'Failed to generate repository scorecard';
+        throw new Error(userFriendlyMessage);
       }
     }),
 

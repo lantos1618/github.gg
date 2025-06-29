@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { env } from '@/lib/env';
+import { parseGeminiError } from '@/lib/utils/errorHandling';
 
 // Initialize Google GenAI client
 const ai = new GoogleGenAI({
@@ -81,16 +82,8 @@ ${files.map(file => `\n--- ${file.path} ---\n${file.content}`).join('\n')}`;
     return fullResponse;
   } catch (error) {
     console.error('Gemini API error:', error);
-    // Bubble up the error message if available
-    let message = 'Gemini API error';
-    if (error instanceof Error) {
-      message = error.message;
-    } else if (typeof error === 'string') {
-      message = error;
-    } else if (error && typeof error === 'object' && 'message' in error) {
-      message = String(error.message);
-    }
-    throw new Error(message);
+    const userFriendlyMessage = parseGeminiError(error);
+    throw new Error(userFriendlyMessage);
   }
 }
 

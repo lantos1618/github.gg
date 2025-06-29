@@ -91,7 +91,7 @@ export function StarCount({ owner, repo, className = '' }: StarCountProps) {
         ) : error ? (
           'N/A'
         ) : (
-          repoInfo?.stargazers_count.toLocaleString()
+          (repoInfo?.stargazersCount ?? 0).toLocaleString()
         )}
       </span>
       <style jsx>{`

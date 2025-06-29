@@ -3,11 +3,10 @@ import { z } from 'zod';
 import { createGitHubService, DEFAULT_MAX_FILES, GitHubFilesResponse, RepoSummary } from '@/lib/github';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
-import { cachedRepos } from '@/db/schema';
+import { cachedRepos, user, account } from '@/db/schema';
 import { CACHED_REPOS } from '@/lib/constants';
 import { shuffleArray } from '@/lib/utils';
-import { eq, sql } from 'drizzle-orm';
-import { user } from '@/db/schema';
+import { eq, sql, and } from 'drizzle-orm';
 
 // Cache duration: 1 hour
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
@@ -534,4 +533,102 @@ export const githubRouter = router({
         });
       }
     }),
+
+    // --- Check if user has a linked GitHub App installation (REQUIRED for app usage) ---
+    checkInstallation: protectedProcedure
+      .query(async ({ ctx }) => {
+        const userAccount = await db.query.account.findFirst({
+          where: and(
+            eq(account.userId, ctx.user.id),
+            eq(account.providerId, 'github')
+          ),
+        });
+        
+        const installationId = userAccount?.installationId;
+        
+        if (!installationId) {
+          return {
+            hasInstallation: false,
+            installationId: null,
+            canUseApp: false, // Can't use app without GitHub App installation
+          };
+        }
+
+        // Verify the installation actually exists on GitHub
+        try {
+          const { githubApp } = await import('@/lib/github/app');
+          await githubApp.octokit.request(
+            'GET /app/installations/{installation_id}',
+            {
+              installation_id: installationId,
+            }
+          );
+          
+          return {
+            hasInstallation: true,
+            installationId,
+            canUseApp: true, // Can use app with valid GitHub App installation
+          };
+        } catch (error: any) {
+          console.log(`❌ Installation ${installationId} not found on GitHub, clearing from database`);
+          
+          // Clear the invalid installation ID from the user's account
+          await db.update(account)
+            .set({ 
+              installationId: null,
+              updatedAt: new Date()
+            })
+            .where(and(
+              eq(account.userId, ctx.user.id),
+              eq(account.providerId, 'github')
+            ));
+          
+          return {
+            hasInstallation: false,
+            installationId: null,
+            canUseApp: false, // Can't use app without valid GitHub App installation
+          };
+        }
+      }),
+
+    // --- Check if user can use the app (requires both OAuth + GitHub App) ---
+    canUseApp: protectedProcedure
+      .query(async ({ ctx }) => {
+        const userAccount = await db.query.account.findFirst({
+          where: and(
+            eq(account.userId, ctx.user.id),
+            eq(account.providerId, 'github')
+          ),
+        });
+        
+        if (!userAccount?.installationId) {
+          return { canUseApp: false, reason: 'GitHub App not installed' };
+        }
+
+        // Verify the installation exists
+        try {
+          const { githubApp } = await import('@/lib/github/app');
+          await githubApp.octokit.request(
+            'GET /app/installations/{installation_id}',
+            {
+              installation_id: userAccount.installationId,
+            }
+          );
+          
+          return { canUseApp: true };
+        } catch (error: any) {
+          // Clear invalid installation
+          await db.update(account)
+            .set({ 
+              installationId: null,
+              updatedAt: new Date()
+            })
+            .where(and(
+              eq(account.userId, ctx.user.id),
+              eq(account.providerId, 'github')
+            ));
+          
+          return { canUseApp: false, reason: 'GitHub App installation invalid' };
+        }
+      }),
 }); 

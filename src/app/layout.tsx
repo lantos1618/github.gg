@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { TRPCProvider } from "@/lib/trpc/provider";
-import { Navbar } from "@/components/Navbar";
+import { NavbarServer } from "@/components/NavbarServer";
 import { Toaster } from 'sonner'
 import { PostHogProvider } from './providers'
 
@@ -33,11 +33,11 @@ export default function RootLayout({
       >
         <PostHogProvider>
           <TRPCProvider>
-            <Navbar />
+            <NavbarServer />
             {process.env.NODE_ENV === 'development' && (
               <div style={{
                 position: 'fixed',
-                top: 12,
+                bottom: 12,
                 right: 12,
                 zIndex: 1000,
                 background: '#e11d48',

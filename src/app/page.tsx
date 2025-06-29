@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { CheckCircle2, Circle } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useEffect, useState } from 'react';
+import { trpc } from '@/lib/trpc/client';
 
 const fadeUpVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -108,22 +109,16 @@ export default function Home() {
   const [hasInstallation, setHasInstallation] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Use tRPC for installation check
+  const { data: installData, isLoading: installLoading, error: installError } = trpc.github.checkInstallation.useQuery(undefined, { enabled: isSignedIn });
+
   useEffect(() => {
-    if (isSignedIn && user) {
-      setCheckingInstall(true);
-      // Check if the user has the GitHub App installed
-      fetch('/api/auth/check-installation')
-        .then(res => res.json())
-        .then(data => {
-          if (data.error) {
-            throw new Error(data.error);
-          }
-          setHasInstallation(data.hasInstallation);
-        })
-        .catch(() => setError('Failed to check GitHub App installation.'))
-        .finally(() => setCheckingInstall(false));
+    if (isSignedIn) {
+      setCheckingInstall(installLoading);
+      if (installError) setError(installError.message);
+      if (installData) setHasInstallation(installData.hasInstallation);
     }
-  }, [isSignedIn, user]);
+  }, [isSignedIn, installLoading, installError, installData]);
 
   return (
     <main className="min-h-screen bg-white">

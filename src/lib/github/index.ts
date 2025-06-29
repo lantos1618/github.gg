@@ -1,21 +1,56 @@
 import { Octokit } from '@octokit/rest';
-import { env } from '../env';
-import { GitHubFilesResponse, RepositoryInfo, DEFAULT_MAX_FILES, RepoSummary } from './types';
-import { extractTarball } from './extractor';
-import { getBestOctokitForRepo, getInstallationOctokit } from './app';
+import { auth } from '@/lib/auth';
+import { db } from '@/db';
+import { account } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { db } from '../../db';
-import { account } from '../../db/schema';
-import { auth } from '../auth';
+import { env } from '@/lib/env';
+import { extractTarball } from './extractor';
+import { getInstallationToken, githubApp, getBestOctokitForRepo } from './app';
 
-export { DEFAULT_MAX_FILES } from './types';
-export type { GitHubFile, GitHubFilesResponse, RepositoryInfo, RepoSummary } from './types';
+export const DEFAULT_MAX_FILES = 1000;
+
+export interface RepositoryInfo {
+  name: string;
+  description: string | null;
+  stargazersCount: number;
+  forksCount: number;
+  language: string | null;
+  topics: string[];
+  url: string;
+  defaultBranch: string;
+  updatedAt: string;
+}
+
+export interface RepoSummary {
+  owner: string;
+  name: string;
+  description?: string;
+  stargazersCount: number;
+  forksCount: number;
+  language?: string;
+  topics?: string[];
+  url: string;
+}
+
+export interface GitHubFilesResponse {
+  files: Array<{
+    name: string;
+    path: string;
+    size: number;
+    type: 'file' | 'directory';
+    content?: string;
+  }>;
+  totalFiles: number;
+  owner: string;
+  repo: string;
+  ref: string;
+}
 
 // Type for Better Auth session
 type BetterAuthSession = Awaited<ReturnType<typeof auth.api.getSession>>;
 
 // Flexible Octokit type that can handle different instances
-type FlexibleOctokit = Octokit | Awaited<ReturnType<typeof getInstallationOctokit>> | ReturnType<typeof import('@octokit/app').App.prototype.octokit>;
+type FlexibleOctokit = Octokit;
 
 export class GitHubService {
   private octokit: FlexibleOctokit;
@@ -137,10 +172,15 @@ export class GitHubService {
     try {
       const data = await this.getRepoData(owner, repo);
       return {
-        stargazers_count: data.stargazers_count,
-        forks_count: data.forks_count,
-        watchers_count: data.watchers_count,
-        default_branch: data.default_branch,
+        name: data.name,
+        description: data.description,
+        stargazersCount: data.stargazers_count,
+        forksCount: data.forks_count,
+        language: data.language,
+        topics: data.topics || [],
+        url: data.html_url,
+        defaultBranch: data.default_branch,
+        updatedAt: data.updated_at,
       };
     } catch (error) {
       // Error is already properly formatted by getRepoData
@@ -161,7 +201,6 @@ export class GitHubService {
         language: data.language || undefined,
         topics: data.topics || undefined,
         url: data.html_url,
-        default_branch: data.default_branch,
       };
     } catch (error) {
       // Error is already properly formatted by getRepoData
@@ -317,29 +356,62 @@ export async function createOAuthGitHubService(session: BetterAuthSession, req?:
   return null;
 }
 
-// Main factory function - tries GitHub App first, then OAuth, then public
-export async function createGitHubService(session: BetterAuthSession | null, req?: Request): Promise<GitHubService> {
+// Create GitHub service with unified authentication
+export async function createGitHubService(session: unknown, req?: Request): Promise<GitHubService> {
+  console.log('🔍 Creating GitHub service with session:', !!session);
+
+  // REQUIREMENT: User must be authenticated via OAuth
+  if (!session || typeof session !== 'object' || !('user' in session) || !session.user) {
+    throw new Error('Authentication required. Please sign in with GitHub OAuth.');
+  }
+
+  const user = session.user as any;
+  console.log(`👤 Authenticated user: ${user.name} (${user.id})`);
+
+  // REQUIREMENT: User must have a linked GitHub App installation
+  const userAccount = await db.query.account.findFirst({
+    where: and(
+      eq(account.userId, user.id),
+      eq(account.providerId, 'github')
+    ),
+  });
+
+  if (!userAccount?.installationId) {
+    throw new Error('GitHub App installation required. Please install the GitHub App to use this service.');
+  }
+
+  // Verify the installation exists and is accessible
   try {
-    // If user is logged in, try GitHub App first
-    if (session) {
-      const appService = await createGitHubAppService(session);
-      if (appService) {
-        return appService;
+    await githubApp.octokit.request(
+      'GET /app/installations/{installation_id}',
+      {
+        installation_id: userAccount.installationId,
       }
-
-      // Fallback to OAuth
-      const oauthService = await createOAuthGitHubService(session, req);
-      if (oauthService) {
-        return oauthService;
-      }
-
-      console.log('⚠️ User logged in but no GitHub App installation or OAuth token available, using public key');
-    }
+    );
+    console.log(`✅ Using GitHub App installation ${userAccount.installationId} for authenticated user`);
+  } catch (error: any) {
+    console.error(`❌ Installation ${userAccount.installationId} not accessible:`, error.message);
     
-    // Fallback to public API key
-    return createPublicGitHubService();
-  } catch (error) {
-    console.warn('Failed to create GitHub service, falling back to public API:', error);
-    return createPublicGitHubService();
+    // Clear the invalid installation
+    await db.update(account)
+      .set({ 
+        installationId: null,
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(account.userId, user.id),
+        eq(account.providerId, 'github')
+      ));
+    
+    throw new Error('GitHub App installation is invalid. Please reinstall the GitHub App.');
+  }
+
+  // Create GitHub App service with installation token
+  try {
+    const installationToken = await getInstallationToken(userAccount.installationId);
+    return new GitHubService(installationToken);
+  } catch (error: any) {
+    console.error('Failed to create GitHub App service:', error);
+    throw new Error('Failed to create GitHub service. Please try again.');
   }
 } 

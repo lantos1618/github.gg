@@ -6,10 +6,6 @@ import { CheckCircle2, Circle } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useEffect, useState } from 'react';
 
-// Use environment variables for GitHub App config (must be NEXT_PUBLIC_ to be available client-side)
-const GITHUB_APP_ID = Number(process.env.NEXT_PUBLIC_GITHUB_APP_ID) || 1475386; // Your GitHub App ID
-const GITHUB_APP_SLUG = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || 'gh-gg-dev'; // Your GitHub App slug
-
 const fadeUpVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0 }
@@ -107,7 +103,7 @@ const roadmapItems = [
 ];
 
 export default function Home() {
-  const { isSignedIn, isLoading, user, signIn } = useAuth();
+  const { isSignedIn, user } = useAuth();
   const [checkingInstall, setCheckingInstall] = useState(false);
   const [hasInstallation, setHasInstallation] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -15,35 +15,43 @@ import { LogOut, Settings, User, Github } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Spinner } from '@/components/ui/spinner';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 export function Navbar() {
   const { isSignedIn, isLoading, user, signIn, signOut } = useAuth();
   const [checkingInstall, setCheckingInstall] = useState(false);
   const [hasLinkedInstallation, setHasLinkedInstallation] = useState<boolean | null>(null);
   const [installationId, setInstallationId] = useState<number | null>(null);
+  const lastUserId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isSignedIn) {
       setHasLinkedInstallation(null);
       setInstallationId(null);
       setCheckingInstall(false);
+      lastUserId.current = null;
       return;
     }
-    setCheckingInstall(true);
-    fetch('/api/auth/link-installation')
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) throw new Error(data.error);
-        setHasLinkedInstallation(data.hasLinkedInstallation);
-        setInstallationId(data.installationId);
-      })
-      .catch(() => {
-        setHasLinkedInstallation(null);
-        setInstallationId(null);
-      })
-      .finally(() => setCheckingInstall(false));
-  }, [isSignedIn, user]);
+
+    // Only check installation if user ID has changed
+    const currentUserId = user?.id;
+    if (currentUserId && currentUserId !== lastUserId.current) {
+      lastUserId.current = currentUserId;
+      setCheckingInstall(true);
+      fetch('/api/auth/link-installation')
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) throw new Error(data.error);
+          setHasLinkedInstallation(data.hasLinkedInstallation);
+          setInstallationId(data.installationId);
+        })
+        .catch(() => {
+          setHasLinkedInstallation(null);
+          setInstallationId(null);
+        })
+        .finally(() => setCheckingInstall(false));
+    }
+  }, [isSignedIn, user?.id]);
 
   // Show bell notification when user is signed in but hasn't linked an installation
   const showInstallNotification = isSignedIn && user && hasLinkedInstallation === false;

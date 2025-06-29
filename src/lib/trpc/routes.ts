@@ -2,6 +2,9 @@ import { protectedProcedure } from '@/lib/trpc/trpc';
 import { githubRouter } from '@/lib/trpc/routes/github';
 import { scorecardRouter } from '@/lib/trpc/routes/scorecard';
 import { diagramRouter } from '@/lib/trpc/routes/diagram';
+import { userRouter } from '@/lib/trpc/routes/user';
+import { featuredRouter } from '@/lib/trpc/routes/featured';
+import { billingRouter } from '@/lib/trpc/routes/billing';
 import { z } from 'zod';
 import { router } from '@/lib/trpc/trpc';
 
@@ -39,6 +42,15 @@ export const appRouter = router({
   
   // Diagram routes
   diagram: diagramRouter,
+
+  // User management routes
+  user: userRouter,
+
+  // Featured repositories routes
+  featured: featuredRouter,
+
+  // Billing routes
+  billing: billingRouter,
 });
 
 export type AppRouter = typeof appRouter; 

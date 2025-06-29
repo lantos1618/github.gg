@@ -38,6 +38,13 @@ const envSchema = z.object({
   // Analytics
   NEXT_PUBLIC_POSTHOG_KEY: z.string().min(1),
   NEXT_PUBLIC_POSTHOG_HOST: z.string().min(1),
+
+  // Monetization
+  API_KEY_ENCRYPTION_SECRET: z.string().length(32, 'Must be exactly 32 characters'),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_BYOK_PRICE_ID: z.string().optional(),
+  STRIPE_PRO_PRICE_ID: z.string().optional(),
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env); 

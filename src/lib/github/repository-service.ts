@@ -165,7 +165,16 @@ export class RepositoryService {
       }
 
       const buffer = await downloadResponse.arrayBuffer();
-      const files = await extractTarball(buffer, maxFiles, path);
+      const extractedFiles = await extractTarball(buffer, maxFiles, path);
+      
+      // Transform the files to match the expected type structure
+      const files = extractedFiles.map(file => ({
+        name: file.path.split('/').pop() || file.path,
+        path: file.path,
+        size: file.size,
+        type: file.type === 'dir' ? 'directory' as const : 'file' as const,
+        content: file.content
+      }));
       
       return {
         files,
@@ -212,7 +221,7 @@ export class RepositoryService {
   static async createForRepo(owner: string, repo: string, session?: BetterAuthSession, req?: Request): Promise<RepositoryService> {
     try {
       const octokit = await getBestOctokitForRepo(owner, repo, session, req);
-      return new RepositoryService(octokit);
+      return new RepositoryService(octokit as Octokit);
     } catch (error) {
       console.warn(`Failed to get GitHub App access for ${owner}/${repo}, falling back to OAuth:`, error);
       // Fallback to OAuth-based service

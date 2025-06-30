@@ -76,6 +76,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/tar-stream": "^3.1.4",
+    "@typescript-eslint/eslint-plugin": "^8.35.0",
+    "@typescript-eslint/parser": "^8.35.0",
     "drizzle-kit": "^0.31.1",
     "eslint": "^9.30.0",
     "eslint-config-next": "^15.3.4",

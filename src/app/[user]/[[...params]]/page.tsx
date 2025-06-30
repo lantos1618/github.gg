@@ -1,9 +1,7 @@
-import path from "path"
 import ScorecardClientView from './ScorecardClientView';
 import RepoClientView from './RepoClientView';
 import DiagramClientView from './DiagramClientView';
 import { notFound } from 'next/navigation';
-import { getTabPaths } from '@/lib/repoTabs';
 import { parseRepoPath } from '@/lib/utils';
 
 interface PageProps {

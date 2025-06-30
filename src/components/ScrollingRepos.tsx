@@ -11,14 +11,6 @@ import React from 'react';
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import chroma from 'chroma-js';
 import { useAuth } from '@/lib/auth/client';
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Star, GitFork, Calendar, TrendingUp, Clock, Loader2 } from 'lucide-react';
-import Link from 'next/link';
-import { trpc } from '@/lib/trpc/client';
 
 const CustomTooltipContent = forwardRef<
   React.ComponentRef<typeof TooltipPrimitive.Content>,
@@ -163,8 +155,8 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
   const { data: popularRepos, isLoading: isPopularLoading } = useReposForScrolling(80);
   const { data: sponsorRepos, isLoading: isSponsorLoading } = useSponsorRepos();
   const { data: userRepoNames } = useUserRepoNames();
-  const { data: userRepos, isLoading: isUserReposLoading, error: userReposError } = useUserReposForScrolling(10);
-  const { data: installationRepos, isLoading: isInstallationReposLoading } = useInstallationRepositories(10);
+  const { data: userRepos, isLoading: isUserReposLoading } = useUserReposForScrolling(10);
+  const { data: installationRepos } = useInstallationRepositories(10);
   const auth = useAuth();
   
   const userRepoIds = useMemo(() => new Set(userRepoNames || []), [userRepoNames]);

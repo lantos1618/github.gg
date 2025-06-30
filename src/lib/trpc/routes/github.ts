@@ -569,8 +569,8 @@ export const githubRouter = router({
             installationId,
             canUseApp: true, // Can use app with valid GitHub App installation
           };
-        } catch (error: any) {
-          console.log(`❌ Installation ${installationId} not found on GitHub, clearing from database`);
+        } catch (error) {
+          console.log(`❌ Installation ${installationId} not found on GitHub, clearing from database`, error);
           
           // Clear the invalid installation ID from the user's account
           await db.update(account)

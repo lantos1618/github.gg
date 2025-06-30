@@ -118,7 +118,7 @@ export function HeroSection() {
             variants={fadeUpVariants}
             transition={{ duration: 0.5, delay: 0.4 }}
           >
-            ✓ You're on the {currentPlan.plan} plan
+            ✓ You&apos;re on the {currentPlan.plan} plan
           </motion.div>
         )}
       </motion.div>

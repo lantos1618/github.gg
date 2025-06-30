@@ -5,25 +5,29 @@
  * Run with: node scripts/test-payment.js
  */
 
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 console.log('🧪 Payment Integration Test Runner\n');
 
-function log(message, color = 'reset') {
-  const colors = { green: '\x1b[32m', red: '\x1b[31m', yellow: '\x1b[33m', blue: '\x1b[34m', reset: '\x1b[0m' };
+const colors = { green: '\x1b[32m', red: '\x1b[31m', yellow: '\x1b[33m', blue: '\x1b[34m', reset: '\x1b[0m' };
+
+function log(message: string, color: keyof typeof colors = 'reset') {
   console.log(`${colors[color]}${message}${colors.reset}`);
 }
 
-async function runTest(name, testFn) {
+async function runTest(name: string, testFn: () => Promise<void>) {
   try {
     console.log(`\n${name}...`);
     await testFn();
     log(`✅ ${name} passed`, 'green');
     return true;
-  } catch (error) {
-    log(`❌ ${name} failed: ${error.message}`, 'red');
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      log(`❌ ${name} failed: ${error.message}`, 'red');
+    } else {
+      log(`❌ ${name} failed: Unknown error`, 'red');
+    }
     return false;
   }
 }

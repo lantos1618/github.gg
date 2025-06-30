@@ -2,7 +2,7 @@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRouter, usePathname } from 'next/navigation';
 import { useMemo } from 'react';
-import { REPO_TABS, RepoTab } from '@/lib/repoTabs';
+import { REPO_TABS } from '@/lib/repoTabs';
 
 export default function RepoTabsBar() {
   const router = useRouter();

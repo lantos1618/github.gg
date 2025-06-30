@@ -125,7 +125,7 @@ export default function PricingPage() {
           <div className="text-left">
             <h3 className="font-semibold mb-2">How do I get a Gemini API key?</h3>
             <p className="text-sm text-muted-foreground">
-              Visit the Google AI Studio to create your API key. It's free to start and you only pay for what you use.
+              Visit the Google AI Studio to create your API key. It&apos;s free to start and you only pay for what you use.
             </p>
           </div>
           <div className="text-left">

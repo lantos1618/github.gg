@@ -2,33 +2,10 @@
 
 import { test, expect, describe, beforeAll, afterAll, beforeEach } from 'bun:test';
 import { db } from '../src/db';
-import { userSubscriptions, userApiKeys, tokenUsage } from '../src/db/schema';
+import { userSubscriptions, userApiKeys, tokenUsage, user } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
-import Stripe from 'stripe';
-import { createTRPCMsw } from 'msw-trpc';
-import { http, HttpResponse } from 'msw';
-import { setupServer } from 'msw/node';
 
 // Mock Stripe
-const mockStripe = {
-  checkout: {
-    sessions: {
-      create: vi.fn(),
-    },
-  },
-  subscriptions: {
-    retrieve: vi.fn(),
-    cancel: vi.fn(),
-  },
-  billingPortal: {
-    sessions: {
-      create: vi.fn(),
-    },
-  },
-  webhooks: {
-    constructEvent: vi.fn(),
-  },
-};
 
 // Mock environment variables
 process.env.STRIPE_SECRET_KEY = 'sk_test_mock';
@@ -54,6 +31,13 @@ describe('Stripe Payment Integration', () => {
     await db.delete(userSubscriptions).where(eq(userSubscriptions.userId, testUserId));
     await db.delete(userApiKeys).where(eq(userApiKeys.userId, testUserId));
     await db.delete(tokenUsage).where(eq(tokenUsage.userId, testUserId));
+    
+    // Create test user first
+    await db.insert(user).values({
+      id: testUserId,
+      name: 'Test User',
+      email: 'test@example.com',
+    }).onConflictDoNothing();
   });
 
   afterAll(async () => {
@@ -68,10 +52,6 @@ describe('Stripe Payment Integration', () => {
       const { billingRouter } = await import('../src/lib/trpc/routes/billing');
       
       // Mock Stripe checkout session creation
-      const mockSession = {
-        url: 'https://checkout.stripe.com/test_session',
-        id: 'cs_test_session',
-      };
 
       // Test the checkout creation
       const result = await billingRouter.createCheckoutSession.call({
@@ -132,22 +112,8 @@ describe('Stripe Payment Integration', () => {
         },
       };
 
-      const mockSubscription = {
-        id: mockStripeSubscriptionId,
-        customer: mockStripeCustomerId,
-        status: 'active',
-        current_period_end: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days from now
-      };
 
       // Mock Stripe webhook verification
-      const mockStripe = {
-        webhooks: {
-          constructEvent: vi.fn().mockReturnValue(mockEvent),
-        },
-        subscriptions: {
-          retrieve: vi.fn().mockResolvedValue(mockSubscription),
-        },
-      };
 
       // Create mock request
       const mockRequest = new Request('http://localhost:3000/api/webhooks/stripe', {

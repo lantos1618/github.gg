@@ -2,7 +2,6 @@
 
 import { Button } from '@/components/ui/button';
 import type { UnifiedSession } from '@/lib/auth';
-import { useAuth } from '@/lib/auth/client';
 import { signIn, signOut } from '@/lib/auth/client';
 import {
   DropdownMenu,
@@ -15,6 +14,7 @@ import {
 import { LogOut, Settings, User, Github, Crown } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { trpc } from '@/lib/trpc/client';
+import Link from 'next/link';
 
 interface NavbarClientProps {
   session: UnifiedSession;
@@ -74,39 +74,39 @@ export function NavbarClient({ session }: NavbarClientProps) {
           {/* Installation status and management */}
           {!installationInfo?.hasInstallation ? (
             <DropdownMenuItem asChild className="bg-green-50 dark:bg-green-950/20 hover:bg-green-100 dark:hover:bg-green-950/30">
-              <a href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_NAME}/installations/new`} target="_blank" rel="noopener noreferrer">
+              <Link href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_NAME}/installations/new`} target="_blank" rel="noopener noreferrer">
                 <Github className="mr-2 h-4 w-4 text-green-600" />
                 <span className="text-green-800 dark:text-green-200 font-medium">Install GitHub App</span>
-              </a>
+              </Link>
             </DropdownMenuItem>
           ) : installationInfo?.installationId ? (
             <DropdownMenuItem asChild>
-              <a href={`https://github.com/settings/installations/${installationInfo.installationId}`} target="_blank" rel="noopener noreferrer">
+              <Link href={`https://github.com/settings/installations/${installationInfo.installationId}`} target="_blank" rel="noopener noreferrer">
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Manage GitHub App</span>
-              </a>
+              </Link>
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem asChild>
-              <a href="https://github.com/settings/installations" target="_blank" rel="noopener noreferrer">
+              <Link href="https://github.com/settings/installations" target="_blank" rel="noopener noreferrer">
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Manage GitHub App</span>
-              </a>
+              </Link>
             </DropdownMenuItem>
           )}
           
           <DropdownMenuItem asChild>
-            <a href="/settings">
+            <Link href="/settings">
             <User className="mr-2 h-4 w-4" />
               <span>Settings</span>
-            </a>
+            </Link>
           </DropdownMenuItem>
           
           <DropdownMenuItem asChild>
-            <a href="/pricing">
+            <Link href="/pricing">
               <Crown className="mr-2 h-4 w-4" />
               <span>Pricing</span>
-            </a>
+            </Link>
           </DropdownMenuItem>
           
           <DropdownMenuSeparator />
@@ -122,7 +122,7 @@ export function NavbarClient({ session }: NavbarClientProps) {
   return (
     <div className="flex items-center gap-2">
       <Button variant="ghost" size="sm" asChild>
-        <a href="/pricing">Pricing</a>
+        <Link href="/pricing">Pricing</Link>
       </Button>
     <Button onClick={handleSignIn} size="sm" className="px-2 sm:px-3">
       <Github className="h-4 w-4 sm:mr-2" />

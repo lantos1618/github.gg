@@ -16,16 +16,16 @@ export const diagramRouter = router({
       // 1. Check user plan and get API key
       const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
       
-      // For now, allow all authenticated users (we'll add plan restrictions later)
-      // if (!subscription || subscription.status !== 'active') {
-      //   throw new TRPCError({ 
-      //     code: 'FORBIDDEN', 
-      //     message: 'Active subscription required for AI features' 
-      //   });
-      // }
+      // Check for active subscription
+      if (!subscription || subscription.status !== 'active') {
+        throw new TRPCError({ 
+          code: 'FORBIDDEN', 
+          message: 'Active subscription required for AI features' 
+        });
+      }
       
       // 2. Get appropriate API key
-      const keyInfo = await getApiKeyForUser(ctx.user.id, plan);
+      const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
       if (!keyInfo) {
         throw new TRPCError({ 
           code: 'FORBIDDEN', 
@@ -42,7 +42,6 @@ export const diagramRouter = router({
           previousResult,
           lastError,
           isRetry,
-          apiKey: keyInfo.apiKey, // Pass the API key to the AI service
         });
         
         // 3. Log token usage (we'll need to get this from the AI response)

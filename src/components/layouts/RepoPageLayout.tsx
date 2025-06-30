@@ -31,7 +31,6 @@ export default function RepoPageLayout({
   refName,
   path,
   tab,
-  currentPath,
   children,
 }: RepoPageLayoutProps) {
   const { files, totalFiles, isLoading, error } = useRepoData({ user, repo, ref: refName, path });
@@ -39,7 +38,7 @@ export default function RepoPageLayout({
   const router = useRouter();
 
   // Fetch default branch
-  const { data: repoMeta, isLoading: loadingMeta } = trpc.github.getRepoMeta.useQuery({ owner: user, repo });
+  const { data: repoMeta } = trpc.github.getRepoMeta.useQuery({ owner: user, repo });
   const defaultBranch = repoMeta?.default_branch;
 
   // Unified branch change handler

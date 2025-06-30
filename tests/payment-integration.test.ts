@@ -2,7 +2,7 @@
 
 import { test, expect, describe, beforeAll, afterAll, beforeEach } from 'bun:test';
 import { db } from '../src/db';
-import { userSubscriptions, userApiKeys, tokenUsage } from '../src/db/schema';
+import { userSubscriptions, userApiKeys, tokenUsage, user } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
 
 describe('Payment Integration Tests', () => {
@@ -13,10 +13,17 @@ describe('Payment Integration Tests', () => {
   });
 
   beforeEach(async () => {
-    // Clean up test data before each test
+    // Clean up test data
     await db.delete(userSubscriptions).where(eq(userSubscriptions.userId, testUserId));
     await db.delete(userApiKeys).where(eq(userApiKeys.userId, testUserId));
     await db.delete(tokenUsage).where(eq(tokenUsage.userId, testUserId));
+    
+    // Create test user first
+    await db.insert(user).values({
+      id: testUserId,
+      name: 'Test User',
+      email: 'test@example.com',
+    }).onConflictDoNothing();
   });
 
   afterAll(async () => {
@@ -175,18 +182,27 @@ describe('Payment Integration Tests', () => {
       await db.insert(tokenUsage).values([
         {
           userId: testUserId,
+          feature: 'diagram',
+          promptTokens: 500,
+          completionTokens: 500,
           totalTokens: 1000,
           isByok: true,
           createdAt: new Date(),
         },
         {
           userId: testUserId,
+          feature: 'scorecard',
+          promptTokens: 1000,
+          completionTokens: 1000,
           totalTokens: 2000,
           isByok: false,
           createdAt: new Date(),
         },
         {
           userId: testUserId,
+          feature: 'diagram',
+          promptTokens: 250,
+          completionTokens: 250,
           totalTokens: 500,
           isByok: true,
           createdAt: new Date(),
@@ -219,18 +235,27 @@ describe('Payment Integration Tests', () => {
       await db.insert(tokenUsage).values([
         {
           userId: testUserId,
+          feature: 'diagram',
+          promptTokens: 500,
+          completionTokens: 500,
           totalTokens: 1000,
           isByok: true,
           createdAt: now,
         },
         {
           userId: testUserId,
+          feature: 'scorecard',
+          promptTokens: 1000,
+          completionTokens: 1000,
           totalTokens: 2000,
           isByok: false,
           createdAt: yesterday,
         },
         {
           userId: testUserId,
+          feature: 'diagram',
+          promptTokens: 250,
+          completionTokens: 250,
           totalTokens: 500,
           isByok: true,
           createdAt: lastWeek,
@@ -243,7 +268,7 @@ describe('Payment Integration Tests', () => {
       });
 
       // Filter in memory for date range (in real app, you'd use SQL WHERE clause)
-      const yesterdayUsage = recentUsage.filter(u => u.createdAt >= yesterday);
+      const yesterdayUsage = recentUsage.filter(u => u.createdAt && u.createdAt >= yesterday);
       expect(yesterdayUsage).toHaveLength(2);
     });
   });

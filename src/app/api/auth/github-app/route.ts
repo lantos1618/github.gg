@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GitHubAppSessionManager } from '@/lib/auth';
-import { db } from '@/db';
-import { githubAppInstallations } from '@/db/schema';
-import { eq } from 'drizzle-orm';
 
 export async function GET() {
   try {

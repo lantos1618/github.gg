@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc';
 import { db } from '@/db';
-import { insightsCache } from '@/db/schema';
+import { insightsCache, tokenUsage } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { generateScorecardAnalysis } from '@/lib/ai/scorecard';
+import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { TRPCError } from '@trpc/server';
 
 export const scorecardRouter = router({
   generateScorecard: protectedProcedure
@@ -17,14 +19,42 @@ export const scorecardRouter = router({
         size: z.number().optional(),
       })),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { repo, files } = input;
+      
+      // Check for active subscription
+      const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
+      if (!subscription || subscription.status !== 'active') {
+        throw new TRPCError({ 
+          code: 'FORBIDDEN', 
+          message: 'Active subscription required for AI features' 
+        });
+      }
+      
+      // Get appropriate API key
+      const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
+      if (!keyInfo) {
+        throw new TRPCError({ 
+          code: 'FORBIDDEN', 
+          message: 'Please add your Gemini API key in settings to use this feature' 
+        });
+      }
       
       try {
         // Generate scorecard using the AI service
         const markdownScorecard = await generateScorecardAnalysis({
           files,
           repoName: repo,
+        });
+        
+        // Log token usage
+        await db.insert(tokenUsage).values({
+          userId: ctx.user.id,
+          feature: 'scorecard',
+          promptTokens: 0, // TODO: Get from AI response
+          completionTokens: 0, // TODO: Get from AI response
+          totalTokens: 0, // TODO: Get from AI response
+          isByok: keyInfo.isByok,
         });
         
         return {

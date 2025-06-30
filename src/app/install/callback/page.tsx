@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams, useRouter, redirect } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth/client';
-import { LoadingWave } from '@/components/LoadingWave';
 
 export default function InstallCallbackPage() {
   const searchParams = useSearchParams();

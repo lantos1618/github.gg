@@ -28,6 +28,7 @@ export default function PricingPage() {
       features: ['Public repos', 'Basic browsing', 'Community support'],
       icon: Zap,
       popular: false,
+      plan: null as null,
     },
     {
       name: 'Developer',
@@ -37,6 +38,7 @@ export default function PricingPage() {
       features: ['Private repos', 'BYOK unlimited', 'Email support'],
       icon: Key,
       popular: true,
+      plan: 'byok' as const,
     },
     {
       name: 'Pro',
@@ -46,6 +48,7 @@ export default function PricingPage() {
       features: ['Private repos', '5M tokens/month', 'BYOK option', 'Priority support'],
       icon: Crown,
       popular: false,
+      plan: 'pro' as const,
     },
   ];
 
@@ -85,9 +88,24 @@ export default function PricingPage() {
                     </li>
                   ))}
                 </ul>
-                <Button className="w-full" variant={plan.popular ? 'default' : 'outline'}>
-                  Get Started
-                </Button>
+                {plan.plan ? (
+                  <Button 
+                    className="w-full" 
+                    variant={plan.popular ? 'default' : 'outline'}
+                    onClick={() => handleUpgrade(plan.plan!)}
+                    disabled={createCheckout.isPending}
+                  >
+                    {createCheckout.isPending ? 'Loading...' : 'Get Started'}
+                  </Button>
+                ) : (
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    disabled
+                  >
+                    Current Plan
+                  </Button>
+                )}
               </CardContent>
             </Card>
           );

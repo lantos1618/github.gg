@@ -48,7 +48,7 @@ export const roadmapItems: RoadmapItem[] = [
   {
     title: "Repository Analysis & Insights",
     description: "Deep dive into repository structure, commits, and activity patterns",
-    completed: false
+    completed: true
   },
   {
     title: "Developer Profile Analytics",

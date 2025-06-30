@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, Settings, User, Github } from 'lucide-react';
+import { LogOut, Settings, User, Github, Crown } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { trpc } from '@/lib/trpc/client';
 
@@ -95,14 +95,20 @@ export function NavbarClient({ session }: NavbarClientProps) {
             </DropdownMenuItem>
           )}
           
-          <DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <a href="/settings">
             <User className="mr-2 h-4 w-4" />
-            <span>Profile</span>
+              <span>Settings</span>
+            </a>
           </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Settings</span>
+          
+          <DropdownMenuItem asChild>
+            <a href="/pricing">
+              <Crown className="mr-2 h-4 w-4" />
+              <span>Pricing</span>
+            </a>
           </DropdownMenuItem>
+          
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />
@@ -114,9 +120,14 @@ export function NavbarClient({ session }: NavbarClientProps) {
   }
 
   return (
+    <div className="flex items-center gap-2">
+      <Button variant="ghost" size="sm" asChild>
+        <a href="/pricing">Pricing</a>
+      </Button>
     <Button onClick={handleSignIn} size="sm" className="px-2 sm:px-3">
       <Github className="h-4 w-4 sm:mr-2" />
       <span className="hidden sm:inline">Sign in with GitHub</span>
     </Button>
+    </div>
   );
 } 

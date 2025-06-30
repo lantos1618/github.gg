@@ -12,6 +12,8 @@ import {
   DiagramErrorHandler,
 } from '@/components/diagram';
 import { LoadingWave } from '@/components/LoadingWave';
+import { UpgradePrompt } from '@/components/UpgradePrompt';
+import { trpc } from '@/lib/trpc/client';
 
 interface File {
   path: string;
@@ -42,6 +44,9 @@ function DiagramClientView({
   const [editableCode, setEditableCode] = useState('');
   const [lastCodePanelSize, setLastCodePanelSize] = useState(30);
   const [files, setFiles] = useState<File[]>([]);
+
+  // Check user plan
+  const { data: currentPlan } = trpc.user.getCurrentPlan.useQuery();
 
   // Keyboard shortcut to close code panel
   useEffect(() => {
@@ -108,12 +113,24 @@ function DiagramClientView({
     setShowCodePanel((prev) => !prev);
   };
 
+  // Check if user has access to AI features
+  const hasAccess = currentPlan?.plan === 'byok' || currentPlan?.plan === 'pro';
+
   return (
     <RepoPageLayout user={user} repo={repo} refName={refName} path={path} tab={tab} currentPath={currentPath}>
       {({ files: repoFiles }) => {
         // Update files state when repoFiles changes
         if (repoFiles !== files) {
           setFiles(repoFiles);
+        }
+
+        // Show upgrade prompt if user doesn't have access
+        if (!hasAccess) {
+          return (
+            <div className="w-full px-4 py-8">
+              <UpgradePrompt feature="diagram" />
+            </div>
+          );
         }
 
         return (

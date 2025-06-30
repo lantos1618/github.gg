@@ -38,6 +38,17 @@ export default function SettingsPage() {
     }
   });
 
+  const getBillingPortal = trpc.billing.getBillingPortal.useMutation({
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+    onError: (err) => {
+      toast.error(err.message);
+    }
+  });
+
   const handleSaveKey = () => {
     if (!apiKey.trim()) {
       toast.error('Please enter your API key');
@@ -50,6 +61,14 @@ export default function SettingsPage() {
     if (confirm('Are you sure you want to delete your API key? This action cannot be undone.')) {
       deleteApiKey.mutate();
     }
+  };
+
+  const handleManageBilling = () => {
+    if (currentPlan?.plan === 'free') {
+      toast.error('You need an active subscription to manage billing');
+      return;
+    }
+    getBillingPortal.mutate();
   };
 
   return (
@@ -80,8 +99,12 @@ export default function SettingsPage() {
                   {currentPlan?.plan === 'pro' && 'Private repos + managed AI'}
                 </p>
               </div>
-              <Button variant="outline">
-                Manage Billing
+              <Button 
+                variant="outline"
+                onClick={handleManageBilling}
+                disabled={getBillingPortal.isPending}
+              >
+                {getBillingPortal.isPending ? 'Loading...' : 'Manage Billing'}
               </Button>
             </div>
           </CardContent>

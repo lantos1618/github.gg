@@ -131,7 +131,7 @@ export const installationRepositories = pgTable('installation_repositories', {
 }, (table) => ({
   // Ensure unique repos per installation
   installationRepoIdx: uniqueIndex('installation_repo_idx').on(table.installationId, table.repositoryId),
-}));
+})); 
 
 // Monetization Tables
 

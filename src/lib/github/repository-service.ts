@@ -3,7 +3,8 @@ import { extractTarball } from './extractor';
 import { RepoCache } from './cache';
 import type { RepositoryInfo, RepoSummary, GitHubFilesResponse, BetterAuthSession, GitHubFile } from './types';
 import { getBestOctokitForRepo } from './app';
-import { parseError } from '../types/errors';
+import { parseError, isApiError } from '../types/errors';
+import { Readable } from 'stream';
 
 // GitHub API response types
 interface GitHubRepoData {
@@ -53,6 +54,10 @@ export class RepositoryService {
       this.cache.set(cacheKey, data);
       return data as GitHubRepoData;
     } catch (error: unknown) {
+      // Check if it's a 404 error and provide a user-friendly message
+      if (isApiError(error) && error.status === 404) {
+        throw new Error(`Repository ${owner}/${repo} not found or not accessible`);
+      }
       const errorMessage = parseError(error);
       throw new Error(`Failed to get repository: ${errorMessage}`);
     }
@@ -152,17 +157,12 @@ export class RepositoryService {
         throw new Error(`Failed to download tarball: ${downloadResponse.status} ${downloadResponse.statusText}`);
       }
 
-      // Convert ArrayBuffer to ReadableStream for extractTarball
+      // Convert ArrayBuffer to Node.js ReadableStream
       const buffer = await downloadResponse.arrayBuffer();
-      const stream = new ReadableStream({
-        start(controller) {
-          controller.enqueue(new Uint8Array(buffer));
-          controller.close();
-        }
-      });
+      const stream = Readable.from(Buffer.from(buffer));
 
       const files: GitHubFile[] = [];
-      await extractTarball(stream as unknown as NodeJS.ReadableStream, (file) => {
+      await extractTarball(stream, (file) => {
         if (files.length < maxFiles) {
           files.push(file);
         }

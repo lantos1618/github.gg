@@ -1,8 +1,7 @@
 import { GitHubFile } from './types';
 import { shouldProcessFile } from './filters';
 import { createGunzip } from 'zlib';
-import { extract } from 'tar';
-import type { ReadEntry } from 'tar';
+import tarStream from 'tar-stream';
 
 export async function extractTarball(
   stream: NodeJS.ReadableStream,
@@ -11,30 +10,33 @@ export async function extractTarball(
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const gunzip = createGunzip();
-    const extractStream = extract({
-      filter: (filePath: string) => shouldProcessFile(filePath, path),
-      onentry: (entry: ReadEntry) => {
+    const extract = tarStream.extract();
+
+    extract.on('entry', (header, entryStream, next) => {
+      if (header.type === 'file' && shouldProcessFile(header.name, path)) {
         const chunks: Buffer[] = [];
-        entry.on('data', (chunk: Buffer) => {
-          chunks.push(chunk);
-        });
-        entry.on('end', () => {
+        entryStream.on('data', (chunk: Buffer) => chunks.push(chunk));
+        entryStream.on('end', () => {
           const content = Buffer.concat(chunks).toString('utf8');
           onFile({
-            path: entry.path,
+            path: header.name,
             content,
             size: content.length,
             type: 'file',
           });
+          next();
         });
-      },
+        entryStream.on('error', reject);
+      } else {
+        entryStream.resume();
+        entryStream.on('end', next);
+      }
     });
-
-    extractStream.on('finish', resolve);
-    extractStream.on('error', reject);
-    stream.pipe(gunzip).pipe(extractStream).on('error', reject);
+    extract.on('finish', resolve);
+    extract.on('error', reject);
+    stream.pipe(gunzip).pipe(extract);
   }).catch(error => {
-      console.error('Error processing tarball stream:', error);
-      throw error;
+    console.error('Error processing tarball stream:', error);
+    throw error;
   });
 } 

@@ -122,8 +122,9 @@ function MarkdownCardRenderer({ markdown }: { markdown: string }) {
           <ReactMarkdown 
             remarkPlugins={[remarkGfm]}
             components={{
-              code: ({ className, children, style, ...props }: React.ComponentPropsWithoutRef<'code'> & { inline?: boolean }) => {
+              code: ({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'> & { inline?: boolean }) => {
                 const match = /language-(\w+)/.exec(className || '');
+
                 return !props.inline && match ? (
                   <SyntaxHighlighter
                     language={match[1]}

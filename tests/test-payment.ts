@@ -16,6 +16,10 @@ function log(message: string, color: keyof typeof colors = 'reset') {
   console.log(`${colors[color]}${message}${colors.reset}`);
 }
 
+function logError(message: string) {
+  log(message, 'red');
+}
+
 async function runTest(name: string, testFn: () => Promise<void>) {
   try {
     console.log(`\n${name}...`);
@@ -36,7 +40,7 @@ async function main() {
   const results = [];
 
   // Test environment variables
-  results.push(await runTest('Environment Variables', () => {
+  results.push(await runTest('Environment Variables', async () => {
     const required = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_BYOK_PRICE_ID', 'STRIPE_PRO_PRICE_ID'];
     const missing = required.filter(v => !process.env[v]);
     if (missing.length > 0) {
@@ -45,7 +49,7 @@ async function main() {
   }));
 
   // Test schema files
-  results.push(await runTest('Schema Files', () => {
+  results.push(await runTest('Schema Files', async () => {
     const schemaPath = path.join(__dirname, '../src/db/schema.ts');
     if (!fs.existsSync(schemaPath)) throw new Error('Schema file not found');
     
@@ -57,7 +61,7 @@ async function main() {
   }));
 
   // Test tRPC routes
-  results.push(await runTest('tRPC Routes', () => {
+  results.push(await runTest('tRPC Routes', async () => {
     const billingPath = path.join(__dirname, '../src/lib/trpc/routes/billing.ts');
     const userPath = path.join(__dirname, '../src/lib/trpc/routes/user.ts');
     
@@ -76,7 +80,7 @@ async function main() {
   }));
 
   // Test webhook handler
-  results.push(await runTest('Webhook Handler', () => {
+  results.push(await runTest('Webhook Handler', async () => {
     const webhookPath = path.join(__dirname, '../src/app/api/webhooks/stripe/route.ts');
     if (!fs.existsSync(webhookPath)) throw new Error('Webhook handler not found');
     
@@ -88,7 +92,7 @@ async function main() {
   }));
 
   // Test frontend components
-  results.push(await runTest('Frontend Components', () => {
+  results.push(await runTest('Frontend Components', async () => {
     const pricingPath = path.join(__dirname, '../src/app/pricing/page.tsx');
     const settingsPath = path.join(__dirname, '../src/app/settings/page.tsx');
     
@@ -126,12 +130,14 @@ async function main() {
 }
 
 // Handle errors
-process.on('unhandledRejection', (error) => {
-  logError('Unhandled rejection: ' + error.message);
+process.on('unhandledRejection', (error: unknown) => {
+  const message = error instanceof Error ? error.message : 'Unknown error';
+  logError('Unhandled rejection: ' + message);
   process.exit(1);
 });
 
-main().catch((error) => {
-  logError('Test runner failed: ' + error.message);
+main().catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : 'Unknown error';
+  logError('Test runner failed: ' + message);
   process.exit(1);
 }); 

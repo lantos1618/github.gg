@@ -28,9 +28,14 @@ export async function GET(request: Request) {
         betterAuth: !!cookies['better-auth-session'],
         all: Object.keys(cookies),
       },
+      config: {
+        clientId: process.env.GITHUB_CLIENT_ID ? 'SET' : 'NOT_SET',
+        clientSecret: process.env.GITHUB_CLIENT_SECRET ? 'SET' : 'NOT_SET',
+        secret: process.env.BETTER_AUTH_SECRET ? 'SET' : 'NOT_SET',
+      }
     });
   } catch (error) {
     console.error('[debug] Error getting auth debug info:', error);
-    return NextResponse.json({ error: 'Failed to get debug info' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to get debug info', details: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
   }
 } 

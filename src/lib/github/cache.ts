@@ -1,4 +1,4 @@
-import { CacheEntry } from '../types/errors';
+import { CacheEntry } from '@/lib/types/errors';
 
 // Repository data cache service
 export class RepoCache {

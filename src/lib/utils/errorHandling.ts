@@ -1,4 +1,4 @@
-import { parseError } from '../types/errors';
+import { parseError } from '@/lib/types/errors';
 
 /**
  * Parse Gemini API error to extract user-friendly message

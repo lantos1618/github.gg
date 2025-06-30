@@ -1,5 +1,5 @@
 import { initTRPC, TRPCError } from '@trpc/server';
-import { auth } from '../auth';
+import { auth } from '@/lib/auth';
 
 /**
  * Inner context - always available in procedures

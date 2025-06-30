@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { test, expect } from 'bun:test';
-import { GitHubService } from '../src/lib/github';
+import { GitHubService } from '@/lib/github';
 
 test("GitHubService fetches files correctly", async () => {
   const githubService = GitHubService.createPublic();

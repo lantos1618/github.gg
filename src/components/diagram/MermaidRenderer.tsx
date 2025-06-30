@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef } from 'react';
 import mermaid from 'mermaid';
-import { parseError } from '../../lib/types/errors';
+import { parseError } from '@/lib/types/errors';
 
 interface MermaidRendererProps {
   code: string;

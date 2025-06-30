@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { test, expect, describe } from 'bun:test';
-import { isSubscriptionError, getErrorDisplayConfig } from '../src/lib/utils/errorHandling';
+import { isSubscriptionError, getErrorDisplayConfig } from '@/lib/utils/errorHandling';
 
 describe('Error Handling Tests', () => {
   describe('Subscription Error Detection', () => {

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { router, publicProcedure, protectedProcedure } from '../trpc';
+import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { featuredRepos } from '@/db/schema';
 import { eq, asc } from 'drizzle-orm';

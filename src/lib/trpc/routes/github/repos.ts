@@ -6,7 +6,7 @@ import { cachedRepos } from '@/db/schema';
 import { CACHED_REPOS } from '@/lib/constants';
 import { shuffleArray } from '@/lib/utils';
 import { sql } from 'drizzle-orm';
-import { parseError } from '../../../types/errors';
+import { parseError } from '@/lib/types/errors';
 
 // Cache duration: 1 hour
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds

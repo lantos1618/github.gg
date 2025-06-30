@@ -1,11 +1,10 @@
 import { Webhooks } from '@octokit/webhooks';
-import { env } from '@/lib/env';
 import { db } from '@/db';
 import { githubAppInstallations, installationRepositories } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 const webhooks = new Webhooks({
-  secret: env.GITHUB_WEBHOOK_SECRET,
+  secret: process.env.GITHUB_WEBHOOK_SECRET!,
 });
 
 // Event Handlers

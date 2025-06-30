@@ -1,13 +1,12 @@
 'use client';
 
 import { createAuthClient } from "better-auth/react";
-import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { trpc } from '../trpc/client';
-import type { UnifiedSession, GitHubAppSession } from './index';
+import { trpc } from '@/lib/trpc/client';
+import { toast } from 'sonner';
 
-// Create Better Auth client
-const { useSession, signIn, signOut } = createAuthClient({
+// Initialize the better-auth client
+const { useSession, signIn, signOut: betterAuthSignOut } = createAuthClient({
   baseURL: typeof window !== 'undefined' 
     ? `${window.location.origin}/api/auth`
     : process.env.NEXT_PUBLIC_APP_URL 
@@ -15,142 +14,53 @@ const { useSession, signIn, signOut } = createAuthClient({
       : "http://localhost:3000/api/auth"
 });
 
-// Unified authentication hook
+/**
+ * A simplified and robust authentication hook for the client-side.
+ * It wraps the core `better-auth` functionality and provides a clean sign-out process.
+ */
 export function useAuth() {
-  const { data: betterAuthSession, isPending: isBetterAuthPending, error: betterAuthError } = useSession();
-  const [githubAppSession, setGitHubAppSession] = useState<GitHubAppSession | null>(null);
-  const [isGitHubAppLoading, setIsGitHubAppLoading] = useState(true);
-  const [githubAppError, setGitHubAppError] = useState<string | null>(null);
+  const { data: session, isPending, error } = useSession();
   const router = useRouter();
   const utils = trpc.useUtils();
-
-  // Check GitHub App session on mount
-  useEffect(() => {
-    checkGitHubAppSession();
-  }, []);
-
-  const checkGitHubAppSession = async () => {
-    try {
-      setIsGitHubAppLoading(true);
-      const response = await fetch('/api/auth/github-app');
-      
-      if (response.ok) {
-        const data = await response.json();
-        setGitHubAppSession(data.session);
-      } else {
-        setGitHubAppSession(null);
-      }
-    } catch (err) {
-      console.error('Failed to check GitHub App session:', err);
-      setGitHubAppError('Failed to check authentication status');
-      setGitHubAppSession(null);
-    } finally {
-      setIsGitHubAppLoading(false);
-    }
-  };
-
-  // Unified session combining both auth types
-  const unifiedSession: UnifiedSession = betterAuthSession?.user 
-    ? {
-        user: {
-          id: betterAuthSession.user.id,
-          name: betterAuthSession.user.name,
-          email: betterAuthSession.user.email || undefined,
-          image: betterAuthSession.user.image || undefined,
-        },
-        isSignedIn: true,
-        authType: 'oauth',
-      }
-    : githubAppSession
-    ? {
-        user: {
-          id: githubAppSession.userId,
-          name: githubAppSession.name,
-          email: githubAppSession.email,
-          image: githubAppSession.image,
-          login: githubAppSession.login,
-          accountType: githubAppSession.accountType,
-        },
-        isSignedIn: true,
-        authType: 'github-app',
-        installationId: githubAppSession.installationId,
-      }
-    : {
-        user: null,
-        isSignedIn: false,
-        authType: null,
-      };
-
+  
   const handleSignIn = async () => {
-    await signIn.social({
-      provider: "github",
-    });
+    try {
+      // The `prompt: 'select_account'` is configured on the server.
+      await signIn.social({ provider: "github" });
+    } catch (err) {
+      console.error("Sign in failed:", err);
+      toast.error("Sign in failed. Please try again.");
+    }
   };
 
   const handleSignOut = async () => {
     try {
-      console.log('[auth] Signing out...');
+      // 1. Perform app-specific cleanup by calling our dedicated endpoint.
+      await fetch('/api/auth/sign-out-cleanup', { method: 'POST' });
       
-      // Sign out from Better Auth
-      await signOut();
-      
-      // Clear GitHub App session
-      await fetch('/api/auth/github-app', {
-        method: 'DELETE',
-      });
-      
-      // Call our custom sign-out endpoint for complete cleanup
-      await fetch('/api/auth/sign-out', {
-        method: 'POST',
-      });
-      
-      // Clear GitHub App session state
-      setGitHubAppSession(null);
-      
-      // Invalidate all tRPC queries to clear cached data
-      utils.invalidate();
-      
-      // Simple redirect to home page
+      // 2. Call the core `better-auth` sign-out function.
+      await betterAuthSignOut();
+
+      // 3. Clean up client-side state.
+      utils.invalidate(); // Invalidate all tRPC queries
       router.push('/');
-      
-    } catch (error) {
-      console.error('[auth] Error during sign out:', error);
-      // On error, just redirect to home and let the page refresh naturally
-      router.push('/');
+      router.refresh(); // Force a full page reload to ensure a clean state
+    } catch (err) {
+      console.error("Sign out failed:", err);
+      toast.error("Sign out failed. Please try again.");
     }
   };
 
-  const installGitHubApp = () => {
-    const appName = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || 'gh-gg-dev';
-    const installUrl = `https://github.com/apps/${appName}/installations/new`;
-    window.open(installUrl, '_blank');
-  };
-
   return {
-    // Session data
-    session: unifiedSession,
-    user: unifiedSession.user,
-    isSignedIn: unifiedSession.isSignedIn,
-    authType: unifiedSession.authType,
-    installationId: unifiedSession.installationId,
-    
-    // Loading states
-    isLoading: isBetterAuthPending || isGitHubAppLoading,
-    isBetterAuthPending,
-    isGitHubAppLoading,
-    
-    // Errors
-    error: betterAuthError || githubAppError,
-    betterAuthError,
-    githubAppError,
-    
-    // Actions
+    session: session,
+    user: session?.user,
+    isSignedIn: !!session?.user,
+    isLoading: isPending,
+    error: error,
     signIn: handleSignIn,
     signOut: handleSignOut,
-    installGitHubApp,
-    refreshGitHubAppSession: checkGitHubAppSession,
   };
 }
 
 // Re-export Better Auth hooks for direct use if needed
-export { useSession, signIn, signOut }; 
+export { useSession, signIn, betterAuthSignOut }; 

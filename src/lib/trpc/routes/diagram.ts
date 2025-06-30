@@ -1,4 +1,4 @@
-import { router, protectedProcedure } from '../trpc';
+import { router, protectedProcedure } from '@/lib/trpc/trpc';
 import { generateRepoDiagramVercel } from '@/lib/ai/diagram';
 import { diagramInputSchema } from '@/lib/types/diagram';
 import { parseGeminiError } from '@/lib/utils/errorHandling';

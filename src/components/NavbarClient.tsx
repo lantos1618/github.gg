@@ -10,87 +10,71 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, Settings, User, Github, Crown } from 'lucide-react';
+import { LogOut, Settings, User, Github, Crown, Bell } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { trpc } from '@/lib/trpc/client';
 import Link from 'next/link';
-import { env } from '@/lib/env';
+import { Spinner } from './ui/spinner';
 
 export function NavbarClient() {
-  const { session, signIn, signOut, isLoading } = useAuth();
+  const { user, isSignedIn, signIn, signOut, isLoading } = useAuth();
   
-  // Use tRPC query to check installation status
-  const { data: installationInfo } = trpc.github.checkInstallation.useQuery(
+  const { data: installationInfo, isLoading: isInstallationLoading } = trpc.github.checkInstallation.useQuery(
     undefined,
     {
-      enabled: session.isSignedIn && session.authType === 'oauth',
-      refetchOnWindowFocus: false,
+      enabled: isSignedIn,
+      refetchOnWindowFocus: true, // Refetch on focus to catch new installations
     }
   );
-  // Use tRPC to check admin status
+
   const { data: adminStatus } = trpc.admin.isAdmin.useQuery(undefined, {
-    enabled: session.isSignedIn,
+    enabled: isSignedIn,
     refetchOnWindowFocus: false,
   });
 
-  const handleSignIn = async () => {
-    await signIn();
-  };
+  if (isLoading) {
+    return <Button variant="ghost" size="sm" className="w-24 justify-center"><Spinner size={16} /></Button>;
+  }
 
-  const handleSignOut = async () => {
-    await signOut();
-  };
-
-  // Show bell notification when user is signed in but hasn't linked an installation
-  const showInstallNotification = session.isSignedIn && session.user && !installationInfo?.hasInstallation;
-
-  if (session.isSignedIn && session.user) {
+  if (isSignedIn && user) {
     const isAdmin = !!adminStatus?.isAdmin;
+    const showInstallNotification = !isInstallationLoading && !installationInfo?.hasInstallation;
+
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-10 w-10 rounded-full">
             <Avatar className="h-10 w-10">
-              <AvatarImage src={session.user.image!} alt={session.user.name} />
-              <AvatarFallback>{session.user.name?.[0]}</AvatarFallback>
+              <AvatarImage src={user.image!} alt={user.name} />
+              <AvatarFallback>{user.name?.[0]}</AvatarFallback>
             </Avatar>
-            {/* Solid bell notification icon (no tooltip) */}
             {showInstallNotification && (
-              <div className="absolute -top-2 -left-2 p-0 m-0 bg-transparent border-none focus:outline-none pointer-events-auto z-20" aria-label="Install the GitHub App to enable private repo access and advanced features." style={{ width: 32, height: 32, background: 'rgba(0,0,0,0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {/* Solid bell SVG */}
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5 text-red-500">
-                  <path d="M12 2C8.13 2 5 5.13 5 9v4.586l-.707.707A1 1 0 0 0 5 16h14a1 1 0 0 0 .707-1.707L19 13.586V9c0-3.87-3.13-7-7-7zm0 20a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22z" />
-                </svg>
-              </div>
+              <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              </span>
             )}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56" align="end" forceMount>
           <DropdownMenuLabel className='font-normal'>
             <div className='flex flex-col space-y-1'>
-              <p className='text-sm font-medium leading-none'>{session.user.name}</p>
-              <p className='text-xs leading-none text-muted-foreground'>@{session.user.email}</p>
+              <p className='text-sm font-medium leading-none'>{user.name}</p>
+              <p className='text-xs leading-none text-muted-foreground'>@{user.email}</p>
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {/* Installation status and management */}
-          {!installationInfo?.hasInstallation ? (
-            <DropdownMenuItem asChild className="bg-green-50 dark:bg-green-950/20 hover:bg-green-100 dark:hover:bg-green-950/30">
+          
+          {showInstallNotification ? (
+            <DropdownMenuItem asChild className="bg-green-50 dark:bg-green-950/20 text-green-800 dark:text-green-200 focus:bg-green-100 dark:focus:bg-green-950/30">
               <Link href={`https://github.com/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_NAME}/installations/new`} target="_blank" rel="noopener noreferrer">
-                <Github className="mr-2 h-4 w-4 text-green-600" />
-                <span className="text-green-800 dark:text-green-200 font-medium">Install GitHub App</span>
-              </Link>
-            </DropdownMenuItem>
-          ) : installationInfo?.installationId ? (
-            <DropdownMenuItem asChild>
-              <Link href={`https://github.com/settings/installations/${installationInfo.installationId}`} target="_blank" rel="noopener noreferrer">
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Manage GitHub App</span>
+                <Bell className="mr-2 h-4 w-4" />
+                <span>Install GitHub App</span>
               </Link>
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem asChild>
-              <Link href="https://github.com/settings/installations" target="_blank" rel="noopener noreferrer">
+              <Link href={`https://github.com/settings/installations/${installationInfo?.installationId}`} target="_blank" rel="noopener noreferrer">
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Manage GitHub App</span>
               </Link>
@@ -99,15 +83,15 @@ export function NavbarClient() {
           
           <DropdownMenuItem asChild>
             <Link href="/settings">
-            <User className="mr-2 h-4 w-4" />
-              <span>Settings</span>
+              <User className="mr-2 h-4 w-4" />
+              <span>Settings & Billing</span>
             </Link>
           </DropdownMenuItem>
           
           <DropdownMenuItem asChild>
             <Link href="/pricing">
               <Crown className="mr-2 h-4 w-4" />
-              <span>Pricing</span>
+              <span>Upgrade Plan</span>
             </Link>
           </DropdownMenuItem>
           
@@ -115,13 +99,13 @@ export function NavbarClient() {
             <DropdownMenuItem asChild>
               <Link href="/admin">
                 <Crown className="mr-2 h-4 w-4 text-yellow-500" />
-                <span>Admin</span>
+                <span>Admin Dashboard</span>
               </Link>
             </DropdownMenuItem>
           )}
           
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleSignOut}>
+          <DropdownMenuItem onClick={signOut}>
             <LogOut className="mr-2 h-4 w-4" />
             <span>Sign out</span>
           </DropdownMenuItem>
@@ -135,10 +119,10 @@ export function NavbarClient() {
       <Button variant="ghost" size="sm" asChild>
         <Link href="/pricing">Pricing</Link>
       </Button>
-    <Button onClick={handleSignIn} size="sm" className="px-2 sm:px-3" disabled={isLoading}>
-      <Github className="h-4 w-4 sm:mr-2" />
-      <span className="hidden sm:inline">Sign in with GitHub</span>
-    </Button>
+      <Button onClick={signIn} size="sm" className="px-2 sm:px-3">
+        <Github className="h-4 w-4 sm:mr-2" />
+        <span className="hidden sm:inline">Sign in with GitHub</span>
+      </Button>
     </div>
   );
 } 

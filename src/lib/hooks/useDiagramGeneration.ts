@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import { DiagramType } from '@/lib/types/diagram';
-import { DiagramOptions } from '../types/errors';
+import { DiagramOptions } from '@/lib/types/errors';
 
 interface File {
   path: string;

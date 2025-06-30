@@ -2,7 +2,7 @@ import { router, publicProcedure } from '@/lib/trpc/trpc';
 import { z } from 'zod';
 import { createGitHubServiceFromSession, DEFAULT_MAX_FILES, GitHubFilesResponse } from '@/lib/github';
 import { TRPCError } from '@trpc/server';
-import { parseError } from '../../../types/errors';
+import { parseError } from '@/lib/types/errors';
 
 export const filesRouter = router({
   // Get repository files from tarball (requires GitHub authentication)

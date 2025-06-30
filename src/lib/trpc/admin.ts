@@ -1,6 +1,5 @@
 import { TRPCError } from '@trpc/server';
 import { initTRPC } from '@trpc/server';
-import { env } from '@/lib/env';
 import type { Context } from './trpc';
 
 const t = initTRPC.context<Context>().create();
@@ -18,7 +17,7 @@ export const adminProcedure = t.procedure.use(async ({ ctx, next }) => {
   }
 
   // Check if user's email is in the admin emails list
-  const adminEmails = env.ADMIN_EMAILS;
+  const adminEmails = process.env.ADMIN_EMAILS!.split(',').map(email => email.trim());
   if (!adminEmails.includes(ctx.session.user.email)) {
     throw new TRPCError({
       code: 'FORBIDDEN',

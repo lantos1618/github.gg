@@ -1,18 +1,17 @@
 import { App } from '@octokit/app';
 import jwt from 'jsonwebtoken';
-import { env } from '../env';
-import { db } from '../../db';
-import { githubAppInstallations, account } from '../../db/schema';
+import { db } from '@/db';
+import { githubAppInstallations, account } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { auth } from '../auth';
+import { auth } from '@/lib/auth';
 import { Octokit } from '@octokit/rest';
 import { createAppAuth } from '@octokit/auth-app';
-import { SessionData, parseError } from '../types/errors';
+import { SessionData, parseError } from '@/lib/types/errors';
 
 // Initialize the GitHub App
 export const githubApp = new App({
-  appId: env.GITHUB_APP_ID,
-  privateKey: env.GITHUB_PRIVATE_KEY.replace(/\\n/g, '\n'),
+  appId: process.env.GITHUB_APP_ID!,
+  privateKey: process.env.GITHUB_PRIVATE_KEY!.replace(/\\n/g, '\n'),
 });
 
 // Generate JWT for app authentication
@@ -21,10 +20,10 @@ export function generateAppJWT(): string {
   const payload = {
     iat: now,
     exp: now + 600, // 10 minutes
-    iss: env.GITHUB_APP_ID,
+    iss: process.env.GITHUB_APP_ID!,
   };
 
-  return jwt.sign(payload, env.GITHUB_PRIVATE_KEY.replace(/\\n/g, '\n'), {
+  return jwt.sign(payload, process.env.GITHUB_PRIVATE_KEY!.replace(/\\n/g, '\n'), {
     algorithm: 'RS256',
   });
 }

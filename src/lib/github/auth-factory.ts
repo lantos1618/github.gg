@@ -3,17 +3,16 @@ import { auth } from '@/lib/auth';
 import { db } from '@/db';
 import { account } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { env } from '@/lib/env';
 import { getInstallationToken } from './app';
 import type { BetterAuthSession } from './types';
-import { SessionData } from '../types/errors';
+import { SessionData } from '@/lib/types/errors';
 
 // Factory functions for different authentication methods
 export class GitHubAuthFactory {
   // Create service with public API key (for unauthenticated users)
   static createPublic(): Octokit {
     console.log('🔑 Using public GitHub API key');
-    return new Octokit({ auth: env.GITHUB_PUBLIC_API_KEY });
+    return new Octokit({ auth: process.env.GITHUB_PUBLIC_API_KEY! });
   }
 
   // Create service with GitHub App installation (for authenticated users with installations)

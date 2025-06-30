@@ -3,7 +3,7 @@ import { extractTarball } from './extractor';
 import { RepoCache } from './cache';
 import type { RepositoryInfo, RepoSummary, GitHubFilesResponse, BetterAuthSession, GitHubFile } from './types';
 import { getBestOctokitForRepo } from './app';
-import { parseError, isApiError } from '../types/errors';
+import { parseError, isApiError } from '@/lib/types/errors';
 import { Readable } from 'stream';
 
 // GitHub API response types

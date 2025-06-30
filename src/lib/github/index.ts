@@ -8,7 +8,7 @@ import type {
   GitHubFilesResponse, 
   BetterAuthSession 
 } from './types';
-import { SessionData } from '../types/errors';
+import { SessionData } from '@/lib/types/errors';
 
 // Main GitHub service - simple facade that coordinates other services
 export class GitHubService {

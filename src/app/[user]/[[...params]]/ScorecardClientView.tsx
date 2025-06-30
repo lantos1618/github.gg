@@ -49,11 +49,11 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
           })),
         },
         {
-          onSuccess: (data) => {
+          onSuccess: (data: { scorecard: string }) => {
             setScorecardData(data.scorecard);
             setIsLoading(false);
           },
-          onError: (err) => {
+          onError: (err: { message: string }) => {
             setError(err.message || 'Failed to generate scorecard');
             setIsLoading(false);
           },

@@ -1,14 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { GitHubAppSessionManager } from '@/lib/auth';
 
 export async function GET(request: Request) {
   try {
     // Get Better Auth session
-    const betterAuthSession = await auth.api.getSession(request);
-    
-    // Get GitHub App session
-    const githubAppSession = await GitHubAppSessionManager.getSession();
+    const session = await auth.api.getSession(request);
     
     // Get cookies for debugging
     const cookieHeader = request.headers.get('cookie') || '';
@@ -20,21 +16,16 @@ export async function GET(request: Request) {
     );
     
     return NextResponse.json({
-      betterAuth: {
-        hasSession: !!betterAuthSession,
-        user: betterAuthSession?.user ? {
-          id: betterAuthSession.user.id,
-          name: betterAuthSession.user.name,
-          email: betterAuthSession.user.email,
+      auth: {
+        hasSession: !!session,
+        user: session?.user ? {
+          id: session.user.id,
+          name: session.user.name,
+          email: session.user.email,
         } : null,
-      },
-      githubApp: {
-        hasSession: !!githubAppSession,
-        session: githubAppSession,
       },
       cookies: {
         betterAuth: !!cookies['better-auth-session'],
-        githubApp: !!cookies['github-app-session'],
         all: Object.keys(cookies),
       },
     });

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc';
+import { router, protectedProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { insightsCache, tokenUsage } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';

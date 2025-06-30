@@ -3,7 +3,7 @@
 ## ✅ Completed Features
 
 ### Core Infrastructure
-- [x] GitHub OAuth Authentication
+- [x] **Unified Authentication System**: Simplified, robust user authentication via GitHub OAuth, with seamless GitHub App linking for enhanced features.
 - [x] PostgreSQL Database with Drizzle ORM
 - [x] tRPC API setup
 - [x] Next.js 14 App Router setup

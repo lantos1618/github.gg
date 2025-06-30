@@ -1,16 +1,15 @@
 import { z } from 'zod';
-import { router } from '../trpc';
-import { adminProcedure } from '../admin';
+import { router } from '@/lib/trpc/trpc';
+import { adminProcedure } from '@/lib/trpc/admin';
 import { db } from '@/db';
 import { tokenUsage, userSubscriptions, user } from '@/db/schema';
 import { eq, and, gte, lte, desc, inArray } from 'drizzle-orm';
 import { calculateTokenCost, calculateTotalCost, calculateDailyCostAndRevenue } from '@/lib/utils/cost-calculator';
-import { env } from '@/lib/env';
 
 export const adminRouter = router({
   // Admin check
   isAdmin: adminProcedure.query(async ({ ctx }) => {
-    const adminEmails = env.ADMIN_EMAILS.map(e => e.toLowerCase());
+    const adminEmails = process.env.ADMIN_EMAILS!.split(',').map(email => email.trim());
     const userEmail = ctx.user.email?.toLowerCase();
     return { isAdmin: !!userEmail && adminEmails.includes(userEmail) };
   }),

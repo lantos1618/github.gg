@@ -1,3 +1,4 @@
+import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import { google } from '@ai-sdk/google';
 import { generateText } from 'ai';
@@ -84,13 +85,10 @@ ${files.map(file => `\n--- ${file.path} ---\n${file.content}`).join('\n')}`;
  */
 export async function getAvailableModels() {
   try {
-    // Note: This would need to be updated if we switch to AI SDK
-    // For now, keeping the original implementation
-    const { GoogleGenAI } = await import('@google/genai');
-    const { env } = await import('@/lib/env');
     
+    // For now, keeping the original implementation
     const ai = new GoogleGenAI({
-      apiKey: env.GEMINI_API_KEY,
+      apiKey: process.env.GEMINI_API_KEY,
     });
     
     return await ai.models.list();

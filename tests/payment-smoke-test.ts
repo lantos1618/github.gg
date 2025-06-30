@@ -32,8 +32,8 @@ test('Payment Integration Smoke Test', async () => {
   // Test 2: Database Schema
   console.log('\n2. Checking database schema...');
   try {
-    const { db } = await import('../src/db');
-    const { userSubscriptions, userApiKeys, tokenUsage } = await import('../src/db/schema');
+    const { db } = await import('@/db');
+    const { userSubscriptions, userApiKeys, tokenUsage } = await import('@/db/schema');
     
     // Test database connection
     await db.execute('SELECT 1');
@@ -54,7 +54,7 @@ test('Payment Integration Smoke Test', async () => {
   // Test 3: Encryption Utils
   console.log('\n3. Checking encryption utilities...');
   try {
-    const { encryptApiKey, decryptApiKey, validateApiKey } = await import('../src/lib/utils/encryption');
+    const { encryptApiKey, decryptApiKey, validateApiKey } = await import('@/lib/utils/encryption');
     
     const testKey = 'gza_test_key_123456789';
     const encrypted = encryptApiKey(testKey);
@@ -73,8 +73,8 @@ test('Payment Integration Smoke Test', async () => {
   // Test 4: tRPC Routes
   console.log('\n4. Checking tRPC routes...');
   try {
-    const { billingRouter } = await import('../src/lib/trpc/routes/billing');
-    const { userRouter } = await import('../src/lib/trpc/routes/user');
+    const { billingRouter } = await import('@/lib/trpc/routes/billing');
+    const { userRouter } = await import('@/lib/trpc/routes/user');
     
     expect(billingRouter).toBeDefined();
     expect(userRouter).toBeDefined();
@@ -94,7 +94,7 @@ test('Payment Integration Smoke Test', async () => {
   // Test 5: Webhook Handler
   console.log('\n5. Checking webhook handler...');
   try {
-    const { POST } = await import('../src/app/api/webhooks/stripe/route');
+    const { POST } = await import('@/app/api/webhooks/stripe/route');
     expect(POST).toBeDefined();
     console.log('✅ Webhook handler is properly defined');
   } catch (error) {
@@ -106,11 +106,11 @@ test('Payment Integration Smoke Test', async () => {
   console.log('\n6. Checking frontend components...');
   try {
     // Test that pricing page can be imported
-    const PricingPage = await import('../src/app/pricing/page');
+    const PricingPage = await import('@/app/pricing/page');
     expect(PricingPage.default).toBeDefined();
     
     // Test that settings page can be imported
-    const SettingsPage = await import('../src/app/settings/page');
+    const SettingsPage = await import('@/app/settings/page');
     expect(SettingsPage.default).toBeDefined();
     
     console.log('✅ Frontend components are properly defined');
@@ -122,7 +122,7 @@ test('Payment Integration Smoke Test', async () => {
   // Test 7: Plan Logic
   console.log('\n7. Checking plan logic...');
   try {
-    const { getUserPlanAndKey } = await import('../src/lib/utils/user-plan');
+    const { getUserPlanAndKey } = await import('@/lib/utils/user-plan');
     expect(getUserPlanAndKey).toBeDefined();
     console.log('✅ Plan logic utilities are properly defined');
   } catch (error) {
@@ -141,8 +141,8 @@ test('Payment Integration Smoke Test', async () => {
 test('Quick Database Operations Test', async () => {
   console.log('\n🔍 Testing database operations...');
   
-  const { db } = await import('../src/db');
-  const { userSubscriptions } = await import('../src/db/schema');
+  const { db } = await import('@/db');
+  const { userSubscriptions } = await import('@/db/schema');
   const { eq } = await import('drizzle-orm');
   
   const testUserId = 'smoke-test-user-' + Date.now();

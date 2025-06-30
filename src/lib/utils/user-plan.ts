@@ -2,7 +2,6 @@ import { db } from '@/db';
 import { userSubscriptions, userApiKeys } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { decryptApiKey } from './encryption';
-import { env } from '@/lib/env';
 
 export async function getUserSubscription(userId: string) {
   return await db.query.userSubscriptions.findFirst({
@@ -38,7 +37,7 @@ export async function getApiKeyForUser(userId: string, plan?: 'byok' | 'pro') {
   
   // For Pro users without BYOK key, use system key
   if (plan === 'pro') {
-    return { apiKey: env.GEMINI_API_KEY, isByok: false };
+    return { apiKey: process.env.GEMINI_API_KEY!, isByok: false };
   }
   
   return null;

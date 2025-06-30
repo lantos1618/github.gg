@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 
 import { test, expect, describe, beforeAll, afterAll, beforeEach } from 'bun:test';
-import { db } from '../src/db';
-import { userSubscriptions, userApiKeys, tokenUsage, user } from '../src/db/schema';
+import { db } from '@/db';
+import { userSubscriptions, userApiKeys, tokenUsage, user } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 describe('Payment Integration Tests', () => {
@@ -120,9 +120,9 @@ describe('Payment Integration Tests', () => {
     });
   });
 
-  describe('API Key Management', () => {
+  describe('API Key Management', async () => {
+    const { encryptApiKey, decryptApiKey } = await import('@/lib/utils/encryption');
     test('can save and retrieve encrypted API key', async () => {
-      const { encryptApiKey, decryptApiKey } = await import('../src/lib/utils/encryption');
       
       const testApiKey = 'gza_test_key_123456789';
       const encrypted = encryptApiKey(testApiKey);
@@ -147,7 +147,7 @@ describe('Payment Integration Tests', () => {
     });
 
     test('can update existing API key', async () => {
-      const { encryptApiKey } = await import('../src/lib/utils/encryption');
+      const { encryptApiKey } = await import('@/lib/utils/encryption');
       
       const firstKey = encryptApiKey('gza_first_key_123');
       const secondKey = encryptApiKey('gza_second_key_456');
@@ -353,7 +353,7 @@ describe('Payment Integration Tests', () => {
 
       // This should not throw an error during import
       expect(() => {
-        import('../src/lib/trpc/routes/billing');
+        import('@/lib/trpc/routes/billing');
       }).not.toThrow();
 
       // Restore environment variable

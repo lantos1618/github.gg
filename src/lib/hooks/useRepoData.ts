@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import { useAuth } from '@/lib/auth/client';
-import { RepoSummary } from '../github/types';
+import { RepoSummary } from '@/lib/github/types';
 import { useRepoStore } from '@/lib/store';
 
 export interface RepoParams {

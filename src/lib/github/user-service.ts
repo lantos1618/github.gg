@@ -1,6 +1,6 @@
 import { Octokit } from '@octokit/rest';
 import type { RepoSummary } from './types';
-import { parseError } from '../types/errors';
+import { parseError } from '@/lib/types/errors';
 import { db } from '@/db';
 import { account, installationRepositories } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';

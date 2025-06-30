@@ -50,7 +50,7 @@ async function main() {
 
   // Test schema files
   results.push(await runTest('Schema Files', async () => {
-    const schemaPath = path.join(__dirname, '../src/db/schema.ts');
+    const schemaPath = path.join(__dirname, '@/db/schema.ts');
     if (!fs.existsSync(schemaPath)) throw new Error('Schema file not found');
     
     const content = fs.readFileSync(schemaPath, 'utf8');
@@ -62,8 +62,8 @@ async function main() {
 
   // Test tRPC routes
   results.push(await runTest('tRPC Routes', async () => {
-    const billingPath = path.join(__dirname, '../src/lib/trpc/routes/billing.ts');
-    const userPath = path.join(__dirname, '../src/lib/trpc/routes/user.ts');
+    const billingPath = path.join(__dirname, '@/lib/trpc/routes/billing.ts');
+    const userPath = path.join(__dirname, '@/lib/trpc/routes/user.ts');
     
     if (!fs.existsSync(billingPath)) throw new Error('Billing route not found');
     if (!fs.existsSync(userPath)) throw new Error('User route not found');
@@ -81,7 +81,7 @@ async function main() {
 
   // Test webhook handler
   results.push(await runTest('Webhook Handler', async () => {
-    const webhookPath = path.join(__dirname, '../src/app/api/webhooks/stripe/route.ts');
+    const webhookPath = path.join(__dirname, '@/app/api/webhooks/stripe/route.ts');
     if (!fs.existsSync(webhookPath)) throw new Error('Webhook handler not found');
     
     const content = fs.readFileSync(webhookPath, 'utf8');
@@ -93,8 +93,8 @@ async function main() {
 
   // Test frontend components
   results.push(await runTest('Frontend Components', async () => {
-    const pricingPath = path.join(__dirname, '../src/app/pricing/page.tsx');
-    const settingsPath = path.join(__dirname, '../src/app/settings/page.tsx');
+    const pricingPath = path.join(__dirname, '@/app/pricing/page.tsx');
+    const settingsPath = path.join(__dirname, '@/app/settings/page.tsx');
     
     if (!fs.existsSync(pricingPath)) throw new Error('Pricing page not found');
     if (!fs.existsSync(settingsPath)) throw new Error('Settings page not found');

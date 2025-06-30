@@ -1,6 +1,6 @@
 "use client";
 import { getErrorDisplayConfig } from '@/lib/utils/errorHandling';
-import { SubscriptionUpgrade } from '../SubscriptionUpgrade';
+import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
 
 interface ErrorDisplayProps {
   error: string | null;

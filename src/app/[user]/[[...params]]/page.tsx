@@ -30,17 +30,17 @@ export default async function Page({ params }: PageProps) {
 
   if (tab === 'scorecard' || currentPath.endsWith('/scorecard')) {
     return (
-      <ScorecardClientView user={user} repo={repo} refName={ref} path={path} tab={tab} currentPath={currentPath} />
+      <ScorecardClientView user={user} repo={repo} refName={ref} path={path} />
     );
   }
 
   if (tab === 'diagram' || currentPath.endsWith('/diagram')) {
     return (
-      <DiagramClientView user={user} repo={repo} refName={ref} path={path} tab={tab} currentPath={currentPath} />
+      <DiagramClientView user={user} repo={repo} refName={ref} path={path} />
     );
   }
 
   return (
-    <RepoClientView user={user} repo={repo} refName={ref} path={path} tab={tab} currentPath={currentPath} />
+    <RepoClientView user={user} repo={repo} refName={ref} path={path} />
   );
 }

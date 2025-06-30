@@ -1,9 +1,10 @@
 "use client";
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import RepoPageLayout from '@/components/layouts/RepoPageLayout';
 import { DiagramType } from '@/lib/types/diagram';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useDiagramGeneration } from '@/lib/hooks/useDiagramGeneration';
+import { useRepoData } from '@/lib/hooks/useRepoData';
 import {
   DiagramTypeSelector,
   DiagramControls,
@@ -15,26 +16,16 @@ import { LoadingWave } from '@/components/LoadingWave';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { trpc } from '@/lib/trpc/client';
 
-interface File {
-  path: string;
-  content: string;
-  size: number;
-}
-
 function DiagramClientView({ 
   user, 
   repo, 
   refName, 
-  path, 
-  tab, 
-  currentPath 
+  path
 }: { 
   user: string; 
   repo: string; 
   refName?: string; 
   path?: string; 
-  tab?: string; 
-  currentPath?: string; 
 }) {
   // State management
   const [diagramType, setDiagramType] = useState<DiagramType>('flowchart');
@@ -43,7 +34,9 @@ function DiagramClientView({
   const [showCodePanel, setShowCodePanel] = useState(false);
   const [editableCode, setEditableCode] = useState('');
   const [lastCodePanelSize, setLastCodePanelSize] = useState(30);
-  const [files, setFiles] = useState<File[]>([]);
+
+  // Get repo data
+  const { files: repoFiles, isLoading: filesLoading, error: filesError, totalFiles } = useRepoData({ user, repo, ref: refName, path });
 
   // Check user plan
   const { data: currentPlan } = trpc.user.getCurrentPlan.useQuery();
@@ -61,7 +54,7 @@ function DiagramClientView({
   }, [showCodePanel]);
 
   // Debounced values
-  const debouncedFiles = useDebouncedValue(files, 300);
+  const debouncedFiles = useDebouncedValue(repoFiles, 300);
   const debouncedDiagramType = useDebouncedValue(diagramType, 200);
 
   // Diagram generation logic
@@ -116,85 +109,103 @@ function DiagramClientView({
   // Check if user has access to AI features
   const hasAccess = currentPlan?.plan === 'byok' || currentPlan?.plan === 'pro';
 
+  // Show loading state while files are loading
+  if (filesLoading) {
+    return (
+      <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
+        <div className="w-full px-4 py-8">
+          <div className="flex flex-col items-center gap-4">
+            <LoadingWave size="lg" color="#3b82f6" />
+            <div className="text-lg text-blue-700 font-medium">Loading repository files...</div>
+          </div>
+        </div>
+      </RepoPageLayout>
+    );
+  }
+
+  // Show error state if files failed to load
+  if (filesError) {
+    return (
+      <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
+        <div className="w-full px-4 py-8">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-red-600 mb-2">Files Loading Failed</h2>
+            <p className="text-gray-600">Unable to load repository files.</p>
+            <p className="text-sm text-gray-500 mt-2">{String(filesError)}</p>
+          </div>
+        </div>
+      </RepoPageLayout>
+    );
+  }
+
   return (
-    <RepoPageLayout user={user} repo={repo} refName={refName} path={path} tab={tab} currentPath={currentPath}>
-      {({ files: repoFiles }) => {
-        // Update files state when repoFiles changes
-        if (repoFiles !== files) {
-          setFiles(repoFiles);
-        }
+    <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
+      <div className="w-full px-0 text-center mt-8">
+        <h1>Diagram View</h1>
+        
+        <DiagramTypeSelector
+          diagramType={diagramType}
+          onDiagramTypeChange={setDiagramType}
+          disabled={isPending}
+        />
 
-        // Show upgrade prompt if user doesn't have access
-        if (!hasAccess) {
-          return (
-            <div className="w-full px-4 py-8">
-              <UpgradePrompt feature="diagram" />
-            </div>
-          );
-        }
+        {isPending && (
+          <div className="my-8 flex flex-col items-center gap-4">
+            <LoadingWave size="lg" color="#3b82f6" />
+            <div className="text-lg text-blue-700 font-medium">Generating diagram...</div>
+          </div>
+        )}
 
-        return (
-          <div className="w-full px-0 text-center mt-8">
-            <h1>Diagram View</h1>
-            
-            <DiagramTypeSelector
-              diagramType={diagramType}
-              onDiagramTypeChange={setDiagramType}
+        <DiagramErrorHandler
+          error={error}
+          isPending={isPending}
+          previousDiagramCode={previousDiagramCode}
+          onRetry={handleRetry}
+          onRetryWithContext={handleRetryWithContext}
+        />
+
+        {displayDiagramCode && (
+          <div className="w-full bg-white border rounded-lg shadow overflow-hidden" style={{minHeight: 500}}>
+            <DiagramControls
+              showCodePanel={showCodePanel}
+              onToggleCodePanel={handleToggleCodePanel}
+              onCopyMermaid={handleCopyMermaid}
+              onCopyDiagram={handleCopyDiagram}
               disabled={isPending}
             />
 
-            {isPending && (
-              <div className="my-8 flex flex-col items-center gap-4">
-                <LoadingWave size="lg" color="#3b82f6" />
-                <div className="text-lg text-blue-700 font-medium">Generating diagram...</div>
-              </div>
-            )}
-
-            <DiagramErrorHandler
-              error={error}
-              isPending={isPending}
-              previousDiagramCode={previousDiagramCode}
-              onRetry={handleRetry}
-              onRetryWithContext={handleRetryWithContext}
-            />
-
-            {displayDiagramCode && (
-              <div className="w-full bg-white border rounded-lg shadow overflow-hidden" style={{minHeight: 500}}>
-                <DiagramControls
-                  showCodePanel={showCodePanel}
-                  onToggleCodePanel={handleToggleCodePanel}
-                  onCopyMermaid={handleCopyMermaid}
-                  onCopyDiagram={handleCopyDiagram}
-                  disabled={isPending}
-                />
-
-                <DiagramCodePanel
-                  showCodePanel={showCodePanel}
-                  editableCode={editableCode}
-                  onCodeChange={handleCodeChange}
-                  lastCodePanelSize={lastCodePanelSize}
-                  onCodePanelSizeChange={setLastCodePanelSize}
-                  disabled={isPending}
-                >
-                  <DiagramPreview
-                    code={editableCode || displayDiagramCode}
-                    isPending={isPending}
-                    renderError={renderError}
-                    onRenderError={(err) => {
-                      setRenderError(err);
-                    }}
-                    onRetryWithContext={handleRetryWithContext}
-                  />
-                </DiagramCodePanel>
-              </div>
-            )}
-
-            {!isPending && !displayDiagramCode && !error && (
-              <p className="text-gray-500 mt-8">No diagram generated yet.</p>
-            )}
+            <DiagramCodePanel
+              showCodePanel={showCodePanel}
+              editableCode={editableCode}
+              onCodeChange={handleCodeChange}
+              lastCodePanelSize={lastCodePanelSize}
+              onCodePanelSizeChange={setLastCodePanelSize}
+              disabled={isPending}
+            >
+              <DiagramPreview
+                code={editableCode || displayDiagramCode}
+                isPending={isPending}
+                renderError={renderError}
+                onRenderError={(err) => {
+                  setRenderError(err);
+                }}
+                onRetryWithContext={handleRetryWithContext}
+              />
+            </DiagramCodePanel>
           </div>
-        );
-      }}
+        )}
+
+        {!isPending && !displayDiagramCode && !error && (
+          <p className="text-gray-500 mt-8">No diagram generated yet.</p>
+        )}
+
+        {/* Show upgrade prompt if user doesn't have access */}
+        {!hasAccess && (
+          <div className="mt-8">
+            <UpgradePrompt feature="diagram" />
+          </div>
+        )}
+      </div>
     </RepoPageLayout>
   );
 }

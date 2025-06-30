@@ -11,7 +11,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 import { useRepoData } from '@/lib/hooks/useRepoData';
 
-export default function ScorecardClientView({ user, repo, refName, path, tab, currentPath }: { user: string; repo: string; refName?: string; path?: string; tab?: string; currentPath?: string }) {
+export default function ScorecardClientView({ user, repo, refName, path }: { user: string; repo: string; refName?: string; path?: string }) {
   const [scorecardData, setScorecardData] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +19,7 @@ export default function ScorecardClientView({ user, repo, refName, path, tab, cu
   const generateScorecardMutation = trpc.scorecard.generateScorecard.useMutation();
 
   // Get repo data
-  const { files, isLoading: filesLoading, error: filesError } = useRepoData({ user, repo, ref: refName, path });
+  const { files, isLoading: filesLoading, error: filesError, totalFiles } = useRepoData({ user, repo, ref: refName, path });
 
   useEffect(() => {
     if (user || repo) {
@@ -69,7 +69,7 @@ export default function ScorecardClientView({ user, repo, refName, path, tab, cu
   const overallLoading = filesLoading || isLoading;
 
   return (
-    <RepoPageLayout user={user} repo={repo} refName={refName} path={path}>
+    <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
       <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
         {filesError ? (
           <div className="text-center py-8">

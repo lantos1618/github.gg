@@ -1,8 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import type { UnifiedSession } from '@/lib/auth';
-import { signIn, signOut } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth/client';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,11 +15,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { trpc } from '@/lib/trpc/client';
 import Link from 'next/link';
 
-interface NavbarClientProps {
-  session: UnifiedSession;
-}
-
-export function NavbarClient({ session }: NavbarClientProps) {
+export function NavbarClient() {
+  const { session, signIn, signOut, isLoading } = useAuth();
+  
   // Use tRPC query to check installation status
   const { data: installationInfo } = trpc.github.checkInstallation.useQuery(
     undefined,
@@ -31,9 +28,7 @@ export function NavbarClient({ session }: NavbarClientProps) {
   );
 
   const handleSignIn = async () => {
-    await signIn.social({
-      provider: "github",
-    });
+    await signIn();
   };
 
   const handleSignOut = async () => {
@@ -124,7 +119,7 @@ export function NavbarClient({ session }: NavbarClientProps) {
       <Button variant="ghost" size="sm" asChild>
         <Link href="/pricing">Pricing</Link>
       </Button>
-    <Button onClick={handleSignIn} size="sm" className="px-2 sm:px-3">
+    <Button onClick={handleSignIn} size="sm" className="px-2 sm:px-3" disabled={isLoading}>
       <Github className="h-4 w-4 sm:mr-2" />
       <span className="hidden sm:inline">Sign in with GitHub</span>
     </Button>

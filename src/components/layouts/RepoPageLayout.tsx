@@ -1,5 +1,4 @@
 import React, { ReactNode } from 'react';
-import { useRepoData } from '@/lib/hooks/useRepoData';
 import { useCopyRepoFiles } from '@/lib/hooks/useCopyRepoFiles';
 import { RepoHeader } from '@/components/RepoHeader';
 import RepoTabsBar from '@/components/RepoTabsBar';
@@ -9,7 +8,8 @@ interface RepoPageLayoutProps {
   user: string;
   repo: string;
   refName?: string;
-  path?: string;
+  files?: RepoFile[];
+  totalFiles?: number;
   children: ReactNode;
 }
 
@@ -17,11 +17,11 @@ export default function RepoPageLayout({
   user,
   repo,
   refName = 'main',
-  path = '',
+  files = [],
+  totalFiles = 0,
   children,
 }: RepoPageLayoutProps) {
-  const { files, totalFiles } = useRepoData({ user, repo, ref: refName, path });
-  const { copyAllContent, isCopying, copied } = useCopyRepoFiles(files as RepoFile[]);
+  const { copyAllContent, isCopying, copied } = useCopyRepoFiles(files);
 
   return (
     <>

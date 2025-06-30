@@ -162,11 +162,11 @@ export class RepositoryService {
       });
 
       const files: GitHubFile[] = [];
-      await extractTarball(stream as any, (file) => {
+      await extractTarball(stream as unknown as NodeJS.ReadableStream, (file) => {
         if (files.length < maxFiles) {
           files.push(file);
         }
-      });
+      }, path);
       
       // Transform the files to match the expected type structure
       const transformedFiles = files.map(file => ({

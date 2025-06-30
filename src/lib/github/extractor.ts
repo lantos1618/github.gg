@@ -6,12 +6,13 @@ import type { ReadEntry } from 'tar';
 
 export async function extractTarball(
   stream: NodeJS.ReadableStream,
-  onFile: (file: GitHubFile) => void
+  onFile: (file: GitHubFile) => void,
+  path?: string
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const gunzip = createGunzip();
     const extractStream = extract({
-      filter: (path: string) => shouldProcessFile(path),
+      filter: (filePath: string) => shouldProcessFile(filePath, path),
       onentry: (entry: ReadEntry) => {
         const chunks: Buffer[] = [];
         entry.on('data', (chunk: Buffer) => {

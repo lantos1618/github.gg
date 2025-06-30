@@ -1,5 +1,5 @@
 "use client";
-import {RepoPageLayout} from '@/components/layouts/RepoPageLayout';
+import RepoPageLayout from "@/components/layouts/RepoPageLayout";
 import { trpc } from '@/lib/trpc/client';
 import { LoadingWave } from '@/components/LoadingWave';
 import { useEffect, useState } from 'react';
@@ -69,44 +69,42 @@ export default function ScorecardClientView({ user, repo, refName, path, tab, cu
   const overallLoading = filesLoading || isLoading;
 
   return (
-    <RepoPageLayout user={user} repo={repo} refName={refName} path={path} tab={tab} currentPath={currentPath}>
-      {() => (
-        <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
-          {filesError ? (
-            <div className="text-center py-8">
-              <h2 className="text-xl font-semibold text-red-600 mb-2">Files Loading Failed</h2>
-              <p className="text-gray-600">Unable to load repository files.</p>
-              <p className="text-sm text-gray-500 mt-2">{String(filesError)}</p>
+    <RepoPageLayout user={user} repo={repo} refName={refName} path={path}>
+      <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
+        {filesError ? (
+          <div className="text-center py-8">
+            <h2 className="text-xl font-semibold text-red-600 mb-2">Files Loading Failed</h2>
+            <p className="text-gray-600">Unable to load repository files.</p>
+            <p className="text-sm text-gray-500 mt-2">{String(filesError)}</p>
+          </div>
+        ) : overallLoading ? (
+          <div className="flex flex-col items-center justify-center min-h-[400px]">
+            <LoadingWave />
+            <p className="mt-4 text-gray-600">
+              {filesLoading ? 'Loading repository files...' : 'Analyzing repository...'}
+            </p>
+            {filesLoading && <p className="text-sm text-gray-500 mt-2">Files: {files.length}</p>}
+            {!filesLoading && isLoading && <p className="text-sm text-gray-500 mt-2">Generating scorecard...</p>}
+          </div>
+        ) : error ? (
+          <ErrorDisplay
+            error={error}
+            isPending={generateScorecardMutation.isPending}
+            onRetry={handleRetry}
+          />
+        ) : scorecardData ? (
+          <MarkdownCardRenderer markdown={scorecardData} />
+        ) : (
+          <div className="text-center py-8">
+            <h2 className="text-xl font-semibold text-gray-600 mb-2">No Scorecard Available</h2>
+            <p className="text-gray-500">Unable to generate scorecard for this repository.</p>
+            <p className="text-sm text-gray-400 mt-2">Files loaded: {files.length}</p>
+            <div className="mt-8">
+              <MarkdownCardRenderer markdown={"# Test\nThis is a test markdown render. If you see this, MarkdownViewer works."} />
             </div>
-          ) : overallLoading ? (
-            <div className="flex flex-col items-center justify-center min-h-[400px]">
-              <LoadingWave />
-              <p className="mt-4 text-gray-600">
-                {filesLoading ? 'Loading repository files...' : 'Analyzing repository...'}
-              </p>
-              {filesLoading && <p className="text-sm text-gray-500 mt-2">Files: {files.length}</p>}
-              {!filesLoading && isLoading && <p className="text-sm text-gray-500 mt-2">Generating scorecard...</p>}
-            </div>
-          ) : error ? (
-            <ErrorDisplay
-              error={error}
-              isPending={generateScorecardMutation.isPending}
-              onRetry={handleRetry}
-            />
-          ) : scorecardData ? (
-            <MarkdownCardRenderer markdown={scorecardData} />
-          ) : (
-            <div className="text-center py-8">
-              <h2 className="text-xl font-semibold text-gray-600 mb-2">No Scorecard Available</h2>
-              <p className="text-gray-500">Unable to generate scorecard for this repository.</p>
-              <p className="text-sm text-gray-400 mt-2">Files loaded: {files.length}</p>
-              <div className="mt-8">
-                <MarkdownCardRenderer markdown={"# Test\nThis is a test markdown render. If you see this, MarkdownViewer works."} />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </RepoPageLayout>
   );
 }

@@ -15,7 +15,7 @@ export const filesRouter = router({
     }))
     .query(async ({ input, ctx }): Promise<GitHubFilesResponse> => {
       try {
-        const githubService = await createGitHubService(ctx.session, ctx.req);
+        const githubService = await createGitHubService(ctx.session);
         
         const result = await githubService.getRepositoryFiles(
           input.owner,
@@ -68,7 +68,7 @@ export const filesRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       try {
-        const githubService = await createGitHubService(ctx.session, ctx.req);
+        const githubService = await createGitHubService(ctx.session);
         const repoInfo = await githubService.getRepositoryInfo(input.owner, input.repo);
         return repoInfo;
       } catch (error: unknown) {
@@ -93,7 +93,7 @@ export const filesRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       try {
-        const githubService = await createGitHubService(ctx.session, ctx.req);
+        const githubService = await createGitHubService(ctx.session);
         const branches = await githubService.getBranches(input.owner, input.repo);
         return branches;
       } catch (error: unknown) {
@@ -118,7 +118,7 @@ export const filesRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       try {
-        const githubService = await createGitHubService(ctx.session, ctx.req);
+        const githubService = await createGitHubService(ctx.session);
         const repoInfo = await githubService.getRepositoryInfo(input.owner, input.repo);
         return repoInfo;
       } catch (error: unknown) {

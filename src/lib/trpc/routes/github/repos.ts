@@ -42,17 +42,26 @@ export const reposRouter = router({
         if (shuffled.length === 0) {
           // Fallback: return CACHED_REPOS if cache is empty, mapping to RepoSummary shape
           return CACHED_REPOS.slice(0, input.limit).map(repo => ({
-            ...repo,
             description: '',
             stargazersCount: 0,
             forksCount: 0,
             language: '',
             topics: [],
-            special: repo.special || false,
-            sponsor: repo.sponsor || false,
+            owner: repo.owner,
+            name: repo.name,
+            url: `https://github.com/${repo.owner}/${repo.name}`,
           }));
         }
-        return shuffled;
+        return shuffled.map(repo => ({
+          description: repo.description || '',
+          stargazersCount: repo.stargazersCount,
+          forksCount: repo.forksCount,
+          language: repo.language || '',
+          topics: repo.topics || [],
+          owner: repo.owner,
+          name: repo.name,
+          url: `https://github.com/${repo.owner}/${repo.name}`,
+        }));
 
       } catch (error: unknown) {
         console.error('Failed to get cached repos for scrolling:', error);
@@ -69,7 +78,7 @@ export const reposRouter = router({
       try {
         const userId = ctx.user.id;
 
-        const githubService = await createGitHubService(ctx.session, ctx.req);
+        const githubService = await createGitHubService(ctx.session);
         
         // Get user repos
         const userRepos = await githubService.getUserRepositories();
@@ -142,7 +151,7 @@ export const reposRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       try {
-        const githubService = await createGitHubService(ctx.session, ctx.req);
+        const githubService = await createGitHubService(ctx.session);
         
         // 1. Build a definitive list of repo identifiers
         const repoIdentifiers = new Map<string, { owner: string; name: string; special?: boolean }>();
@@ -193,7 +202,16 @@ export const reposRouter = router({
         targetRepoList.forEach(repo => {
           const cached = cachedReposMap.get(`${repo.owner}/${repo.name}`);
           if (cached && cached.lastFetched > cacheThreshold) {
-            reposFromCache.push({ ...cached, special: repo.special });
+            reposFromCache.push({ 
+              owner: cached.owner,
+              name: cached.name,
+              description: cached.description || undefined,
+              stargazersCount: cached.stargazersCount,
+              forksCount: cached.forksCount,
+              language: cached.language || undefined,
+              topics: cached.topics || [],
+              url: `https://github.com/${cached.owner}/${cached.name}`,
+            });
           } else {
             reposToFetch.push(repo);
           }
@@ -250,7 +268,7 @@ export const reposRouter = router({
                 console.warn(`Failed to cache repo ${repo.owner}/${repo.name}:`, dbError);
               }
 
-              return { ...details, special: repo.special };
+              return { ...details };
             } catch (error) {
               console.warn(`Failed to fetch details for ${repo.owner}/${repo.name}:`, error);
               return null;
@@ -276,10 +294,14 @@ export const reposRouter = router({
         
         // Fallback to basic popular repos
         return CACHED_REPOS.slice(0, input.limit).map(repo => ({
-          ...repo,
-          description: 'Could not fetch details',
+          description: '',
           stargazersCount: 0,
           forksCount: 0,
+          language: '',
+          topics: [],
+          owner: repo.owner,
+          name: repo.name,
+          url: `https://github.com/${repo.owner}/${repo.name}`,
         }));
       }
     }),
@@ -288,7 +310,7 @@ export const reposRouter = router({
   getSponsorRepos: publicProcedure
     .query(async ({ ctx }) => {
       try {
-        const githubService = await createGitHubService(ctx.session, ctx.req);
+        const githubService = await createGitHubService(ctx.session);
         
         const sponsorDetails = await Promise.allSettled(
           CACHED_REPOS.filter(repo => repo.sponsor).map(repo => 
@@ -312,7 +334,7 @@ export const reposRouter = router({
   getUserRepoNames: protectedProcedure
     .query(async ({ ctx }) => {
       try {
-        const githubService = await createGitHubService(ctx.session, ctx.req);
+        const githubService = await createGitHubService(ctx.session);
         const userRepos = await githubService.getUserRepositories(); 
         return userRepos.map(repo => `${repo.owner}/${repo.name}`);
       } catch (error) {

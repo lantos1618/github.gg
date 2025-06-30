@@ -5,10 +5,10 @@ import { notFound } from 'next/navigation';
 import { parseRepoPath } from '@/lib/utils';
 
 interface PageProps {
-  params: {
+  params: Promise<{
     user: string;
     params?: string[];
-  };
+  }>;
 }
 
 function UserClientView({ user }: { user: string }) {

@@ -18,7 +18,7 @@ export const cacheRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       try {
-        const githubService = await createGitHubService(ctx.session, ctx.req);
+        const githubService = await createGitHubService(ctx.session);
         const details = await githubService.getRepositoryDetails(input.owner, input.repo);
         const userId = ctx.session?.user?.id ?? null;
         

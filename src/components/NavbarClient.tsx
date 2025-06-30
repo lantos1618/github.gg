@@ -14,6 +14,7 @@ import { LogOut, Settings, User, Github, Crown } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { trpc } from '@/lib/trpc/client';
 import Link from 'next/link';
+import { env } from '@/lib/env';
 
 export function NavbarClient() {
   const { session, signIn, signOut, isLoading } = useAuth();
@@ -26,6 +27,11 @@ export function NavbarClient() {
       refetchOnWindowFocus: false,
     }
   );
+  // Use tRPC to check admin status
+  const { data: adminStatus } = trpc.admin.isAdmin.useQuery(undefined, {
+    enabled: session.isSignedIn,
+    refetchOnWindowFocus: false,
+  });
 
   const handleSignIn = async () => {
     await signIn();
@@ -39,6 +45,7 @@ export function NavbarClient() {
   const showInstallNotification = session.isSignedIn && session.user && !installationInfo?.hasInstallation;
 
   if (session.isSignedIn && session.user) {
+    const isAdmin = !!adminStatus?.isAdmin;
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -103,6 +110,15 @@ export function NavbarClient() {
               <span>Pricing</span>
             </Link>
           </DropdownMenuItem>
+          
+          {isAdmin && (
+            <DropdownMenuItem asChild>
+              <Link href="/admin">
+                <Crown className="mr-2 h-4 w-4 text-yellow-500" />
+                <span>Admin</span>
+              </Link>
+            </DropdownMenuItem>
+          )}
           
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleSignOut}>

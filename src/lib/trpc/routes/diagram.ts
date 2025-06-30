@@ -34,7 +34,7 @@ export const diagramRouter = router({
       }
       
       try {
-        const diagramCode = await generateRepoDiagramVercel({
+        const result = await generateRepoDiagramVercel({
           files,
           repoName: repo,
           diagramType,
@@ -44,20 +44,21 @@ export const diagramRouter = router({
           isRetry,
         });
         
-        // 3. Log token usage (we'll need to get this from the AI response)
-        // For now, we'll log a placeholder - the actual implementation will depend on
-        // how the AI service returns usage information
+        // 3. Log token usage with actual values from AI response
         await db.insert(tokenUsage).values({
           userId: ctx.user.id,
           feature: 'diagram',
-          promptTokens: 0, // TODO: Get from AI response
-          completionTokens: 0, // TODO: Get from AI response
-          totalTokens: 0, // TODO: Get from AI response
+          repoOwner: input.user,
+          repoName: input.repo,
+          model: 'gemini-2.5-flash', // Default model used
+          promptTokens: result.usage.promptTokens,
+          completionTokens: result.usage.completionTokens,
+          totalTokens: result.usage.totalTokens,
           isByok: keyInfo.isByok,
         });
         
         return {
-          diagramCode,
+          diagramCode: result.diagramCode,
           format: 'mermaid',
           diagramType,
           cached: false,

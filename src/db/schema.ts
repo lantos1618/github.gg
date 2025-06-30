@@ -148,6 +148,9 @@ export const tokenUsage = pgTable('token_usage', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('userId').references(() => user.id, { onDelete: 'cascade' }).notNull(),
   feature: text('feature').notNull(), // 'diagram', 'scorecard', etc.
+  repoOwner: text('repo_owner'), // GitHub username/org name
+  repoName: text('repo_name'), // Repository name
+  model: text('model'), // AI model used (e.g., gemini-2.5-flash)
   promptTokens: integer('prompt_tokens').notNull(),
   completionTokens: integer('completion_tokens').notNull(),
   totalTokens: integer('total_tokens').notNull(),
@@ -177,4 +180,7 @@ export const userSubscriptions = pgTable('user_subscriptions', {
   status: text('status').notNull(), // 'active', 'canceled', 'past_due'
   currentPeriodEnd: timestamp('current_period_end').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
-}); 
+});
+
+// Export relations
+export * from './relations'; 

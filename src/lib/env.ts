@@ -39,6 +39,9 @@ const envSchema = z.object({
   NEXT_PUBLIC_POSTHOG_KEY: z.string().min(1),
   NEXT_PUBLIC_POSTHOG_HOST: z.string().min(1),
 
+  // Admin Configuration
+  ADMIN_EMAILS: z.string().transform((str) => str.split(',').map(email => email.trim())).default(''),
+
   // Monetization / Stripe
   //  - STRIPE_SECRET_KEY: Stripe dashboard > Developers > API keys > Secret key
   //  - STRIPE_WEBHOOK_SECRET: Stripe CLI or dashboard > Webhooks > Signing secret

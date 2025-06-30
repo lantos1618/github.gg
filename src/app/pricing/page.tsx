@@ -18,6 +18,8 @@ export default function PricingPage() {
     }
   });
 
+  const { data: currentPlan } = trpc.user.getCurrentPlan.useQuery();
+
   const plans = [
     {
       name: 'Free',
@@ -29,24 +31,24 @@ export default function PricingPage() {
       plan: null as null,
     },
     {
-      name: 'Developer',
-      price: '$6.90',
-      period: '/month',
-      description: 'Private repos + BYOK',
-      features: ['Private repos', 'BYOK unlimited', 'Email support'],
-      icon: Key,
-      popular: true,
-      plan: 'byok' as const,
-    },
-    {
       name: 'Pro',
       price: '$20',
       period: '/month',
       description: 'Everything + managed AI',
       features: ['Private repos', '5M tokens/month', 'BYOK option', 'Priority support'],
       icon: Crown,
-      popular: false,
+      popular: true,
       plan: 'pro' as const,
+    },
+    {
+      name: 'Developer',
+      price: '$6.90',
+      period: '/month',
+      description: 'Private repos + BYOK',
+      features: ['Private repos', 'BYOK unlimited', 'Email support'],
+      icon: Key,
+      popular: false,
+      plan: 'byok' as const,
     },
   ];
 
@@ -55,7 +57,7 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="container py-8 max-w-6xl">
+    <div className="container py-8 max-w-6xl px-4 md:px-8">
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
         <p className="text-xl text-muted-foreground">
@@ -64,11 +66,31 @@ export default function PricingPage() {
       </div>
 
       <div className="grid md:grid-cols-3 gap-8">
-        {plans.map((plan) => {
+        {plans.map((plan, idx) => {
           const Icon = plan.icon;
+          const isPro = plan.name === 'Pro';
+          const isByok = plan.name === 'Developer';
+          const isCurrent =
+            (currentPlan?.plan === 'pro' && isPro) ||
+            (currentPlan?.plan === 'byok' && isByok) ||
+            (currentPlan?.plan === 'free' && plan.name === 'Free');
+          const canUpgrade =
+            (currentPlan?.plan === 'free') ||
+            (currentPlan?.plan === 'byok' && isPro);
           return (
-            <Card key={plan.name} className={plan.popular ? 'border-2 border-blue-500' : ''}>
+            <Card
+              key={plan.name}
+              className={
+                isPro
+                  ? 'border-4 border-purple-600 scale-105 shadow-lg bg-gradient-to-br from-purple-50 to-blue-50 relative'
+                  : 'border'
+              }
+              style={isPro ? { zIndex: 2 } : {}}
+            >
               <CardHeader className="text-center">
+                {isPro && (
+                  <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">Most Popular</span>
+                )}
                 <Icon className="h-8 w-8 mx-auto mb-4 text-blue-600" />
                 <CardTitle>{plan.name}</CardTitle>
                 <div className="flex items-baseline justify-center gap-1">
@@ -86,22 +108,22 @@ export default function PricingPage() {
                     </li>
                   ))}
                 </ul>
-                {plan.plan ? (
-                  <Button 
-                    className="w-full" 
-                    variant={plan.popular ? 'default' : 'outline'}
+                {isCurrent ? (
+                  <Button className="w-full" variant="outline" disabled>
+                    Current Plan
+                  </Button>
+                ) : canUpgrade ? (
+                  <Button
+                    className={isPro ? 'w-full bg-purple-600 hover:bg-purple-700 text-white font-bold' : 'w-full'}
+                    variant={isPro ? 'default' : 'outline'}
                     onClick={() => handleUpgrade(plan.plan!)}
                     disabled={createCheckout.isPending}
                   >
                     {createCheckout.isPending ? 'Loading...' : 'Get Started'}
                   </Button>
                 ) : (
-                  <Button 
-                    className="w-full" 
-                    variant="outline"
-                    disabled
-                  >
-                    Current Plan
+                  <Button className="w-full" variant="outline" disabled>
+                    {isByok ? 'Upgrade to Pro for Managed AI' : 'Current Plan'}
                   </Button>
                 )}
               </CardContent>

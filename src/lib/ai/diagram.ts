@@ -18,6 +18,15 @@ export interface DiagramAnalysisParams {
   isRetry?: boolean;
 }
 
+export interface DiagramAnalysisResult {
+  diagramCode: string;
+  usage: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+}
+
 // NOTE: The Google Gemini API key must be set in the environment as GOOGLE_GENERATIVE_AI_API_KEY
 export async function generateRepoDiagramVercel({
   files,
@@ -27,7 +36,7 @@ export async function generateRepoDiagramVercel({
   previousResult,
   lastError,
   isRetry = false,
-}: DiagramAnalysisParams): Promise<string> {
+}: DiagramAnalysisParams): Promise<DiagramAnalysisResult> {
   let prompt = `You are an expert software architect and diagram creator. 
 Always respond ONLY with a valid JSON object matching this TypeScript type: { diagramCode: string }.
 The diagram code should be a valid Mermaid diagram code.`;
@@ -87,5 +96,12 @@ ${files.map((file: { path: string; content: string }) => `--- ${file.path} ---\n
     ],
   });
 
-  return result.object.diagramCode;
+  return {
+    diagramCode: result.object.diagramCode,
+    usage: {
+      promptTokens: result.usage.promptTokens,
+      completionTokens: result.usage.completionTokens,
+      totalTokens: result.usage.totalTokens,
+    },
+  };
 } 

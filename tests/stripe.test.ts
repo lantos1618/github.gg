@@ -1,9 +1,10 @@
 #!/usr/bin/env bun
 
 import { test, expect, describe, beforeAll, afterAll, beforeEach } from 'bun:test';
-import { db } from '../src/db';
-import { userSubscriptions, userApiKeys, tokenUsage, user } from '../src/db/schema';
-import { eq } from 'drizzle-orm';
+import { db } from '@/db';
+import { userSubscriptions, userApiKeys, tokenUsage, user } from '@/db/schema';
+import { eq, and, gte, lte, desc } from 'drizzle-orm';
+import { appRouter } from '@/lib/trpc/routes';
 
 // Mock Stripe
 
@@ -344,6 +345,89 @@ describe('Stripe Payment Integration', () => {
       );
 
       expect(filteredUsage).toHaveLength(2);
+    });
+  });
+
+  describe('Admin Dashboard Usage Visibility', () => {
+    test('scorecard usage appears in admin usage stats for current month', async () => {
+      // Insert a scorecard usage record with current timestamp
+      const now = new Date();
+      await db.insert(tokenUsage).values({
+        userId: testUserId,
+        feature: 'scorecard',
+        promptTokens: 1000,
+        completionTokens: 2000,
+        totalTokens: 3000,
+        isByok: false,
+        createdAt: now,
+      });
+
+      // Simulate admin usage stats query for current month
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const usage = await db.query.tokenUsage.findMany({
+        where: and(
+          gte(tokenUsage.createdAt, startDate),
+          lte(tokenUsage.createdAt, endDate)
+        ),
+      });
+      const totalTokens = usage.reduce((sum, u) => sum + u.totalTokens, 0);
+      expect(totalTokens).toBeGreaterThanOrEqual(3000);
+    });
+  });
+
+  describe('Admin Panel API', () => {
+    test('adminRouter.getUsageStats returns correct usage and cost after scorecard usage', async () => {
+      // Insert a scorecard usage record with current timestamp
+      const now = new Date();
+      await db.insert(tokenUsage).values({
+        userId: testUserId,
+        feature: 'scorecard',
+        promptTokens: 1000,
+        completionTokens: 2000,
+        totalTokens: 3000,
+        isByok: false,
+        createdAt: now,
+      });
+
+      // Simulate a tRPC context for an admin user
+      const adminEmail = process.env.ADMIN_EMAILS?.split(',')[0] || 'admin@example.com';
+      const userObj = {
+        id: testUserId,
+        email: adminEmail,
+        name: 'Admin User',
+        image: null,
+        emailVerified: true,
+        createdAt: now,
+        updatedAt: now,
+      };
+      const sessionData = {
+        id: 'test-session-id',
+        token: 'test-session-token',
+        userId: testUserId,
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+        createdAt: now,
+        updatedAt: now,
+        ipAddress: null,
+        userAgent: null,
+        user: userObj,
+        isSignedIn: true,
+        authType: 'oauth',
+      };
+      const context = {
+        session: {
+          session: sessionData,
+          user: userObj,
+        },
+        req: {} as Request, // Dummy request object for test context
+      };
+      const caller = appRouter.createCaller(context);
+      // Call the admin.getUsageStats procedure
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const result = await caller.admin.getUsageStats({ startDate, endDate });
+      expect(result.summary.totalTokens).toBeGreaterThanOrEqual(3000);
+      expect(result.summary.totalCost).toBeGreaterThan(0);
     });
   });
 }); 

@@ -53,8 +53,8 @@ export const userRouter = router({
   // Usage Statistics
   getUsageStats: protectedProcedure
     .input(z.object({ 
-      startDate: z.date().optional(),
-      endDate: z.date().optional() 
+      startDate: z.preprocess((arg) => arg ? new Date(arg as string) : undefined, z.date()).optional(),
+      endDate: z.preprocess((arg) => arg ? new Date(arg as string) : undefined, z.date()).optional()
     }).optional())
     .query(async ({ input, ctx }) => {
       const conditions = [eq(tokenUsage.userId, ctx.user.id)];

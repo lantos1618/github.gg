@@ -43,7 +43,7 @@ export const roadmapItems: RoadmapItem[] = [
   {
     title: "Git Visualization & Diagrams",
     description: "Interactive diagrams for repository structure, history, and code evolution",
-    completed: false
+    completed: true
   },
   {
     title: "Repository Analysis & Insights",

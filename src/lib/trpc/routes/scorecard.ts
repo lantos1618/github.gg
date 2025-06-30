@@ -42,23 +42,27 @@ export const scorecardRouter = router({
       
       try {
         // Generate scorecard using the AI service
-        const markdownScorecard = await generateScorecardAnalysis({
+        const result = await generateScorecardAnalysis({
           files,
           repoName: repo,
         });
         
-        // Log token usage
+        // Log token usage with actual values from AI response
         await db.insert(tokenUsage).values({
           userId: ctx.user.id,
           feature: 'scorecard',
-          promptTokens: 0, // TODO: Get from AI response
-          completionTokens: 0, // TODO: Get from AI response
-          totalTokens: 0, // TODO: Get from AI response
+          repoOwner: input.user,
+          repoName: input.repo,
+          model: 'gemini-2.5-flash', // Default model used
+          promptTokens: result.usage.promptTokens,
+          completionTokens: result.usage.completionTokens,
+          totalTokens: result.usage.totalTokens,
           isByok: keyInfo.isByok,
+          createdAt: new Date(),
         });
         
         return {
-          scorecard: markdownScorecard,
+          scorecard: result.scorecard,
           cached: false,
           stale: false,
           lastUpdated: new Date(),

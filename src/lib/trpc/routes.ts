@@ -5,6 +5,7 @@ import { diagramRouter } from '@/lib/trpc/routes/diagram';
 import { userRouter } from '@/lib/trpc/routes/user';
 import { featuredRouter } from '@/lib/trpc/routes/featured';
 import { billingRouter } from '@/lib/trpc/routes/billing';
+import { adminRouter } from '@/lib/trpc/routes/admin';
 import { z } from 'zod';
 import { router } from '@/lib/trpc/trpc';
 
@@ -51,6 +52,9 @@ export const appRouter = router({
 
   // Billing routes
   billing: billingRouter,
+
+  // Admin routes
+  admin: adminRouter,
 });
 
 export type AppRouter = typeof appRouter; 

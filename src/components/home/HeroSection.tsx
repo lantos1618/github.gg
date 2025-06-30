@@ -77,31 +77,43 @@ export function HeroSection() {
           variants={fadeUpVariants}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          {currentPlan?.plan !== 'byok' && (
-            <Button 
-              onClick={() => handleUpgrade('byok')}
-              disabled={createCheckout.isPending}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
-            >
-              <Key className="h-4 w-4" />
-              {createCheckout.isPending ? 'Loading...' : 'Developer Plan - $6.90/mo'}
-            </Button>
+          {/* Free: show both upgrade options */}
+          {currentPlan?.plan === 'free' && (
+            <>
+              <Button
+                onClick={() => handleUpgrade('byok')}
+                disabled={createCheckout.isPending}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+              >
+                <Key className="h-4 w-4" />
+                {createCheckout.isPending ? 'Loading...' : 'Developer Plan - $6.90/mo'}
+              </Button>
+              <Button
+                onClick={() => handleUpgrade('pro')}
+                disabled={createCheckout.isPending}
+                variant="outline"
+                className="flex items-center gap-2 border-2 hover:bg-gray-50"
+              >
+                <Crown className="h-4 w-4" />
+                {createCheckout.isPending ? 'Loading...' : 'Pro Plan - $20/mo'}
+              </Button>
+            </>
           )}
-          
-          {currentPlan?.plan !== 'pro' && (
-            <Button 
+          {/* BYOK: only show upgrade to Pro */}
+          {currentPlan?.plan === 'byok' && (
+            <Button
               onClick={() => handleUpgrade('pro')}
               disabled={createCheckout.isPending}
               variant="outline"
               className="flex items-center gap-2 border-2 hover:bg-gray-50"
             >
               <Crown className="h-4 w-4" />
-              {createCheckout.isPending ? 'Loading...' : 'Pro Plan - $20/mo'}
+              {createCheckout.isPending ? 'Loading...' : 'Upgrade to Pro - $20/mo'}
             </Button>
           )}
-          
-          {currentPlan?.plan && (
-            <Button 
+          {/* Always show manage subscription if not free */}
+          {currentPlan?.plan && currentPlan.plan !== 'free' && (
+            <Button
               variant="ghost"
               className="text-sm text-muted-foreground"
               onClick={() => window.location.href = '/settings'}

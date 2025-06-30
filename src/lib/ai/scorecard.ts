@@ -1,15 +1,23 @@
-import { GoogleGenAI } from '@google/genai';
-import { env } from '@/lib/env';
-import { parseGeminiError } from '@/lib/utils/errorHandling';
+import { z } from 'zod';
+import { google } from '@ai-sdk/google';
+import { generateText } from 'ai';
 
-// Initialize Google GenAI client
-const ai = new GoogleGenAI({
-  apiKey: env.GEMINI_API_KEY,
+export const scorecardSchema = z.object({
+  scorecard: z.string(),
 });
 
 export interface ScorecardAnalysisParams {
   files: Array<{ path: string; content: string }>;
   repoName: string;
+}
+
+export interface ScorecardAnalysisResult {
+  scorecard: string;
+  usage: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
 }
 
 /**
@@ -18,15 +26,8 @@ export interface ScorecardAnalysisParams {
 export async function generateScorecardAnalysis({
   files,
   repoName,
-}: ScorecardAnalysisParams): Promise<string> {
+}: ScorecardAnalysisParams): Promise<ScorecardAnalysisResult> {
   try {
-    const config = {
-      thinkingConfig: {
-        thinkingBudget: -1,
-      },
-      responseMimeType: 'text/plain',
-    };
-
     // Create a comprehensive prompt for scorecard analysis
     const prompt = `You are an expert codebase analyst. Analyze the following repository files and create a beautiful, fun scorecard-style markdown report.
 
@@ -57,33 +58,24 @@ FORMAT:
 ANALYZE THESE FILES:
 ${files.map(file => `\n--- ${file.path} ---\n${file.content}`).join('\n')}`;
 
-    const contents = [
-      {
-        role: 'user',
-        parts: [
-          {
-            text: prompt,
-          },
-        ],
-      },
-    ];
-      
-    const response = await ai.models.generateContentStream({
-      model: "models/gemini-2.5-flash",
-      config,
-      contents,
+    const result = await generateText({
+      model: google('models/gemini-2.5-flash'),
+      messages: [
+        { role: 'user', content: prompt },
+      ],
     });
 
-    let fullResponse = '';
-    for await (const chunk of response) {
-      fullResponse += chunk.text;
-    }
-
-    return fullResponse;
+    return {
+      scorecard: result.text,
+      usage: {
+        promptTokens: result.usage.promptTokens,
+        completionTokens: result.usage.completionTokens,
+        totalTokens: result.usage.totalTokens,
+      },
+    };
   } catch (error) {
     console.error('Gemini API error:', error);
-    const userFriendlyMessage = parseGeminiError(error);
-    throw new Error(userFriendlyMessage);
+    throw error;
   }
 }
 
@@ -92,6 +84,15 @@ ${files.map(file => `\n--- ${file.path} ---\n${file.content}`).join('\n')}`;
  */
 export async function getAvailableModels() {
   try {
+    // Note: This would need to be updated if we switch to AI SDK
+    // For now, keeping the original implementation
+    const { GoogleGenAI } = await import('@google/genai');
+    const { env } = await import('@/lib/env');
+    
+    const ai = new GoogleGenAI({
+      apiKey: env.GEMINI_API_KEY,
+    });
+    
     return await ai.models.list();
   } catch (error) {
     console.error('Error fetching models:', error);

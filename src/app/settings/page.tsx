@@ -72,7 +72,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="container py-8 max-w-4xl">
+    <div className="container py-8 max-w-4xl px-4 md:px-8">
       <h1 className="text-3xl font-bold mb-8">Settings</h1>
       
       <div className="grid gap-8">

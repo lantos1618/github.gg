@@ -46,8 +46,8 @@ export class GitHubService {
   }
 
   // User operations
-  async getUserRepositories(username?: string): Promise<RepoSummary[]> {
-    return this.userService.getUserRepositories(username);
+  async getUserRepositories(username?: string, userId?: string): Promise<RepoSummary[]> {
+    return this.userService.getUserRepositories(username, userId);
   }
 
   // Cache operations

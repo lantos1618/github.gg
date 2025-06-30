@@ -77,12 +77,12 @@ export const reposRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       try {
-        const userId = ctx.user.id;
+        const userId = ctx.session?.user?.id;
 
         const githubService = await createGitHubServiceFromSession(ctx.session);
         
-        // Get user repos
-        const userRepos = await githubService.getUserRepositories();
+        // Get user repos (try installation first, then OAuth)
+        const userRepos = await githubService.getUserRepositories(undefined, userId);
         const limitedUserRepos = userRepos.slice(0, input.limit);
 
         // Check cache for user repos (filter by userId)
@@ -152,6 +152,7 @@ export const reposRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       try {
+
         const githubService = await createGitHubServiceFromSession(ctx.session);
         
         // 1. Build a definitive list of repo identifiers
@@ -161,7 +162,7 @@ export const reposRouter = router({
         let userRepos: { owner: string; name: string }[] = [];
         if (ctx.session?.user?.id) {
           try {
-            userRepos = await githubService.getUserRepositories();
+            userRepos = await githubService.getUserRepositories(undefined, ctx.session?.user?.id);
             // Limit user repos to 6 (most recent/relevant)
             const limitedUserRepos = userRepos.slice(0, 6);
             limitedUserRepos.forEach(repo => {
@@ -325,7 +326,7 @@ export const reposRouter = router({
     .query(async ({ ctx }) => {
       try {
         const githubService = await createGitHubServiceFromSession(ctx.session);
-        const userRepos = await githubService.getUserRepositories(); 
+        const userRepos = await githubService.getUserRepositories(undefined, ctx.session?.user?.id); 
         return userRepos.map(repo => `${repo.owner}/${repo.name}`);
       } catch (error) {
         console.error('Failed to get user repo names:', error);

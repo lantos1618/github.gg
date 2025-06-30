@@ -2,9 +2,9 @@ import { z } from 'zod';
 import { router } from '../trpc';
 import { adminProcedure } from '../admin';
 import { db } from '@/db';
-import { tokenUsage, userSubscriptions } from '@/db/schema';
-import { eq, and, gte, lte, desc } from 'drizzle-orm';
-import { calculateTokenCost, calculateTotalCost } from '@/lib/utils/cost-calculator';
+import { tokenUsage, userSubscriptions, user } from '@/db/schema';
+import { eq, and, gte, lte, desc, inArray } from 'drizzle-orm';
+import { calculateTokenCost, calculateTotalCost, calculateDailyCostAndRevenue } from '@/lib/utils/cost-calculator';
 import { env } from '@/lib/env';
 
 export const adminRouter = router({
@@ -34,14 +34,22 @@ export const adminRouter = router({
 
       const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-      // Get all usage records
+      // Get all usage records without relations
       const usage = await db.query.tokenUsage.findMany({
         where: whereClause,
         orderBy: desc(tokenUsage.createdAt),
-        with: {
-          user: true,
-        },
       });
+
+      // Get user data separately
+      const userIds = [...new Set(usage.map(u => u.userId))];
+      const users = userIds.length > 0 
+        ? await db.query.user.findMany({
+            where: inArray(user.id, userIds)
+          })
+        : [];
+
+      // Create a map of users
+      const userMap = new Map(users.map(u => [u.id, u]));
 
       // Calculate costs
       const costBreakdown = calculateTotalCost(usage.map(u => ({
@@ -66,7 +74,10 @@ export const adminRouter = router({
       }, {} as Record<string, number>);
 
       return {
-        usage,
+        usage: usage.map(u => ({
+          ...u,
+          user: userMap.get(u.userId)
+        })),
         summary: {
           totalTokens,
           byokTokens,
@@ -104,9 +115,6 @@ export const adminRouter = router({
       const usage = await db.query.tokenUsage.findMany({
         where: and(...conditions),
         orderBy: desc(tokenUsage.createdAt),
-        with: {
-          user: true,
-        },
       });
 
       const costBreakdown = calculateTotalCost(usage.map(u => ({
@@ -148,21 +156,34 @@ export const adminRouter = router({
 
       const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-      // Get all users with their usage
-      const users = await db.query.user.findMany({
-        with: {
-          tokenUsage: {
-            where: whereClause,
-            orderBy: desc(tokenUsage.createdAt),
-          },
-          userSubscriptions: true,
-        },
+      // Get all users
+      const users = await db.query.user.findMany();
+
+      // Get usage data separately
+      const usage = await db.query.tokenUsage.findMany({
+        where: whereClause,
+        orderBy: desc(tokenUsage.createdAt),
+      });
+
+      // Get subscription data separately
+      const subscriptions = await db.query.userSubscriptions.findMany();
+
+      // Create maps for quick lookup
+      const usageMap = new Map<string, typeof usage>();
+      const subscriptionMap = new Map(subscriptions.map(s => [s.userId, s]));
+
+      // Group usage by user
+      usage.forEach(u => {
+        if (!usageMap.has(u.userId)) {
+          usageMap.set(u.userId, []);
+        }
+        usageMap.get(u.userId)!.push(u);
       });
 
       // Calculate usage for each user
       const usersWithUsage = users.map(user => {
-        const usage = user.tokenUsage || [];
-        const costBreakdown = calculateTotalCost(usage.map(u => ({
+        const userUsage = usageMap.get(user.id) || [];
+        const costBreakdown = calculateTotalCost(userUsage.map(u => ({
           promptTokens: u.promptTokens,
           completionTokens: u.completionTokens,
           totalTokens: u.totalTokens,
@@ -171,15 +192,16 @@ export const adminRouter = router({
 
         return {
           ...user,
-          usage,
+          usage: userUsage,
           costBreakdown,
           summary: {
-            totalTokens: usage.reduce((sum, u) => sum + u.totalTokens, 0),
-            byokTokens: usage.filter(u => u.isByok).reduce((sum, u) => sum + u.totalTokens, 0),
-            managedTokens: usage.filter(u => !u.isByok).reduce((sum, u) => sum + u.totalTokens, 0),
+            totalTokens: userUsage.reduce((sum, u) => sum + u.totalTokens, 0),
+            byokTokens: userUsage.filter(u => u.isByok).reduce((sum, u) => sum + u.totalTokens, 0),
+            managedTokens: userUsage.filter(u => !u.isByok).reduce((sum, u) => sum + u.totalTokens, 0),
             totalCost: costBreakdown.totalCost,
-            usageCount: usage.length,
+            usageCount: userUsage.length,
           },
+          userSubscriptions: subscriptionMap.get(user.id),
         };
       });
 
@@ -253,11 +275,7 @@ export const adminRouter = router({
   // Get subscription statistics
   getSubscriptionStats: adminProcedure
     .query(async () => {
-      const subscriptions = await db.query.userSubscriptions.findMany({
-        with: {
-          user: true,
-        },
-      });
+      const subscriptions = await db.query.userSubscriptions.findMany();
 
       const stats = {
         total: subscriptions.length,
@@ -276,6 +294,51 @@ export const adminRouter = router({
           }, 0),
       };
 
+      return stats;
+    }),
+
+  // Get daily cost and revenue stats for the last 30 days
+  getDailyStats: adminProcedure
+    .query(async () => {
+      // Get the last 30 days
+      const days = Array.from({ length: 30 }, (_, i) => {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() - (29 - i));
+        return d;
+      });
+
+      // Get all token usage and subscriptions in the last 30 days
+      const startDate = days[0];
+      const endDate = days[days.length - 1];
+
+      const usage = await db.query.tokenUsage.findMany({
+        where: and(gte(tokenUsage.createdAt, startDate), lte(tokenUsage.createdAt, new Date(endDate.getTime() + 24*60*60*1000))),
+      });
+      const subscriptions = await db.query.userSubscriptions.findMany({
+        where: gte(userSubscriptions.currentPeriodEnd, startDate),
+      });
+
+      // Helper: get plan price
+      const getPlanPrice = (plan: string) => plan === 'byok' ? 6.90 : plan === 'pro' ? 20.00 : 0;
+
+      // Use DRY utility for daily stats
+      const stats = calculateDailyCostAndRevenue({
+        usages: usage.map(u => ({
+          promptTokens: u.promptTokens,
+          completionTokens: u.completionTokens,
+          totalTokens: u.totalTokens,
+          model: u.model || undefined,
+          createdAt: u.createdAt || undefined,
+        })),
+        subscriptions: subscriptions.map(s => ({
+          currentPeriodEnd: s.currentPeriodEnd,
+          status: s.status,
+          plan: s.plan,
+        })),
+        days,
+        getPlanPrice,
+      });
       return stats;
     }),
 }); 

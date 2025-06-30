@@ -114,4 +114,83 @@ export function calculateTotalCost(usages: TokenUsage[]): CostBreakdown {
     totalCost: Math.round((totalInputCost + totalOutputCost) * 100) / 100,
     currency: 'USD',
   };
+}
+
+/**
+ * Calculate daily cost and revenue for a given set of usage and subscriptions.
+ * @param usages Array of token usage records
+ * @param subscriptions Array of subscription records
+ * @param days Array of Date objects (each day to report on)
+ * @param getPlanPrice Function to get plan price from plan string
+ * @returns Array of { date, cost, revenue }
+ */
+export function calculateDailyCostAndRevenue({ usages, subscriptions, days, getPlanPrice }: {
+  usages: Array<{
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    model?: string;
+    createdAt?: Date;
+  }>;
+  subscriptions: Array<{
+    currentPeriodEnd: Date;
+    status: string;
+    plan: string;
+  }>;
+  days: Date[];
+  getPlanPrice: (plan: string) => number;
+}) {
+  return days.map(date => {
+    const dayStr = date.toISOString().slice(0, 10);
+    // Cost: sum of token usage for this day
+    const cost = usages.filter(u => u.createdAt && u.createdAt.toISOString().slice(0, 10) === dayStr)
+      .reduce((sum, u) => {
+        if (!u.createdAt) return sum;
+        const costObj = calculateTokenCost({
+          promptTokens: u.promptTokens,
+          completionTokens: u.completionTokens,
+          totalTokens: u.totalTokens,
+          model: u.model || 'gemini-2.5-flash',
+        });
+        return sum + costObj.totalCost;
+      }, 0);
+    // Revenue: sum of all active subscriptions on this day
+    const revenue = subscriptions.filter(s => {
+      // Subscription is active if currentPeriodEnd >= this day
+      return new Date(s.currentPeriodEnd) >= date && s.status === 'active';
+    }).reduce((sum, s) => sum + getPlanPrice(s.plan), 0);
+    return { date: dayStr, cost, revenue };
+  });
+}
+
+/**
+ * Calculate per-user cost and token usage for a set of usage records.
+ * @param usages Array of token usage records (must include userId)
+ * @returns Map of userId to { totalCost, totalTokens, byokTokens, managedTokens }
+ */
+export function calculatePerUserCostAndUsage(usages: Array<{
+  userId: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  isByok: boolean;
+  model?: string;
+}>): Map<string, { totalCost: number; totalTokens: number; byokTokens: number; managedTokens: number; }> {
+  const userMap = new Map<string, { totalCost: number; totalTokens: number; byokTokens: number; managedTokens: number; }>();
+  usages.forEach(u => {
+    const costObj = calculateTokenCost({
+      promptTokens: u.promptTokens,
+      completionTokens: u.completionTokens,
+      totalTokens: u.totalTokens,
+      model: u.model || 'gemini-2.5-flash',
+    });
+    const prev = userMap.get(u.userId) || { totalCost: 0, totalTokens: 0, byokTokens: 0, managedTokens: 0 };
+    userMap.set(u.userId, {
+      totalCost: prev.totalCost + costObj.totalCost,
+      totalTokens: prev.totalTokens + u.totalTokens,
+      byokTokens: prev.byokTokens + (u.isByok ? u.totalTokens : 0),
+      managedTokens: prev.managedTokens + (!u.isByok ? u.totalTokens : 0),
+    });
+  });
+  return userMap;
 } 

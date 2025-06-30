@@ -182,5 +182,4 @@ export const userSubscriptions = pgTable('user_subscriptions', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
-// Export relations
-export * from './relations'; 
+// Do NOT import or export relations here. Only table definitions. 

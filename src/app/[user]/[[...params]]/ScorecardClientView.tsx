@@ -10,6 +10,7 @@ import { tomorrow } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 import { useRepoData } from '@/lib/hooks/useRepoData';
+import type { SyntaxHighlighterProps } from "react-syntax-highlighter";
 
 export default function ScorecardClientView({ user, repo, refName, path, tab, currentPath }: { user: string; repo: string; refName?: string; path?: string; tab?: string; currentPath?: string }) {
   const [scorecardData, setScorecardData] = useState<string | null>(null);
@@ -122,11 +123,11 @@ function MarkdownCardRenderer({ markdown }: { markdown: string }) {
           <ReactMarkdown 
             remarkPlugins={[remarkGfm]}
             components={{
-              code: ({ className, children, ...props }: any) => {
+              code: ({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'> & { inline?: boolean }) => {
                 const match = /language-(\w+)/.exec(className || '');
                 return !props.inline && match ? (
                   <SyntaxHighlighter
-                    style={tomorrow as any}
+                    style={tomorrow as SyntaxHighlighterProps['style']}
                     language={match[1]}
                     PreTag="div"
                     {...props}

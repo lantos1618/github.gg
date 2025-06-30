@@ -74,7 +74,7 @@ export class GitHubAuthFactory {
   }
 
   // Create service with unified authentication (requires GitHub App installation)
-  static async createAuthenticated(session: unknown, req?: Request): Promise<Octokit> {
+  static async createAuthenticated(session: unknown): Promise<Octokit> {
     console.log('🔍 Creating GitHub service with session:', !!session);
 
     if (!session || typeof session !== 'object' || !('user' in session) || !session.user) {

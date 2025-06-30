@@ -25,6 +25,7 @@
     "@octokit/app": "^16.0.1",
     "@octokit/rest": "^22.0.0",
     "@octokit/webhooks": "^14.0.2",
+    "@octokit/webhooks-types": "^7.6.1",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dropdown-menu": "^2.1.15",
     "@radix-ui/react-select": "^2.2.5",

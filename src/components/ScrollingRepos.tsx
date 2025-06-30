@@ -1,6 +1,6 @@
 'use client';
 
-import { useReposForScrolling, useSponsorRepos, useUserRepoNames, useUserReposForScrolling, useInstallationRepositories } from '@/lib/hooks/useRepoData';
+import { useReposForScrolling, useSponsorRepos, useUserReposForScrolling, useInstallationRepositories } from '@/lib/hooks/useRepoData';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { cn, formatStars, shuffleArray } from '@/lib/utils';
@@ -154,7 +154,6 @@ RepoItem.displayName = 'RepoItem';
 export const ScrollingRepos = ({ className }: { className?: string }) => {
   const { data: popularRepos, isLoading: isPopularLoading } = useReposForScrolling(80);
   const { data: sponsorRepos, isLoading: isSponsorLoading } = useSponsorRepos();
-  const { data: userRepoNames } = useUserRepoNames();
   const { data: userRepos, isLoading: isUserReposLoading } = useUserReposForScrolling(10);
   const { data: installationRepos } = useInstallationRepositories(10);
   const auth = useAuth();

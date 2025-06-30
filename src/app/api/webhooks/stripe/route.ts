@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
           console.log('Stripe subscription object:', JSON.stringify(subscription, null, 2));
 
           // Defensive: check for current_period_end
-          const cpe = (subscription as any).current_period_end;
+          const cpe = typeof subscription === 'object' && 'current_period_end' in subscription ? (subscription as { current_period_end?: number }).current_period_end : undefined;
           if (!cpe || isNaN(Number(cpe))) {
             console.error('Stripe subscription missing or invalid current_period_end:', cpe, subscription);
             break;
@@ -77,11 +77,12 @@ export async function POST(req: NextRequest) {
         
         console.log('Updating subscription:', subscription.id, 'status:', subscription.status);
         
-        // Update subscription in database
+        // Defensive: check for current_period_end
+        const cpe = typeof subscription === 'object' && 'current_period_end' in subscription ? (subscription as { current_period_end?: number }).current_period_end : undefined;
         await db.update(userSubscriptions)
           .set({
             status: subscription.status,
-            currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+            currentPeriodEnd: cpe ? new Date(Number(cpe) * 1000) : undefined,
           })
           .where(eq(userSubscriptions.stripeSubscriptionId, subscription.id));
         break;
@@ -100,29 +101,29 @@ export async function POST(req: NextRequest) {
       }
 
       case 'invoice.payment_failed': {
-        const invoice = event.data.object as any;
-        
-        if (invoice.subscription && typeof invoice.subscription === 'string') {
-          console.log('Payment failed for subscription:', invoice.subscription);
+        const invoice = event.data.object as Stripe.Invoice;
+        const subId = typeof invoice === 'object' && 'subscription' in invoice ? (invoice as { subscription?: string }).subscription : undefined;
+        if (subId && typeof subId === 'string') {
+          console.log('Payment failed for subscription:', subId);
           
           // Mark subscription as past_due
           await db.update(userSubscriptions)
             .set({ status: 'past_due' })
-            .where(eq(userSubscriptions.stripeSubscriptionId, invoice.subscription));
+            .where(eq(userSubscriptions.stripeSubscriptionId, subId));
         }
         break;
       }
 
       case 'invoice.payment_succeeded': {
-        const invoice = event.data.object as any;
-        
-        if (invoice.subscription && typeof invoice.subscription === 'string') {
-          console.log('Payment succeeded for subscription:', invoice.subscription);
+        const invoice = event.data.object as Stripe.Invoice;
+        const subId = typeof invoice === 'object' && 'subscription' in invoice ? (invoice as { subscription?: string }).subscription : undefined;
+        if (subId && typeof subId === 'string') {
+          console.log('Payment succeeded for subscription:', subId);
           
           // Mark subscription as active
           await db.update(userSubscriptions)
             .set({ status: 'active' })
-            .where(eq(userSubscriptions.stripeSubscriptionId, invoice.subscription));
+            .where(eq(userSubscriptions.stripeSubscriptionId, subId));
         }
         break;
       }

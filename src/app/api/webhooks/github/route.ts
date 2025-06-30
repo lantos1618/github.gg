@@ -3,6 +3,7 @@ import { env } from '@/lib/env';
 import { db } from '@/db';
 import { githubAppInstallations, installationRepositories } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import type { EventNames } from '@octokit/webhooks-types';
 
 const webhooks = new Webhooks({
   secret: env.GITHUB_WEBHOOK_SECRET,
@@ -148,7 +149,7 @@ export async function POST(request: Request) {
   try {
     await webhooks.receive({
       id: delivery,
-      name: event as any,
+      name: event as EventNames,
       payload: JSON.parse(payload),
     });
 

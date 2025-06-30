@@ -74,8 +74,8 @@ export class GitHubService {
     return octokit ? new GitHubService(octokit) : null;
   }
 
-  static async createAuthenticated(session: unknown, req?: Request): Promise<GitHubService> {
-    const octokit = await GitHubAuthFactory.createAuthenticated(session, req);
+  static async createAuthenticated(session: unknown): Promise<GitHubService> {
+    const octokit = await GitHubAuthFactory.createAuthenticated(session);
     return new GitHubService(octokit);
   }
 
@@ -98,8 +98,8 @@ export async function createOAuthGitHubService(session: BetterAuthSession): Prom
   return GitHubService.createWithOAuth(session);
 }
 
-export async function createGitHubService(session: unknown, req?: Request): Promise<GitHubService> {
-  return GitHubService.createAuthenticated(session, req);
+export async function createGitHubService(session: unknown): Promise<GitHubService> {
+  return GitHubService.createAuthenticated(session);
 }
 
 // Re-export types for convenience

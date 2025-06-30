@@ -1,5 +1,5 @@
 "use client";
-import RepoPageLayout from '@/components/layouts/RepoPageLayout';
+import {RepoPageLayout} from '@/components/layouts/RepoPageLayout';
 import { trpc } from '@/lib/trpc/client';
 import { LoadingWave } from '@/components/LoadingWave';
 import { useEffect, useState } from 'react';

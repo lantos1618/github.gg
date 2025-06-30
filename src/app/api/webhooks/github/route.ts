@@ -142,8 +142,8 @@ export async function POST(request: Request) {
     return new Response('Signature verification failed', { status: 401 });
   }
 
-  const event = request.headers.get('x-github-event') ?? 'unknown';
-  const delivery = request.headers.get('x-github-delivery') ?? 'unknown';
+  const event = request.headers.get('x-github-event') ?? '';
+  const delivery = request.headers.get('x-github-delivery') ?? '';
 
   try {
     await webhooks.receive({

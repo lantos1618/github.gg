@@ -4,7 +4,7 @@ import { test, expect } from 'bun:test';
 import { GitHubService } from '../src/lib/github';
 
 test("GitHubService fetches files correctly", async () => {
-  const githubService = new GitHubService();
+  const githubService = GitHubService.createPublic();
   const result = await githubService.getRepositoryFiles('preactjs', 'preact', undefined, 5);
 
   expect(result.owner).toBe('preactjs');
@@ -14,7 +14,7 @@ test("GitHubService fetches files correctly", async () => {
 });
 
 test("GitHubService handles non-existent repositories", async () => {
-  const githubService = new GitHubService();
+  const githubService = GitHubService.createPublic();
   
   await expect(
     githubService.getRepositoryFiles('nonexistent', 'repo-that-does-not-exist', undefined, 10)
@@ -22,7 +22,7 @@ test("GitHubService handles non-existent repositories", async () => {
 });
 
 test("GitHubService respects file limit", async () => {
-  const githubService = new GitHubService();
+  const githubService = GitHubService.createPublic();
   const result = await githubService.getRepositoryFiles('preactjs', 'preact', undefined, 3);
 
   expect(result.files.length).toBeLessThanOrEqual(3);
@@ -30,7 +30,7 @@ test("GitHubService respects file limit", async () => {
 });
 
 test("GitHubService filters binary files correctly", async () => {
-  const githubService = new GitHubService();
+  const githubService = GitHubService.createPublic();
   const result = await githubService.getRepositoryFiles('preactjs', 'preact', undefined, 50);
 
   // Check that no binary files are included
@@ -43,7 +43,7 @@ test("GitHubService filters binary files correctly", async () => {
 });
 
 test("GitHubService handles specific refs", async () => {
-  const githubService = new GitHubService();
+  const githubService = GitHubService.createPublic();
   const result = await githubService.getRepositoryFiles('preactjs', 'preact', 'main', 5);
 
   expect(result.owner).toBe('preactjs');

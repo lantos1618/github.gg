@@ -1,10 +1,11 @@
 "use client";
-import { useRef, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import mermaid from 'mermaid';
+import { parseError } from '../../lib/types/errors';
 
 interface MermaidRendererProps {
   code: string;
-  onRenderError?: (err: string) => void;
+  onRenderError?: (error: string) => void;
   className?: string;
 }
 
@@ -12,47 +13,35 @@ export function MermaidRenderer({ code, onRenderError, className = "" }: Mermaid
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!code || !ref.current) return;
-    
-    let isMounted = true;
-    const id = `mermaid-diagram-${Math.random().toString(36).substr(2, 9)}`;
-    
-    mermaid.initialize({ startOnLoad: false });
-    mermaid.parseError = (err) => {
-      if (ref.current) {
-        ref.current.innerHTML = `<div class='text-red-600'>Invalid Mermaid diagram: ${err}</div>`;
-      }
-      if (onRenderError) onRenderError(String(err));
-    };
+    if (!ref.current) return;
 
     try {
-      mermaid.render(id, code).then(({ svg }) => {
-        if (isMounted && ref.current) {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'default',
+        securityLevel: 'loose',
+      });
+
+      mermaid.render('mermaid-diagram', code).then(({ svg }) => {
+        if (ref.current) {
           ref.current.innerHTML = svg;
           if (onRenderError) onRenderError(''); // clear error
         }
-      }).catch((err: Error | unknown) => {
-        const errorMessage = err instanceof Error ? err.message : String(err);
+      }).catch((err: unknown) => {
+        const errorMessage = parseError(err);
         if (ref.current) {
           ref.current.innerHTML = `<div class='text-red-600'>Invalid Mermaid diagram: ${errorMessage}</div>`;
         }
         if (onRenderError) onRenderError(errorMessage);
       });
-    } catch (err: Error | unknown) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
+    } catch (err: unknown) {
+      const errorMessage = parseError(err);
       if (ref.current) {
         ref.current.innerHTML = `<div class='text-red-600'>Invalid Mermaid diagram: ${errorMessage}</div>`;
       }
       if (onRenderError) onRenderError(errorMessage);
     }
-
-    return () => { isMounted = false; };
   }, [code, onRenderError]);
 
-  return (
-    <div 
-      ref={ref} 
-      className={`w-full min-h-[200px] flex justify-center items-center bg-white rounded border p-2 ${className}`} 
-    />
-  );
+  return <div ref={ref} className={className} />;
 } 

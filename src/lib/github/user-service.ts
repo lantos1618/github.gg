@@ -1,5 +1,6 @@
 import { Octokit } from '@octokit/rest';
 import type { RepoSummary } from './types';
+import { parseError } from '../types/errors';
 
 // GitHub API response types
 interface GitHubUserRepoData {
@@ -44,8 +45,8 @@ export class UserService {
         url: repo.html_url,
       }));
     } catch (error: unknown) {
-      console.error('Failed to get user repositories:', error);
-      throw new Error('Failed to fetch user repositories from GitHub.');
+      const errorMessage = parseError(error);
+      throw new Error(`Failed to get user repositories: ${errorMessage}`);
     }
   }
 

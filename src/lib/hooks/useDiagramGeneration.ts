@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import { DiagramType } from '@/lib/types/diagram';
+import { DiagramOptions } from '../types/errors';
 
 interface File {
   path: string;
@@ -15,7 +16,7 @@ interface UseDiagramGenerationProps {
   refName?: string;
   files: File[];
   diagramType: DiagramType;
-  options: Record<string, unknown>;
+  options: DiagramOptions;
 }
 
 export function useDiagramGeneration({

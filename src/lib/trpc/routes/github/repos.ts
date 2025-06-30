@@ -1,11 +1,12 @@
 import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
 import { z } from 'zod';
-import { createGitHubService, RepoSummary } from '@/lib/github';
+import { createGitHubServiceFromSession, RepoSummary } from '@/lib/github';
 import { db } from '@/db';
 import { cachedRepos } from '@/db/schema';
 import { CACHED_REPOS } from '@/lib/constants';
 import { shuffleArray } from '@/lib/utils';
 import { sql } from 'drizzle-orm';
+import { parseError } from '../../../types/errors';
 
 // Cache duration: 1 hour
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
@@ -64,8 +65,8 @@ export const reposRouter = router({
         }));
 
       } catch (error: unknown) {
-        console.error('Failed to get cached repos for scrolling:', error);
-        return [];
+        const errorMessage = parseError(error);
+        throw new Error(`Failed to get cached repos for scrolling: ${errorMessage}`);
       }
     }),
 
@@ -78,7 +79,7 @@ export const reposRouter = router({
       try {
         const userId = ctx.user.id;
 
-        const githubService = await createGitHubService(ctx.session);
+        const githubService = await createGitHubServiceFromSession(ctx.session);
         
         // Get user repos
         const userRepos = await githubService.getUserRepositories();
@@ -139,8 +140,8 @@ export const reposRouter = router({
           .map(result => (result as PromiseFulfilledResult<RepoSummary>).value);
 
       } catch (error: unknown) {
-        console.error('Failed to get user repos for scrolling:', error);
-        return [];
+        const errorMessage = parseError(error);
+        throw new Error(`Failed to get user repos for scrolling: ${errorMessage}`);
       }
     }),
 
@@ -151,7 +152,7 @@ export const reposRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       try {
-        const githubService = await createGitHubService(ctx.session);
+        const githubService = await createGitHubServiceFromSession(ctx.session);
         
         // 1. Build a definitive list of repo identifiers
         const repoIdentifiers = new Map<string, { owner: string; name: string; special?: boolean }>();
@@ -290,19 +291,8 @@ export const reposRouter = router({
         return sortedRepos;
 
       } catch (error: unknown) {
-        console.error('Failed to get repos for scrolling:', error);
-        
-        // Fallback to basic popular repos
-        return CACHED_REPOS.slice(0, input.limit).map(repo => ({
-          description: '',
-          stargazersCount: 0,
-          forksCount: 0,
-          language: '',
-          topics: [],
-          owner: repo.owner,
-          name: repo.name,
-          url: `https://github.com/${repo.owner}/${repo.name}`,
-        }));
+        const errorMessage = parseError(error);
+        throw new Error(`Failed to get repos for scrolling: ${errorMessage}`);
       }
     }),
 
@@ -310,7 +300,7 @@ export const reposRouter = router({
   getSponsorRepos: publicProcedure
     .query(async ({ ctx }) => {
       try {
-        const githubService = await createGitHubService(ctx.session);
+        const githubService = await createGitHubServiceFromSession(ctx.session);
         
         const sponsorDetails = await Promise.allSettled(
           CACHED_REPOS.filter(repo => repo.sponsor).map(repo => 
@@ -334,7 +324,7 @@ export const reposRouter = router({
   getUserRepoNames: protectedProcedure
     .query(async ({ ctx }) => {
       try {
-        const githubService = await createGitHubService(ctx.session);
+        const githubService = await createGitHubServiceFromSession(ctx.session);
         const userRepos = await githubService.getUserRepositories(); 
         return userRepos.map(repo => `${repo.owner}/${repo.name}`);
       } catch (error) {

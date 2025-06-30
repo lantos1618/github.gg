@@ -1,10 +1,10 @@
-import { router, publicProcedure } from '@/lib/trpc/trpc';
 import { z } from 'zod';
-import { createGitHubService } from '@/lib/github';
-import { TRPCError } from '@trpc/server';
+import { router, publicProcedure } from '@/lib/trpc/trpc';
+import { createGitHubServiceFromSession } from '@/lib/github';
 import { db } from '@/db';
 import { cachedRepos, user } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { parseError } from '@/lib/types/errors';
 
 // Cache duration: 1 hour
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
@@ -18,7 +18,7 @@ export const cacheRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       try {
-        const githubService = await createGitHubService(ctx.session);
+        const githubService = await createGitHubServiceFromSession(ctx.session);
         const details = await githubService.getRepositoryDetails(input.owner, input.repo);
         const userId = ctx.session?.user?.id ?? null;
         
@@ -61,11 +61,8 @@ export const cacheRouter = router({
 
         return { ...details, userId: finalUserId };
       } catch (error: unknown) {
-        console.error('Failed to refresh repo cache:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to refresh repository cache',
-        });
+        const errorMessage = parseError(error);
+        throw new Error(`Failed to refresh repository cache: ${errorMessage}`);
       }
     }),
 
@@ -87,8 +84,8 @@ export const cacheRouter = router({
           oldestCache: allCachedRepos.length > 0 ? Math.min(...allCachedRepos.map(r => r.lastFetched.getTime())) : null
         };
       } catch (error: unknown) {
-        console.error('Failed to check cache status:', error);
-        return { needsRefresh: false, totalCached: 0, staleCount: 0, oldestCache: null };
+        const errorMessage = parseError(error);
+        throw new Error(`Failed to check cache status: ${errorMessage}`);
       }
     }),
 }); 

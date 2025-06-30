@@ -1,8 +1,9 @@
 import { Octokit } from '@octokit/rest';
 import { extractTarball } from './extractor';
 import { RepoCache } from './cache';
-import type { RepositoryInfo, RepoSummary, GitHubFilesResponse, BetterAuthSession } from './types';
+import type { RepositoryInfo, RepoSummary, GitHubFilesResponse, BetterAuthSession, GitHubFile } from './types';
 import { getBestOctokitForRepo } from './app';
+import { parseError } from '../types/errors';
 
 // GitHub API response types
 interface GitHubRepoData {
@@ -52,18 +53,8 @@ export class RepositoryService {
       this.cache.set(cacheKey, data);
       return data as GitHubRepoData;
     } catch (error: unknown) {
-      const e = error as { status?: number; message?: string };
-      if (e.status === 404) {
-        throw new Error(`Repository ${owner}/${repo} not found`);
-      }
-      if (e.status === 401) {
-        throw new Error('GitHub token is invalid or expired. Please check your GITHUB_PUBLIC_API_KEY environment variable.');
-      }
-      if (e.status === 403) {
-        throw new Error(`Repository ${owner}/${repo} is not accessible with current permissions.`);
-      }
-      console.error(`Failed to get repository data for ${owner}/${repo}:`, error);
-      throw new Error(`Failed to fetch repository data from GitHub.`);
+      const errorMessage = parseError(error);
+      throw new Error(`Failed to get repository: ${errorMessage}`);
     }
   }
 
@@ -92,11 +83,8 @@ export class RepositoryService {
       });
       return response.url;
     } catch (error: unknown) {
-      const e = error as { status?: number; message?: string };
-      if (e.status === 404) {
-        throw new Error(`Branch or tag '${ref}' not found in repository ${owner}/${repo}`);
-      }
-      throw new Error(`Failed to get tarball: ${e.message}`);
+      const errorMessage = parseError(error);
+      throw new Error(`Failed to get tarball: ${errorMessage}`);
     }
   }
 
@@ -164,11 +152,24 @@ export class RepositoryService {
         throw new Error(`Failed to download tarball: ${downloadResponse.status} ${downloadResponse.statusText}`);
       }
 
+      // Convert ArrayBuffer to ReadableStream for extractTarball
       const buffer = await downloadResponse.arrayBuffer();
-      const extractedFiles = await extractTarball(buffer, maxFiles, path);
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array(buffer));
+          controller.close();
+        }
+      });
+
+      const files: GitHubFile[] = [];
+      await extractTarball(stream as any, (file) => {
+        if (files.length < maxFiles) {
+          files.push(file);
+        }
+      });
       
       // Transform the files to match the expected type structure
-      const files = extractedFiles.map(file => ({
+      const transformedFiles = files.map(file => ({
         name: file.path.split('/').pop() || file.path,
         path: file.path,
         size: file.size,
@@ -177,14 +178,15 @@ export class RepositoryService {
       }));
       
       return {
-        files,
-        totalFiles: files.length,
+        files: transformedFiles,
+        totalFiles: transformedFiles.length,
         owner,
         repo,
         ref: targetRef,
       };
-    } catch (error) {
-      throw error;
+    } catch (error: unknown) {
+      const errorMessage = parseError(error);
+      throw new Error(`Failed to get repository files: ${errorMessage}`);
     }
   }
 
@@ -220,7 +222,15 @@ export class RepositoryService {
   // Static factory method for repository-specific service
   static async createForRepo(owner: string, repo: string, session?: BetterAuthSession, req?: Request): Promise<RepositoryService> {
     try {
-      const octokit = await getBestOctokitForRepo(owner, repo, session, req);
+      // Convert BetterAuthSession to SessionData if needed
+      const sessionData = session ? {
+        user: session.user,
+        accessToken: undefined, // BetterAuthSession doesn't have accessToken
+        refreshToken: undefined,
+        expiresAt: undefined
+      } : undefined;
+      
+      const octokit = await getBestOctokitForRepo(owner, repo, sessionData, req);
       return new RepositoryService(octokit as Octokit);
     } catch (error) {
       console.warn(`Failed to get GitHub App access for ${owner}/${repo}, falling back to OAuth:`, error);

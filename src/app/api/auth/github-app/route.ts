@@ -47,8 +47,8 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       let details = err;
       if (typeof err === 'object' && err !== null) {
-        if ('stack' in err) details = (err as { stack?: unknown }).stack;
-        else if ('message' in err) details = (err as { message?: unknown }).message;
+        if ('stack' in err) details = (err as { stack?: string }).stack;
+        else if ('message' in err) details = (err as { message?: string }).message;
       }
       console.error('[github-app] Error in createSessionFromInstallation:', details);
       return NextResponse.json(
@@ -83,8 +83,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     let details = error;
     if (typeof error === 'object' && error !== null) {
-      if ('stack' in error) details = (error as { stack?: unknown }).stack;
-      else if ('message' in error) details = (error as { message?: unknown }).message;
+      if ('stack' in error) details = (error as { stack?: string }).stack;
+      else if ('message' in error) details = (error as { message?: string }).message;
     }
     console.error('[github-app] Failed to create GitHub App session:', details);
     return NextResponse.json(

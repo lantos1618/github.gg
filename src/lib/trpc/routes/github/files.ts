@@ -1,7 +1,8 @@
 import { router, publicProcedure } from '@/lib/trpc/trpc';
 import { z } from 'zod';
-import { createGitHubService, DEFAULT_MAX_FILES, GitHubFilesResponse } from '@/lib/github';
+import { createGitHubServiceFromSession, DEFAULT_MAX_FILES, GitHubFilesResponse } from '@/lib/github';
 import { TRPCError } from '@trpc/server';
+import { parseError } from '../../../types/errors';
 
 export const filesRouter = router({
   // Get repository files from tarball (requires GitHub authentication)
@@ -15,7 +16,7 @@ export const filesRouter = router({
     }))
     .query(async ({ input, ctx }): Promise<GitHubFilesResponse> => {
       try {
-        const githubService = await createGitHubService(ctx.session);
+        const githubService = await createGitHubServiceFromSession(ctx.session);
         
         const result = await githubService.getRepositoryFiles(
           input.owner,
@@ -27,37 +28,8 @@ export const filesRouter = router({
 
         return result;
       } catch (error: unknown) {
-        console.error('GitHub files query error:', error);
-        
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        
-        // Provide specific error messages based on the error type
-        if (errorMessage?.includes('token is invalid or expired')) {
-          throw new TRPCError({
-            code: 'UNAUTHORIZED',
-            message: 'GitHub token is invalid or expired. Please check your authentication.',
-          });
-        }
-        
-        if (errorMessage?.includes('Repository') && errorMessage?.includes('not found')) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: errorMessage,
-          });
-        }
-        
-        if (errorMessage?.includes('Branch or tag')) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: errorMessage,
-          });
-        }
-        
-        // Generic error for other cases
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: errorMessage || 'Failed to extract repository files',
-        });
+        const errorMessage = parseError(error);
+        throw new Error(`Failed to get repository files: ${errorMessage}`);
       }
     }),
 
@@ -68,11 +40,11 @@ export const filesRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       try {
-        const githubService = await createGitHubService(ctx.session);
+        const githubService = await createGitHubServiceFromSession(ctx.session);
         const repoInfo = await githubService.getRepositoryInfo(input.owner, input.repo);
         return repoInfo;
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorMessage = parseError(error);
         if (errorMessage.includes('not found')) {
           throw new TRPCError({
             code: 'NOT_FOUND',
@@ -93,11 +65,11 @@ export const filesRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       try {
-        const githubService = await createGitHubService(ctx.session);
+        const githubService = await createGitHubServiceFromSession(ctx.session);
         const branches = await githubService.getBranches(input.owner, input.repo);
         return branches;
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorMessage = parseError(error);
         if (errorMessage.includes('not found')) {
           throw new TRPCError({
             code: 'NOT_FOUND',
@@ -118,11 +90,11 @@ export const filesRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       try {
-        const githubService = await createGitHubService(ctx.session);
+        const githubService = await createGitHubServiceFromSession(ctx.session);
         const repoInfo = await githubService.getRepositoryInfo(input.owner, input.repo);
         return repoInfo;
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorMessage = parseError(error);
         if (errorMessage.includes('not found')) {
           throw new TRPCError({
             code: 'NOT_FOUND',

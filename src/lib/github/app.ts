@@ -5,6 +5,9 @@ import { db } from '../../db';
 import { githubAppInstallations, account } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { auth } from '../auth';
+import { Octokit } from '@octokit/rest';
+import { createAppAuth } from '@octokit/auth-app';
+import { SessionData, parseError } from '../types/errors';
 
 // Initialize the GitHub App
 export const githubApp = new App({
@@ -29,51 +32,17 @@ export function generateAppJWT(): string {
 // Get installation token for a specific installation
 export async function getInstallationToken(installationId: number): Promise<string> {
   try {
-    console.log(`🔑 Attempting to get installation token for installation ${installationId}`);
-    
-    // First, verify the installation exists
-    try {
-      await githubApp.octokit.request(
-        'GET /app/installations/{installation_id}',
-        {
-          installation_id: installationId,
-        }
-      );
-      console.log(`✅ Installation ${installationId} exists and is accessible`);
-    } catch (error: unknown) {
-      const e = error as { status?: number; message?: string };
-      console.error(`❌ Installation ${installationId} not found or not accessible:`, e.status, e.message);
-      throw new Error(`Installation ${installationId} not found or not accessible`);
-    }
-
-    // Now try to create the installation token
-    const { data } = await githubApp.octokit.request(
-      'POST /app/installations/{installation_id}/access_tokens',
-      {
-        installation_id: installationId,
-      }
-    );
-    
-    console.log(`✅ Successfully created installation token for installation ${installationId}`);
-    return data.token;
-  } catch (error: unknown) {
-    const e = error as { status?: number; message?: string; response?: { data?: unknown }; request?: unknown };
-    console.error(`❌ Failed to get installation token for ${installationId}:`, {
-      status: e.status,
-      message: e.message,
-      response: e.response?.data,
-      request: e.request
+    const auth = createAppAuth({
+      appId: process.env.GITHUB_APP_ID!,
+      privateKey: process.env.GITHUB_PRIVATE_KEY!,
+      installationId,
     });
-    
-    if (e.status === 404) {
-      throw new Error(`Installation ${installationId} not found. Please check if the GitHub App is properly installed.`);
-    } else if (e.status === 403) {
-      throw new Error(`Access denied for installation ${installationId}. Please check GitHub App permissions.`);
-    } else if (e.status === 401) {
-      throw new Error(`Authentication failed for installation ${installationId}. Please check GitHub App credentials.`);
-    }
-    
-    throw new Error(`Failed to get installation token: ${e.message}`);
+
+    const { token } = await auth({ type: 'installation' });
+    return token;
+  } catch (error: unknown) {
+    const errorMessage = parseError(error);
+    throw new Error(`Failed to get installation token: ${errorMessage}`);
   }
 }
 
@@ -160,20 +129,19 @@ export async function isRepoAccessible(owner: string, repo: string): Promise<boo
 export async function getBestOctokitForRepo(
   owner: string, 
   repo: string, 
-  session?: unknown, 
+  session?: SessionData, 
   req?: Request
 ) {
   console.log(`🔍 Getting best Octokit for ${owner}/${repo} with session:`, !!session);
 
   // 1. Check if the logged-in user has a linked installation that covers this repo
-  if (session && typeof session === 'object' && 'user' in session && 
-      session.user && typeof session.user === 'object' && 'id' in session.user) {
+  if (session && session.user && session.user.id) {
     
     try {
       // Get the user's linked installation
       const userAccount = await db.query.account.findFirst({
         where: and(
-          eq(account.userId, session.user.id as string),
+          eq(account.userId, session.user.id),
           eq(account.providerId, 'github')
         ),
       });
@@ -204,13 +172,12 @@ export async function getBestOctokitForRepo(
   }
 
   // 3. If user is logged in, try to use their OAuth token
-  if (session && typeof session === 'object' && 'user' in session && 
-      session.user && typeof session.user === 'object' && 'id' in session.user && req) {
+  if (session && session.user && session.user.id && req) {
     try {
       const { accessToken } = await auth.api.getAccessToken({
         body: {
           providerId: 'github',
-          userId: session.user.id as string,
+          userId: session.user.id,
         },
         headers: req.headers,
       });
@@ -227,4 +194,16 @@ export async function getBestOctokitForRepo(
   // 4. Fallback to app-level access (for public repos)
   console.log(`⚠️ Using app-level access for ${owner}/${repo}`);
   return githubApp.octokit;
+}
+
+// Helper function to create authenticated Octokit instance
+export async function createAuthenticatedOctokit(session: SessionData, req?: Request): Promise<Octokit> {
+  if (!session.accessToken) {
+    throw new Error('No access token available');
+  }
+
+  return new Octokit({
+    auth: session.accessToken,
+    request: req ? { fetch: req.signal ? undefined : fetch } : undefined,
+  });
 }

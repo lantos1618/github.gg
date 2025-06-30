@@ -8,6 +8,7 @@ import type {
   GitHubFilesResponse, 
   BetterAuthSession 
 } from './types';
+import { SessionData } from '../types/errors';
 
 // Main GitHub service - simple facade that coordinates other services
 export class GitHubService {
@@ -74,8 +75,12 @@ export class GitHubService {
     return octokit ? new GitHubService(octokit) : null;
   }
 
-  static async createAuthenticated(session: unknown): Promise<GitHubService> {
-    const octokit = await GitHubAuthFactory.createAuthenticated(session);
+  static async createAuthenticated(session: SessionData): Promise<GitHubService> {
+    if (!session.accessToken) {
+      throw new Error('No access token available');
+    }
+
+    const octokit = new Octokit({ auth: session.accessToken });
     return new GitHubService(octokit);
   }
 
@@ -98,8 +103,36 @@ export async function createOAuthGitHubService(session: BetterAuthSession): Prom
   return GitHubService.createWithOAuth(session);
 }
 
-export async function createGitHubService(session: unknown): Promise<GitHubService> {
-  return GitHubService.createAuthenticated(session);
+export async function createGitHubService(session: SessionData): Promise<GitHubService> {
+  if (!session.accessToken) {
+    throw new Error('No access token available');
+  }
+
+  const octokit = new Octokit({ auth: session.accessToken });
+  return new GitHubService(octokit);
+}
+
+// New function to handle BetterAuthSession type from tRPC context
+export async function createGitHubServiceFromSession(session: BetterAuthSession | null): Promise<GitHubService> {
+  if (!session?.user?.id) {
+    // Fallback to public service if no session
+    return GitHubService.createPublic();
+  }
+
+  // Try to create service with GitHub App first
+  const appService = await GitHubService.createWithApp(session);
+  if (appService) {
+    return appService;
+  }
+
+  // Try to create service with OAuth
+  const oauthService = await GitHubService.createWithOAuth(session);
+  if (oauthService) {
+    return oauthService;
+  }
+
+  // Fallback to public service
+  return GitHubService.createPublic();
 }
 
 // Re-export types for convenience

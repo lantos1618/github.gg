@@ -1,66 +1,10 @@
+import { parseError } from '../types/errors';
+
 /**
  * Parse Gemini API error to extract user-friendly message
  */
 export function parseGeminiError(error: unknown): string {
-  if (error instanceof Error) {
-    const message = error.message;
-    
-    console.log('🔍 Parsing error:', message); // Debug log
-    
-    // Check for 429 rate limit error - more comprehensive detection
-    if (message.includes('429') || 
-        message.includes('RESOURCE_EXHAUSTED') || 
-        message.includes('quota') ||
-        message.includes('rate limit') ||
-        message.includes('Rate limit') ||
-        message.includes('exceeded') ||
-        message.includes('Too Many Requests') ||
-        message.includes('Too many requests')) {
-      
-      console.log('🚫 Rate limit detected!'); // Debug log
-      
-      try {
-        // Try to parse the JSON error message
-        const errorMatch = message.match(/\{[\s\S]*\}/);
-        if (errorMatch) {
-          const parsedError = JSON.parse(errorMatch[0]);
-          if (parsedError.error?.details) {
-            const retryInfo = parsedError.error.details.find((detail: { '@type'?: string }) => 
-              detail['@type'] === 'type.googleapis.com/google.rpc.RetryInfo'
-            );
-            const retryDelay = retryInfo?.retryDelay || '50s';
-            return `Rate limit exceeded. Please try again in ${retryDelay}. You've hit the Gemini API free tier limits.`;
-          }
-        }
-      } catch {
-        // If JSON parsing fails, return a generic rate limit message
-      }
-      return 'Rate limit exceeded. You\'ve hit the Gemini API free tier limits. Please try again in a few minutes.';
-    }
-    
-    // Check for other common errors
-    if (message.includes('API_KEY_INVALID') || message.includes('authentication')) {
-      return 'Authentication error with Gemini API. Please check your API key configuration.';
-    }
-    
-    if (message.includes('MODEL_NOT_FOUND')) {
-      return 'Gemini model not found. Please check the model configuration.';
-    }
-    
-    return message;
-  }
-  
-  if (typeof error === 'string') {
-    console.log('🔍 String error:', error); // Debug log
-    return error;
-  }
-  
-  if (error && typeof error === 'object' && 'message' in error) {
-    console.log('🔍 Object error:', error); // Debug log
-    return String(error.message);
-  }
-  
-  return 'An unexpected error occurred with the Gemini API.';
+  return parseError(error);
 }
 
 /**

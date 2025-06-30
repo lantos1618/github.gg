@@ -32,7 +32,7 @@ export default function InstallCallbackPage() {
 
     if (setupAction !== 'install') {
       setStatus('error');
-      setMessage('Unknown installation action.');
+      setMessage('Installation action not recognized.');
       return;
     }
 

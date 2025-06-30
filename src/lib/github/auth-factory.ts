@@ -4,14 +4,9 @@ import { db } from '@/db';
 import { account } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { env } from '@/lib/env';
-import { getInstallationToken, githubApp } from './app';
+import { getInstallationToken } from './app';
 import type { BetterAuthSession } from './types';
-
-// User type for authentication
-interface AuthenticatedUser {
-  id: string;
-  name?: string;
-}
+import { SessionData } from '../types/errors';
 
 // Factory functions for different authentication methods
 export class GitHubAuthFactory {
@@ -74,61 +69,13 @@ export class GitHubAuthFactory {
   }
 
   // Create service with unified authentication (requires GitHub App installation)
-  static async createAuthenticated(session: unknown): Promise<Octokit> {
-    console.log('🔍 Creating GitHub service with session:', !!session);
-
-    if (!session || typeof session !== 'object' || !('user' in session) || !session.user) {
-      throw new Error('Authentication required. Please sign in with GitHub OAuth.');
+  static async createAuthenticated(session: SessionData): Promise<Octokit> {
+    if (!session.accessToken) {
+      throw new Error('No access token available');
     }
 
-    const user = session.user as AuthenticatedUser;
-    console.log(`👤 Authenticated user: ${user.name} (${user.id})`);
-
-    const userAccount = await db.query.account.findFirst({
-      where: and(
-        eq(account.userId, user.id),
-        eq(account.providerId, 'github')
-      ),
+    return new Octokit({
+      auth: session.accessToken,
     });
-
-    if (!userAccount?.installationId) {
-      throw new Error('GitHub App installation required. Please install the GitHub App to use this service.');
-    }
-
-    // Verify the installation exists and is accessible
-    try {
-      await githubApp.octokit.request(
-        'GET /app/installations/{installation_id}',
-        {
-          installation_id: userAccount.installationId,
-        }
-      );
-      console.log(`✅ Using GitHub App installation ${userAccount.installationId} for authenticated user`);
-    } catch (error: unknown) {
-      const e = error as { message?: string };
-      console.error(`❌ Installation ${userAccount.installationId} not accessible:`, e.message);
-      
-      // Clear the invalid installation
-      await db.update(account)
-        .set({ 
-          installationId: null,
-          updatedAt: new Date()
-        })
-        .where(and(
-          eq(account.userId, user.id),
-          eq(account.providerId, 'github')
-        ));
-      
-      throw new Error('GitHub App installation is invalid. Please reinstall the GitHub App.');
-    }
-
-    // Create GitHub App service with installation token
-    try {
-      const installationToken = await getInstallationToken(userAccount.installationId);
-      return new Octokit({ auth: installationToken });
-    } catch (error: unknown) {
-      console.error('Failed to create GitHub App service:', error);
-      throw new Error('Failed to create GitHub service. Please try again.');
-    }
   }
 } 

@@ -263,10 +263,17 @@ export const adminRouter = router({
         acc[u.feature].costBreakdown.totalCost += cost.totalCost;
 
         return acc;
-      }, {} as Record<string, any>);
+      }, {} as Record<string, {
+        feature: string;
+        totalTokens: number;
+        usageCount: number;
+        byokTokens: number;
+        managedTokens: number;
+        costBreakdown: { inputCost: number; outputCost: number; totalCost: number; currency: string };
+      }>);
 
       // Convert to array and sort by total cost
-      const featureCostsArray = Object.values(featureCosts).sort((a: any, b: any) => b.costBreakdown.totalCost - a.costBreakdown.totalCost);
+      const featureCostsArray = Object.values(featureCosts).sort((a, b) => b.costBreakdown.totalCost - a.costBreakdown.totalCost);
 
       return featureCostsArray;
     }),

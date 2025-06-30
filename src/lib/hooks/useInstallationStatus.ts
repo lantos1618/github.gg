@@ -29,7 +29,8 @@ export function useInstallationStatus(): InstallationStatus {
     }
   );
 
-  const { data: adminStatus } = trpc.admin.isAdmin.useQuery(undefined, {
+  // Admin status query (unused but kept for potential future use)
+  trpc.admin.isAdmin.useQuery(undefined, {
     enabled: isSignedIn && !authLoading,
     refetchOnWindowFocus: false,
   });

@@ -40,7 +40,7 @@ const DEFAULT_PRICING = GEMINI_2_5_FLASH_PRICING;
  * Calculate the cost for token usage based on the model used
  */
 export function calculateTokenCost(usage: TokenUsage): CostBreakdown {
-  const { promptTokens, completionTokens, totalTokens, model } = usage;
+  const { promptTokens, completionTokens, model } = usage;
   
   let inputCost = 0;
   let outputCost = 0;
@@ -97,15 +97,11 @@ export function formatCost(cost: number, currency: string = 'USD'): string {
 export function calculateTotalCost(usages: TokenUsage[]): CostBreakdown {
   let totalInputCost = 0;
   let totalOutputCost = 0;
-  let totalPromptTokens = 0;
-  let totalCompletionTokens = 0;
   
   usages.forEach(usage => {
     const cost = calculateTokenCost(usage);
     totalInputCost += cost.inputCost;
     totalOutputCost += cost.outputCost;
-    totalPromptTokens += usage.promptTokens;
-    totalCompletionTokens += usage.completionTokens;
   });
   
   return {

@@ -66,7 +66,7 @@ export default function PricingPage() {
       </div>
 
       <div className="grid md:grid-cols-3 gap-8">
-        {plans.map((plan, idx) => {
+        {plans.map((plan) => {
           const Icon = plan.icon;
           const isPro = plan.name === 'Pro';
           const isByok = plan.name === 'Developer';

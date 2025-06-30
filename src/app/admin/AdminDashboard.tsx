@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { DollarSign, Users, RefreshCw } from 'lucide-react';
 import { formatCost, calculatePerUserCostAndUsage } from '@/lib/utils/cost-calculator';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import Image from 'next/image';
 
 function getCurrentMonthRange() {
   const now = new Date();
@@ -20,7 +21,7 @@ function getCurrentMonthRange() {
 }
 
 export default function AdminDashboard() {
-  const [dateRange, setDateRange] = useState(getCurrentMonthRange());
+  const [dateRange] = useState(getCurrentMonthRange());
 
   // tRPC queries
   const { data: usageStats, refetch: refetchUsage, isLoading: loadingUsage } = trpc.admin.getUsageStats.useQuery({
@@ -148,10 +149,12 @@ export default function AdminDashboard() {
                 <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex items-center gap-3">
                     {user.image && (
-                      <img 
+                      <Image 
                         src={user.image} 
-                        alt={user.name || user.email} 
+                        alt={user.name || user.email || 'User'} 
                         className="w-8 h-8 rounded-full"
+                        width={32}
+                        height={32}
                       />
                     )}
                     <div>

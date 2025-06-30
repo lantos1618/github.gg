@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Key, Crown, Check } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { useState } from 'react';
+import Link from 'next/link';
 
 interface SubscriptionUpgradeProps {
   className?: string;
@@ -137,7 +138,7 @@ export function SubscriptionUpgrade({ className = "", onUpgrade }: SubscriptionU
       <div className="text-center text-sm text-gray-500">
         <p>Cancel anytime. No setup fees.</p>
         <p className="mt-1">
-          Need help? <a href="/contact" className="text-blue-600 hover:underline">Contact us</a>
+          Need help? <Link href="/contact" className="text-blue-600 hover:underline">Contact us</Link>
         </p>
       </div>
     </div>

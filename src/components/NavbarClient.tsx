@@ -23,10 +23,7 @@ export function NavbarClient() {
   const { 
     hasInstallation, 
     installationId, 
-    canUseApp, 
-    isLoading: isInstallationLoading, 
-    error: installationError,
-    refetch: refetchInstallation 
+    isLoading: isInstallationLoading
   } = useInstallationStatus();
 
   const { data: adminStatus } = trpc.admin.isAdmin.useQuery(undefined, {

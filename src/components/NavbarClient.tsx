@@ -15,17 +15,19 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { trpc } from '@/lib/trpc/client';
 import Link from 'next/link';
 import { Spinner } from './ui/spinner';
+import { useInstallationStatus } from '@/lib/hooks/useInstallationStatus';
 
 export function NavbarClient() {
   const { user, isSignedIn, signIn, signOut, isLoading } = useAuth();
   
-  const { data: installationInfo, isLoading: isInstallationLoading } = trpc.github.checkInstallation.useQuery(
-    undefined,
-    {
-      enabled: isSignedIn,
-      refetchOnWindowFocus: true, // Refetch on focus to catch new installations
-    }
-  );
+  const { 
+    hasInstallation, 
+    installationId, 
+    canUseApp, 
+    isLoading: isInstallationLoading, 
+    error: installationError,
+    refetch: refetchInstallation 
+  } = useInstallationStatus();
 
   const { data: adminStatus } = trpc.admin.isAdmin.useQuery(undefined, {
     enabled: isSignedIn,
@@ -38,7 +40,7 @@ export function NavbarClient() {
 
   if (isSignedIn && user) {
     const isAdmin = !!adminStatus?.isAdmin;
-    const showInstallNotification = !isInstallationLoading && !installationInfo?.hasInstallation;
+    const showInstallNotification = !isInstallationLoading && !hasInstallation;
 
     return (
       <DropdownMenu>
@@ -74,7 +76,7 @@ export function NavbarClient() {
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem asChild>
-              <Link href={`https://github.com/settings/installations/${installationInfo?.installationId}`} target="_blank" rel="noopener noreferrer">
+              <Link href={`https://github.com/settings/installations/${installationId}`} target="_blank" rel="noopener noreferrer">
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Manage GitHub App</span>
               </Link>

@@ -159,7 +159,6 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
   const { data: installationRepos } = useInstallationRepositories(10);
   const auth = useAuth();
   
-  const userRepoIds = useMemo(() => new Set(userRepoNames || []), [userRepoNames]);
 
   const rows = useMemo(() => {
     const allRepos: RepoData[] = [];
@@ -171,8 +170,8 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
     if (loggedIn) {
       if (userRepos && userRepos.length > 0) {
         userSpecific = userRepos;
-      } else if (installationRepos && installationRepos.length > 0) {
-        userSpecific = installationRepos.map(r => ({
+      } else if (installationRepos && Array.isArray(installationRepos) && installationRepos.length > 0) {
+        userSpecific = installationRepos.map((r: { owner: string; name: string; repositoryId: number }) => ({
           owner: r.owner,
           name: r.name,
           stargazersCount: 0,
@@ -214,7 +213,7 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
       finalRepos.slice(i * 8, (i + 1) * 8)
     );
 
-  }, [popularRepos, sponsorRepos, userRepoNames, userRepos, auth.isSignedIn, userRepoIds, installationRepos]);
+  }, [popularRepos, sponsorRepos, userRepos, auth.isSignedIn, installationRepos]);
   
   const isLoading = isPopularLoading || (auth.isSignedIn && (isSponsorLoading || isUserReposLoading));
 

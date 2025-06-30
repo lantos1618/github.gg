@@ -35,7 +35,7 @@ webhooks.on('installation.created', async ({ payload }) => {
       accountAvatarUrl,
       accountName,
       repositorySelection: payload.installation.repository_selection,
-    } as any);
+    });
 
     if (payload.repositories) {
       for (const repo of payload.repositories) {
@@ -43,7 +43,7 @@ webhooks.on('installation.created', async ({ payload }) => {
           installationId: payload.installation.id,
           repositoryId: repo.id,
           fullName: repo.full_name,
-        } as any);
+        });
       }
     }
     
@@ -80,7 +80,7 @@ webhooks.on('installation_repositories.added', async ({ payload }) => {
         installationId: payload.installation.id,
         repositoryId: repo.id,
         fullName: repo.full_name,
-      } as any);
+      });
     }
     console.log(`Successfully added ${payload.repositories_added.length} repositories`);
   } catch (error) {

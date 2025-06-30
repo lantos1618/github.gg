@@ -1,5 +1,5 @@
 import { protectedProcedure } from '@/lib/trpc/trpc';
-import { githubRouter } from '@/lib/trpc/routes/github';
+import { githubRouter } from '@/lib/trpc/routes/github/index';
 import { scorecardRouter } from '@/lib/trpc/routes/scorecard';
 import { diagramRouter } from '@/lib/trpc/routes/diagram';
 import { userRouter } from '@/lib/trpc/routes/user';

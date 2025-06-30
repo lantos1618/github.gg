@@ -33,15 +33,16 @@ export async function getInstallationToken(installationId: number): Promise<stri
     
     // First, verify the installation exists
     try {
-      const { data: installation } = await githubApp.octokit.request(
+      await githubApp.octokit.request(
         'GET /app/installations/{installation_id}',
         {
           installation_id: installationId,
         }
       );
       console.log(`✅ Installation ${installationId} exists and is accessible`);
-    } catch (error: any) {
-      console.error(`❌ Installation ${installationId} not found or not accessible:`, error.status, error.message);
+    } catch (error: unknown) {
+      const e = error as { status?: number; message?: string };
+      console.error(`❌ Installation ${installationId} not found or not accessible:`, e.status, e.message);
       throw new Error(`Installation ${installationId} not found or not accessible`);
     }
 
@@ -55,23 +56,24 @@ export async function getInstallationToken(installationId: number): Promise<stri
     
     console.log(`✅ Successfully created installation token for installation ${installationId}`);
     return data.token;
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const e = error as { status?: number; message?: string; response?: { data?: unknown }; request?: unknown };
     console.error(`❌ Failed to get installation token for ${installationId}:`, {
-      status: error.status,
-      message: error.message,
-      response: error.response?.data,
-      request: error.request
+      status: e.status,
+      message: e.message,
+      response: e.response?.data,
+      request: e.request
     });
     
-    if (error.status === 404) {
+    if (e.status === 404) {
       throw new Error(`Installation ${installationId} not found. Please check if the GitHub App is properly installed.`);
-    } else if (error.status === 403) {
+    } else if (e.status === 403) {
       throw new Error(`Access denied for installation ${installationId}. Please check GitHub App permissions.`);
-    } else if (error.status === 401) {
+    } else if (e.status === 401) {
       throw new Error(`Authentication failed for installation ${installationId}. Please check GitHub App credentials.`);
     }
     
-    throw new Error(`Failed to get installation token: ${error.message}`);
+    throw new Error(`Failed to get installation token: ${e.message}`);
   }
 }
 

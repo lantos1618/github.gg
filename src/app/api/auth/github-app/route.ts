@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GitHubAppSessionManager } from '@/lib/auth';
+import { GitHubAppSessionManager, type GitHubAppSession } from '@/lib/auth';
 
 export async function GET() {
   try {
@@ -41,14 +41,14 @@ export async function POST(request: NextRequest) {
     console.log('[github-app] Creating session from installationId:', installationId);
 
     // Create session from installation
-    let session: any = null;
+    let session: GitHubAppSession | null = null;
     try {
       session = await GitHubAppSessionManager.createSessionFromInstallation(installationId);
     } catch (err) {
       let details = err;
       if (typeof err === 'object' && err !== null) {
-        if ('stack' in err) details = (err as any).stack;
-        else if ('message' in err) details = (err as any).message;
+        if ('stack' in err) details = (err as { stack?: unknown }).stack;
+        else if ('message' in err) details = (err as { message?: unknown }).message;
       }
       console.error('[github-app] Error in createSessionFromInstallation:', details);
       return NextResponse.json(
@@ -83,8 +83,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     let details = error;
     if (typeof error === 'object' && error !== null) {
-      if ('stack' in error) details = (error as any).stack;
-      else if ('message' in error) details = (error as any).message;
+      if ('stack' in error) details = (error as { stack?: unknown }).stack;
+      else if ('message' in error) details = (error as { message?: unknown }).message;
     }
     console.error('[github-app] Failed to create GitHub App session:', details);
     return NextResponse.json(

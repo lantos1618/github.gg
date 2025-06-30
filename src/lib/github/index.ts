@@ -69,8 +69,8 @@ export class GitHubService {
     return octokit ? new GitHubService(octokit) : null;
   }
 
-  static async createWithOAuth(session: BetterAuthSession, req?: Request): Promise<GitHubService | null> {
-    const octokit = await GitHubAuthFactory.createWithOAuth(session, req);
+  static async createWithOAuth(session: BetterAuthSession): Promise<GitHubService | null> {
+    const octokit = await GitHubAuthFactory.createWithOAuth(session);
     return octokit ? new GitHubService(octokit) : null;
   }
 
@@ -94,8 +94,8 @@ export async function createGitHubAppService(session: BetterAuthSession): Promis
   return GitHubService.createWithApp(session);
 }
 
-export async function createOAuthGitHubService(session: BetterAuthSession, req?: Request): Promise<GitHubService | null> {
-  return GitHubService.createWithOAuth(session, req);
+export async function createOAuthGitHubService(session: BetterAuthSession): Promise<GitHubService | null> {
+  return GitHubService.createWithOAuth(session);
 }
 
 export async function createGitHubService(session: unknown, req?: Request): Promise<GitHubService> {

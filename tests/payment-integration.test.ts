@@ -353,7 +353,7 @@ describe('Payment Integration Tests', () => {
 
       // This should not throw an error during import
       expect(() => {
-        require('../src/lib/trpc/routes/billing');
+        import('../src/lib/trpc/routes/billing');
       }).not.toThrow();
 
       // Restore environment variable
@@ -368,8 +368,8 @@ describe('Payment Integration Tests', () => {
         userId: testUserId,
         stripeCustomerId: '', // Empty string
         stripeSubscriptionId: '', // Empty string
-        plan: 'invalid_plan' as any, // Invalid plan
-        status: 'invalid_status' as any, // Invalid status
+        plan: 'invalid_plan' as 'byok' | 'pro', // Invalid plan
+        status: 'invalid_status' as 'active' | 'canceled' | 'past_due', // Invalid status
         currentPeriodEnd: new Date('invalid-date'), // Invalid date
       };
 

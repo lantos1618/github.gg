@@ -48,8 +48,8 @@ export class GitHubAuthFactory {
   }
 
   // Create service with OAuth token (for authenticated users without installations)
-  static async createWithOAuth(session: BetterAuthSession, req?: Request): Promise<Octokit | null> {
-    if (!session?.user?.id || !req) {
+  static async createWithOAuth(session: BetterAuthSession): Promise<Octokit | null> {
+    if (!session?.user?.id) {
       return null;
     }
 
@@ -59,7 +59,7 @@ export class GitHubAuthFactory {
           providerId: 'github',
           userId: session.user.id,
         },
-        headers: req.headers,
+        headers: {},
       });
       
       if (accessToken) {

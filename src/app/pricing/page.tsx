@@ -7,8 +7,6 @@ import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
 
 export default function PricingPage() {
-  const { data: currentPlan } = trpc.user.getCurrentPlan.useQuery();
-  
   const createCheckout = trpc.billing.createCheckoutSession.useMutation({
     onSuccess: (data) => {
       if (data.url) {

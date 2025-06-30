@@ -11,7 +11,7 @@ export interface DiagramAnalysisParams {
   files: Array<{ path: string; content: string }>;
   repoName: string;
   diagramType: DiagramType;
-  options?: Record<string, any>;
+  options?: Record<string, unknown>;
   // Retry context
   previousResult?: string;
   lastError?: string;
@@ -76,7 +76,7 @@ OPTIONS: ${JSON.stringify(options)}
 
 ---
 ANALYZE THESE FILES:
-${files.map((file: any) => `--- ${file.path} ---\n${file.content}`).join('\n')}`;
+${files.map((file: { path: string; content: string }) => `--- ${file.path} ---\n${file.content}`).join('\n')}`;
   }
 
   const result = await generateObject({

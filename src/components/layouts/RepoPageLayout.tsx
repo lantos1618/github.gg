@@ -18,7 +18,7 @@ interface RepoPageLayoutProps {
     files: RepoFile[];
     totalFiles: number;
     isLoading: boolean;
-    error: any;
+    error: unknown;
     copyAllContent: () => void;
     isCopying: boolean;
     copied: boolean;
@@ -39,7 +39,7 @@ export default function RepoPageLayout({
 
   // Fetch default branch
   const { data: repoMeta } = trpc.github.getRepoMeta.useQuery({ owner: user, repo });
-  const defaultBranch = repoMeta?.default_branch;
+  const defaultBranch = repoMeta?.defaultBranch;
 
   // Unified branch change handler
   const handleBranchChange = (branch: string) => {

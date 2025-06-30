@@ -10,6 +10,7 @@ import { tomorrow } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 import { useRepoData } from '@/lib/hooks/useRepoData';
+import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
 
 export default function ScorecardClientView({ user, repo, refName, path }: { user: string; repo: string; refName?: string; path?: string }) {
   const [scorecardData, setScorecardData] = useState<string | null>(null);
@@ -17,6 +18,7 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
   const [error, setError] = useState<string | null>(null);
   const [hasGenerated, setHasGenerated] = useState(false);
   const generateScorecardMutation = trpc.scorecard.generateScorecard.useMutation();
+  const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery();
 
   // Get repo data
   const { files, isLoading: filesLoading, error: filesError, totalFiles } = useRepoData({ user, repo, ref: refName, path });
@@ -67,6 +69,28 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
   };
 
   const overallLoading = filesLoading || isLoading;
+
+  // If plan is loading, show nothing or a spinner
+  if (planLoading) {
+    return (
+      <RepoPageLayout user={user} repo={repo} refName={refName} files={[]} totalFiles={0}>
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <LoadingWave />
+        </div>
+      </RepoPageLayout>
+    );
+  }
+
+  // If user does not have a paid plan, show the upgrade component
+  if (!currentPlan || currentPlan.plan === 'free') {
+    return (
+      <RepoPageLayout user={user} repo={repo} refName={refName} files={[]} totalFiles={0}>
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <SubscriptionUpgrade />
+        </div>
+      </RepoPageLayout>
+    );
+  }
 
   return (
     <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>

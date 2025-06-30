@@ -64,6 +64,11 @@ const createBetterAuth = () => {
         clientId: env.GITHUB_CLIENT_ID,
         clientSecret: env.GITHUB_CLIENT_SECRET,
         scope: ['repo', 'read:user', 'user:email', 'read:org'],
+        authorization: {
+          params: {
+            prompt: 'select_account',
+          },
+        },
       }
     },
     session: {

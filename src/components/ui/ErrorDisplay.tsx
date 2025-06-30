@@ -1,5 +1,6 @@
 "use client";
 import { getErrorDisplayConfig } from '@/lib/utils/errorHandling';
+import { SubscriptionUpgrade } from '../SubscriptionUpgrade';
 
 interface ErrorDisplayProps {
   error: string | null;
@@ -21,6 +22,29 @@ export function ErrorDisplay({
   if (!error) return null;
 
   const config = getErrorDisplayConfig(error);
+
+  // If it's a subscription error, show the upgrade component
+  if (config.isSubscription) {
+    return (
+      <div className={`text-center py-8 ${className}`}>
+        <div className="max-w-md mx-auto mb-8">
+          <div className="text-6xl mb-4">{config.icon}</div>
+          <h2 className={`text-xl font-semibold mb-2 ${config.titleColor}`}>
+            {config.title}
+          </h2>
+          <p className="text-gray-600 mb-4">{config.description}</p>
+          
+          <div className={`${config.bgColor} border ${config.borderColor} rounded-lg p-4 mb-4`}>
+            <p className={`text-sm ${config.textColor}`}>
+              <strong>What happened?</strong> {config.explanation}
+            </p>
+          </div>
+        </div>
+        
+        <SubscriptionUpgrade />
+      </div>
+    );
+  }
 
   return (
     <div className={`text-center py-8 ${className}`}>

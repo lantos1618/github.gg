@@ -89,12 +89,19 @@ export function useAuth() {
 
   const handleSignOut = async () => {
     try {
+      console.log('[auth] Signing out...');
+      
       // Sign out from Better Auth
       await signOut();
       
-      // Also clear GitHub App session
+      // Clear GitHub App session
       await fetch('/api/auth/github-app', {
         method: 'DELETE',
+      });
+      
+      // Call our custom sign-out endpoint for complete cleanup
+      await fetch('/api/auth/sign-out', {
+        method: 'POST',
       });
       
       // Clear GitHub App session state
@@ -103,15 +110,13 @@ export function useAuth() {
       // Invalidate all tRPC queries to clear cached data
       utils.invalidate();
       
-      // Force a page refresh to clear all cached data
-      router.refresh();
-      
-      // Redirect to home page
+      // Simple redirect to home page
       router.push('/');
+      
     } catch (error) {
-      console.error('Error during sign out:', error);
-      // Even if there's an error, try to refresh the page
-      router.refresh();
+      console.error('[auth] Error during sign out:', error);
+      // On error, just redirect to home and let the page refresh naturally
+      router.push('/');
     }
   };
 

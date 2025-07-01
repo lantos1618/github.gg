@@ -79,7 +79,9 @@ function DiagramClientView({
 
   // Sync editableCode with diagramCode when diagramCode changes
   useEffect(() => {
-    if (!showCodePanel) setEditableCode(displayDiagramCode);
+    if (!showCodePanel && editableCode !== displayDiagramCode) {
+      setEditableCode(displayDiagramCode);
+    }
   }, [displayDiagramCode, showCodePanel]);
 
   // Copy handlers

@@ -1,122 +1,117 @@
 # GitHub.gg
 
-A modern GitHub repository analyzer built with Next.js, NextAuth.js, and Octokit, powered by Bun.
+A modern GitHub repository analyzer built with Next.js, Better Auth, and Octokit, powered by Bun.
 
 ## Features
 
-- 🔒 Secure authentication with GitHub OAuth
-- 📊 Repository analysis and statistics
-- 🚀 Fast and responsive UI
-- ⚡ Optimized for performance with Bun
-- 🏗️ TypeScript first-class support
-- 🧪 Built-in testing with Bun
+* 🔒 Secure authentication with GitHub OAuth
+* 📊 Repository analysis and statistics
+* 🚀 Fast and responsive UI
+* ⚡ Optimized for performance with Bun
+* 🏗️ TypeScript first-class support
+* 🧪 Built-in testing with Bun
+* 🗄️ PostgreSQL database with Docker
 
-## Getting Started
+## Quick Start
 
 ### Prerequisites
 
-- [Bun](https://bun.sh/) (recommended) or Node.js 18+
-- GitHub OAuth App credentials
+* Bun (recommended) or Node.js 18+
+* Docker (for local database)
+* GitHub OAuth App credentials
 
-### Quick Start with Bun
+### 1. Clone and Install
 
 ```bash
-# Install Bun (if not installed)
-curl -fsSL https://bun.sh/install | bash
-
-# Install dependencies
+git clone https://github.com/lantos1618/github.gg.git
+cd github.gg
 bun install
+```
 
-# Start development server
+### 2. Set Up Environment
+
+Copy the example environment file and configure your GitHub OAuth credentials:
+
+```bash
+cp .env.local.example .env.local
+```
+
+Update the following variables in `.env.local`:
+- `GITHUB_CLIENT_ID`: Your GitHub OAuth App Client ID
+- `GITHUB_CLIENT_SECRET`: Your GitHub OAuth App Client Secret
+- `BETTER_AUTH_SECRET`: A secure random string for session encryption
+
+### 3. Start Database (Local Development)
+
+```bash
+# Start PostgreSQL with Docker
+bun run db:start
+
+# Run database migrations
+bun run db:push
+```
+
+### 4. Start Development Server
+
+```bash
 bun dev
 ```
 
-### Traditional Setup (Node.js)
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-If you prefer using Node.js:
+## Database Management
 
+### Local Development
 ```bash
-# Install dependencies
-npm install
-# or
-yarn
+# Start database
+bun run db:start
 
-# Start development server
-npm run dev
-# or
-yarn dev
+# Stop database
+bun run db:stop
+
+# Reset database (⚠️ Destructive - drops all data)
+bun run db:reset
+
+# View database in Drizzle Studio
+bun run db:studio
+
+# Generate new migration
+bun run db:generate
+
+# Apply migrations
+bun run db:push
 ```
 
-### Environment Setup
+### Production Deployment (Vercel)
 
-1. Create a `.env.local` file in the root directory:
-   ```bash
-   cp .env.local.example .env.local
-   ```
+For production deployments:
+1. Set `DATABASE_URL` in your Vercel environment variables
+2. Add `bun run db:push` to your build command or as a post-deploy hook
+3. No Docker needed - Vercel handles the database connection
 
-2. Configure the environment variables (see [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) for details):
-   ```env
-   # NextAuth
-   NEXTAUTH_SECRET=your-secret-here
-   NEXTAUTH_URL=http://localhost:3000
-   
-   # GitHub OAuth
-   GITHUB_CLIENT_ID=your-github-client-id
-   GITHUB_CLIENT_SECRET=your-github-client-secret
-   ```
+## Environment Variables
 
-3. Install dependencies:
-   ```bash
-   npm install
-   # or
-   yarn
-   ```
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DATABASE_URL` | PostgreSQL connection string | Yes |
+| `BETTER_AUTH_SECRET` | Secret for session encryption | Yes |
+| `GITHUB_CLIENT_ID` | GitHub OAuth App Client ID | Yes |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth App Client Secret | Yes |
+| `NEXT_PUBLIC_APP_URL` | Your app's public URL | Yes |
+| `GITHUB_PUBLIC_API_KEY` | GitHub API key for unauthenticated requests | No |
+| `GEMINI_API_KEY` | Google Gemini API key for AI analysis | No |
 
-### Development
+## Development vs Production
 
-1. Start the development server:
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   ```
+### Local Development
+- Uses Docker Compose for PostgreSQL
+- Loads environment from `.env.local`
+- Run `bun run db:push` to apply migrations
 
-2. Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-### Testing Authentication
-
-To test the authentication flow:
-
-1. Start the development server
-2. Navigate to the login page or click the "Sign in with GitHub" button
-3. Authorize the application with your GitHub account
-4. You should be redirected back to the application
-
-For automated testing, you can use the test script:
-
-```bash
-# (Test script removed; see project for available scripts)
-```
-
-## Production Deployment
-
-### Vercel
-
-1. Push your code to a GitHub repository
-2. Import the repository on [Vercel](https://vercel.com/import)
-3. Add the required environment variables in the Vercel dashboard
-4. Deploy!
-
-## API Reference
-
-### Authentication
-
-All API routes are protected and require authentication. Include the session token in your requests.
-
-### Rate Limiting
-
-- Unauthenticated: 10 requests per hour
-- Authenticated: 100 requests per hour
+### Production (Vercel)
+- Uses production PostgreSQL (e.g., Vercel Postgres, Supabase, etc.)
+- Environment variables set in Vercel dashboard
+- Migrations run during build or deployment
 
 ## Contributing
 
@@ -132,6 +127,4 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## Contact
 
-Your Name - [@yourtwitter](https://twitter.com/yourtwitter) - email@example.com
-
-Project Link: [https://github.com/yourusername/github.gg](https://github.com/yourusername/github.gg)
+Project Link: [https://github.com/lantos1618/github.gg](https://github.com/lantos1618/github.gg)

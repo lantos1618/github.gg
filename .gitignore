@@ -2,6 +2,22 @@
 
 # dependencies
 /node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# lock files
+package-lock.json
+bun.lock
+yarn.lock
+pnpm-lock.yaml
+
+# testing
+/coverage
 
 # next.js
 /.next/
@@ -10,12 +26,17 @@
 # production
 /build
 
+# misc
+.DS_Store
+*.pem
+
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
 
-# env files
+# env files (can opt-in for committing if needed)
 .env*
 
 # vercel
@@ -24,3 +45,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# docker
+docker-compose.override.yml

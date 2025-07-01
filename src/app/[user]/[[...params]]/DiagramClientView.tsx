@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import RepoPageLayout from '@/components/layouts/RepoPageLayout';
 import { DiagramType } from '@/lib/types/diagram';
-import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
+
 import { useDiagramGeneration } from '@/lib/hooks/useDiagramGeneration';
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import {
@@ -15,49 +15,6 @@ import {
 import { LoadingWave } from '@/components/LoadingWave';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { trpc } from '@/lib/trpc/client';
-import { useRouter, usePathname } from 'next/navigation';
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from '@/components/ui/select';
-
-function BranchSelector({
-  user,
-  repo,
-  refName,
-  onBranchChange,
-}: {
-  user: string;
-  repo: string;
-  refName: string;
-  onBranchChange: (branch: string) => void;
-}) {
-  const { data: branches = [], isLoading: loadingBranches, error: branchError } =
-    trpc.github.getBranches.useQuery({ owner: user, repo });
-
-  if (loadingBranches) return <span className="text-xs text-gray-400">Loading branches...</span>;
-  if (branchError) return <span className="text-xs text-red-500">{branchError.message || 'Failed to load branches'}</span>;
-  if (!Array.isArray(branches) || branches.length === 0) return <span className="text-xs text-gray-400">No branches found</span>;
-  if (!refName || !branches.includes(refName)) return <span className="text-xs text-gray-400">No branch selected</span>;
-
-  return (
-    <Select value={refName} onValueChange={onBranchChange}>
-      <SelectTrigger className="w-[120px] text-xs">
-        <SelectValue placeholder="Select branch" />
-      </SelectTrigger>
-      <SelectContent>
-        {branches.map(branch => (
-          <SelectItem key={branch} value={branch} className="text-xs">
-            {branch}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
 
 function DiagramClientView({ 
   user, 
@@ -96,9 +53,7 @@ function DiagramClientView({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [showCodePanel]);
 
-  // Debounced values
-  const debouncedFiles = useDebouncedValue(repoFiles, 300);
-  const debouncedDiagramType = useDebouncedValue(diagramType, 200);
+  // Debounced values - removed unused variables
 
   // Memoize all inputs to useDiagramGeneration to prevent repeated requests
   const stableFiles = useMemo(() => repoFiles, [repoFiles]);
@@ -133,7 +88,7 @@ function DiagramClientView({
     if (!showCodePanel && editableCode !== displayDiagramCode) {
       setEditableCode(displayDiagramCode);
     }
-  }, [displayDiagramCode, showCodePanel]);
+  }, [displayDiagramCode, showCodePanel, editableCode]);
 
   // Copy handlers
   const handleCopyMermaid = () => {
@@ -161,9 +116,6 @@ function DiagramClientView({
 
   // Check if user has access to AI features
   const hasAccess = currentPlan?.plan === 'byok' || currentPlan?.plan === 'pro';
-
-  const router = useRouter();
-  const pathname = usePathname();
 
   // Show loading state while files are loading
   if (filesLoading) {
@@ -247,7 +199,6 @@ function DiagramClientView({
                 onRenderError={(err) => {
                   setRenderError(err);
                 }}
-                onRetryWithContext={handleRetryWithContext}
               />
             </DiagramCodePanel>
           </div>

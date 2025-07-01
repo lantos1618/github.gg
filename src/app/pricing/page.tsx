@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth/client';
 
 export default function PricingPage() {
-  const { session, isSignedIn, signIn } = useAuth();
+  const { isSignedIn, signIn } = useAuth();
   const createCheckout = trpc.billing.createCheckoutSession.useMutation({
     onSuccess: (data) => {
       if (data.url) {

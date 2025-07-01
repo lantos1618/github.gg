@@ -7,15 +7,13 @@ interface DiagramPreviewProps {
   isPending: boolean;
   renderError: string;
   onRenderError: (err: string) => void;
-  onRetryWithContext: (renderError?: string) => void;
 }
 
 export function DiagramPreview({
   code,
   isPending,
   renderError,
-  onRenderError,
-  onRetryWithContext
+  onRenderError
 }: DiagramPreviewProps) {
   return (
     <>

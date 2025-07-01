@@ -1,8 +1,8 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import RepoPageLayout from '@/components/layouts/RepoPageLayout';
 import { DiagramType } from '@/lib/types/diagram';
-import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
+
 import { useDiagramGeneration } from '@/lib/hooks/useDiagramGeneration';
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import {
@@ -53,9 +53,15 @@ function DiagramClientView({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [showCodePanel]);
 
-  // Debounced values
-  const debouncedFiles = useDebouncedValue(repoFiles, 300);
-  const debouncedDiagramType = useDebouncedValue(diagramType, 200);
+  // Debounced values - removed unused variables
+
+  // Memoize all inputs to useDiagramGeneration to prevent repeated requests
+  const stableFiles = useMemo(() => repoFiles, [repoFiles]);
+  const stableOptions = useMemo(() => options, [options]);
+  const stableDiagramType = useMemo(() => diagramType, [diagramType]);
+
+  // Debug log to see what is changing
+  console.log('diagram generation inputs', { user, repo, refName, files: stableFiles, diagramType: stableDiagramType, options: stableOptions });
 
   // Diagram generation logic
   const {
@@ -69,9 +75,9 @@ function DiagramClientView({
     user,
     repo,
     refName,
-    files: debouncedFiles,
-    diagramType: debouncedDiagramType,
-    options,
+    files: stableFiles,
+    diagramType: stableDiagramType,
+    options: stableOptions,
   });
 
   // Display logic
@@ -82,7 +88,7 @@ function DiagramClientView({
     if (!showCodePanel && editableCode !== displayDiagramCode) {
       setEditableCode(displayDiagramCode);
     }
-  }, [displayDiagramCode, showCodePanel]);
+  }, [displayDiagramCode, showCodePanel, editableCode]);
 
   // Copy handlers
   const handleCopyMermaid = () => {
@@ -173,6 +179,8 @@ function DiagramClientView({
               onToggleCodePanel={handleToggleCodePanel}
               onCopyMermaid={handleCopyMermaid}
               onCopyDiagram={handleCopyDiagram}
+              onRegenerate={handleRetryWithContext}
+              renderError={renderError}
               disabled={isPending}
             />
 
@@ -191,7 +199,6 @@ function DiagramClientView({
                 onRenderError={(err) => {
                   setRenderError(err);
                 }}
-                onRetryWithContext={handleRetryWithContext}
               />
             </DiagramCodePanel>
           </div>
@@ -207,6 +214,9 @@ function DiagramClientView({
             <UpgradePrompt feature="diagram" />
           </div>
         )}
+
+        {/* Branch selector now local to this view */}
+        {/* BranchSelector removed per user request */}
       </div>
     </RepoPageLayout>
   );

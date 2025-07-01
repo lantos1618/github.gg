@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Check, Key, Zap, Crown } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/lib/auth/client';
 
 export default function PricingPage() {
+  const { isSignedIn, signIn } = useAuth();
   const createCheckout = trpc.billing.createCheckoutSession.useMutation({
     onSuccess: (data) => {
       if (data.url) {
@@ -18,7 +20,7 @@ export default function PricingPage() {
     }
   });
 
-  const { data: currentPlan } = trpc.user.getCurrentPlan.useQuery();
+  const { data: currentPlan, isLoading: planLoading, error: planError } = trpc.user.getCurrentPlan.useQuery();
 
   const plans = [
     {
@@ -71,12 +73,14 @@ export default function PricingPage() {
           const isPro = plan.name === 'Pro';
           const isByok = plan.name === 'Developer';
           const isCurrent =
-            (currentPlan?.plan === 'pro' && isPro) ||
-            (currentPlan?.plan === 'byok' && isByok) ||
-            (currentPlan?.plan === 'free' && plan.name === 'Free');
+            currentPlan &&
+            ((currentPlan.plan === 'pro' && isPro) ||
+              (currentPlan.plan === 'byok' && isByok) ||
+              (currentPlan.plan === 'free' && plan.name === 'Free'));
           const canUpgrade =
-            (currentPlan?.plan === 'free') ||
-            (currentPlan?.plan === 'byok' && isPro);
+            currentPlan &&
+            ((currentPlan.plan === 'free') ||
+              (currentPlan.plan === 'byok' && isPro));
           return (
             <Card
               key={plan.name}
@@ -108,22 +112,36 @@ export default function PricingPage() {
                     </li>
                   ))}
                 </ul>
-                {isCurrent ? (
+                {planLoading ? (
                   <Button className="w-full" variant="outline" disabled>
-                    Current Plan
+                    Loading...
                   </Button>
-                ) : canUpgrade ? (
-                  <Button
-                    className={isPro ? 'w-full bg-purple-600 hover:bg-purple-700 text-white font-bold' : 'w-full'}
-                    variant={isPro ? 'default' : 'outline'}
-                    onClick={() => handleUpgrade(plan.plan!)}
-                    disabled={createCheckout.isPending}
-                  >
-                    {createCheckout.isPending ? 'Loading...' : 'Get Started'}
+                ) : planError ? (
+                  <Button className="w-full" variant="default" onClick={signIn}>
+                    Sign in to choose a plan
                   </Button>
+                ) : isSignedIn ? (
+                  isCurrent ? (
+                    <Button className="w-full" variant="outline" disabled>
+                      Current Plan
+                    </Button>
+                  ) : canUpgrade ? (
+                    <Button
+                      className={isPro ? 'w-full bg-purple-600 hover:bg-purple-700 text-white font-bold' : 'w-full'}
+                      variant={isPro ? 'default' : 'outline'}
+                      onClick={() => handleUpgrade(plan.plan!)}
+                      disabled={createCheckout.isPending}
+                    >
+                      {createCheckout.isPending ? 'Loading...' : 'Get Started'}
+                    </Button>
+                  ) : (
+                    <Button className="w-full" variant="outline" disabled>
+                      {isByok ? 'Upgrade to Pro for Managed AI' : 'Current Plan'}
+                    </Button>
+                  )
                 ) : (
-                  <Button className="w-full" variant="outline" disabled>
-                    {isByok ? 'Upgrade to Pro for Managed AI' : 'Current Plan'}
+                  <Button className="w-full" variant="default" onClick={signIn}>
+                    Sign in to choose a plan
                   </Button>
                 )}
               </CardContent>

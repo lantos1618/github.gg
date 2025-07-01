@@ -2,6 +2,7 @@
 
 import { LoadingWave, AnimatedTick } from './LoadingWave';
 import Link from 'next/link';
+import { useEffect, useMemo } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import {
   Select,
@@ -15,8 +16,7 @@ interface RepoHeaderProps {
   user: string;
   repo: string;
   refName?: string;
-  defaultBranch?: string;
-  onBranchChange?: (branch: string) => void;
+  onBranchChange?: (value: string) => void;
   onCopyAll: () => void;
   isCopying: boolean;
   copied: boolean;
@@ -27,7 +27,6 @@ export function RepoHeader({
   user, 
   repo, 
   refName,
-  defaultBranch,
   onBranchChange,
   onCopyAll, 
   isCopying, 
@@ -38,6 +37,19 @@ export function RepoHeader({
 
   const { data: branches = [], isLoading: loadingBranches, error: branchError } =
     trpc.github.getBranches.useQuery({ owner: user, repo });
+
+  // Memoize the selected branch to ensure stability
+  const selectedBranch = useMemo(() => {
+    if (loadingBranches || branches.length === 0) return refName;
+    return branches.includes(refName || '') ? refName : branches[0];
+  }, [refName, branches, loadingBranches]);
+
+  // Effect to correct the URL if the refName from the URL is invalid
+  useEffect(() => {
+    if (!loadingBranches && branches.length > 0 && selectedBranch !== refName) {
+      onBranchChange?.(selectedBranch!);
+    }
+  }, [loadingBranches, branches, selectedBranch, refName, onBranchChange]);
 
   return (
     <div className="max-w-screen-xl w-full mx-auto px-4">
@@ -61,44 +73,34 @@ export function RepoHeader({
                 {repo}
               </a>
             </h1>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-4 mt-1">
               {fileCount !== undefined && (
                 <p className="text-sm text-gray-600">
                   {fileCount} file{fileCount !== 1 ? 's' : ''}
                 </p>
               )}
-              <div className="ml-2">
-                {loadingBranches ? (
-                  <span className="text-xs text-gray-400">Loading branches...</span>
-                ) : branchError ? (
-                  <span className="text-xs text-red-500">{branchError.message || 'Failed to load branches'}</span>
-                ) : branches.length > 0 ? (
-                  <Select
-                    value={refName || defaultBranch || branches[0]}
-                    onValueChange={val => onBranchChange && onBranchChange(val)}
-                  >
-                    <SelectTrigger className="w-[120px] text-xs">
-                      <SelectValue placeholder="Select branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches.map(branch => (
-                        <SelectItem key={branch} value={branch} className="text-xs">
-                          {branch}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : null}
-              </div>
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                className="h-4 w-4 text-gray-400" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
+              {loadingBranches ? (
+                <span className="text-xs text-gray-400">Loading branches...</span>
+              ) : branchError ? (
+                <span className="text-xs text-red-500">{branchError.message || 'Failed to load branches'}</span>
+              ) : branches.length > 0 ? (
+                <Select
+                  value={selectedBranch}
+                  onValueChange={onBranchChange}
+                  disabled={loadingBranches}
+                >
+                  <SelectTrigger className="w-[120px] text-xs">
+                    <SelectValue placeholder="Select branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map(branch => (
+                      <SelectItem key={branch} value={branch} className="text-xs">
+                        {branch}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : null}
             </div>
           </div>
           <div className="flex items-center gap-4">

@@ -43,7 +43,8 @@ The diagram code should be a valid Mermaid diagram code.`;
 
   // Add retry context if this is a retry attempt
   if (isRetry && previousResult) {
-    prompt += `\n\nRETRY CONTEXT:
+    prompt += `\n\nSYSTEM: You are retrying a failed diagram generation. Focus on fixing the issues in the previous output and error.\n`;
+    prompt += `\nRETRY CONTEXT:
 This is a retry attempt. Here is the previous diagram result that had issues:
 ${previousResult}
 

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import RepoPageLayout from '@/components/layouts/RepoPageLayout';
 import { DiagramType } from '@/lib/types/diagram';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
@@ -15,6 +15,49 @@ import {
 import { LoadingWave } from '@/components/LoadingWave';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { trpc } from '@/lib/trpc/client';
+import { useRouter, usePathname } from 'next/navigation';
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@/components/ui/select';
+
+function BranchSelector({
+  user,
+  repo,
+  refName,
+  onBranchChange,
+}: {
+  user: string;
+  repo: string;
+  refName: string;
+  onBranchChange: (branch: string) => void;
+}) {
+  const { data: branches = [], isLoading: loadingBranches, error: branchError } =
+    trpc.github.getBranches.useQuery({ owner: user, repo });
+
+  if (loadingBranches) return <span className="text-xs text-gray-400">Loading branches...</span>;
+  if (branchError) return <span className="text-xs text-red-500">{branchError.message || 'Failed to load branches'}</span>;
+  if (!Array.isArray(branches) || branches.length === 0) return <span className="text-xs text-gray-400">No branches found</span>;
+  if (!refName || !branches.includes(refName)) return <span className="text-xs text-gray-400">No branch selected</span>;
+
+  return (
+    <Select value={refName} onValueChange={onBranchChange}>
+      <SelectTrigger className="w-[120px] text-xs">
+        <SelectValue placeholder="Select branch" />
+      </SelectTrigger>
+      <SelectContent>
+        {branches.map(branch => (
+          <SelectItem key={branch} value={branch} className="text-xs">
+            {branch}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 function DiagramClientView({ 
   user, 
@@ -57,6 +100,14 @@ function DiagramClientView({
   const debouncedFiles = useDebouncedValue(repoFiles, 300);
   const debouncedDiagramType = useDebouncedValue(diagramType, 200);
 
+  // Memoize all inputs to useDiagramGeneration to prevent repeated requests
+  const stableFiles = useMemo(() => repoFiles, [repoFiles]);
+  const stableOptions = useMemo(() => options, [options]);
+  const stableDiagramType = useMemo(() => diagramType, [diagramType]);
+
+  // Debug log to see what is changing
+  console.log('diagram generation inputs', { user, repo, refName, files: stableFiles, diagramType: stableDiagramType, options: stableOptions });
+
   // Diagram generation logic
   const {
     diagramCode,
@@ -69,9 +120,9 @@ function DiagramClientView({
     user,
     repo,
     refName,
-    files: debouncedFiles,
-    diagramType: debouncedDiagramType,
-    options,
+    files: stableFiles,
+    diagramType: stableDiagramType,
+    options: stableOptions,
   });
 
   // Display logic
@@ -110,6 +161,9 @@ function DiagramClientView({
 
   // Check if user has access to AI features
   const hasAccess = currentPlan?.plan === 'byok' || currentPlan?.plan === 'pro';
+
+  const router = useRouter();
+  const pathname = usePathname();
 
   // Show loading state while files are loading
   if (filesLoading) {
@@ -173,6 +227,8 @@ function DiagramClientView({
               onToggleCodePanel={handleToggleCodePanel}
               onCopyMermaid={handleCopyMermaid}
               onCopyDiagram={handleCopyDiagram}
+              onRegenerate={handleRetryWithContext}
+              renderError={renderError}
               disabled={isPending}
             />
 
@@ -207,6 +263,9 @@ function DiagramClientView({
             <UpgradePrompt feature="diagram" />
           </div>
         )}
+
+        {/* Branch selector now local to this view */}
+        {/* BranchSelector removed per user request */}
       </div>
     </RepoPageLayout>
   );

@@ -53,36 +53,40 @@ export function useDiagramGeneration({
 
   // Auto-generate when input changes
   useEffect(() => {
+    // Guard: Only trigger if all required inputs are present and stable
     if (!files || files.length === 0) return;
-    
+    if (!diagramType) return;
+    if (!options) return;
+    if (!user || !repo) return;
+
     const filesHash = JSON.stringify(files.map(f => f.path + f.content.length));
     const inputChanged = !lastInput || 
       lastInput.diagramType !== diagramType || 
       lastInput.filesHash !== filesHash;
-    
-    if (inputChanged) {
-      setError(null);
-      setLastError('');
-      if (diagramCode) {
-        setPreviousDiagramCode(diagramCode);
-      }
-      setDiagramCode('');
-      setLastInput(null);
-      
-      generateDiagramMutation.mutate({
-        user,
-        repo,
-        ref: refName || 'main',
-        files: files.map(f => ({ path: f.path, content: f.content, size: f.size })),
-        diagramType,
-        options,
-        ...(manualRetryKey > 0 && {
-          previousResult: previousDiagramCode,
-          lastError: lastError,
-          isRetry: true,
-        }),
-      });
+
+    // Prevent re-triggering if a request is already pending
+    if (!inputChanged || generateDiagramMutation.isPending) return;
+
+    setError(null);
+    setLastError('');
+    if (diagramCode) {
+      setPreviousDiagramCode(diagramCode);
     }
+    setDiagramCode('');
+    setLastInput(null);
+    generateDiagramMutation.mutate({
+      user,
+      repo,
+      ref: refName || 'main',
+      files: files.map(f => ({ path: f.path, content: f.content, size: f.size })),
+      diagramType,
+      options,
+      ...(manualRetryKey > 0 && {
+        previousResult: previousDiagramCode,
+        lastError: lastError,
+        isRetry: true,
+      }),
+    });
   }, [files, diagramType, manualRetryKey, user, repo, refName, options, lastInput, diagramCode, previousDiagramCode, lastError, generateDiagramMutation]);
 
   const handleRetry = () => {
@@ -91,10 +95,14 @@ export function useDiagramGeneration({
     setManualRetryKey(k => k + 1);
   };
 
-  const handleRetryWithContext = () => {
-    if (!previousDiagramCode || !lastError) return;
-    
+  const handleRetryWithContext = (renderError?: string) => {
     setError(null);
+    setLastInput(null); // Reset lastInput to ensure mutation triggers
+    
+    // Use render error if provided, otherwise use generation error
+    const errorToSend = renderError || lastError;
+    
+    // Pass the previous diagram code and error to the backend for fixing
     generateDiagramMutation.mutate({
       user,
       repo,
@@ -103,7 +111,7 @@ export function useDiagramGeneration({
       diagramType,
       options,
       previousResult: previousDiagramCode,
-      lastError: lastError,
+      lastError: errorToSend,
       isRetry: true,
     });
   };

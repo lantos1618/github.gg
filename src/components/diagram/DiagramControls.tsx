@@ -5,6 +5,8 @@ interface DiagramControlsProps {
   onToggleCodePanel: () => void;
   onCopyMermaid: () => void;
   onCopyDiagram: () => void;
+  onRegenerate?: (renderError?: string) => void;
+  renderError?: string;
   disabled?: boolean;
 }
 
@@ -13,6 +15,8 @@ export function DiagramControls({
   onToggleCodePanel,
   onCopyMermaid,
   onCopyDiagram,
+  onRegenerate,
+  renderError,
   disabled = false
 }: DiagramControlsProps) {
   return (
@@ -52,6 +56,15 @@ export function DiagramControls({
       >
         Copy Diagram
       </button>
+      {onRegenerate && (
+        <button
+          onClick={() => onRegenerate(renderError)}
+          disabled={disabled}
+          className="bg-yellow-100 hover:bg-yellow-200 text-yellow-700 font-medium py-2 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50"
+        >
+          Regenerate (Fix)
+        </button>
+      )}
     </div>
   );
 } 

@@ -7,7 +7,7 @@ interface DiagramPreviewProps {
   isPending: boolean;
   renderError: string;
   onRenderError: (err: string) => void;
-  onRetryWithContext: () => void;
+  onRetryWithContext: (renderError?: string) => void;
 }
 
 export function DiagramPreview({
@@ -37,13 +37,6 @@ export function DiagramPreview({
       {renderError && (
         <div className="mt-4 flex flex-col items-center">
           <div className="text-red-600 mb-2">Diagram failed to render. {renderError}</div>
-          <button
-            onClick={onRetryWithContext}
-            disabled={isPending}
-            className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
-          >
-            Regenerate (Fix)
-          </button>
         </div>
       )}
     </>

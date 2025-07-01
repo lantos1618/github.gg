@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useCallback } from 'react';
 import { useCopyRepoFiles } from '@/lib/hooks/useCopyRepoFiles';
 import { RepoHeader } from '@/components/RepoHeader';
 import RepoTabsBar from '@/components/RepoTabsBar';
@@ -27,7 +27,7 @@ export default function RepoPageLayout({
   const pathname = usePathname();
 
   // Handler to update the route when a branch is selected
-  const handleBranchChange = (branch: string) => {
+  const handleBranchChange = useCallback((branch: string) => {
     // Split the current path
     const segments = pathname.split('/').filter(Boolean);
     // Find the index of 'tree' if present
@@ -50,7 +50,7 @@ export default function RepoPageLayout({
       ];
     }
     router.push('/' + newSegments.join('/'));
-  };
+  }, [pathname, router]);
 
   return (
     <>

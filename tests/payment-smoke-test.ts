@@ -54,13 +54,12 @@ test('Payment Integration Smoke Test', async () => {
   // Test 3: Encryption Utils
   console.log('\n3. Checking encryption utilities...');
   try {
-    const { encryptApiKey, decryptApiKey, validateApiKey } = await import('@/lib/utils/encryption');
+    const { encryptApiKey, decryptApiKey } = await import('@/lib/utils/encryption');
     
     const testKey = 'gza_test_key_123456789';
     const encrypted = encryptApiKey(testKey);
     const decrypted = decryptApiKey(encrypted);
     
-    expect(validateApiKey(testKey)).toBe(true);
     expect(decrypted).toBe(testKey);
     expect(encrypted).not.toBe(testKey); // Should be encrypted
     

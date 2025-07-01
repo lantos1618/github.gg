@@ -22,9 +22,4 @@ export function decryptApiKey(encryptedApiKey: string): string {
   decrypted += decipher.final('utf8');
   
   return decrypted;
-}
-
-export function validateApiKey(apiKey: string): boolean {
-  // Basic validation for Gemini API key format
-  return apiKey.startsWith('gza_') && apiKey.length > 10;
 } 

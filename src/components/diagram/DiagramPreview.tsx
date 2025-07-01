@@ -23,14 +23,6 @@ export function DiagramPreview({
           code={code} 
           onRenderError={onRenderError} 
         />
-        {isPending && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 z-10">
-            <div className="flex flex-col items-center gap-2">
-              <LoadingWave />
-              <span className="text-blue-700 font-medium">Generating diagram...</span>
-            </div>
-          </div>
-        )}
       </div>
       {renderError && (
         <div className="mt-4 flex flex-col items-center">

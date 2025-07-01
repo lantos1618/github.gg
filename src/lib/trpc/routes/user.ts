@@ -3,8 +3,7 @@ import { router, protectedProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { userApiKeys, tokenUsage, userSubscriptions } from '@/db/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
-import { encryptApiKey, validateApiKey } from '@/lib/utils/encryption';
-import { TRPCError } from '@trpc/server';
+import { encryptApiKey } from '@/lib/utils/encryption';
 
 export const userRouter = router({
   // API Key Management
@@ -13,13 +12,6 @@ export const userRouter = router({
       apiKey: z.string().min(1, 'API key is required') 
     }))
     .mutation(async ({ input, ctx }) => {
-      if (!validateApiKey(input.apiKey)) {
-        throw new TRPCError({ 
-          code: 'BAD_REQUEST', 
-          message: 'Invalid Gemini API key format. Should start with "gza_"' 
-        });
-      }
-
       const encrypted = encryptApiKey(input.apiKey);
       
       await db.insert(userApiKeys).values({

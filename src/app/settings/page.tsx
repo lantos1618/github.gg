@@ -144,7 +144,7 @@ export default function SettingsPage() {
                   <div className="relative flex-1">
                     <Input 
                       type={showKey ? 'text' : 'password'} 
-                      placeholder="gza_..." 
+                      placeholder="Your API key..." 
                       value={apiKey}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKey(e.target.value)}
                       className="pr-10"

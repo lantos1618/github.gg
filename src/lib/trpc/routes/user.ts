@@ -4,7 +4,6 @@ import { db } from '@/db';
 import { userApiKeys, tokenUsage, userSubscriptions } from '@/db/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import { encryptApiKey } from '@/lib/utils/encryption';
-import { TRPCError } from '@trpc/server';
 
 export const userRouter = router({
   // API Key Management

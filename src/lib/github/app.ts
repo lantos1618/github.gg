@@ -131,7 +131,6 @@ export async function getBestOctokitForRepo(
   session?: SessionData, 
   req?: Request
 ) {
-  console.log(`🔍 Getting best Octokit for ${owner}/${repo} with session:`, !!session);
 
   // 1. Check if the logged-in user has a linked installation that covers this repo
   if (session && session.user && session.user.id) {

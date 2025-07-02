@@ -194,7 +194,6 @@ function DiagramClientView({
             >
               <DiagramPreview
                 code={editableCode || displayDiagramCode}
-                isPending={isPending}
                 renderError={renderError}
                 onRenderError={(err) => {
                   setRenderError(err);

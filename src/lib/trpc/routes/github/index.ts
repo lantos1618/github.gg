@@ -9,7 +9,6 @@ export const githubRouter = router({
   files: filesRouter.files,
   getRepoInfo: filesRouter.getRepoInfo,
   getBranches: filesRouter.getBranches,
-  getRepoMeta: filesRouter.getRepoMeta,
   
   // Repository listings and user repos
   getReposForScrollingCached: reposRouter.getReposForScrollingCached,

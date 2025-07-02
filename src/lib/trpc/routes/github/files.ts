@@ -83,28 +83,5 @@ export const filesRouter = router({
       }
     }),
 
-  getRepoMeta: publicProcedure
-    .input(z.object({
-      owner: z.string(),
-      repo: z.string(),
-    }))
-    .query(async ({ input, ctx }) => {
-      try {
-        const githubService = await createGitHubServiceFromSession(ctx.session);
-        const repoInfo = await githubService.getRepositoryInfo(input.owner, input.repo);
-        return repoInfo;
-      } catch (error: unknown) {
-        const errorMessage = parseError(error);
-        if (errorMessage.includes('not found')) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: errorMessage,
-          });
-        }
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to get repository meta',
-        });
-      }
-    }),
+
 }); 

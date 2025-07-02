@@ -1,17 +1,14 @@
 "use client";
 import { MermaidRenderer } from './MermaidRenderer';
-import { LoadingWave } from '@/components/LoadingWave';
 
 interface DiagramPreviewProps {
   code: string;
-  isPending: boolean;
   renderError: string;
   onRenderError: (err: string) => void;
 }
 
 export function DiagramPreview({
   code,
-  isPending,
   renderError,
   onRenderError
 }: DiagramPreviewProps) {

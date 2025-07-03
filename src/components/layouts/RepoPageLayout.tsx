@@ -33,11 +33,12 @@ export default function RepoPageLayout({
     // Find the index of 'tree' if present
     const treeIdx = segments.indexOf('tree');
     let newSegments;
+    const encodedBranch = encodeURIComponent(branch);
     if (treeIdx !== -1) {
       // Replace the branch after 'tree'
       newSegments = [
         ...segments.slice(0, treeIdx + 1),
-        branch,
+        encodedBranch,
         ...segments.slice(treeIdx + 2)
       ];
     } else {
@@ -45,7 +46,7 @@ export default function RepoPageLayout({
       newSegments = [
         ...segments.slice(0, 2), // user, repo
         'tree',
-        branch,
+        encodedBranch,
         ...segments.slice(2)
       ];
     }

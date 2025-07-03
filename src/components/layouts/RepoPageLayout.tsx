@@ -4,6 +4,8 @@ import { RepoHeader } from '@/components/RepoHeader';
 import RepoTabsBar from '@/components/RepoTabsBar';
 import type { RepoFile } from '@/types/repo';
 import { useRouter, usePathname } from 'next/navigation';
+import { trpc } from '@/lib/trpc/client';
+import { parseBranchAndPath } from '@/lib/utils';
 
 interface RepoPageLayoutProps {
   user: string;
@@ -25,33 +27,27 @@ export default function RepoPageLayout({
   const { copyAllContent, isCopying, copied } = useCopyRepoFiles(files);
   const router = useRouter();
   const pathname = usePathname();
+  const { data: branches = [] } = trpc.github.getBranches.useQuery({ owner: user, repo });
 
   // Handler to update the route when a branch is selected
   const handleBranchChange = useCallback((branch: string) => {
-    // Split the current path
     const segments = pathname.split('/').filter(Boolean);
-    // Find the index of 'tree' if present
     const treeIdx = segments.indexOf('tree');
-    let newSegments;
+    if (treeIdx === -1) return; // Defensive: only handle /tree/ URLs
+
+    // Get the segments after /tree/
+    const afterTree = segments.slice(treeIdx + 1).map(decodeURIComponent);
+    // Find the current branch and path
+    const { path } = parseBranchAndPath(afterTree, branches);
+    // Build new segments: replace branch with new branch, preserve path
     const encodedBranch = encodeURIComponent(branch);
-    if (treeIdx !== -1) {
-      // Replace the branch after 'tree'
-      newSegments = [
-        ...segments.slice(0, treeIdx + 1),
-        encodedBranch,
-        ...segments.slice(treeIdx + 2)
-      ];
-    } else {
-      // Insert 'tree' and branch after user/repo
-      newSegments = [
-        ...segments.slice(0, 2), // user, repo
-        'tree',
-        encodedBranch,
-        ...segments.slice(2)
-      ];
-    }
+    const newSegments = [
+      ...segments.slice(0, treeIdx + 1),
+      encodedBranch,
+      ...(path ? path.split('/') : [])
+    ];
     router.push('/' + newSegments.join('/'));
-  }, [pathname, router]);
+  }, [pathname, router, branches]);
 
   return (
     <>

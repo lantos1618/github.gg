@@ -5,9 +5,9 @@ import { roadmapItems } from '@/data/roadmap';
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white pt-14">
       <HeroSection />
       <RoadmapSection items={roadmapItems} />
-    </main>
+    </div>
   );
 }

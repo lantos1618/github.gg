@@ -46,8 +46,8 @@ export class GitHubService {
   }
 
   // User operations
-  async getUserRepositories(username?: string, userId?: string): Promise<RepoSummary[]> {
-    return this.userService.getUserRepositories(username, userId);
+  async getUserRepositories(username?: string): Promise<RepoSummary[]> {
+    return this.userService.getUserRepositories(username);
   }
 
   // Cache operations
@@ -129,6 +129,29 @@ export async function createGitHubServiceFromSession(session: BetterAuthSession 
   const oauthService = await GitHubService.createWithOAuth(session);
   if (oauthService) {
     return oauthService;
+  }
+
+  // Fallback to public service
+  return GitHubService.createPublic();
+}
+
+// Specialized function for user operations that prioritizes OAuth
+export async function createGitHubServiceForUserOperations(session: BetterAuthSession | null): Promise<GitHubService> {
+  if (!session?.user?.id) {
+    // Fallback to public service if no session
+    return GitHubService.createPublic();
+  }
+
+  // For user operations like getUserRepositories, prioritize OAuth to get complete access
+  const oauthService = await GitHubService.createWithOAuth(session);
+  if (oauthService) {
+    return oauthService;
+  }
+
+  // Fallback to GitHub App if OAuth is not available
+  const appService = await GitHubService.createWithApp(session);
+  if (appService) {
+    return appService;
   }
 
   // Fallback to public service

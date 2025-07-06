@@ -6,7 +6,45 @@ export const FILE_FILTER_CONFIG = {
     languages: [
       '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.py', '.rb', '.java', '.c', '.cpp', '.h', '.hpp', 
       '.cs', '.go', '.rs', '.swift', '.kt', '.scala', '.php', '.pl', '.sh', '.bash', '.zsh', 
-      '.ps1', '.lua', '.groovy', '.r', '.dart', '.hs', '.erl', '.ex', '.exs'
+      '.ps1', '.lua', '.groovy', '.r', '.dart', '.hs', '.erl', '.ex', '.exs',
+      // Clojure
+      '.clj', '.cljs', '.cljc', '.edn',
+      // Nim
+      '.nim',
+      // OCaml
+      '.ml', '.mli',
+      // F#
+      '.fs', '.fsi', '.fsx',
+      // Julia
+      '.jl',
+      // Crystal
+      '.cr',
+      // Zig
+      '.zig',
+      // V
+      '.v',
+      // Fortran
+      '.f90', '.f95', '.f03', '.f08', '.f', '.for',
+      // Pascal
+      '.pas',
+      // Ada
+      '.adb', '.ads',
+      // Matlab/Octave
+      '.m',
+      // Assembly
+      '.asm', '.s',
+      // COBOL
+      '.cob', '.cbl',
+      // Racket/Scheme
+      '.rkt', '.scm',
+      // Tcl
+      '.tcl',
+      // Smalltalk
+      '.st',
+      // D
+      '.d',
+      // Objective-C
+      '.m', '.mm'
     ],
     // Web & Frontend
     web: ['.html', '.htm', '.css', '.scss', '.sass', '.less', '.styl', '.vue', '.svelte'],
@@ -48,6 +86,20 @@ export const FILE_FILTER_CONFIG = {
     '.pdb', '.db', '.sqlite', '.sqlite3'
   ]),
 
+  // Deny-list for specific filenames that should always be excluded
+  deniedFilenames: new Set([
+    'package-lock.json',
+    'yarn.lock',
+    'pnpm-lock.yaml',
+    'composer.lock',
+    'Gemfile.lock',
+    'Cargo.lock',
+    'go.sum',
+    'poetry.lock',
+    'Pipfile.lock',
+    'requirements.txt.lock'
+  ]),
+
   // Deny-list for paths. Any file within these directories will be skipped.
   deniedPaths: [
     'node_modules/', 'vendor/', 'dist/', 'build/', 'bin/', 'obj/', '.git/', 
@@ -63,13 +115,21 @@ export const ALLOWED_EXTENSIONS = new Set([
   ...FILE_FILTER_CONFIG.allowList.docs
 ]);
 
-export function shouldProcessFile(filePath: string, path?: string): boolean {
+export function shouldProcessFile(filePath: string, path?: string, topLevelDir?: string | null): boolean {
   const lowerFilePath = filePath.toLowerCase();
   const fileName = filePath.split('/').pop() || '';
 
   // 0. Filter by path if specified
-  if (path && !filePath.startsWith(path + '/') && filePath !== path) {
-    return false;
+  if (path) {
+    // Strip tarball prefix using the provided topLevelDir
+    let pathWithoutPrefix = filePath;
+    if (topLevelDir && filePath.startsWith(topLevelDir + '/')) {
+      pathWithoutPrefix = filePath.substring(topLevelDir.length + 1);
+    }
+    
+    if (!pathWithoutPrefix.startsWith(path + '/') && pathWithoutPrefix !== path) {
+      return false;
+    }
   }
 
   // 1. Deny if it's in a denied directory.
@@ -77,28 +137,39 @@ export function shouldProcessFile(filePath: string, path?: string): boolean {
     return false;
   }
 
-  // 2. Deny if it has a denied extension.
+  // 2. Deny if it's a specifically denied filename.
+  if (FILE_FILTER_CONFIG.deniedFilenames.has(fileName)) {
+    return false;
+  }
+
+  // 3. Deny if it has a denied extension.
   const extension = (fileName.includes('.') ? '.' + fileName.split('.').pop() : '').toLowerCase();
   if (extension && FILE_FILTER_CONFIG.deniedExtensions.has(extension)) {
     return false;
   }
   
-  // 3. Deny minified files
+  // 4. Deny files that contain denied patterns in their name (e.g., package-lock.json)
+  const deniedPatterns = ['.lock', '.log', '.tmp', '.cache'];
+  if (deniedPatterns.some(pattern => lowerFilePath.includes(pattern))) {
+    return false;
+  }
+  
+  // 5. Deny minified files
   if (lowerFilePath.endsWith('.min.js') || lowerFilePath.endsWith('.min.css')) {
     return false;
   }
 
-  // 4. Allow if it's an exact name match (e.g., README).
+  // 6. Allow if it's an exact name match (e.g., README).
   if (FILE_FILTER_CONFIG.allowList.exactNames.includes(fileName)) {
     return true;
   }
 
-  // 5. Allow if it has an allowed extension.
+  // 7. Allow if it has an allowed extension.
   if (extension && ALLOWED_EXTENSIONS.has(extension)) {
     return true;
   }
 
-  // 6. Allow common config file patterns that don't have extensions.
+  // 8. Allow common config file patterns that don't have extensions.
   if (FILE_FILTER_CONFIG.allowList.build.includes(fileName) || fileName.endsWith('rc')) {
     return true;
   }

@@ -5,7 +5,6 @@ import RepoTabsBar from '@/components/RepoTabsBar';
 import type { RepoFile } from '@/types/repo';
 import { useRouter, usePathname } from 'next/navigation';
 import { trpc } from '@/lib/trpc/client';
-import { parseBranchAndPath } from '@/lib/utils';
 
 interface RepoPageLayoutProps {
   user: string;
@@ -31,23 +30,36 @@ export default function RepoPageLayout({
 
   // Handler to update the route when a branch is selected
   const handleBranchChange = useCallback((branch: string) => {
-    const segments = pathname.split('/').filter(Boolean);
-    const treeIdx = segments.indexOf('tree');
-    if (treeIdx === -1) return; // Defensive: only handle /tree/ URLs
-
-    // Get the segments after /tree/
-    const afterTree = segments.slice(treeIdx + 1).map(decodeURIComponent);
-    // Find the current branch and path
-    const { path } = parseBranchAndPath(afterTree, branches);
-    // Build new segments: replace branch with new branch, preserve path
-    const encodedBranch = encodeURIComponent(branch);
-    const newSegments = [
-      ...segments.slice(0, treeIdx + 1),
-      encodedBranch,
-      ...(path ? path.split('/') : [])
-    ];
-    router.push('/' + newSegments.join('/'));
-  }, [pathname, router, branches]);
+    try {
+      const segments = pathname.split('/').filter(Boolean);
+      const treeIdx = segments.indexOf('tree');
+      let pathSegments: string[] = [];
+      if (treeIdx !== -1) {
+        // Find the current branch by matching against known branches
+        let currentBranch = '';
+        for (let i = segments.length - (treeIdx + 1); i > 0; i--) {
+          const candidate = segments.slice(treeIdx + 1, treeIdx + 1 + i).map(decodeURIComponent).join('/');
+          if (branches.includes(candidate)) {
+            currentBranch = candidate;
+            pathSegments = segments.slice(treeIdx + 1 + i);
+            break;
+          }
+        }
+        // If no branch found, assume first segment is branch
+        if (!currentBranch && segments.length > treeIdx + 1) {
+          pathSegments = segments.slice(treeIdx + 2);
+        }
+      }
+      // Build new path: use the raw branch name, not encoded
+      const newPath = `/${user}/${repo}/tree/${branch}${pathSegments.length ? '/' + pathSegments.join('/') : ''}`;
+      router.push(newPath);
+    } catch (error) {
+      console.error('Error handling branch change:', error);
+      // Fallback: construct a simple tree URL
+      const fallbackPath = `/${user}/${repo}/tree/${encodeURIComponent(branch)}`;
+      router.push(fallbackPath);
+    }
+  }, [pathname, router, branches, user, repo]);
 
   return (
     <>

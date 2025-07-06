@@ -1,9 +1,6 @@
 import { Octokit } from '@octokit/rest';
 import type { RepoSummary } from './types';
 import { parseError } from '@/lib/types/errors';
-import { db } from '@/db';
-import { account, installationRepositories } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
 
 // GitHub API response types
 interface GitHubUserRepoData {
@@ -27,54 +24,17 @@ export class UserService {
     this.octokit = octokit;
   }
 
-  // Get user repositories
-  async getUserRepositories(username?: string, userId?: string): Promise<RepoSummary[]> {
-    // Try GitHub App installation method first if userId is provided
-    if (userId) {
-      try {
-        // Find installationId for this user
-        const userAccount = await db.query.account.findFirst({
-          where: and(
-            eq(account.userId, userId),
-            eq(account.providerId, 'github')
-          ),
-        });
-        const installationId = userAccount?.installationId;
-        if (installationId) {
-          // Query installationRepositories for this installation
-          const repos = await db.query.installationRepositories.findMany({
-            where: eq(installationRepositories.installationId, installationId),
-          });
-          if (repos.length > 0) {
-            // Map to RepoSummary
-            return repos.map(r => {
-              const [owner, name] = r.fullName.split('/');
-              return {
-                owner,
-                name,
-                description: '',
-                stargazersCount: 0,
-                forksCount: 0,
-                language: '',
-                topics: [],
-                url: `https://github.com/${owner}/${name}`,
-              };
-            });
-          }
-        }
-      } catch (e) {
-        // Log and fallback
-        console.warn('Failed to fetch installation repositories, falling back to OAuth:', e);
-      }
-    }
-    // Fallback to old OAuth method
+  // Get user repositories - now prioritizes OAuth to get complete repository access
+  async getUserRepositories(username?: string): Promise<RepoSummary[]> {
     try {
-      // If no username provided, get authenticated user's repos
-      const endpoint = username 
+      // Use OAuth-based method as primary approach
+      // This single call gets all repos the user can access (personal and organizations)
+      const endpoint = username
         ? this.octokit.request('GET /users/{username}/repos', { username, per_page: 100, sort: 'updated' })
-        : this.octokit.request('GET /user/repos', { per_page: 100, sort: 'updated' });
+        : this.octokit.request('GET /user/repos', { affiliation: 'owner,collaborator,organization_member', per_page: 100, sort: 'updated' });
 
       const { data } = await endpoint;
+      
       return (data as GitHubUserRepoData[]).map((repo) => ({
         owner: repo.owner.login,
         name: repo.name,
@@ -87,6 +47,10 @@ export class UserService {
       }));
     } catch (error: unknown) {
       const errorMessage = parseError(error);
+      // Check for 401 error, which indicates the token might be bad or expired
+      if (errorMessage.includes('401')) {
+         throw new Error(`Authentication error: Bad credentials or token expired. Please sign out and sign back in. Original error: ${errorMessage}`);
+      }
       throw new Error(`Failed to get user repositories: ${errorMessage}`);
     }
   }

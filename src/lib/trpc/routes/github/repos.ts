@@ -1,6 +1,6 @@
 import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
 import { z } from 'zod';
-import { createGitHubServiceFromSession, RepoSummary } from '@/lib/github';
+import { createGitHubServiceFromSession, createGitHubServiceForUserOperations, RepoSummary } from '@/lib/github';
 import { db } from '@/db';
 import { cachedRepos } from '@/db/schema';
 import { CACHED_REPOS } from '@/lib/constants';
@@ -79,10 +79,10 @@ export const reposRouter = router({
       try {
         const userId = ctx.session?.user?.id;
 
-        const githubService = await createGitHubServiceFromSession(ctx.session);
+        const githubService = await createGitHubServiceForUserOperations(ctx.session);
         
-        // Get user repos (try installation first, then OAuth)
-        const userRepos = await githubService.getUserRepositories(undefined, userId);
+        // Get user repos using OAuth to access all repositories (personal and organizations)
+        const userRepos = await githubService.getUserRepositories();
         const limitedUserRepos = userRepos.slice(0, input.limit);
 
         // Check cache for user repos (filter by userId)
@@ -153,7 +153,7 @@ export const reposRouter = router({
     .query(async ({ input, ctx }) => {
       try {
 
-        const githubService = await createGitHubServiceFromSession(ctx.session);
+        const githubService = await createGitHubServiceForUserOperations(ctx.session);
         
         // 1. Build a definitive list of repo identifiers
         const repoIdentifiers = new Map<string, { owner: string; name: string; special?: boolean }>();
@@ -162,7 +162,7 @@ export const reposRouter = router({
         let userRepos: { owner: string; name: string }[] = [];
         if (ctx.session?.user?.id) {
           try {
-            userRepos = await githubService.getUserRepositories(undefined, ctx.session?.user?.id);
+            userRepos = await githubService.getUserRepositories();
             // Limit user repos to 6 (most recent/relevant)
             const limitedUserRepos = userRepos.slice(0, 6);
             limitedUserRepos.forEach(repo => {
@@ -325,8 +325,8 @@ export const reposRouter = router({
   getUserRepoNames: protectedProcedure
     .query(async ({ ctx }) => {
       try {
-        const githubService = await createGitHubServiceFromSession(ctx.session);
-        const userRepos = await githubService.getUserRepositories(undefined, ctx.session?.user?.id); 
+        const githubService = await createGitHubServiceForUserOperations(ctx.session);
+        const userRepos = await githubService.getUserRepositories(); 
         return userRepos.map(repo => `${repo.owner}/${repo.name}`);
       } catch (error) {
         console.error('Failed to get user repo names:', error);

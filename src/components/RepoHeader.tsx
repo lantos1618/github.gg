@@ -2,7 +2,7 @@
 
 import { LoadingWave, AnimatedTick } from './LoadingWave';
 import Link from 'next/link';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import {
   Select,
@@ -40,16 +40,21 @@ export function RepoHeader({
 
   // Memoize the selected branch to ensure stability
   const selectedBranch = useMemo(() => {
-    if (loadingBranches || branches.length === 0) return refName;
-    return branches.includes(refName || '') ? refName : branches[0];
+    if (loadingBranches || branches.length === 0) return refName || 'main';
+    
+    // If the current refName is in the branches list, use it
+    if (refName && branches.includes(refName)) {
+      return refName;
+    }
+    
+    // Otherwise, use the first branch (usually main or master)
+    return branches[0];
   }, [refName, branches, loadingBranches]);
 
-  // Effect to correct the URL if the refName from the URL is invalid
-  useEffect(() => {
-    if (!loadingBranches && branches.length > 0 && selectedBranch !== refName) {
-      onBranchChange?.(selectedBranch!);
-    }
-  }, [loadingBranches, branches, selectedBranch, refName, onBranchChange]);
+
+  const handleBranchChange = (value: string) => {
+    onBranchChange?.(value);
+  };
 
   return (
     <div className="max-w-screen-xl w-full mx-auto px-4">
@@ -86,7 +91,7 @@ export function RepoHeader({
               ) : branches.length > 0 ? (
                 <Select
                   value={selectedBranch}
-                  onValueChange={onBranchChange}
+                  onValueChange={handleBranchChange}
                   disabled={loadingBranches}
                 >
                   <SelectTrigger className="w-[120px] text-xs">

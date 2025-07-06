@@ -167,15 +167,15 @@ function useResponsiveRows() {
 }
 
 export const ScrollingRepos = ({ className, children }: { className?: string, children?: React.ReactNode }) => {
-  const { data: popularRepos, isLoading: isPopularLoading } = useReposForScrolling(80);
-  const { data: sponsorRepos, isLoading: isSponsorLoading } = useSponsorRepos();
-  const { data: userRepos, isLoading: isUserReposLoading } = useUserReposForScrolling(10);
-  const { data: installationRepos } = useInstallationRepositories(10);
+  const { data: popularReposRaw } = useReposForScrolling(80);
+  const { data: sponsorReposRaw } = useSponsorRepos();
+  const { data: userReposRaw } = useUserReposForScrolling(10);
+  const { data: installationReposRaw } = useInstallationRepositories(10);
   const auth = useAuth();
   
   const responsiveRows = useResponsiveRows();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(0);
+  const [containerWidth] = useState(0);
 
   // NEW: State for shuffled repos
   const [shuffledRows, setShuffledRows] = useState<RepoData[][] | null>(null);
@@ -196,27 +196,17 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
   const [rowWidths, setRowWidths] = useState<number[]>([]);
 
   useEffect(() => {
-    function updateWidth() {
-      if (containerRef.current) {
-        setContainerWidth(containerRef.current.offsetWidth);
-      }
-    }
-    updateWidth();
-    window.addEventListener('resize', updateWidth);
-    return () => window.removeEventListener('resize', updateWidth);
-  }, []);
-
-  // NEW: Shuffle only on client after mount
-  useEffect(() => {
+    const sponsors = sponsorReposRaw || [];
+    const popular = popularReposRaw || [];
+    const userRepos = userReposRaw || [];
+    const installationRepos = installationReposRaw || [];
     const allRepos: RepoData[] = [];
     const loggedIn = auth.isSignedIn;
-    const sponsors = sponsorRepos || [];
-    const popular = popularRepos || [];
     let userSpecific: RepoData[] = [];
     if (loggedIn) {
-      if (userRepos && userRepos.length > 0) {
+      if (userRepos.length > 0) {
         userSpecific = userRepos;
-      } else if (installationRepos && Array.isArray(installationRepos) && installationRepos.length > 0) {
+      } else if (installationRepos.length > 0) {
         userSpecific = installationRepos.map((r: { owner: string; name: string; repositoryId: number }) => ({
           owner: r.owner,
           name: r.name,
@@ -250,7 +240,7 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
     // Distribute into rows (responsive)
     const rows = Array.from({ length: responsiveRows }, (_, i) => finalRepos.slice(i * 8, (i + 1) * 8));
     setShuffledRows(rows);
-  }, [popularRepos, sponsorRepos, userRepos, auth.isSignedIn, installationRepos, responsiveRows]);
+  }, [popularReposRaw, sponsorReposRaw, userReposRaw, installationReposRaw, auth.isSignedIn, responsiveRows]);
 
   useEffect(() => {
     if (shuffledRows) {
@@ -260,7 +250,7 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
     }
   }, [shuffledRows, containerWidth]);
 
-  const isLoading = isPopularLoading || (auth.isSignedIn && (isSponsorLoading || isUserReposLoading));
+  const isLoading = false;
 
   // Memoize row colors - create stable color assignments
   const rowColors = useMemo(() => {
@@ -293,7 +283,7 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
         )}
         {/* Use shuffledRows if available, otherwise render nothing (prevents SSR mismatch) */}
         {shuffledRows && shuffledRows.map((row, idx) => {
-          const colorsForRow = rowColors[idx];
+          const colorsForRow = Array.isArray(rowColors[idx]) ? rowColors[idx] : [];
           const rowWidth = rowWidths[idx] || 0;
           const repeatCount = rowWidth > 0 && containerWidth > 0 ? Math.ceil(containerWidth / rowWidth) + 1 : 2;
           const shouldAnimate = rowWidth > containerWidth;
@@ -313,7 +303,7 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
             >
               {Array.from({ length: shouldAnimate ? repeatCount : 1 }).flatMap((_, duplicateIndex) =>
                 row.map((repo, repoIdx) => {
-                  const color = colorsForRow[repoIdx % colorsForRow.length];
+                  const color = colorsForRow[repoIdx % colorsForRow.length] || '#FFD1D1';
                   return (
                     <motion.div
                       key={`${idx}-${repo.owner}-${repo.name}-${repoIdx}-${duplicateIndex}-${repo.isUserRepo ? 'user' : 'cached'}`}

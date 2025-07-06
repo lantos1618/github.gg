@@ -39,7 +39,6 @@ const CustomTooltipContent = forwardRef<
 });
 CustomTooltipContent.displayName = 'CustomTooltipContent';
 
-const NUM_ROWS = 10;
 const pastelColors = [
   '#FFD1D1', '#FFEACC', '#FEFFD8', '#E2FFDB', '#D4F9FF', '#D0E2FF', '#DDD9FF', '#FFE3FF'
 ];
@@ -301,7 +300,9 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
           return (
             <motion.div
               key={`row-${idx}`}
-              ref={el => (rowRefs.current[idx] = el)}
+              ref={(el) => {
+                rowRefs.current[idx] = el;
+              }}
               className="flex items-center whitespace-nowrap py-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

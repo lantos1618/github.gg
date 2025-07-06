@@ -200,4 +200,18 @@ describe('Enhanced Branch and Path Parsing', () => {
     expect(result.path).toBe('src/lib');
     expect(result.currentPath).toBe('/kepler16/kmono/tree/jv%2Fkxoosrpyvqlm/src/lib');
   });
+
+  it('should parse real-world branch with slash and subdirectory (kepler16/gx.cljc)', () => {
+    // Simulate real branch list from kepler16/gx.cljc
+    const branchNames = [
+      'main',
+      'jv/ref-stowyxvtroxx',
+      // ...other branches
+    ];
+    // URL: /kepler16/gx.cljc/tree/jv%2Fref-stowyxvtroxx/examples
+    const segments = ['jv', 'ref-stowyxvtroxx', 'examples'];
+    const result = parseBranchAndPath(segments, branchNames);
+    expect(result.branch).toBe('jv/ref-stowyxvtroxx');
+    expect(result.path).toBe('examples');
+  });
 }); 

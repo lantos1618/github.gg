@@ -86,6 +86,20 @@ export const FILE_FILTER_CONFIG = {
     '.pdb', '.db', '.sqlite', '.sqlite3'
   ]),
 
+  // Deny-list for specific filenames that should always be excluded
+  deniedFilenames: new Set([
+    'package-lock.json',
+    'yarn.lock',
+    'pnpm-lock.yaml',
+    'composer.lock',
+    'Gemfile.lock',
+    'Cargo.lock',
+    'go.sum',
+    'poetry.lock',
+    'Pipfile.lock',
+    'requirements.txt.lock'
+  ]),
+
   // Deny-list for paths. Any file within these directories will be skipped.
   deniedPaths: [
     'node_modules/', 'vendor/', 'dist/', 'build/', 'bin/', 'obj/', '.git/', 
@@ -115,28 +129,39 @@ export function shouldProcessFile(filePath: string, path?: string): boolean {
     return false;
   }
 
-  // 2. Deny if it has a denied extension.
+  // 2. Deny if it's a specifically denied filename.
+  if (FILE_FILTER_CONFIG.deniedFilenames.has(fileName)) {
+    return false;
+  }
+
+  // 3. Deny if it has a denied extension.
   const extension = (fileName.includes('.') ? '.' + fileName.split('.').pop() : '').toLowerCase();
   if (extension && FILE_FILTER_CONFIG.deniedExtensions.has(extension)) {
     return false;
   }
   
-  // 3. Deny minified files
+  // 4. Deny files that contain denied patterns in their name (e.g., package-lock.json)
+  const deniedPatterns = ['.lock', '.log', '.tmp', '.cache'];
+  if (deniedPatterns.some(pattern => lowerFilePath.includes(pattern))) {
+    return false;
+  }
+  
+  // 5. Deny minified files
   if (lowerFilePath.endsWith('.min.js') || lowerFilePath.endsWith('.min.css')) {
     return false;
   }
 
-  // 4. Allow if it's an exact name match (e.g., README).
+  // 6. Allow if it's an exact name match (e.g., README).
   if (FILE_FILTER_CONFIG.allowList.exactNames.includes(fileName)) {
     return true;
   }
 
-  // 5. Allow if it has an allowed extension.
+  // 7. Allow if it has an allowed extension.
   if (extension && ALLOWED_EXTENSIONS.has(extension)) {
     return true;
   }
 
-  // 6. Allow common config file patterns that don't have extensions.
+  // 8. Allow common config file patterns that don't have extensions.
   if (FILE_FILTER_CONFIG.allowList.build.includes(fileName) || fileName.endsWith('rc')) {
     return true;
   }

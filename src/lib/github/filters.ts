@@ -6,7 +6,45 @@ export const FILE_FILTER_CONFIG = {
     languages: [
       '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.py', '.rb', '.java', '.c', '.cpp', '.h', '.hpp', 
       '.cs', '.go', '.rs', '.swift', '.kt', '.scala', '.php', '.pl', '.sh', '.bash', '.zsh', 
-      '.ps1', '.lua', '.groovy', '.r', '.dart', '.hs', '.erl', '.ex', '.exs'
+      '.ps1', '.lua', '.groovy', '.r', '.dart', '.hs', '.erl', '.ex', '.exs',
+      // Clojure
+      '.clj', '.cljs', '.cljc', '.edn',
+      // Nim
+      '.nim',
+      // OCaml
+      '.ml', '.mli',
+      // F#
+      '.fs', '.fsi', '.fsx',
+      // Julia
+      '.jl',
+      // Crystal
+      '.cr',
+      // Zig
+      '.zig',
+      // V
+      '.v',
+      // Fortran
+      '.f90', '.f95', '.f03', '.f08', '.f', '.for',
+      // Pascal
+      '.pas',
+      // Ada
+      '.adb', '.ads',
+      // Matlab/Octave
+      '.m',
+      // Assembly
+      '.asm', '.s',
+      // COBOL
+      '.cob', '.cbl',
+      // Racket/Scheme
+      '.rkt', '.scm',
+      // Tcl
+      '.tcl',
+      // Smalltalk
+      '.st',
+      // D
+      '.d',
+      // Objective-C
+      '.m', '.mm'
     ],
     // Web & Frontend
     web: ['.html', '.htm', '.css', '.scss', '.sass', '.less', '.styl', '.vue', '.svelte'],

@@ -50,8 +50,8 @@ export default function RepoPageLayout({
           pathSegments = segments.slice(treeIdx + 2);
         }
       }
-      // Build new path: encode only the branch, not the slashes or path segments
-      const newPath = `/${user}/${repo}/tree/${encodeURIComponent(branch)}${pathSegments.length ? '/' + pathSegments.join('/') : ''}`;
+      // Build new path: use the raw branch name, not encoded
+      const newPath = `/${user}/${repo}/tree/${branch}${pathSegments.length ? '/' + pathSegments.join('/') : ''}`;
       router.push(newPath);
     } catch (error) {
       console.error('Error handling branch change:', error);

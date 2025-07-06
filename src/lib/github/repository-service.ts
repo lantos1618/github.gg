@@ -78,15 +78,19 @@ export class RepositoryService {
     return repoData.default_branch;
   }
 
-  // Get tarball URL
-  async getTarballUrl(owner: string, repo: string, ref: string): Promise<string> {
+  // Get tarball data directly (no double download!)
+  async getTarballData(owner: string, repo: string, ref: string): Promise<ArrayBuffer> {
+    console.log("tarball getTarballData", { owner, repo, ref });
+
+    console.log(`test url https://api.github.com/repos/${owner}/${repo}/tarball/${ref}`);
     try {
       const response = await this.octokit.request('GET /repos/{owner}/{repo}/tarball/{ref}', {
         owner,
         repo,
         ref,
       });
-      return response.url;
+      console.log("tarball getTarballData", { url: response.url, size: (response.data as ArrayBuffer).byteLength, data: (response.data as ArrayBuffer).slice(0, 100) });
+      return response.data as ArrayBuffer;
     } catch (error: unknown) {
       const errorMessage = parseError(error);
       throw new Error(`Failed to get tarball: ${errorMessage}`);
@@ -148,18 +152,11 @@ export class RepositoryService {
       // Get the target ref (default branch if not provided)
       const targetRef = ref || await this.getDefaultBranch(owner, repo);
 
-      // Get tarball URL
-      const tarballUrl = await this.getTarballUrl(owner, repo, targetRef);
-
-      // Download and extract tarball
-      const downloadResponse = await fetch(tarballUrl);
-      if (!downloadResponse.ok) {
-        throw new Error(`Failed to download tarball: ${downloadResponse.status} ${downloadResponse.statusText}`);
-      }
+      // Get tarball data directly (no double download!)
+      const tarballData = await this.getTarballData(owner, repo, targetRef);
 
       // Convert ArrayBuffer to Node.js ReadableStream
-      const buffer = await downloadResponse.arrayBuffer();
-      const stream = Readable.from(Buffer.from(buffer));
+      const stream = Readable.from(Buffer.from(tarballData));
 
       const files: GitHubFile[] = [];
       await extractTarball(stream, (file) => {

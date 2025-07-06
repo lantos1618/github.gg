@@ -115,13 +115,21 @@ export const ALLOWED_EXTENSIONS = new Set([
   ...FILE_FILTER_CONFIG.allowList.docs
 ]);
 
-export function shouldProcessFile(filePath: string, path?: string): boolean {
+export function shouldProcessFile(filePath: string, path?: string, topLevelDir?: string | null): boolean {
   const lowerFilePath = filePath.toLowerCase();
   const fileName = filePath.split('/').pop() || '';
 
   // 0. Filter by path if specified
-  if (path && !filePath.startsWith(path + '/') && filePath !== path) {
-    return false;
+  if (path) {
+    // Strip tarball prefix using the provided topLevelDir
+    let pathWithoutPrefix = filePath;
+    if (topLevelDir && filePath.startsWith(topLevelDir + '/')) {
+      pathWithoutPrefix = filePath.substring(topLevelDir.length + 1);
+    }
+    
+    if (!pathWithoutPrefix.startsWith(path + '/') && pathWithoutPrefix !== path) {
+      return false;
+    }
   }
 
   // 1. Deny if it's in a denied directory.

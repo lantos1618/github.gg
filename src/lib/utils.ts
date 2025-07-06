@@ -121,13 +121,13 @@ export function parseRepoPathWithBranches(
       
       if (rest[1] === "tree" && rest.length > 2) {
         // Use enhanced parsing for segments after /tree/
-        const segmentsAfterTree = rest.slice(2).map(segment => decodeURIComponent(segment));
+        const segmentsAfterTree = rest.slice(2);
         const { branch, path } = parseBranchAndPath(segmentsAfterTree, branchNames);
         ref = branch;
         pathParts = path ? path.split('/') : [];
       } else if (rest.length > 1) {
         // Direct branch reference (without /tree/)
-        const segmentsAfterRepo = rest.slice(1).map(segment => decodeURIComponent(segment));
+        const segmentsAfterRepo = rest.slice(1);
         const { branch, path } = parseBranchAndPath(segmentsAfterRepo, branchNames);
         ref = branch;
         pathParts = path ? path.split('/') : [];
@@ -140,7 +140,7 @@ export function parseRepoPathWithBranches(
   // Build currentPath
   let currentPath = `/${user}`;
   if (repo) currentPath += `/${repo}`;
-  if (ref) currentPath += `/tree/${encodeURIComponent(ref)}`;
+  if (ref) currentPath += `/tree/${ref}`;
   if (path) currentPath += `/${path}`;
   if (tab) currentPath += `/${tab}`;
   

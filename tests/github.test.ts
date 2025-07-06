@@ -50,4 +50,54 @@ test("GitHubService handles specific refs", async () => {
   expect(result.repo).toBe('preact');
   expect(result.ref).toBe('main');
   expect(result.files.length).toBeGreaterThan(0);
+});
+
+
+test("GitHubService fetches files", async () => {
+  const githubService = GitHubService.createPublic();
+  const result = await githubService.getRepositoryFiles(
+    'lantos1618',
+    'github.gg',
+    'main',
+    1000,
+    ''
+  );
+  expect(result.files.length).toBeGreaterThan(0);
+  expect(result.files.some(f => f.name === 'tsconfig.json')).toBe(true);
+}); 
+
+
+test("GitHubService fetches files from a branch with slash  (codex/fix-paywall-and-github-repository-issues)", async () => {
+  const githubService = GitHubService.createPublic();
+  const result = await githubService.getRepositoryFiles(
+    'lantos1618',
+    'github.gg',
+    'codex/fix-paywall-and-github-repository-issues',
+    1000,
+    ''
+  );
+  expect(result.files.length).toBeGreaterThan(0);
+  expect(result.files.some(f => f.name === 'tsconfig.json')).toBe(true);
+}); 
+
+test("GitHubService fetches files from a branch with slash and subdirectory (codex/fix-paywall-and-github-repository-issues)", async () => {
+  const githubService = GitHubService.createPublic();
+  const ref = 'codex/fix-paywall-and-github-repository-issues';
+  const path = 'app/search';
+  console.log('DEBUG: ref =', ref, 'path =', path);
+  try {
+    const result = await githubService.getRepositoryFiles(
+      'lantos1618',
+      'github.gg',
+      ref,
+      1000,
+      path
+    );
+    console.log('DEBUG: files returned:', result.files.map(f => f.name));
+    expect(result.files.length).toBeGreaterThan(0);
+    expect(result.files.some(f => f.name === 'page.tsx')).toBe(true);
+  } catch (err) {
+    console.error('DEBUG: error fetching files:', err);
+    throw err;
+  }
 }); 

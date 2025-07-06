@@ -11,15 +11,33 @@ export async function extractTarball(
   return new Promise<void>((resolve, reject) => {
     const gunzip = createGunzip();
     const extract = tarStream.extract();
+    
+    // Extract the top-level directory from the first entry
+    let topLevelDir: string | null = null;
+    let isFirstEntry = true;
 
     extract.on('entry', (header, entryStream, next) => {
-      if (header.type === 'file' && shouldProcessFile(header.name, path)) {
+      // Extract top-level directory from the first entry
+      if (isFirstEntry) {
+        const pathParts = header.name.split('/');
+        topLevelDir = pathParts[0];
+        isFirstEntry = false;
+        console.log('[extractor] Top-level directory:', topLevelDir);
+      }
+      
+      if (header.type === 'file' && shouldProcessFile(header.name, path, topLevelDir)) {
         const chunks: Buffer[] = [];
         entryStream.on('data', (chunk: Buffer) => chunks.push(chunk));
         entryStream.on('end', () => {
           const content = Buffer.concat(chunks).toString('utf8');
+          
+          // Strip tarball prefix using the extracted top-level directory
+          const strippedPath = topLevelDir && header.name.startsWith(topLevelDir + '/') 
+            ? header.name.substring(topLevelDir.length + 1) 
+            : header.name;
+          
           onFile({
-            path: header.name,
+            path: strippedPath,
             content,
             size: content.length,
             type: 'file',

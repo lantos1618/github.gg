@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { cn, formatStars, shuffleArray } from '@/lib/utils';
 import { RepoSummary } from '@/lib/github/types';
-import { useMemo, useCallback, forwardRef } from 'react';
+import { useMemo, useCallback, forwardRef, useEffect, useState, useRef } from 'react';
 import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import React from 'react';
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
@@ -39,7 +39,6 @@ const CustomTooltipContent = forwardRef<
 });
 CustomTooltipContent.displayName = 'CustomTooltipContent';
 
-const NUM_ROWS = 10;
 const pastelColors = [
   '#FFD1D1', '#FFEACC', '#FEFFD8', '#E2FFDB', '#D4F9FF', '#D0E2FF', '#DDD9FF', '#FFE3FF'
 ];
@@ -151,18 +150,66 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
 };
 RepoItem.displayName = 'RepoItem';
 
-export const ScrollingRepos = ({ className }: { className?: string }) => {
+// Responsive row count hook
+function useResponsiveRows() {
+  const [rows, setRows] = useState(10);
+  useEffect(() => {
+    function handleResize() {
+      if (window.innerWidth <= 640) setRows(9);
+      else if (window.innerWidth <= 1024) setRows(9);
+      else setRows(9);
+    }
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  return rows;
+}
+
+export const ScrollingRepos = ({ className, children }: { className?: string, children?: React.ReactNode }) => {
   const { data: popularRepos, isLoading: isPopularLoading } = useReposForScrolling(80);
   const { data: sponsorRepos, isLoading: isSponsorLoading } = useSponsorRepos();
   const { data: userRepos, isLoading: isUserReposLoading } = useUserReposForScrolling(10);
   const { data: installationRepos } = useInstallationRepositories(10);
   const auth = useAuth();
   
+  const responsiveRows = useResponsiveRows();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
 
-  const rows = useMemo(() => {
+  // NEW: State for shuffled repos
+  const [shuffledRows, setShuffledRows] = useState<RepoData[][] | null>(null);
+
+  const [justifyClass, setJustifyClass] = useState('justify-start');
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (window.innerWidth > 1024) {
+        setJustifyClass('justify-center');
+      } else {
+        setJustifyClass('justify-start');
+      }
+    }
+  }, []);
+
+  // For row refs and widths
+  const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [rowWidths, setRowWidths] = useState<number[]>([]);
+
+  useEffect(() => {
+    function updateWidth() {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.offsetWidth);
+      }
+    }
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
+
+  // NEW: Shuffle only on client after mount
+  useEffect(() => {
     const allRepos: RepoData[] = [];
     const loggedIn = auth.isSignedIn;
-
     const sponsors = sponsorRepos || [];
     const popular = popularRepos || [];
     let userSpecific: RepoData[] = [];
@@ -180,46 +227,44 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
         }));
       }
     }
-    
     // 1. Add Sponsors (2 rows)
     allRepos.push(...shuffleArray(sponsors).slice(0, 16));
-    
     // 2. Add User's Repos (if logged in, 2 rows)
     if (loggedIn) {
       allRepos.push(...shuffleArray(userSpecific).slice(0, 16));
     }
-    
     // 3. Fill with Popular Repos
     const excludedRepos = new Set(allRepos.map(r => `${r.owner}/${r.name}`));
     const remainingPopular = popular.filter(p => !excludedRepos.has(`${p.owner}/${p.name}`));
     allRepos.push(...shuffleArray(remainingPopular));
-
     // Mark repo types
     const finalRepos = allRepos.map(repo => {
       const isSponsor = sponsors.some(s => s.owner === repo.owner && s.name === repo.name);
-      // A repo is a user repo if it came from the `userSpecific` fetch.
       const isUserRepo = userSpecific.some(u => u.owner === repo.owner && u.name === repo.name);
-      
       return {
         ...repo,
         isSponsor,
         isUserRepo,
       };
-    }).slice(0, 80); // Ensure total does not exceed 80
+    }).slice(0, 80);
+    // Distribute into rows (responsive)
+    const rows = Array.from({ length: responsiveRows }, (_, i) => finalRepos.slice(i * 8, (i + 1) * 8));
+    setShuffledRows(rows);
+  }, [popularRepos, sponsorRepos, userRepos, auth.isSignedIn, installationRepos, responsiveRows]);
 
-    // Distribute into rows
-    return Array.from({ length: 10 }, (_, i) => 
-      finalRepos.slice(i * 8, (i + 1) * 8)
-    );
+  useEffect(() => {
+    if (shuffledRows) {
+      setRowWidths(
+        shuffledRows.map((_, idx) => rowRefs.current[idx]?.scrollWidth || 0)
+      );
+    }
+  }, [shuffledRows, containerWidth]);
 
-  }, [popularRepos, sponsorRepos, userRepos, auth.isSignedIn, installationRepos]);
-  
   const isLoading = isPopularLoading || (auth.isSignedIn && (isSponsorLoading || isUserReposLoading));
 
   // Memoize row colors - create stable color assignments
   const rowColors = useMemo(() => {
-    return Array.from({ length: NUM_ROWS }, (_, rowIndex) => {
-      // Use a deterministic shuffle based on row index
+    return Array.from({ length: responsiveRows }, (_, rowIndex) => {
       const shuffled = [...pastelColors];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = (rowIndex * 7 + i) % (i + 1);
@@ -227,33 +272,48 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
       }
       return shuffled;
     });
-  }, []);
+  }, [responsiveRows]);
 
   return (
     <TooltipProvider>
-      <div 
-        className={cn("absolute inset-0 w-full overflow-hidden select-none", className)} 
+      <div
+        ref={containerRef}
+        className={cn(
+          `w-full overflow-hidden select-none flex flex-col items-center ${justifyClass}`,
+          className
+        )}
         aria-hidden="true"
+        style={{}}
       >
-        {rows.map((row, idx) => {
+        {/* Overlay hero content in the center for large screens */}
+        {typeof window !== 'undefined' && window.innerWidth > 1024 && children && (
+          <div className="absolute z-10 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
+            {children}
+          </div>
+        )}
+        {/* Use shuffledRows if available, otherwise render nothing (prevents SSR mismatch) */}
+        {shuffledRows && shuffledRows.map((row, idx) => {
           const colorsForRow = rowColors[idx];
-          
+          const rowWidth = rowWidths[idx] || 0;
+          const repeatCount = rowWidth > 0 && containerWidth > 0 ? Math.ceil(containerWidth / rowWidth) + 1 : 2;
+          const shouldAnimate = rowWidth > containerWidth;
           return (
             <motion.div
               key={`row-${idx}`}
+              ref={(el) => {
+                rowRefs.current[idx] = el;
+              }}
               className="flex items-center whitespace-nowrap py-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: idx * 0.1 }}
-              style={{
+              style={shouldAnimate ? {
                 animation: `scroll${idx % 2 === 0 ? 'Left' : 'Right'} 180s linear infinite`,
-              }}
+              } : { justifyContent: 'center' }}
             >
-              {/* Duplicate row for seamless scrolling */}
-              {Array.from({ length: 2 }).flatMap((_, duplicateIndex) =>
+              {Array.from({ length: shouldAnimate ? repeatCount : 1 }).flatMap((_, duplicateIndex) =>
                 row.map((repo, repoIdx) => {
                   const color = colorsForRow[repoIdx % colorsForRow.length];
-                  
                   return (
                     <motion.div
                       key={`${idx}-${repo.owner}-${repo.name}-${repoIdx}-${duplicateIndex}-${repo.isUserRepo ? 'user' : 'cached'}`}
@@ -263,16 +323,16 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
                       initial={{ opacity: 0, scale: 0.8, y: -20 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.8, y: 20 }}
-                      transition={{ 
-                        type: "spring", 
+                      transition={{
+                        type: "spring",
                         stiffness: 400,
-                        delay: repo.isUserRepo ? 0.2 : 0 
+                        delay: repo.isUserRepo ? 0.2 : 0
                       }}
                     >
-                      <RepoItem 
-                        repo={repo} 
-                        color={color} 
-                        isSkeleton={isLoading && repo.isPlaceholder} 
+                      <RepoItem
+                        repo={repo}
+                        color={color}
+                        isSkeleton={isLoading && repo.isPlaceholder}
                       />
                     </motion.div>
                   );
@@ -281,7 +341,6 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
             </motion.div>
           );
         })}
-
         <style jsx global>{`
           @keyframes scrollLeft {
             0% { transform: translateX(0); }
@@ -291,16 +350,13 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
             0% { transform: translateX(-50%); }
             100% { transform: translateX(0); }
           }
-          
           @keyframes shimmer {
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
           }
-
           .animate-shimmer {
             animation: shimmer 1.5s infinite;
           }
-
           .special-repo-shimmer::after {
             content: '';
             position: absolute;
@@ -319,20 +375,16 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
             pointer-events: none;
             border-radius: inherit;
           }
-
           @media (prefers-reduced-motion: reduce) {
             .flex {
               animation: none !important;
               transform: none !important;
             }
-            
             button {
               transform: none !important;
               transition: none !important;
             }
           }
-
-          /* High contrast mode support */
           @media (forced-colors: active) {
             button {
               border: 2px solid transparent;
@@ -342,8 +394,6 @@ export const ScrollingRepos = ({ className }: { className?: string }) => {
               outline-offset: 2px;
             }
           }
-
-          /* Focus styles */
           button:focus-visible {
             outline: 2px solid rgb(17, 24, 39);
             outline-offset: 2px;

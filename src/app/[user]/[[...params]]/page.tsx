@@ -14,13 +14,10 @@ interface PageProps {
   }>;
 }
 
+import { DeveloperProfile } from '@/components/profile';
+
 function UserClientView({ user }: { user: string }) {
-  return (
-    <div style={{ padding: 32, textAlign: 'center' }}>
-      <h1>User Profile</h1>
-      <p>This is a placeholder for the user profile view for <b>{user}</b>.</p>
-    </div>
-  );
+  return <DeveloperProfile username={user} />;
 }
 
 export default async function Page({ params }: PageProps) {

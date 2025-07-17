@@ -182,4 +182,37 @@ export const userSubscriptions = pgTable('user_subscriptions', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+// Developer Profile Cache
+export const developerProfileCache = pgTable('developer_profile_cache', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  username: text('username').notNull(),
+  profileData: jsonb('profile_data').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  // Ensure unique profile per username
+  usernameIdx: uniqueIndex('username_idx').on(table.username),
+}));
+
+// Repository Scorecard Cache - for caching individual repo scorecard analyses
+export const repoScorecardCache = pgTable('repo_scorecard_cache', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('userId').references(() => user.id, { onDelete: 'cascade' }).notNull(),
+  repoOwner: text('repo_owner').notNull(),
+  repoName: text('repo_name').notNull(),
+  ref: text('ref').default('main'),
+  scorecardData: jsonb('scorecard_data').notNull(), // The full scorecard analysis
+  fileHashes: jsonb('file_hashes').$type<Record<string, string>>(), // Hash of files to detect changes
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  // Ensure unique scorecard per user, repo, and ref
+  scorecardUniqueIdx: uniqueIndex('scorecard_unique_idx').on(
+    table.userId,
+    table.repoOwner,
+    table.repoName,
+    table.ref
+  ),
+}));
+
 // Do NOT import or export relations here. Only table definitions. 

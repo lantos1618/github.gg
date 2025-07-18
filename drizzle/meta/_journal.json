@@ -15,6 +15,27 @@
       "when": 1752794031278,
       "tag": "0001_lowly_the_stranger",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1752795067704,
+      "tag": "0002_late_hedge_knight",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1752801224104,
+      "tag": "0003_burly_bloodstorm",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1752801452876,
+      "tag": "0004_drop_winner_id_fk",
+      "breakpoints": true
     }
   ]
 }

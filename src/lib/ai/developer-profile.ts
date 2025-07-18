@@ -151,8 +151,8 @@ export async function generateDeveloperProfile(
   }));
 
   // Generate scorecard analysis for top repositories if files are provided
+  const totalUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
   let scorecardInsights = '';
-  let totalUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
 
   if (repoFiles && repoFiles.length > 0 && userId) {
     const topRepos = repoFiles.slice(0, 5); // Analyze top 5 repos for efficiency

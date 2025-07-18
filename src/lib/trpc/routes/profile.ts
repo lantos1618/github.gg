@@ -51,7 +51,7 @@ export const profileRouter = router({
       includeCodeAnalysis: z.boolean().optional().default(false), // New option for deeper analysis
     }))
     .mutation(async ({ input, ctx }) => {
-      const { username, includeCodeAnalysis } = input;
+      const { username } = input;
       
       // Check for active subscription
       const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
@@ -105,13 +105,13 @@ export const profileRouter = router({
           .sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0))
           .slice(0, 20); // Top 20 repos
 
-        let repoFiles: Array<{
+        const repoFiles: Array<{
           repoName: string;
           files: Array<{ path: string; content: string }>;
         }> = [];
 
         // If deep analysis is requested, fetch files from top repositories
-        if (includeCodeAnalysis) {
+        if (input.includeCodeAnalysis) {
           const topRepos = sortedRepos.slice(0, 5); // Analyze top 5 repos
           
           for (const repo of topRepos) {
@@ -169,7 +169,7 @@ export const profileRouter = router({
         }
 
         // Generate developer profile with optional code analysis
-        const result = await generateDeveloperProfile(username, sortedRepos, includeCodeAnalysis ? repoFiles : undefined, ctx.user.id);
+        const result = await generateDeveloperProfile(username, sortedRepos, input.includeCodeAnalysis ? repoFiles : undefined, ctx.user.id);
         
         // Cache the result
         await db

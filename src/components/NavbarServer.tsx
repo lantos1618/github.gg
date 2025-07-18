@@ -14,6 +14,16 @@ export async function NavbarServer() {
           </span>
         </Link>
 
+        {/* Navigation Links */}
+        <div className="hidden md:flex items-center gap-6 mr-4">
+          <Link 
+            href="/arena" 
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
+          >
+            🏟️ Dev Arena
+          </Link>
+        </div>
+
         {/* Navigation Actions */}
         <div className="flex items-center gap-4">
           {/* Star Button */}

@@ -3,6 +3,7 @@ import { filesRouter } from './files';
 import { reposRouter } from './repos';
 import { cacheRouter } from './cache';
 import { installationRouter } from './installation';
+import { debugRouter } from './debug';
 
 export const githubRouter = router({
   // Files and repository info
@@ -25,4 +26,7 @@ export const githubRouter = router({
   checkInstallation: installationRouter.checkInstallation,
   canUseApp: installationRouter.canUseApp,
   getInstallationRepositories: installationRouter.getInstallationRepositories,
+  
+  // Debug endpoints
+  testRepoFetching: debugRouter.testRepoFetching,
 }); 

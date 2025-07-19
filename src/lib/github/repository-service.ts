@@ -80,16 +80,13 @@ export class RepositoryService {
 
   // Get tarball data directly (no double download!)
   async getTarballData(owner: string, repo: string, ref: string): Promise<ArrayBuffer> {
-    console.log("tarball getTarballData", { owner, repo, ref });
-
-    console.log(`test url https://api.github.com/repos/${owner}/${repo}/tarball/${ref}`);
+ 
     try {
       const response = await this.octokit.request('GET /repos/{owner}/{repo}/tarball/{ref}', {
         owner,
         repo,
         ref,
       });
-      console.log("tarball getTarballData", { url: response.url, size: (response.data as ArrayBuffer).byteLength, data: (response.data as ArrayBuffer).slice(0, 100) });
       return response.data as ArrayBuffer;
     } catch (error: unknown) {
       const errorMessage = parseError(error);

@@ -30,6 +30,7 @@ export function ChallengeForm() {
   const [opponentUsername, setOpponentUsername] = useState('');
   const [selectedCriteria, setSelectedCriteria] = useState<BattleCriteria[]>(['code_quality', 'project_complexity', 'skill_diversity', 'innovation']);
   const [battleType, setBattleType] = useState<'standard' | 'tournament' | 'friendly'>('standard');
+  const [battleResult, setBattleResult] = useState<any>(null);
 
   // Challenge mutation
   const challengeMutation = trpc.arena.challengeDeveloper.useMutation();
@@ -56,10 +57,11 @@ export function ChallengeForm() {
       setSelectedCriteria(['code_quality', 'project_complexity', 'skill_diversity', 'innovation']);
       setBattleType('standard');
 
-      // Show success message (you could add a toast here)
-      console.log('Battle completed!', result);
+      // Show result inline
+      setBattleResult(result);
     } catch (error) {
       console.error('Battle failed:', error);
+      setBattleResult({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   };
 
@@ -180,6 +182,56 @@ export function ChallengeForm() {
               </>
             )}
           </Button>
+
+          {/* Inline Battle Result */}
+          {battleResult && (
+            <div className="mt-6 p-4 border rounded bg-muted">
+              {battleResult.error ? (
+                <div className="text-red-600 font-medium">{battleResult.error}</div>
+              ) : (
+                <>
+                  <div className="font-bold mb-2">Battle Result</div>
+                  <div className="mb-2">
+                    <span className="font-medium">Winner:</span> {battleResult.analysis?.winner}
+                  </div>
+                  <div className="mb-2">
+                    <span className="font-medium">Reason:</span> {battleResult.analysis?.reason}
+                  </div>
+                  <div className="mb-2">
+                    <span className="font-medium">Challenger Score:</span> {battleResult.battle?.scores?.challenger?.total}
+                    <span className="ml-4 font-medium">Opponent Score:</span> {battleResult.battle?.scores?.opponent?.total}
+                  </div>
+                  {/* Show analyzed repos */}
+                  {battleResult.repositories && (
+                    <div className="mb-2">
+                      <span className="font-medium">Repositories Analyzed:</span>
+                      <div className="text-xs mt-1">
+                        <span className="font-semibold">You:</span> {battleResult.repositories.challenger.topRepos?.join(', ')}<br />
+                        <span className="font-semibold">Opponent:</span> {battleResult.repositories.opponent.topRepos?.join(', ')}
+                      </div>
+                    </div>
+                  )}
+                  {/* Show highlights and recommendations */}
+                  {battleResult.analysis?.highlights && battleResult.analysis.highlights.length > 0 && (
+                    <div className="mb-2">
+                      <span className="font-medium">Highlights:</span>
+                      <ul className="list-disc list-inside text-xs">
+                        {battleResult.analysis.highlights.map((h: string, i: number) => <li key={i}>{h}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {battleResult.analysis?.recommendations && battleResult.analysis.recommendations.length > 0 && (
+                    <div className="mb-2">
+                      <span className="font-medium">Recommendations:</span>
+                      <ul className="list-disc list-inside text-xs">
+                        {battleResult.analysis.recommendations.map((r: string, i: number) => <li key={i}>{r}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 

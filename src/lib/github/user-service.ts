@@ -40,37 +40,35 @@ export class UserService {
               username, 
               per_page: perPage, 
               page, 
-              sort: 'updated' 
+              sort: 'updated'
             })
           : this.octokit.request('GET /user/repos', { 
               affiliation: 'owner,collaborator,organization_member', 
               per_page: perPage, 
               page, 
-              sort: 'updated' 
+              sort: 'updated',
             });
 
         const { data } = await endpoint;
-        const repos = data as GitHubUserRepoData[];
+        // Only keep public repos
+        const repos = (data as GitHubUserRepoData[]).filter(r => !('private' in r) || !(r as any).private);
         
-        console.log(`📦 Fetched page ${page}: ${repos.length} repositories`);
+        console.log(`📦 Fetched page ${page}: ${repos.length} public repositories`);
         
         allRepos.push(...repos);
         
-        // If we got fewer repos than requested, we've reached the end
         if (repos.length < perPage) {
           hasMore = false;
         } else {
           page++;
         }
-
-        // Safety check to prevent infinite loops
         if (page > 10) {
           console.warn('⚠️ Reached maximum page limit (10), stopping pagination');
           hasMore = false;
         }
       }
 
-      console.log(`✅ Total repositories fetched: ${allRepos.length}`);
+      console.log(`✅ Total public repositories fetched: ${allRepos.length}`);
 
       return allRepos.map((repo) => ({
         owner: repo.owner.login,
@@ -85,17 +83,12 @@ export class UserService {
     } catch (error: unknown) {
       const errorMessage = parseError(error);
       console.error('❌ Error fetching repositories:', errorMessage);
-      
-      // Check for 401 error, which indicates the token might be bad or expired
       if (errorMessage.includes('401')) {
          throw new Error(`Authentication error: Bad credentials or token expired. Please sign out and sign back in. Original error: ${errorMessage}`);
       }
-      
-      // Check for 403 error, which might indicate scope issues
       if (errorMessage.includes('403')) {
          throw new Error(`Permission error: Your GitHub token doesn't have the required scopes. Please check your GitHub App installation or OAuth permissions. Original error: ${errorMessage}`);
       }
-      
       throw new Error(`Failed to get user repositories: ${errorMessage}`);
     }
   }

@@ -4,7 +4,7 @@ import type { RepoSummary } from '@/lib/github';
 import { developerProfileSchema, type DeveloperProfile } from '@/lib/types/profile';
 import { generateScorecardAnalysis } from './scorecard';
 import { db } from '@/db';
-import { repoScorecardCache } from '@/db/schema';
+import { repositoryScorecards } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { createHash } from 'crypto';
 
@@ -46,12 +46,12 @@ async function getCachedScorecard(
     // Check for cached scorecard
     const cached = await db
       .select()
-      .from(repoScorecardCache)
+      .from(repositoryScorecards)
       .where(
         and(
-          eq(repoScorecardCache.userId, userId),
-          eq(repoScorecardCache.repoOwner, repoOwner),
-          eq(repoScorecardCache.repoName, repoName)
+          eq(repositoryScorecards.userId, userId),
+          eq(repositoryScorecards.repoOwner, repoOwner),
+          eq(repositoryScorecards.repoName, repoName)
         )
       )
       .limit(1);
@@ -67,9 +67,9 @@ async function getCachedScorecard(
 
               if (!filesChanged) {
           console.log(`✅ Using cached scorecard for ${repoOwner}/${repoName}`);
-          const scorecardData = scorecard.scorecardData as { scorecard: string };
+          // TODO: Update to use new structured format
           return {
-            scorecard: scorecardData.scorecard,
+            scorecard: scorecard.markdown, // Use markdown for now
             usage: {
               promptTokens: 0, // No new tokens used
               completionTokens: 0,
@@ -179,14 +179,14 @@ export async function generateDeveloperProfile(
             repoName: repoData.repoName,
           });
           
-          // Cache the result for future use
-          await cacheScorecard(
-            userId,
-            username,
-            repoData.repoName,
-            scorecardResult.scorecard,
-            repoData.files
-          );
+                  // TODO: Update caching to use new structured format
+        // await cacheScorecard(
+        //   userId,
+        //   username,
+        //   repoData.repoName,
+        //   scorecardResult.scorecard,
+        //   repoData.files
+        // );
         }
         
         scorecardInsights += `\n\n## Repository: ${repoData.repoName}\n${scorecardResult.scorecard}\n`;

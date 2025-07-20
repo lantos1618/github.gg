@@ -194,14 +194,20 @@ export const developerProfileCache = pgTable('developer_profile_cache', {
   usernameIdx: uniqueIndex('username_idx').on(table.username),
 }));
 
-// Repository Scorecard Cache - for caching individual repo scorecard analyses
-export const repoScorecardCache = pgTable('repo_scorecard_cache', {
+// Repository Scorecards - structured analysis data
+export const repositoryScorecards = pgTable('repository_scorecards', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('userId').references(() => user.id, { onDelete: 'cascade' }).notNull(),
   repoOwner: text('repo_owner').notNull(),
   repoName: text('repo_name').notNull(),
   ref: text('ref').default('main'),
-  scorecardData: jsonb('scorecard_data').notNull(), // The full scorecard analysis
+  overallScore: integer('overall_score').notNull(), // 0-100 overall score
+  metrics: jsonb('metrics').$type<Array<{
+    metric: string;
+    score: number;
+    reason: string;
+  }>>().notNull(), // Structured metrics breakdown
+  markdown: text('markdown').notNull(), // Full markdown analysis
   fileHashes: jsonb('file_hashes').$type<Record<string, string>>(), // Hash of files to detect changes
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -212,6 +218,31 @@ export const repoScorecardCache = pgTable('repo_scorecard_cache', {
     table.repoOwner,
     table.repoName,
     table.ref
+  ),
+}));
+
+// Repository Diagrams - structured diagram data
+export const repositoryDiagrams = pgTable('repository_diagrams', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('userId').references(() => user.id, { onDelete: 'cascade' }).notNull(),
+  repoOwner: text('repo_owner').notNull(),
+  repoName: text('repo_name').notNull(),
+  ref: text('ref').default('main'),
+  diagramType: text('diagram_type').notNull(), // 'file_tree', 'dependency', 'timeline', 'heatmap'
+  diagramCode: text('diagram_code').notNull(), // Mermaid diagram code
+  format: text('format').notNull().default('mermaid'), // Diagram format
+  options: jsonb('options').$type<Record<string, any>>(), // Diagram generation options
+  fileHashes: jsonb('file_hashes').$type<Record<string, string>>(), // Hash of files to detect changes
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  // Ensure unique diagram per user, repo, ref, and type
+  diagramUniqueIdx: uniqueIndex('diagram_unique_idx').on(
+    table.userId,
+    table.repoOwner,
+    table.repoName,
+    table.ref,
+    table.diagramType
   ),
 }));
 

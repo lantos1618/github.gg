@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "build:with-migrations": "bun run db:push && next build",
     "test": "bun --env-file=.env.local test",
     "test:payment": "bun --env-file=.env.local test tests/payment-smoke-test.ts",
     "test:payment:full": "bun --env-file=.env.local test tests/payment-integration.test.ts",

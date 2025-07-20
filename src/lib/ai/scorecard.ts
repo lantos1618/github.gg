@@ -1,17 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
-import { z } from 'zod';
 import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
-
-export const scorecardSchema = z.object({
-  metrics: z.array(z.object({
-    metric: z.string(),
-    score: z.number(),
-    reason: z.string(),
-  })),
-  markdown: z.string(),
-  overallScore: z.number(),
-});
+import { scorecardSchema, type ScorecardData } from '@/lib/types/scorecard';
 
 export interface ScorecardAnalysisParams {
   files: Array<{ path: string; content: string }>;
@@ -19,15 +9,7 @@ export interface ScorecardAnalysisParams {
 }
 
 export interface ScorecardAnalysisResult {
-  scorecard: {
-    metrics: Array<{
-      metric: string;
-      score: number;
-      reason: string;
-    }>;
-    markdown: string;
-    overallScore: number;
-  };
+  scorecard: ScorecardData;
   usage: {
     promptTokens: number;
     completionTokens: number;

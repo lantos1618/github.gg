@@ -7,6 +7,7 @@ import { db } from '@/db';
 import { repositoryScorecards } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { createHash } from 'crypto';
+import type { ScorecardData } from '@/lib/types/scorecard';
 
 export type DeveloperProfileParams = {
   username: string;
@@ -93,7 +94,7 @@ async function cacheScorecard(
   userId: string,
   repoOwner: string,
   repoName: string,
-  scorecard: string,
+  scorecard: ScorecardData,
   files: Array<{ path: string; content: string }>
 ): Promise<void> {
   try {
@@ -105,19 +106,24 @@ async function cacheScorecard(
 
     // Cache the scorecard
     await db
-      .insert(repoScorecardCache)
+      .insert(repositoryScorecards)
       .values({
         userId,
         repoOwner,
         repoName,
-        scorecardData: { scorecard },
+        ref: 'main',
+        overallScore: scorecard.overallScore,
+        metrics: scorecard.metrics,
+        markdown: scorecard.markdown,
         fileHashes,
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
-        target: [repoScorecardCache.userId, repoScorecardCache.repoOwner, repoScorecardCache.repoName, repoScorecardCache.ref],
+        target: [repositoryScorecards.userId, repositoryScorecards.repoOwner, repositoryScorecards.repoName, repositoryScorecards.ref],
         set: {
-          scorecardData: { scorecard },
+          overallScore: scorecard.overallScore,
+          metrics: scorecard.metrics,
+          markdown: scorecard.markdown,
           fileHashes,
           updatedAt: new Date(),
         },
@@ -179,14 +185,14 @@ export async function generateDeveloperProfile(
             repoName: repoData.repoName,
           });
           
-                  // TODO: Update caching to use new structured format
-        // await cacheScorecard(
-        //   userId,
-        //   username,
-        //   repoData.repoName,
-        //   scorecardResult.scorecard,
-        //   repoData.files
-        // );
+                            // Cache the result for future use
+          await cacheScorecard(
+            userId,
+            username,
+            repoData.repoName,
+            scorecardResult.scorecard,
+            repoData.files
+          );
         }
         
         scorecardInsights += `\n\n## Repository: ${repoData.repoName}\n${scorecardResult.scorecard}\n`;

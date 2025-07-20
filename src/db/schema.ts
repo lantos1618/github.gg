@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, uuid, boolean, uniqueIndex, integer, jsonb, varchar } from 'drizzle-orm/pg-core';
+import type { ScorecardMetric, DiagramOptions } from '@/lib/types/scorecard';
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
@@ -202,11 +203,7 @@ export const repositoryScorecards = pgTable('repository_scorecards', {
   repoName: text('repo_name').notNull(),
   ref: text('ref').default('main'),
   overallScore: integer('overall_score').notNull(), // 0-100 overall score
-  metrics: jsonb('metrics').$type<Array<{
-    metric: string;
-    score: number;
-    reason: string;
-  }>>().notNull(), // Structured metrics breakdown
+  metrics: jsonb('metrics').$type<ScorecardMetric[]>().notNull(), // Structured metrics breakdown
   markdown: text('markdown').notNull(), // Full markdown analysis
   fileHashes: jsonb('file_hashes').$type<Record<string, string>>(), // Hash of files to detect changes
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -231,7 +228,7 @@ export const repositoryDiagrams = pgTable('repository_diagrams', {
   diagramType: text('diagram_type').notNull(), // 'file_tree', 'dependency', 'timeline', 'heatmap'
   diagramCode: text('diagram_code').notNull(), // Mermaid diagram code
   format: text('format').notNull().default('mermaid'), // Diagram format
-  options: jsonb('options').$type<Record<string, any>>(), // Diagram generation options
+  options: jsonb('options').$type<DiagramOptions>(), // Diagram generation options
   fileHashes: jsonb('file_hashes').$type<Record<string, string>>(), // Hash of files to detect changes
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),

@@ -6,6 +6,7 @@ import { eq, and } from 'drizzle-orm';
 import { generateScorecardAnalysis } from '@/lib/ai/scorecard';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
+import { scorecardSchema } from '@/lib/types/scorecard';
 
 export const scorecardRouter = router({
   generateScorecard: protectedProcedure
@@ -156,15 +157,7 @@ export const scorecardRouter = router({
       user: z.string(),
       repo: z.string(),
       ref: z.string().optional().default('main'),
-      scorecard: z.object({
-        metrics: z.array(z.object({
-          metric: z.string(),
-          score: z.number(),
-          reason: z.string(),
-        })),
-        markdown: z.string(),
-        overallScore: z.number(),
-      }),
+      scorecard: scorecardSchema,
     }))
     .mutation(async ({ input, ctx }) => {
       const { user, repo, ref, scorecard } = input;

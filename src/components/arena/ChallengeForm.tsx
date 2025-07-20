@@ -63,10 +63,37 @@ const CRITERIA_LABELS: Record<BattleCriteria, { label: string; description: stri
   },
 };
 
+interface BattleResult {
+  error?: string;
+  analysis?: {
+    winner: string;
+    reason: string;
+    highlights: string[];
+    recommendations: string[];
+  };
+  battle?: {
+    id: string;
+    scores: {
+      challenger: { 
+        total: number;
+        breakdown: Record<string, number>;
+      };
+      opponent: { 
+        total: number;
+        breakdown: Record<string, number>;
+      };
+    } | null;
+  };
+  eloChange?: {
+    challenger: { change: number; newRating: number };
+    opponent: { change: number; newRating: number };
+  };
+}
+
 export function ChallengeForm() {
   const [opponentUsername, setOpponentUsername] = useState('');
   const [selectedCriteria, setSelectedCriteria] = useState<BattleCriteria[]>([...DEFAULT_BATTLE_CRITERIA]);
-  const [battleResult, setBattleResult] = useState<any>(null);
+  const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
 
   // Challenge mutation
   const challengeMutation = trpc.arena.challengeDeveloper.useMutation();
@@ -125,7 +152,7 @@ export function ChallengeForm() {
         <CardContent className="space-y-6">
           {/* Opponent Username */}
           <div className="space-y-2">
-            <Label htmlFor="opponent">Opponent's GitHub Username</Label>
+            <Label htmlFor="opponent">Opponent&apos;s GitHub Username</Label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -138,7 +165,7 @@ export function ChallengeForm() {
               />
             </div>
             <p className="text-sm text-muted-foreground">
-              You can challenge any developer, whether they're registered on github.gg or not!
+              You can challenge any developer, whether they&apos;re registered on github.gg or not!
             </p>
           </div>
 
@@ -244,10 +271,10 @@ export function ChallengeForm() {
                 {/* Winner Announcement */}
                 <div className="text-center space-y-2">
                   <div className="text-2xl font-bold">
-                    Winner: {battleResult.analysis.winner} 🎉
+                    Winner: {battleResult.analysis?.winner} 🎉
                   </div>
                   <p className="text-muted-foreground">
-                    {battleResult.analysis.reason}
+                    {battleResult.analysis?.reason}
                   </p>
                 </div>
 
@@ -256,19 +283,19 @@ export function ChallengeForm() {
                   <div className="text-center p-4 bg-muted rounded-lg">
                     <div className="text-sm text-muted-foreground">Your Score</div>
                     <div className="text-2xl font-bold text-blue-600">
-                      {battleResult.battle.scores.challenger.total}
+                      {battleResult.battle?.scores?.challenger?.total || 0}
                     </div>
                   </div>
                   <div className="text-center p-4 bg-muted rounded-lg">
                     <div className="text-sm text-muted-foreground">Opponent Score</div>
                     <div className="text-2xl font-bold text-purple-600">
-                      {battleResult.battle.scores.opponent.total}
+                      {battleResult.battle?.scores?.opponent?.total || 0}
                     </div>
                   </div>
                 </div>
 
                 {/* Highlights */}
-                {battleResult.analysis.highlights.length > 0 && (
+                {battleResult.analysis?.highlights && battleResult.analysis.highlights.length > 0 && (
                   <div className="p-4 bg-muted rounded-lg">
                     <h3 className="font-semibold mb-3">Key Highlights</h3>
                     <ul className="space-y-2">
@@ -283,7 +310,7 @@ export function ChallengeForm() {
                 )}
 
                 {/* Recommendations */}
-                {battleResult.analysis.recommendations.length > 0 && (
+                {battleResult.analysis?.recommendations && battleResult.analysis.recommendations.length > 0 && (
                   <div className="p-4 bg-muted rounded-lg">
                     <h3 className="font-semibold mb-3">Recommendations</h3>
                     <ul className="space-y-2">

@@ -1,31 +1,32 @@
 "use client";
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { LoadingWave } from '@/components/LoadingWave';
-import { trpc } from '@/lib/trpc/client';
 import { 
-  History, 
+  Trophy, 
+  Sword, 
+  Target, 
+  Calendar, 
+  MessageSquare, 
   ChevronDown, 
-  ChevronUp,
-  Trophy,
-  Sword,
-  Target,
-  TrendingUp,
-  TrendingDown,
-  Calendar,
-  Users,
-  Award,
-  Lightbulb,
-  MessageSquare
+  ChevronUp, 
+  Award, 
+  TrendingUp, 
+  Users 
 } from 'lucide-react';
+import { useState } from 'react';
+import { trpc } from '@/lib/trpc/client';
+import type { AiAnalysis } from '@/lib/types/arena';
 
 export function BattleAnalysis() {
   const [expandedBattle, setExpandedBattle] = useState<string | null>(null);
-  const { data: battleHistory, isLoading } = trpc.arena.getBattleHistory.useQuery({ limit: 20 });
+  
+  const { data: battleHistory, isLoading } = trpc.arena.getBattleHistory.useQuery({
+    limit: 20,
+    offset: 0,
+  });
 
   const toggleBattle = (battleId: string) => {
     setExpandedBattle(expandedBattle === battleId ? null : battleId);
@@ -34,19 +35,22 @@ export function BattleAnalysis() {
   const getEloChangeColor = (change: number) => {
     if (change > 0) return 'text-green-600';
     if (change < 0) return 'text-red-600';
-    return 'text-muted-foreground';
+    return 'text-gray-600';
   };
 
   const getEloChangeIcon = (change: number) => {
-    if (change > 0) return <TrendingUp className="h-4 w-4 text-green-600" />;
-    if (change < 0) return <TrendingDown className="h-4 w-4 text-red-600" />;
-    return null;
+    if (change > 0) return <Trophy className="h-3 w-3" />;
+    if (change < 0) return <Sword className="h-3 w-3" />;
+    return <Target className="h-3 w-3" />;
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingWave />
+      <div className="space-y-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading battle history...</p>
+        </div>
       </div>
     );
   }
@@ -54,12 +58,9 @@ export function BattleAnalysis() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="text-center space-y-4">
-        <div className="flex items-center justify-center gap-3">
-          <History className="h-6 w-6" />
-          <h2 className="text-3xl font-bold">Battle History</h2>
-        </div>
-        <p className="text-muted-foreground max-w-2xl mx-auto">
+      <div className="text-center">
+        <h2 className="text-2xl font-bold mb-2">Battle Analysis</h2>
+        <p className="text-muted-foreground">
           Review your past battles, analyze your performance, and learn from each encounter to improve your skills.
         </p>
       </div>
@@ -71,7 +72,7 @@ export function BattleAnalysis() {
             const isExpanded = expandedBattle === battle.id;
             const isWinner = battle.winnerId === battle.challengerId;
             const eloChange = battle.eloChange?.challenger?.change || 0;
-            const aiAnalysis = battle.aiAnalysis as any;
+            const aiAnalysis = battle.aiAnalysis as AiAnalysis | null;
 
             return (
               <Card key={battle.id}>
@@ -189,7 +190,7 @@ export function BattleAnalysis() {
                         {aiAnalysis.highlights && aiAnalysis.highlights.length > 0 && (
                           <div className="p-4 bg-muted rounded-lg">
                             <div className="flex items-center gap-2 mb-3">
-                              <Lightbulb className="h-4 w-4 text-blue-600" />
+                              <TrendingUp className="h-4 w-4 text-blue-600" />
                               <span className="font-semibold">Key Highlights</span>
                             </div>
                             <ul className="space-y-2">
@@ -222,7 +223,7 @@ export function BattleAnalysis() {
                         )}
 
                         {/* Repository Analysis */}
-                        {battle.aiAnalysis && (battle.aiAnalysis as any).repositories && (
+                        {aiAnalysis.repositories && (
                           <div className="p-4 bg-muted rounded-lg">
                             <div className="flex items-center gap-2 mb-3">
                               <Users className="h-4 w-4 text-purple-600" />
@@ -232,15 +233,15 @@ export function BattleAnalysis() {
                               <div>
                                 <div className="text-sm font-medium mb-2">Your Top Repos</div>
                                 <div className="text-xs text-muted-foreground space-y-1">
-                                  {(battle.aiAnalysis as any).repositories.challenger.topRepos?.map((repo: string, index: number) => (
+                                  {aiAnalysis.repositories.challenger.topRepos?.map((repo: string, index: number) => (
                                     <div key={index}>• {repo}</div>
                                   ))}
                                 </div>
                               </div>
                               <div>
-                                <div className="text-sm font-medium mb-2">Opponent's Top Repos</div>
+                                <div className="text-sm font-medium mb-2">Opponent&apos;s Top Repos</div>
                                 <div className="text-xs text-muted-foreground space-y-1">
-                                  {(battle.aiAnalysis as any).repositories.opponent.topRepos?.map((repo: string, index: number) => (
+                                  {aiAnalysis.repositories.opponent.topRepos?.map((repo: string, index: number) => (
                                     <div key={index}>• {repo}</div>
                                   ))}
                                 </div>

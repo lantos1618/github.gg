@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, Trophy, Sword, Target, Users } from 'lucide-react';
+import { ChevronDown, ChevronRight, Trophy, Sword, Target } from 'lucide-react';
 import { useState } from 'react';
 import type { ArenaBattle } from '@/lib/types/arena';
 
@@ -17,24 +17,6 @@ export function BattleCard({ battle }: BattleCardProps) {
 
   const isWinner = battle.winnerId === battle.challengerId;
   const opponentUsername = battle.opponentUsername;
-
-  const getBattleTypeIcon = (type: string) => {
-    switch (type) {
-      case 'standard': return Target;
-      case 'friendly': return Users;
-      case 'tournament': return Trophy;
-      default: return Sword;
-    }
-  };
-
-  const getBattleTypeColor = (type: string) => {
-    switch (type) {
-      case 'standard': return 'bg-blue-100 text-blue-800';
-      case 'friendly': return 'bg-green-100 text-green-800';
-      case 'tournament': return 'bg-purple-100 text-purple-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   return (
     <Card className={`border-2 ${isWinner ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
@@ -53,12 +35,9 @@ export function BattleCard({ battle }: BattleCardProps) {
                 {battle.challengerUsername} vs {opponentUsername}
               </CardTitle>
               <div className="flex items-center gap-2 mt-1">
-                <Badge className={getBattleTypeColor(battle.battleType)}>
-                  {(() => {
-                    const IconComponent = getBattleTypeIcon(battle.battleType);
-                    return <IconComponent className="h-3 w-3 mr-1" />;
-                  })()}
-                  {battle.battleType}
+                <Badge variant="outline" className="text-xs">
+                  <Target className="h-3 w-3 mr-1" />
+                  Battle
                 </Badge>
                 <span className="text-sm text-muted-foreground">
                   {new Date(battle.completedAt!).toLocaleDateString()}
@@ -108,7 +87,7 @@ export function BattleCard({ battle }: BattleCardProps) {
             {/* AI Analysis */}
             {battle.aiAnalysis && (
               <div className="bg-white rounded-lg p-4 border">
-                <h5 className="font-medium mb-2">AI Judge's Decision</h5>
+                <h5 className="font-medium mb-2">AI Judge&apos;s Decision</h5>
                 <div className="prose prose-sm max-w-none space-y-3">
                   {/* Handle different AI analysis formats */}
                   {typeof battle.aiAnalysis === 'string' ? (
@@ -221,7 +200,7 @@ export function BattleCard({ battle }: BattleCardProps) {
                       <div className="flex gap-4 text-sm">
                         <span className="font-medium">{score.toFixed(1)}</span>
                         <span className="text-muted-foreground">vs</span>
-                        <span className="font-medium">{(battle.scores!.opponent.breakdown as any)[criterion]?.toFixed(1) || 'N/A'}</span>
+                        <span className="font-medium">{(battle.scores!.opponent.breakdown as Record<string, number>)[criterion]?.toFixed(1) || 'N/A'}</span>
                       </div>
                     </div>
                   ))}

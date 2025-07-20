@@ -15,7 +15,7 @@ export const profileRouter = router({
       includeCodeAnalysis: z.boolean().optional().default(false), // New option for deeper analysis
     }))
     .query(async ({ input }) => {
-      const { username, includeCodeAnalysis } = input;
+      const { username } = input;
       
       // Check for cached profile
       const cached = await db
@@ -97,7 +97,7 @@ export const profileRouter = router({
       
       try {
         // Fetch user repositories
-        const githubService = await createGitHubServiceForUserOperations(ctx);
+        const githubService = await createGitHubServiceForUserOperations(ctx.session);
         const repos = await githubService.getUserRepositories(username);
         
         // Sort repos by stars and activity for better analysis
@@ -117,10 +117,10 @@ export const profileRouter = router({
           for (const repo of topRepos) {
             try {
               // Fetch key files from the repository
-              const files = await githubService.getRepoFiles(username, repo.name, 'main');
+              const files = await githubService.getRepositoryFiles(username, repo.name, 'main');
               
               // Filter for important files (source code, configs, docs)
-              const importantFiles = files.filter(file => 
+              const importantFiles = files.files.filter((file: { path: string; size: number }) => 
                 !file.path.includes('node_modules') &&
                 !file.path.includes('.git') &&
                 !file.path.includes('dist') &&
@@ -142,10 +142,27 @@ export const profileRouter = router({
 
               // Fetch file contents
               const fileContents = await Promise.all(
-                importantFiles.map(async (file) => {
+                importantFiles.map(async (file: { path: string; size: number }) => {
                   try {
-                    const content = await githubService.getFileContent(username, repo.name, file.path);
-                    return { path: file.path, content };
+                    // Use the octokit directly to get file content
+                    const response = await githubService['octokit'].repos.getContent({
+                      owner: username,
+                      repo: repo.name,
+                      path: file.path,
+                    });
+                    
+                    if (Array.isArray(response.data)) {
+                      return null; // Directory, skip
+                    }
+                    
+                    // Check if it's a file with content
+                    if (response.data.type === 'file' && 'content' in response.data) {
+                      const fileData = response.data as { content: string };
+                      const content = Buffer.from(fileData.content, 'base64').toString('utf-8');
+                      return { path: file.path, content };
+                    }
+                    
+                    return null; // Not a file or no content
                   } catch (error) {
                     console.warn(`Failed to fetch ${file.path}:`, error);
                     return null;

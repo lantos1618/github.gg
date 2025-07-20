@@ -63,6 +63,26 @@ export type EloChange = z.infer<typeof eloChangeSchema>;
 // Battle Status
 export const battleStatusSchema = z.enum(['pending', 'completed', 'cancelled']);
 
+// AI Analysis
+export const aiAnalysisSchema = z.object({
+  winner: z.string(),
+  reason: z.string(),
+  highlights: z.array(z.string()).optional(),
+  recommendations: z.array(z.string()).optional(),
+  repositories: z.object({
+    challenger: z.object({
+      total: z.number(),
+      topRepos: z.array(z.string()).optional(),
+    }),
+    opponent: z.object({
+      total: z.number(),
+      topRepos: z.array(z.string()).optional(),
+    }),
+  }).optional(),
+});
+
+export type AiAnalysis = z.infer<typeof aiAnalysisSchema>;
+
 // Arena Battle
 export const arenaBattleSchema = z.object({
   id: z.string(),
@@ -74,7 +94,7 @@ export const arenaBattleSchema = z.object({
   status: battleStatusSchema,
   criteria: z.array(battleCriteriaSchema).optional(),
   scores: battleScoresSchema.optional(),
-  aiAnalysis: z.any().optional(),
+  aiAnalysis: aiAnalysisSchema.optional(),
   eloChange: eloChangeSchema.optional(),
   createdAt: z.date(),
   completedAt: z.date().optional(),

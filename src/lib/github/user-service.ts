@@ -14,6 +14,7 @@ interface GitHubUserRepoData {
   language: string | null;
   topics: string[];
   html_url: string;
+  private?: boolean;
 }
 
 // User-specific operations
@@ -51,7 +52,7 @@ export class UserService {
 
         const { data } = await endpoint;
         // Only keep public repos
-        const repos = (data as GitHubUserRepoData[]).filter(r => !('private' in r) || !(r as any).private);
+        const repos = (data as GitHubUserRepoData[]).filter(r => !r.private);
         
         console.log(`📦 Fetched page ${page}: ${repos.length} public repositories`);
         

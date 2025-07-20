@@ -7,15 +7,15 @@ import {
   tokenUsage 
 } from '@/db/schema';
 import { eq, and, desc, gte } from 'drizzle-orm';
-import { analyzeBattle, calculateEloChange, calculateKFactor } from '@/lib/ai/battle-analysis';
+import { analyzeBattle, calculateEloChange, determineTier } from '@/lib/ai/battle-analysis';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import { 
   fetchDeveloperData, 
   getOrCreateRanking, 
-  updateRanking, 
-  calculateTotalTokenUsage 
+  updateRankings, 
+  calculateTokenUsage 
 } from '@/lib/arena/battle-helpers';
 import { INITIAL_ELO_RATING, BYOK_DAILY_BATTLE_LIMIT, ALL_BATTLE_CRITERIA } from '@/lib/constants/arena';
 
@@ -172,23 +172,24 @@ export const arenaRouter = router({
         
         // Fetch developer data in parallel
         const [challengerData, opponentData] = await Promise.all([
-          fetchDeveloperData(battle.challengerUsername, ctx.session, ctx.user.id),
-          fetchDeveloperData(battle.opponentUsername, ctx.session, ctx.user.id)
+          fetchDeveloperData(battle.challengerUsername),
+          fetchDeveloperData(battle.opponentUsername)
         ]);
+
+        // Prepare repository data for analysis
+        const challengerRepos = challengerData.repos.map(repo => 
+          `${repo.name} (${repo.language || 'Unknown'}, ${repo.stargazers_count}⭐)`
+        ).join('\n');
+        
+        const opponentRepos = opponentData.repos.map(repo => 
+          `${repo.name} (${repo.language || 'Unknown'}, ${repo.stargazers_count}⭐)`
+        ).join('\n');
 
         // Analyze battle
         const battleAnalysis = await analyzeBattle(
-          {
-            username: challengerData.username,
-            profile: challengerData.profile,
-            repos: challengerData.repos,
-          },
-          {
-            username: opponentData.username,
-            profile: opponentData.profile,
-            repos: opponentData.repos,
-          },
-          battle.criteria as any
+          challengerRepos,
+          opponentRepos,
+          battle.challengerUsername
         );
 
         // Get current rankings
@@ -198,35 +199,76 @@ export const arenaRouter = router({
         ]);
 
         // Calculate ELO changes
-        const challengerWon = battleAnalysis.result.analysis.winner === battle.challengerUsername;
+        const challengerWon = battleAnalysis.result.winner === battle.challengerUsername;
+        const challengerCurrentRating = challengerRanking[0]?.eloRating || INITIAL_ELO_RATING;
+        const opponentCurrentRating = opponentRanking[0]?.eloRating || INITIAL_ELO_RATING;
+
         const eloChanges = calculateEloChange(
-          challengerRanking[0]?.eloRating || INITIAL_ELO_RATING,
-          opponentRanking[0]?.eloRating || INITIAL_ELO_RATING,
-          challengerWon,
-          calculateKFactor(challengerRanking[0]?.totalBattles || 0, challengerRanking[0]?.eloRating || INITIAL_ELO_RATING)
+          challengerCurrentRating,
+          opponentCurrentRating,
+          challengerWon
         );
 
-        // Update battle with results
-        await updateBattleResults(battle, battleAnalysis, challengerRanking[0], opponentRanking[0], eloChanges, challengerWon);
+        // Update battle results
+        const updatedBattle = await updateBattleResults(
+          battle,
+          battleAnalysis.result,
+          challengerRanking[0],
+          opponentRanking[0],
+          {
+            challenger: {
+              before: challengerCurrentRating,
+              after: eloChanges.challenger.newRating,
+              change: eloChanges.challenger.change,
+            },
+            opponent: {
+              before: opponentCurrentRating,
+              after: eloChanges.opponent.newRating,
+              change: eloChanges.opponent.change,
+            },
+          },
+          challengerWon
+        );
 
-        // Update rankings (only for registered users)
-        await updateUserRankings(battle, challengerRanking[0], opponentRanking[0], eloChanges, challengerWon);
+        // Update user rankings
+        await updateUserRankings(
+          battle,
+          challengerRanking[0],
+          opponentRanking[0],
+          eloChanges,
+          challengerWon
+        );
 
         // Log token usage
+        const tokenUsage = calculateTokenUsage(battleAnalysis.result);
         await logTokenUsage(
           ctx.user.id,
           battle.challengerUsername,
-          calculateTotalTokenUsage(battleAnalysis.usage, challengerData.profileUsage, opponentData.profileUsage),
-          keyInfo.isByok
+          { totalTokens: tokenUsage },
+          plan === 'byok'
         );
 
-        return battleAnalysis.result;
+        return {
+          battle: updatedBattle,
+          analysis: battleAnalysis.result,
+          eloChange: eloChanges,
+        };
 
       } catch (error) {
-        console.error('Error executing battle:', error);
+        console.error('Battle execution failed:', error);
+        
+        // Update battle status to failed
+        await db
+          .update(arenaBattles)
+          .set({ 
+            status: 'failed',
+            completedAt: new Date(),
+          })
+          .where(eq(arenaBattles.id, battleId));
+
         throw new TRPCError({ 
           code: 'INTERNAL_SERVER_ERROR', 
-          message: 'Failed to execute battle' 
+          message: 'Battle execution failed. Please try again.' 
         });
       }
     }),
@@ -234,7 +276,7 @@ export const arenaRouter = router({
   // Get battle history
   getBattleHistory: protectedProcedure
     .input(z.object({
-      limit: z.number().min(1).max(50).default(10),
+      limit: z.number().min(1).max(100).default(10),
       offset: z.number().min(0).default(0),
     }))
     .query(async ({ input, ctx }) => {
@@ -243,13 +285,8 @@ export const arenaRouter = router({
       const battles = await db
         .select()
         .from(arenaBattles)
-        .where(
-          and(
-            eq(arenaBattles.status, 'completed'),
-            eq(arenaBattles.challengerId, ctx.user.id)
-          )
-        )
-        .orderBy(desc(arenaBattles.completedAt))
+        .where(eq(arenaBattles.challengerId, ctx.user.id))
+        .orderBy(desc(arenaBattles.createdAt))
         .limit(limit)
         .offset(offset);
 
@@ -257,104 +294,94 @@ export const arenaRouter = router({
     }),
 });
 
-// Helper functions
-
 async function validateBattle(battleId: string, userId: string) {
-  const battles = await db
+  const battle = await db
     .select()
     .from(arenaBattles)
-    .where(eq(arenaBattles.id, battleId))
+    .where(
+      and(
+        eq(arenaBattles.id, battleId),
+        eq(arenaBattles.challengerId, userId),
+        eq(arenaBattles.status, 'pending')
+      )
+    )
     .limit(1);
 
-  if (battles.length === 0) {
+  if (battle.length === 0) {
     throw new TRPCError({ 
       code: 'NOT_FOUND', 
-      message: 'Battle not found' 
+      message: 'Battle not found or already completed' 
     });
   }
 
-  const battle = battles[0];
-
-  if (battle.status !== 'pending') {
-    throw new TRPCError({ 
-      code: 'BAD_REQUEST', 
-      message: 'Battle has already been executed' 
-    });
-  }
-
-  if (battle.challengerId !== userId) {
-    throw new TRPCError({ 
-      code: 'FORBIDDEN', 
-      message: 'Only the challenger can execute the battle' 
-    });
-  }
-
-  return battle;
+  return battle[0];
 }
 
 async function updateBattleResults(
-  battle: any,
-  battleAnalysis: any,
-  challengerRanking: any,
-  opponentRanking: any,
-  eloChanges: any,
+  battle: typeof arenaBattles.$inferSelect,
+  battleAnalysis: {
+    winner: string;
+    reason: string;
+    challengerScore: { total: number; breakdown: Record<string, number> };
+    opponentScore: { total: number; breakdown: Record<string, number> };
+    highlights: string[];
+    recommendations: string[];
+  },
+  challengerRanking: typeof developerRankings.$inferSelect | undefined,
+  opponentRanking: typeof developerRankings.$inferSelect | undefined,
+  eloChanges: { challenger: { before: number; after: number; change: number }; opponent: { before: number; after: number; change: number } },
   challengerWon: boolean
 ) {
-  await db
+  const winnerId = challengerWon ? battle.challengerId : battle.opponentId;
+
+  const updatedBattle = await db
     .update(arenaBattles)
     .set({
       status: 'completed',
-      winnerId: challengerWon ? battle.challengerId : battle.opponentId,
-      scores: battleAnalysis.result.battle.scores,
-      aiAnalysis: battleAnalysis.result.analysis,
-      eloChange: {
-        challenger: {
-          before: challengerRanking?.eloRating || INITIAL_ELO_RATING,
-          after: (challengerRanking?.eloRating || INITIAL_ELO_RATING) + eloChanges.challengerChange,
-          change: eloChanges.challengerChange,
-        },
-        opponent: {
-          before: opponentRanking?.eloRating || INITIAL_ELO_RATING,
-          after: (opponentRanking?.eloRating || INITIAL_ELO_RATING) + eloChanges.opponentChange,
-          change: eloChanges.opponentChange,
-        },
+      winnerId,
+      scores: {
+        challenger: battleAnalysis.challengerScore,
+        opponent: battleAnalysis.opponentScore,
       },
+      aiAnalysis: {
+        winner: battleAnalysis.winner,
+        reason: battleAnalysis.reason,
+        highlights: battleAnalysis.highlights,
+        recommendations: battleAnalysis.recommendations,
+      },
+      eloChange: eloChanges,
       completedAt: new Date(),
     })
-    .where(eq(arenaBattles.id, battle.id));
+    .where(eq(arenaBattles.id, battle.id))
+    .returning();
+
+  return updatedBattle[0];
 }
 
 async function updateUserRankings(
-  battle: any,
-  challengerRanking: any,
-  opponentRanking: any,
-  eloChanges: any,
+  battle: typeof arenaBattles.$inferSelect,
+  challengerRanking: typeof developerRankings.$inferSelect | undefined,
+  opponentRanking: typeof developerRankings.$inferSelect | undefined,
+  eloChanges: { challenger: { change: number; newRating: number }; opponent: { change: number; newRating: number } },
   challengerWon: boolean
 ) {
-  if (challengerRanking) {
-    await updateRanking(
-      battle.challengerId,
-      challengerRanking,
-      eloChanges.challengerChange,
-      challengerWon
-    );
-  }
+  const challengerTier = determineTier(eloChanges.challenger.newRating);
+  const opponentTier = determineTier(eloChanges.opponent.newRating);
 
-  // Only update opponent ranking if they're a registered user
-  if (opponentRanking && !battle.opponentId.startsWith('dummy_')) {
-    await updateRanking(
-      battle.opponentId,
-      opponentRanking,
-      eloChanges.opponentChange,
-      !challengerWon
-    );
-  }
+  await updateRankings(
+    battle.challengerId,
+    battle.opponentId,
+    challengerWon,
+    eloChanges,
+    challengerTier,
+    opponentTier
+  );
 }
 
 async function logTokenUsage(
   userId: string,
   username: string,
-  usage: any,
+  usage: { totalTokens: number },
   isByok: boolean
 ) {
   await db.insert(tokenUsage).values({
@@ -362,9 +389,9 @@ async function logTokenUsage(
     feature: 'arena_battle',
     repoOwner: username,
     repoName: null,
-    model: 'gemini-2.5-flash',
-    promptTokens: usage.promptTokens,
-    completionTokens: usage.completionTokens,
+    model: 'gemini-1.5-flash',
+    promptTokens: 0, // Not available in current implementation
+    completionTokens: 0, // Not available in current implementation
     totalTokens: usage.totalTokens,
     isByok,
     createdAt: new Date(),

@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
-import { insightsCache, tokenUsage } from '@/db/schema';
+import { repositoryScorecards, tokenUsage } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { generateScorecardAnalysis } from '@/lib/ai/scorecard';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
+import { scorecardSchema } from '@/lib/types/scorecard';
 
 export const scorecardRouter = router({
   generateScorecard: protectedProcedure
@@ -47,6 +48,32 @@ export const scorecardRouter = router({
           repoName: repo,
         });
         
+        // The AI result is already in the structured format we want
+        const scorecardData = result.scorecard;
+        
+        // Save to database with structured format
+        await db
+          .insert(repositoryScorecards)
+          .values({
+            userId: ctx.user.id,
+            repoOwner: input.user,
+            repoName: input.repo,
+            ref: input.ref || 'main',
+            overallScore: scorecardData.overallScore,
+            metrics: scorecardData.metrics,
+            markdown: scorecardData.markdown,
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: [repositoryScorecards.userId, repositoryScorecards.repoOwner, repositoryScorecards.repoName, repositoryScorecards.ref],
+            set: {
+              overallScore: scorecardData.overallScore,
+              metrics: scorecardData.metrics,
+              markdown: scorecardData.markdown,
+              updatedAt: new Date(),
+            },
+          });
+        
         // Log token usage with actual values from AI response
         await db.insert(tokenUsage).values({
           userId: ctx.user.id,
@@ -62,7 +89,7 @@ export const scorecardRouter = router({
         });
         
         return {
-          scorecard: result.scorecard,
+          scorecard: scorecardData,
           cached: false,
           stale: false,
           lastUpdated: new Date(),
@@ -90,13 +117,13 @@ export const scorecardRouter = router({
       // Check for cached scorecard
       const cached = await db
         .select()
-        .from(insightsCache)
+        .from(repositoryScorecards)
         .where(
           and(
-            eq(insightsCache.userId, ctx.session!.user.id),
-            eq(insightsCache.repoOwner, user),
-            eq(insightsCache.repoName, repo),
-            eq(insightsCache.ref, ref)
+            eq(repositoryScorecards.userId, ctx.user.id),
+            eq(repositoryScorecards.repoOwner, user),
+            eq(repositoryScorecards.repoName, repo),
+            eq(repositoryScorecards.ref, ref)
           )
         )
         .limit(1);
@@ -106,7 +133,11 @@ export const scorecardRouter = router({
         const isStale = new Date().getTime() - scorecard.updatedAt.getTime() > 24 * 60 * 60 * 1000; // 24 hours
         
         return {
-          scorecard: scorecard.insights,
+          scorecard: {
+            metrics: scorecard.metrics,
+            markdown: scorecard.markdown,
+            overallScore: scorecard.overallScore,
+          },
           cached: true,
           stale: isStale,
           lastUpdated: scorecard.updatedAt,
@@ -126,26 +157,30 @@ export const scorecardRouter = router({
       user: z.string(),
       repo: z.string(),
       ref: z.string().optional().default('main'),
-      scorecard: z.any(), // The full scorecard object
+      scorecard: scorecardSchema,
     }))
     .mutation(async ({ input, ctx }) => {
       const { user, repo, ref, scorecard } = input;
 
       // Upsert scorecard cache
       await db
-        .insert(insightsCache)
+        .insert(repositoryScorecards)
         .values({
-          userId: ctx.session!.user.id,
+          userId: ctx.user.id,
           repoOwner: user,
           repoName: repo,
           ref,
-          insights: scorecard,
+          overallScore: scorecard.overallScore,
+          metrics: scorecard.metrics,
+          markdown: scorecard.markdown,
           updatedAt: new Date(),
         })
         .onConflictDoUpdate({
-          target: [insightsCache.userId, insightsCache.repoOwner, insightsCache.repoName, insightsCache.ref],
+          target: [repositoryScorecards.userId, repositoryScorecards.repoOwner, repositoryScorecards.repoName, repositoryScorecards.ref],
           set: {
-            insights: scorecard,
+            overallScore: scorecard.overallScore,
+            metrics: scorecard.metrics,
+            markdown: scorecard.markdown,
             updatedAt: new Date(),
           },
         });
@@ -163,13 +198,13 @@ export const scorecardRouter = router({
       const { user, repo, ref } = input;
 
       await db
-        .delete(insightsCache)
+        .delete(repositoryScorecards)
         .where(
           and(
-            eq(insightsCache.userId, ctx.session!.user.id),
-            eq(insightsCache.repoOwner, user),
-            eq(insightsCache.repoName, repo),
-            eq(insightsCache.ref, ref)
+            eq(repositoryScorecards.userId, ctx.user.id),
+            eq(repositoryScorecards.repoOwner, user),
+            eq(repositoryScorecards.repoName, repo),
+            eq(repositoryScorecards.ref, ref)
           )
         );
 

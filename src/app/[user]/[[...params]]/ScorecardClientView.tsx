@@ -11,6 +11,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
+import type { ScorecardResponse } from '@/lib/types/scorecard';
 
 export default function ScorecardClientView({ user, repo, refName, path }: { user: string; repo: string; refName?: string; path?: string }) {
   const [scorecardData, setScorecardData] = useState<string | null>(null);
@@ -49,8 +50,8 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
           })),
         },
         {
-          onSuccess: (data: { scorecard: string }) => {
-            setScorecardData(data.scorecard);
+          onSuccess: (data: ScorecardResponse) => {
+            setScorecardData(data.scorecard.markdown);
             setIsLoading(false);
           },
           onError: (err: { message: string }) => {

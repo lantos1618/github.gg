@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, Settings, User, Github, Crown, Bell } from 'lucide-react';
+import { LogOut, Settings, User, Github, Crown, Bell, Trophy } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { trpc } from '@/lib/trpc/client';
 import Link from 'next/link';
@@ -79,6 +79,13 @@ export function NavbarClient() {
               </Link>
             </DropdownMenuItem>
           )}
+          
+          <DropdownMenuItem asChild>
+            <Link href="/arena">
+              <Trophy className="mr-2 h-4 w-4" />
+              <span>Dev Arena</span>
+            </Link>
+          </DropdownMenuItem>
           
           <DropdownMenuItem asChild>
             <Link href="/settings">

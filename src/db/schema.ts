@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, uuid, boolean, uniqueIndex, integer, jsonb, varchar } from 'drizzle-orm/pg-core';
+import type { ScorecardMetric, DiagramOptions } from '@/lib/types/scorecard';
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
@@ -181,5 +182,176 @@ export const userSubscriptions = pgTable('user_subscriptions', {
   currentPeriodEnd: timestamp('current_period_end').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
 });
+
+// Developer Profile Cache
+export const developerProfileCache = pgTable('developer_profile_cache', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  username: text('username').notNull(),
+  profileData: jsonb('profile_data').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  // Ensure unique profile per username
+  usernameIdx: uniqueIndex('username_idx').on(table.username),
+}));
+
+// Repository Scorecards - structured analysis data
+export const repositoryScorecards = pgTable('repository_scorecards', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('userId').references(() => user.id, { onDelete: 'cascade' }).notNull(),
+  repoOwner: text('repo_owner').notNull(),
+  repoName: text('repo_name').notNull(),
+  ref: text('ref').default('main'),
+  overallScore: integer('overall_score').notNull(), // 0-100 overall score
+  metrics: jsonb('metrics').$type<ScorecardMetric[]>().notNull(), // Structured metrics breakdown
+  markdown: text('markdown').notNull(), // Full markdown analysis
+  fileHashes: jsonb('file_hashes').$type<Record<string, string>>(), // Hash of files to detect changes
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  // Ensure unique scorecard per user, repo, and ref
+  scorecardUniqueIdx: uniqueIndex('scorecard_unique_idx').on(
+    table.userId,
+    table.repoOwner,
+    table.repoName,
+    table.ref
+  ),
+}));
+
+// Repository Diagrams - structured diagram data
+export const repositoryDiagrams = pgTable('repository_diagrams', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('userId').references(() => user.id, { onDelete: 'cascade' }).notNull(),
+  repoOwner: text('repo_owner').notNull(),
+  repoName: text('repo_name').notNull(),
+  ref: text('ref').default('main'),
+  diagramType: text('diagram_type').notNull(), // 'file_tree', 'dependency', 'timeline', 'heatmap'
+  diagramCode: text('diagram_code').notNull(), // Mermaid diagram code
+  format: text('format').notNull().default('mermaid'), // Diagram format
+  options: jsonb('options').$type<DiagramOptions>(), // Diagram generation options
+  fileHashes: jsonb('file_hashes').$type<Record<string, string>>(), // Hash of files to detect changes
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  // Ensure unique diagram per user, repo, ref, and type
+  diagramUniqueIdx: uniqueIndex('diagram_unique_idx').on(
+    table.userId,
+    table.repoOwner,
+    table.repoName,
+    table.ref,
+    table.diagramType
+  ),
+}));
+
+// 🏟️ DEV ARENA TABLES
+
+// Developer Rankings (ELO system)
+export const developerRankings = pgTable('developer_rankings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('userId').references(() => user.id, { onDelete: 'cascade' }).notNull(),
+  username: text('username').notNull(),
+  eloRating: integer('elo_rating').notNull().default(1200),
+  wins: integer('wins').notNull().default(0),
+  losses: integer('losses').notNull().default(0),
+  draws: integer('draws').notNull().default(0),
+  totalBattles: integer('total_battles').notNull().default(0),
+  winStreak: integer('win_streak').notNull().default(0),
+  bestWinStreak: integer('best_win_streak').notNull().default(0),
+  rank: integer('rank'), // Current global rank
+  tier: text('tier').notNull().default('Bronze'), // Bronze, Silver, Gold, Platinum, Diamond, Master
+  lastBattleAt: timestamp('last_battle_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  // Ensure unique ranking per user
+  userRankingIdx: uniqueIndex('user_ranking_idx').on(table.userId),
+  // Index for global rankings
+  eloRatingIdx: uniqueIndex('elo_rating_idx').on(table.eloRating),
+}));
+
+// Arena Battles
+export const arenaBattles = pgTable('arena_battles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  challengerId: text('challenger_id').references(() => user.id, { onDelete: 'cascade' }).notNull(),
+  opponentId: text('opponent_id').notNull(), // Remove foreign key constraint to allow dummy opponents
+  challengerUsername: text('challenger_username').notNull(),
+  opponentUsername: text('opponent_username').notNull(),
+  winnerId: text('winner_id'), // Remove foreign key constraint to allow dummy winners
+  status: text('status').notNull().default('pending'), // pending, in_progress, completed, cancelled
+  battleType: text('battle_type').notNull().default('standard'), // standard, tournament, friendly
+  criteria: jsonb('criteria').$type<string[]>(), // What criteria were judged
+  scores: jsonb('scores').$type<{
+    challenger: { total: number; breakdown: Record<string, number> };
+    opponent: { total: number; breakdown: Record<string, number> };
+  }>(),
+  aiAnalysis: jsonb('ai_analysis'), // Detailed AI analysis of the battle
+  eloChange: jsonb('elo_change').$type<{
+    challenger: { before: number; after: number; change: number };
+    opponent: { before: number; after: number; change: number };
+  }>(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  completedAt: timestamp('completed_at'),
+}, (table) => ({
+  // Index for battle history
+  battleHistoryIdx: uniqueIndex('battle_history_idx').on(table.challengerId, table.opponentId, table.createdAt),
+}));
+
+// Tournaments
+export const tournaments = pgTable('tournaments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  description: text('description'),
+  status: text('status').notNull().default('upcoming'), // upcoming, active, completed, cancelled
+  tournamentType: text('tournament_type').notNull().default('single_elimination'), // single_elimination, double_elimination, round_robin
+  maxParticipants: integer('max_participants'),
+  currentParticipants: integer('current_participants').notNull().default(0),
+  startDate: timestamp('start_date'),
+  endDate: timestamp('end_date'),
+  prizePool: jsonb('prize_pool'), // Prize structure
+  rules: jsonb('rules'), // Tournament rules and criteria
+  brackets: jsonb('brackets'), // Tournament bracket structure
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// Tournament Participants
+export const tournamentParticipants = pgTable('tournament_participants', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tournamentId: uuid('tournament_id').references(() => tournaments.id, { onDelete: 'cascade' }).notNull(),
+  userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }).notNull(),
+  username: text('username').notNull(),
+  seed: integer('seed'), // Tournament seeding
+  finalRank: integer('final_rank'), // Final placement
+  eliminated: boolean('eliminated').notNull().default(false),
+  eliminatedAt: timestamp('eliminated_at'),
+  joinedAt: timestamp('joined_at').notNull().defaultNow(),
+}, (table) => ({
+  // Ensure unique participation per tournament/user
+  tournamentParticipantIdx: uniqueIndex('tournament_participant_idx').on(table.tournamentId, table.userId),
+}));
+
+// Achievements
+export const achievements = pgTable('achievements', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  icon: text('icon'), // Emoji or icon name
+  category: text('category').notNull(), // battle, ranking, tournament, special
+  criteria: jsonb('criteria').notNull(), // Achievement criteria
+  rarity: text('rarity').notNull().default('common'), // common, rare, epic, legendary
+  points: integer('points').notNull().default(0), // Achievement points
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// User Achievements
+export const userAchievements = pgTable('user_achievements', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }).notNull(),
+  achievementId: uuid('achievement_id').references(() => achievements.id, { onDelete: 'cascade' }).notNull(),
+  unlockedAt: timestamp('unlocked_at').notNull().defaultNow(),
+}, (table) => ({
+  // Ensure unique achievement per user
+  userAchievementIdx: uniqueIndex('user_achievement_idx').on(table.userId, table.achievementId),
+}));
 
 // Do NOT import or export relations here. Only table definitions. 

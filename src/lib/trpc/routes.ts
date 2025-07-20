@@ -2,6 +2,8 @@ import { protectedProcedure } from '@/lib/trpc/trpc';
 import { githubRouter } from '@/lib/trpc/routes/github/index';
 import { scorecardRouter } from '@/lib/trpc/routes/scorecard';
 import { diagramRouter } from '@/lib/trpc/routes/diagram';
+import { profileRouter } from '@/lib/trpc/routes/profile';
+import { arenaRouter } from '@/lib/trpc/routes/arena';
 import { userRouter } from '@/lib/trpc/routes/user';
 import { featuredRouter } from '@/lib/trpc/routes/featured';
 import { billingRouter } from '@/lib/trpc/routes/billing';
@@ -43,6 +45,12 @@ export const appRouter = router({
   
   // Diagram routes
   diagram: diagramRouter,
+
+  // Profile routes
+  profile: profileRouter,
+
+  // Arena routes
+  arena: arenaRouter,
 
   // User management routes
   user: userRouter,

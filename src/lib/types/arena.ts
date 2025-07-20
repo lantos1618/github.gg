@@ -5,7 +5,6 @@ export const eloRatingSchema = z.object({
   rating: z.number().min(0),
   wins: z.number().min(0),
   losses: z.number().min(0),
-  draws: z.number().min(0),
   totalBattles: z.number().min(0),
   winStreak: z.number().min(0),
   bestWinStreak: z.number().min(0),
@@ -35,33 +34,11 @@ export type BattleCriteria = z.infer<typeof battleCriteriaSchema>;
 export const battleScoresSchema = z.object({
   challenger: z.object({
     total: z.number(),
-    breakdown: z.object({
-      code_quality: z.number(),
-      project_complexity: z.number(),
-      skill_diversity: z.number(),
-      innovation: z.number(),
-      documentation: z.number(),
-      testing: z.number(),
-      architecture: z.number(),
-      performance: z.number(),
-      security: z.number(),
-      maintainability: z.number(),
-    }),
+    breakdown: z.record(z.string(), z.number()),
   }),
   opponent: z.object({
     total: z.number(),
-    breakdown: z.object({
-      code_quality: z.number(),
-      project_complexity: z.number(),
-      skill_diversity: z.number(),
-      innovation: z.number(),
-      documentation: z.number(),
-      testing: z.number(),
-      architecture: z.number(),
-      performance: z.number(),
-      security: z.number(),
-      maintainability: z.number(),
-    }),
+    breakdown: z.record(z.string(), z.number()),
   }),
 });
 
@@ -84,12 +61,7 @@ export const eloChangeSchema = z.object({
 export type EloChange = z.infer<typeof eloChangeSchema>;
 
 // Battle Status
-export const battleStatusSchema = z.enum(['pending', 'in_progress', 'completed', 'cancelled']);
-export type BattleStatus = z.infer<typeof battleStatusSchema>;
-
-// Battle Type
-export const battleTypeSchema = z.enum(['standard', 'tournament', 'friendly']);
-export type BattleType = z.infer<typeof battleTypeSchema>;
+export const battleStatusSchema = z.enum(['pending', 'completed', 'cancelled']);
 
 // Arena Battle
 export const arenaBattleSchema = z.object({
@@ -100,7 +72,6 @@ export const arenaBattleSchema = z.object({
   opponentUsername: z.string(),
   winnerId: z.string().optional(),
   status: battleStatusSchema,
-  battleType: battleTypeSchema,
   criteria: z.array(battleCriteriaSchema).optional(),
   scores: battleScoresSchema.optional(),
   aiAnalysis: z.any().optional(),
@@ -111,71 +82,9 @@ export const arenaBattleSchema = z.object({
 
 export type ArenaBattle = z.infer<typeof arenaBattleSchema>;
 
-// Tournament Status
-export const tournamentStatusSchema = z.enum(['upcoming', 'active', 'completed', 'cancelled']);
-export type TournamentStatus = z.infer<typeof tournamentStatusSchema>;
-
-// Tournament Type
-export const tournamentTypeSchema = z.enum(['single_elimination', 'double_elimination', 'round_robin']);
-export type TournamentType = z.infer<typeof tournamentTypeSchema>;
-
-// Tournament
-export const tournamentSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string().optional(),
-  status: tournamentStatusSchema,
-  tournamentType: tournamentTypeSchema,
-  maxParticipants: z.number().optional(),
-  currentParticipants: z.number(),
-  startDate: z.date().optional(),
-  endDate: z.date().optional(),
-  prizePool: z.any().optional(),
-  rules: z.any().optional(),
-  brackets: z.any().optional(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
-});
-
-export type Tournament = z.infer<typeof tournamentSchema>;
-
-// Achievement Rarity
-export const achievementRaritySchema = z.enum(['common', 'rare', 'epic', 'legendary']);
-export type AchievementRarity = z.infer<typeof achievementRaritySchema>;
-
-// Achievement Category
-export const achievementCategorySchema = z.enum(['battle', 'ranking', 'tournament', 'special']);
-export type AchievementCategory = z.infer<typeof achievementCategorySchema>;
-
-// Achievement
-export const achievementSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string(),
-  icon: z.string().optional(),
-  category: achievementCategorySchema,
-  criteria: z.any(),
-  rarity: achievementRaritySchema,
-  points: z.number(),
-  createdAt: z.date(),
-});
-
-export type Achievement = z.infer<typeof achievementSchema>;
-
-// User Achievement
-export const userAchievementSchema = z.object({
-  id: z.string(),
-  userId: z.string(),
-  achievementId: z.string(),
-  unlockedAt: z.date(),
-});
-
-export type UserAchievement = z.infer<typeof userAchievementSchema>;
-
 // Battle Request
 export const battleRequestSchema = z.object({
   opponentUsername: z.string().min(1, 'Opponent username is required'),
-  battleType: battleTypeSchema.optional().default('standard'),
   criteria: z.array(battleCriteriaSchema).optional(),
 });
 
@@ -204,33 +113,4 @@ export const battleResultSchema = z.object({
   }),
 });
 
-export type BattleResult = z.infer<typeof battleResultSchema>;
-
-// Leaderboard Entry
-export const leaderboardEntrySchema = z.object({
-  rank: z.number(),
-  username: z.string(),
-  eloRating: z.number(),
-  tier: z.string(),
-  wins: z.number(),
-  losses: z.number(),
-  winRate: z.number(),
-  totalBattles: z.number(),
-  winStreak: z.number(),
-});
-
-export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>;
-
-// Tournament Bracket
-export const tournamentBracketSchema = z.object({
-  round: z.number(),
-  matches: z.array(z.object({
-    id: z.string(),
-    player1: z.string().optional(),
-    player2: z.string().optional(),
-    winner: z.string().optional(),
-    battleId: z.string().optional(),
-  })),
-});
-
-export type TournamentBracket = z.infer<typeof tournamentBracketSchema>; 
+export type BattleResult = z.infer<typeof battleResultSchema>; 

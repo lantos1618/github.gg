@@ -4,6 +4,7 @@ import type { RepoSummary } from '@/lib/github';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import type { BattleCriteria, BattleScores, BattleResult } from '@/lib/types/arena';
 import { battleResultSchema } from '@/lib/types/arena';
+import { DEFAULT_BATTLE_CRITERIA, ELO_TIERS, K_FACTORS } from '@/lib/constants/arena';
 
 export type BattleAnalysisParams = {
   challenger: {
@@ -29,36 +30,29 @@ export type BattleAnalysisResult = {
 };
 
 /**
+ * Prepare repository information for battle analysis
+ */
+function prepareRepoInfo(repos: RepoSummary[], limit: number = 10) {
+  return repos
+    .sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0))
+    .slice(0, limit)
+    .map(r => `${r.owner}/${r.name} (${r.language || 'Unknown'}, ${r.stargazersCount || 0}⭐)`);
+}
+
+/**
  * Analyze a battle between two developers and determine the winner
  */
 export async function analyzeBattle(
   challenger: BattleAnalysisParams['challenger'],
   opponent: BattleAnalysisParams['opponent'],
-  criteria: BattleCriteria[] = ['code_quality', 'project_complexity', 'skill_diversity', 'innovation']
+  criteria?: BattleCriteria[]
 ): Promise<BattleAnalysisResult> {
   
-  const defaultCriteria = [
-    'code_quality',
-    'project_complexity', 
-    'skill_diversity',
-    'innovation',
-    'documentation',
-    'testing',
-    'architecture'
-  ];
-
-  const battleCriteria = criteria.length > 0 ? criteria : defaultCriteria;
+  const battleCriteria = criteria && criteria.length > 0 ? criteria : [...DEFAULT_BATTLE_CRITERIA];
 
   // Prepare repository information for analysis
-  const challengerTopRepos = challenger.repos
-    .sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0))
-    .slice(0, 10)
-    .map(r => `${r.owner}/${r.name} (${r.language || 'Unknown'}, ${r.stargazersCount || 0}⭐)`);
-    
-  const opponentTopRepos = opponent.repos
-    .sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0))
-    .slice(0, 10)
-    .map(r => `${r.owner}/${r.name} (${r.language || 'Unknown'}, ${r.stargazersCount || 0}⭐)`);
+  const challengerTopRepos = prepareRepoInfo(challenger.repos);
+  const opponentTopRepos = prepareRepoInfo(opponent.repos);
 
   const prompt = `
     You are an expert Senior Engineering Manager judging a "Dev Arena" battle between two developers.
@@ -156,12 +150,10 @@ export function calculateEloChange(
  * Determine tier based on ELO rating
  */
 export function getTierFromElo(rating: number): string {
-  if (rating >= 2000) return 'Master';
-  if (rating >= 1800) return 'Diamond';
-  if (rating >= 1600) return 'Platinum';
-  if (rating >= 1400) return 'Gold';
-  if (rating >= 1200) return 'Silver';
-  return 'Bronze';
+  for (const [_, tier] of Object.entries(ELO_TIERS).reverse()) {
+    if (rating >= tier.minRating) return tier.name;
+  }
+  return ELO_TIERS.BRONZE.name;
 }
 
 /**
@@ -172,13 +164,12 @@ export function calculateKFactor(
   rating: number,
   isTournament: boolean = false
 ): number {
-  if (isTournament) return 40; // Higher K-factor for tournaments
+  // Removed tournament logic since it's not implemented
+  if (totalBattles < 30) return K_FACTORS.NEW_PLAYER;
+  if (rating >= 2000) return K_FACTORS.MASTER;
+  if (rating >= 1600) return K_FACTORS.HIGH_RATED;
   
-  if (totalBattles < 30) return 40; // New players get higher K-factor
-  if (rating >= 2000) return 16; // Master players get lower K-factor
-  if (rating >= 1600) return 24; // High-rated players
-  
-  return 32; // Default K-factor
+  return K_FACTORS.DEFAULT;
 }
 
 /**

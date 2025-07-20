@@ -2,171 +2,250 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { LoadingWave } from '@/components/LoadingWave';
 import { trpc } from '@/lib/trpc/client';
-import { ChevronLeft, ChevronRight, Medal, Crown, Star } from 'lucide-react';
-
-const ITEMS_PER_PAGE = 20;
+import { 
+  BarChart3, 
+  Search, 
+  Trophy, 
+  Medal, 
+  Crown,
+  Users
+} from 'lucide-react';
 
 export function LeaderboardTable() {
-  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTier, setSelectedTier] = useState<string>('all');
+  const [limit, setLimit] = useState(50);
 
-  const { data: leaderboard, isLoading } = trpc.arena.getLeaderboard.useQuery({
-    limit: 100, // Get more data for pagination
+  const { data: leaderboard, isLoading } = trpc.arena.getLeaderboard.useQuery({ 
+    limit,
+    tier: selectedTier === 'all' ? undefined : selectedTier 
   });
 
-  const filteredData = leaderboard || [];
-  const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentData = filteredData.slice(startIndex, endIndex);
+  const filteredLeaderboard = leaderboard?.filter(entry =>
+    entry.username.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
+
+  const tiers = [
+    { value: 'all', label: 'All Tiers' },
+    { value: 'Bronze', label: 'Bronze' },
+    { value: 'Silver', label: 'Silver' },
+    { value: 'Gold', label: 'Gold' },
+    { value: 'Platinum', label: 'Platinum' },
+    { value: 'Diamond', label: 'Diamond' },
+    { value: 'Master', label: 'Master' },
+  ];
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Crown className="h-4 w-4 text-yellow-500" />;
     if (rank === 2) return <Medal className="h-4 w-4 text-gray-400" />;
     if (rank === 3) return <Medal className="h-4 w-4 text-amber-600" />;
-    return <Star className="h-4 w-4 text-muted-foreground" />;
+    return null;
   };
 
-  const getTierColor = (tier: string) => {
-    switch (tier.toLowerCase()) {
-      case 'master': return 'bg-gradient-to-r from-purple-600 to-pink-600';
-      case 'diamond': return 'bg-gradient-to-r from-blue-600 to-purple-600';
-      case 'platinum': return 'bg-gradient-to-r from-green-600 to-blue-600';
-      case 'gold': return 'bg-gradient-to-r from-yellow-600 to-green-600';
-      case 'silver': return 'bg-gradient-to-r from-orange-600 to-yellow-600';
-      case 'bronze': return 'bg-gradient-to-r from-red-600 to-orange-600';
-      default: return 'bg-muted';
-    }
-  };
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="text-center space-y-4">
+        <div className="flex items-center justify-center gap-3">
+          <BarChart3 className="h-6 w-6" />
+          <h2 className="text-3xl font-bold">Global Rankings</h2>
+        </div>
+        <p className="text-muted-foreground max-w-2xl mx-auto">
+          See how you stack up against developers worldwide. Climb the ranks by winning battles and improving your skills.
+        </p>
+      </div>
 
-  if (isLoading) {
-    return (
+      {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle>Leaderboard</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex justify-center py-8">
-            <LoadingWave />
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search developers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Tier Filter */}
+            <div className="flex flex-wrap gap-2">
+              {tiers.map((tier) => (
+                <Button
+                  key={tier.value}
+                  variant={selectedTier === tier.value ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedTier(tier.value)}
+                >
+                  {tier.label}
+                </Button>
+              ))}
+            </div>
+
+            {/* Limit Selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Show:</span>
+              <select
+                value={limit}
+                onChange={(e) => setLimit(Number(e.target.value))}
+                className="border rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value={25}>Top 25</option>
+                <option value={50}>Top 50</option>
+                <option value={100}>Top 100</option>
+              </select>
+            </div>
           </div>
         </CardContent>
       </Card>
-    );
-  }
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Medal className="h-5 w-5" />
-          Developer Rankings
-        </CardTitle>
-
-      </CardHeader>
-      <CardContent>
-        {currentData.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No rankings available yet.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Table Header */}
-            <div className="grid grid-cols-12 gap-4 p-3 bg-muted rounded-lg font-medium text-sm">
-              <div className="col-span-1">Rank</div>
-              <div className="col-span-4">Developer</div>
-              <div className="col-span-2">Tier</div>
-              <div className="col-span-2">ELO</div>
-              <div className="col-span-2">Win Rate</div>
-              <div className="col-span-1">Battles</div>
+      {/* Leaderboard */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-3">
+            <Trophy className="h-5 w-5" />
+            <span>Leaderboard</span>
+            <Badge variant="outline" className="ml-auto">
+              {filteredLeaderboard.length} developers
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <LoadingWave />
             </div>
+          ) : filteredLeaderboard.length > 0 ? (
+            <div className="space-y-3">
+              {filteredLeaderboard.map((entry, index) => (
+                <div
+                  key={entry.username}
+                  className={`p-4 rounded-lg border transition-colors ${
+                    index === 0 
+                      ? 'bg-yellow-50 border-yellow-200' :
+                    index === 1 
+                      ? 'bg-gray-50 border-gray-200' :
+                    index === 2 
+                      ? 'bg-amber-50 border-amber-200' :
+                      'bg-background border-border hover:bg-muted/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    {/* Rank and User */}
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg">
+                          {getRankIcon(entry.rank) || entry.rank}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-lg">{entry.username}</div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {entry.tier}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {entry.totalBattles} battles
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-            {/* Table Rows */}
-            {currentData.map((entry, index) => (
-              <div
-                key={entry.username}
-                className="grid grid-cols-12 gap-4 p-3 bg-card border rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                <div className="col-span-1 flex items-center gap-2">
-                  <span className="font-bold">{startIndex + index + 1}</span>
-                  {getRankIcon(startIndex + index + 1)}
-                </div>
-                <div className="col-span-4">
-                  <div className="font-medium">{entry.username}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {entry.wins}W - {entry.losses}L
-                  </div>
-                </div>
-                <div className="col-span-2">
-                  <Badge className={`${getTierColor(entry.tier)} text-white`}>
-                    {entry.tier}
-                  </Badge>
-                </div>
-                <div className="col-span-2 font-bold text-lg">
-                  {entry.eloRating}
-                </div>
-                <div className="col-span-2">
-                  <div className="font-medium">{entry.winRate.toFixed(1)}%</div>
-                  <div className="text-sm text-muted-foreground">
-                    {entry.winStreak > 0 ? `${entry.winStreak} streak` : ''}
-                  </div>
-                </div>
-                <div className="col-span-1 text-center">
-                  {entry.totalBattles}
-                </div>
-              </div>
-            ))}
+                    {/* Stats */}
+                    <div className="flex items-center gap-6">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-purple-600">
+                          {entry.eloRating}
+                        </div>
+                        <div className="text-xs text-muted-foreground">ELO</div>
+                      </div>
+                      
+                      <div className="text-center">
+                        <div className="text-lg font-semibold text-green-600">
+                          {entry.winRate.toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-muted-foreground">Win Rate</div>
+                      </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between pt-4">
-                <div className="text-sm text-muted-foreground">
-                  Showing {startIndex + 1}-{Math.min(endIndex, filteredData.length)} of {filteredData.length} developers
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    Previous
-                  </Button>
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
-                      return (
-                        <Button
-                          key={pageNum}
-                          variant={pageNum === currentPage ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setCurrentPage(pageNum)}
-                          className="w-8 h-8 p-0"
-                        >
-                          {pageNum}
-                        </Button>
-                      );
-                    })}
+                      <div className="text-center">
+                        <div className="text-lg font-semibold text-orange-600">
+                          {entry.winStreak}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Streak</div>
+                      </div>
+
+                      <div className="text-center">
+                        <div className="text-sm font-medium">
+                          {entry.wins}W - {entry.losses}L
+                        </div>
+                        <div className="text-xs text-muted-foreground">Record</div>
+                      </div>
+                    </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
                 </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <Users className="h-8 w-8 text-muted-foreground" />
               </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              <h3 className="text-xl font-semibold mb-2">No Results Found</h3>
+              <p className="text-muted-foreground">
+                Try adjusting your search or filter criteria.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Stats Summary */}
+      {filteredLeaderboard.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {filteredLeaderboard.length}
+              </div>
+              <div className="text-sm text-muted-foreground">Total Developers</div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-blue-600">
+                {Math.round(filteredLeaderboard.reduce((sum, entry) => sum + entry.eloRating, 0) / filteredLeaderboard.length)}
+              </div>
+              <div className="text-sm text-muted-foreground">Avg ELO</div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-purple-600">
+                {Math.round(filteredLeaderboard.reduce((sum, entry) => sum + entry.winRate, 0) / filteredLeaderboard.length)}
+              </div>
+              <div className="text-sm text-muted-foreground">Avg Win Rate</div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-orange-600">
+                {Math.max(...filteredLeaderboard.map(entry => entry.winStreak))}
+              </div>
+              <div className="text-sm text-muted-foreground">Best Streak</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
   );
 } 

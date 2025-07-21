@@ -42,16 +42,6 @@ export default function PricingPage() {
       popular: true,
       plan: 'pro' as const,
     },
-    {
-      name: 'Developer',
-      price: '$6.90',
-      period: '/month',
-      description: 'Private repos + BYOK',
-      features: ['Private repos', 'BYOK unlimited', 'Email support'],
-      icon: Key,
-      popular: false,
-      plan: 'byok' as const,
-    },
   ];
 
   const handleUpgrade = (plan: 'byok' | 'pro') => {
@@ -71,16 +61,14 @@ export default function PricingPage() {
         {plans.map((plan) => {
           const Icon = plan.icon;
           const isPro = plan.name === 'Pro';
-          const isByok = plan.name === 'Developer';
           const isCurrent =
             currentPlan &&
             ((currentPlan.plan === 'pro' && isPro) ||
-              (currentPlan.plan === 'byok' && isByok) ||
               (currentPlan.plan === 'free' && plan.name === 'Free'));
           const canUpgrade =
             currentPlan &&
             ((currentPlan.plan === 'free') ||
-              (currentPlan.plan === 'byok' && isPro));
+              (currentPlan.plan === 'pro'));
           return (
             <Card
               key={plan.name}
@@ -136,7 +124,7 @@ export default function PricingPage() {
                     </Button>
                   ) : (
                     <Button className="w-full" variant="outline" disabled>
-                      {isByok ? 'Upgrade to Pro for Managed AI' : 'Current Plan'}
+                      Current Plan
                     </Button>
                   )
                 ) : (
@@ -153,19 +141,6 @@ export default function PricingPage() {
       <div className="mt-12 text-center">
         <h2 className="text-2xl font-bold mb-4">Frequently Asked Questions</h2>
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          <div className="text-left">
-            <h3 className="font-semibold mb-2">What is BYOK?</h3>
-            <p className="text-sm text-muted-foreground">
-              Bring Your Own Key (BYOK) means you provide your own Google Gemini API key. 
-              This gives you unlimited usage while keeping your AI costs separate from our platform.
-            </p>
-          </div>
-          <div className="text-left">
-            <h3 className="font-semibold mb-2">How do I get a Gemini API key?</h3>
-            <p className="text-sm text-muted-foreground">
-              Visit the Google AI Studio to create your API key. It&apos;s free to start and you only pay for what you use.
-            </p>
-          </div>
           <div className="text-left">
             <h3 className="font-semibold mb-2">Can I switch between plans?</h3>
             <p className="text-sm text-muted-foreground">

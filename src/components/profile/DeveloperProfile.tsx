@@ -22,18 +22,13 @@ interface DeveloperProfileProps {
 export function DeveloperProfile({ username }: DeveloperProfileProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   
-  // Get cached profile
-  const { 
-    data: cachedProfile, 
-    isLoading: isLoadingCached,
-    refetch: refetchCached 
-  } = trpc.profile.generateProfile.useQuery({ username });
+  // Use the new public endpoint for cached profile
+  const { data: publicProfile, isLoading: publicLoading } = trpc.profile.publicGetProfile.useQuery({ username }, { enabled: !!username });
 
   // Generate profile mutation
   const generateProfileMutation = trpc.profile.generateProfileMutation.useMutation({
     onSuccess: () => {
       setIsGenerating(false);
-      refetchCached(); // Refresh the cached data
     },
     onError: () => {
       setIsGenerating(false);
@@ -49,19 +44,69 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     generateProfileMutation.mutate({ username });
   }, [generateProfileMutation, username]);
 
-  // Auto-generate if stale
-  useEffect(() => {
-    if (cachedProfile?.stale && !isGenerating && !generateProfileMutation.isPending) {
-      handleGenerateProfile();
-    }
-  }, [cachedProfile?.stale, isGenerating, generateProfileMutation.isPending, handleGenerateProfile]);
+  // If a cached profile is available, show it and skip all AI/generation logic
+  if (publicProfile?.profile) {
+    const profile = publicProfile.profile as DeveloperProfileType;
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-3">
+              <User className="h-8 w-8" />
+              {username}&apos;s Developer Profile
+            </h1>
+            {publicProfile.lastUpdated && (
+              <div className="mt-2 flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  Last updated: {new Date(publicProfile.lastUpdated).toLocaleDateString()}
+                </span>
+                {publicProfile.cached && (
+                  <Badge variant="outline" className="text-xs">Cached</Badge>
+                )}
+                {publicProfile.stale && (
+                  <Badge variant="destructive" className="text-xs">Stale</Badge>
+                )}
+              </div>
+            )}
+            {publicProfile.stale && (
+              <p className="text-sm text-amber-600 mt-1">
+                Profile data is over 7 days old. Consider refreshing for the latest insights.
+              </p>
+            )}
+          </div>
+        </div>
+        {/* Profile Content */}
+        <div className="space-y-8">
+          {/* Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Professional Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-700 leading-relaxed">{profile.summary}</p>
+            </CardContent>
+          </Card>
+          {/* Skills and Development Style */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <SkillAssessment skills={profile.skillAssessment} />
+            <DevelopmentStyle traits={profile.developmentStyle} />
+          </div>
+          {/* Tech Stack */}
+          <TechStack techStack={profile.techStack} />
+          {/* Top Repositories */}
+          <TopRepos repos={profile.topRepos} />
+        </div>
+      </div>
+    );
+  }
 
-  const profile = cachedProfile?.profile as DeveloperProfileType | null;
-  const isLoading = isLoadingCached || planLoading;
+  const isLoading = publicLoading || planLoading;
   const error = generateProfileMutation.error?.message;
 
   // If plan is loading, show loading
-  if (planLoading) {
+  if (planLoading || publicLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
         <LoadingWave />
@@ -87,21 +132,21 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
               <User className="h-8 w-8" />
               {username}&apos;s Developer Profile
             </h1>
-          {cachedProfile?.lastUpdated && (
+          {publicProfile?.lastUpdated && (
             <div className="mt-2 flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                Last updated: {new Date(cachedProfile.lastUpdated).toLocaleDateString()}
+                Last updated: {new Date(publicProfile.lastUpdated).toLocaleDateString()}
               </span>
-              {cachedProfile.cached && (
+              {publicProfile.cached && (
                 <Badge variant="outline" className="text-xs">Cached</Badge>
               )}
-              {cachedProfile.stale && (
+              {publicProfile.stale && (
                 <Badge variant="destructive" className="text-xs">Stale</Badge>
               )}
             </div>
           )}
-          {cachedProfile?.stale && (
+          {publicProfile?.stale && (
             <p className="text-sm text-amber-600 mt-1">
               Profile data is over 7 days old. Consider refreshing for the latest insights.
             </p>
@@ -128,7 +173,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
       )}
 
       {/* Loading State */}
-      {isLoading && !profile && (
+      {isLoading && !publicProfile && (
         <div className="flex flex-col items-center justify-center min-h-[400px]">
           <LoadingWave />
           <p className="mt-4 text-gray-600">Loading developer profile...</p>
@@ -136,7 +181,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
       )}
 
       {/* Profile Content */}
-      {profile && (
+      {publicProfile && (
         <div className="space-y-8">
           {/* Summary */}
           <Card>
@@ -144,26 +189,26 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
               <CardTitle>Professional Summary</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-700 leading-relaxed">{profile.summary}</p>
+              <p className="text-gray-700 leading-relaxed">{publicProfile.profile?.summary}</p>
             </CardContent>
           </Card>
 
           {/* Skills and Development Style */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SkillAssessment skills={profile.skillAssessment} />
-            <DevelopmentStyle traits={profile.developmentStyle} />
+            <SkillAssessment skills={publicProfile.profile?.skillAssessment} />
+            <DevelopmentStyle traits={publicProfile.profile?.developmentStyle} />
           </div>
 
           {/* Tech Stack */}
-          <TechStack techStack={profile.techStack} />
+          <TechStack techStack={publicProfile.profile?.techStack} />
 
           {/* Top Repositories */}
-          <TopRepos repos={profile.topRepos} />
+          <TopRepos repos={publicProfile.profile?.topRepos} />
         </div>
       )}
 
       {/* No Profile State */}
-      {!isLoading && !profile && !error && (
+      {!isLoading && !publicProfile && !error && (
         <div className="text-center py-12">
           <h2 className="text-xl font-semibold text-gray-600 mb-4">
             No Profile Available

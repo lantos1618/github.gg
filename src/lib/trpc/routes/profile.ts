@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from '@/lib/trpc/trpc';
+import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { developerProfileCache, tokenUsage } from '@/db/schema';
-import { eq, and, gte } from 'drizzle-orm';
+import { eq, and, gte, desc } from 'drizzle-orm';
 import { generateDeveloperProfile } from '@/lib/ai/developer-profile';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
@@ -37,6 +37,38 @@ export const profileRouter = router({
         };
       }
 
+      return {
+        profile: null,
+        cached: false,
+        stale: false,
+        lastUpdated: null,
+      };
+    }),
+
+  // Public endpoint: anyone can fetch cached developer profile for a username
+  publicGetProfile: publicProcedure
+    .input(z.object({
+      username: z.string().min(1, 'Username is required'),
+    }))
+    .query(async ({ input }) => {
+      const { username } = input;
+      // Find the most recent cached profile for this username
+      const cached = await db
+        .select()
+        .from(developerProfileCache)
+        .where(eq(developerProfileCache.username, username))
+        .orderBy(desc(developerProfileCache.updatedAt))
+        .limit(1);
+      if (cached.length > 0) {
+        const profile = cached[0];
+        const isStale = new Date().getTime() - profile.updatedAt.getTime() > 7 * 24 * 60 * 60 * 1000; // 7 days
+        return {
+          profile: profile.profileData,
+          cached: true,
+          stale: isStale,
+          lastUpdated: profile.updatedAt,
+        };
+      }
       return {
         profile: null,
         cached: false,

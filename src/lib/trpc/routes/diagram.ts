@@ -1,11 +1,11 @@
-import { router, protectedProcedure } from '@/lib/trpc/trpc';
+import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { generateRepoDiagramVercel } from '@/lib/ai/diagram';
 import { diagramInputSchema } from '@/lib/types/diagram';
 import { parseGeminiError } from '@/lib/utils/errorHandling';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { db } from '@/db';
 import { tokenUsage, repositoryDiagrams } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 
 export const diagramRouter = router({
@@ -43,6 +43,45 @@ export const diagramRouter = router({
         };
       }
 
+      return {
+        diagramCode: null,
+        cached: false,
+        stale: false,
+        lastUpdated: null,
+      };
+    }),
+
+  // Public endpoint: anyone can fetch cached diagram for a repo/ref/type
+  publicGetDiagram: publicProcedure
+    .input(diagramInputSchema.pick({ user: true, repo: true, ref: true, diagramType: true }))
+    .query(async ({ input }) => {
+      const { user, repo, ref, diagramType } = input;
+      // Find the most recent diagram for this repo/ref/type (any user)
+      const cached = await db
+        .select()
+        .from(repositoryDiagrams)
+        .where(
+          and(
+            eq(repositoryDiagrams.repoOwner, user),
+            eq(repositoryDiagrams.repoName, repo),
+            eq(repositoryDiagrams.ref, ref || 'main'),
+            eq(repositoryDiagrams.diagramType, diagramType)
+          )
+        )
+        .orderBy(desc(repositoryDiagrams.updatedAt))
+        .limit(1);
+      if (cached.length > 0) {
+        const diagram = cached[0];
+        const isStale = new Date().getTime() - diagram.updatedAt.getTime() > 24 * 60 * 60 * 1000; // 24 hours
+        return {
+          diagramCode: diagram.diagramCode,
+          format: diagram.format,
+          diagramType,
+          cached: true,
+          stale: isStale,
+          lastUpdated: diagram.updatedAt,
+        };
+      }
       return {
         diagramCode: null,
         cached: false,

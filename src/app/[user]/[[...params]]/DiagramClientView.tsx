@@ -39,7 +39,15 @@ function DiagramClientView({
   const { files: repoFiles, isLoading: filesLoading, error: filesError, totalFiles } = useRepoData({ user, repo, ref: refName, path });
 
   // Check user plan
-  const { data: currentPlan } = trpc.user.getCurrentPlan.useQuery();
+  const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery();
+
+  // Use the new public endpoint for cached diagram
+  const { data: publicDiagram, isLoading: publicLoading } = trpc.diagram.publicGetDiagram.useQuery({
+    user,
+    repo,
+    ref: refName || 'main',
+    diagramType,
+  }, { enabled: !!user && !!repo && !!diagramType });
 
   // Keyboard shortcut to close code panel
   useEffect(() => {
@@ -117,8 +125,40 @@ function DiagramClientView({
   // Check if user has access to AI features
   const hasAccess = currentPlan?.plan === 'byok' || currentPlan?.plan === 'pro';
 
+  // If a cached diagram is available, show it and skip all AI/generation logic
+  if (publicDiagram?.diagramCode) {
+    return (
+      <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
+        <div className="w-full px-0 text-center mt-8">
+          <h1>Diagram View</h1>
+          <DiagramTypeSelector
+            diagramType={diagramType}
+            onDiagramTypeChange={setDiagramType}
+            disabled={publicLoading}
+          />
+          <div className="w-full bg-white border rounded-lg shadow overflow-hidden mt-8" style={{minHeight: 500}}>
+            <DiagramCodePanel
+              showCodePanel={showCodePanel}
+              editableCode={publicDiagram.diagramCode}
+              onCodeChange={handleCodeChange}
+              lastCodePanelSize={lastCodePanelSize}
+              onCodePanelSizeChange={setLastCodePanelSize}
+              disabled={publicLoading}
+            >
+              <DiagramPreview
+                code={publicDiagram.diagramCode}
+                renderError={renderError}
+                onRenderError={setRenderError}
+              />
+            </DiagramCodePanel>
+          </div>
+        </div>
+      </RepoPageLayout>
+    );
+  }
+
   // Show loading state while files are loading
-  if (filesLoading) {
+  if (filesLoading || publicLoading || planLoading) {
     return (
       <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
         <div className="w-full px-4 py-8">

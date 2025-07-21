@@ -3,6 +3,7 @@ import RepoPageLayout from "@/components/layouts/RepoPageLayout";
 import { trpc } from '@/lib/trpc/client';
 import { LoadingWave } from '@/components/LoadingWave';
 import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -21,8 +22,26 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
   const generateScorecardMutation = trpc.scorecard.generateScorecard.useMutation();
   const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery();
 
+  // Use the new public endpoint for cached scorecard
+  const { data: publicScorecard, isLoading: publicLoading } = trpc.scorecard.publicGetScorecard.useQuery({
+    user,
+    repo,
+    ref: refName || 'main',
+  }, { enabled: !!user && !!repo });
+
   // Get repo data
   const { files, isLoading: filesLoading, error: filesError, totalFiles } = useRepoData({ user, repo, ref: refName, path });
+
+  // If a cached scorecard is available, show it and skip all AI/generation logic
+  if (publicScorecard?.scorecard) {
+    return (
+      <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
+        <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
+          <MarkdownCardRenderer markdown={publicScorecard.scorecard.markdown} />
+        </div>
+      </RepoPageLayout>
+    );
+  }
 
   useEffect(() => {
     if (user || repo) {
@@ -72,7 +91,7 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
   const overallLoading = filesLoading || isLoading;
 
   // If plan is loading, show nothing or a spinner
-  if (planLoading) {
+  if (planLoading || publicLoading) {
     return (
       <RepoPageLayout user={user} repo={repo} refName={refName} files={[]} totalFiles={0}>
         <div className="flex flex-col items-center justify-center min-h-[400px]">

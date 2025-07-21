@@ -68,16 +68,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
       </div>
     );
   }
-
-  // If user does not have a paid plan, show upgrade
-  if (!currentPlan || currentPlan.plan === 'free') {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <SubscriptionUpgrade />
-      </div>
-    );
-  }
-
+  
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
       {/* Header */}

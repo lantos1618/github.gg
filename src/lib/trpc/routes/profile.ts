@@ -7,6 +7,8 @@ import { generateDeveloperProfile } from '@/lib/ai/developer-profile';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
+import type { DeveloperProfile } from '@/lib/types/profile';
+import { findAndStoreDeveloperEmail, sendDeveloperProfileEmail } from '@/lib/ai/developer-profile';
 
 export const profileRouter = router({
   generateProfile: protectedProcedure
@@ -50,7 +52,7 @@ export const profileRouter = router({
     .input(z.object({
       username: z.string().min(1, 'Username is required'),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input }): Promise<{ profile: DeveloperProfile | null, cached: boolean, stale: boolean, lastUpdated: Date | null }> => {
       const { username } = input;
       // Find the most recent cached profile for this username
       const cached = await db
@@ -63,7 +65,7 @@ export const profileRouter = router({
         const profile = cached[0];
         const isStale = new Date().getTime() - profile.updatedAt.getTime() > 7 * 24 * 60 * 60 * 1000; // 7 days
         return {
-          profile: profile.profileData,
+          profile: profile.profileData as DeveloperProfile,
           cached: true,
           stale: isStale,
           lastUpdated: profile.updatedAt,
@@ -249,6 +251,18 @@ export const profileRouter = router({
           isByok: keyInfo.isByok,
           createdAt: new Date(),
         });
+
+        // Extract and email developer
+        try {
+          const email = await findAndStoreDeveloperEmail(githubService['octokit'], username, sortedRepos);
+          if (email) {
+            // Simple HTML render for now
+            const html = `<h1>Your GitHub.gg Developer Profile</h1><pre>${JSON.stringify(result.profile, null, 2)}</pre>`;
+            await sendDeveloperProfileEmail(email, html);
+          }
+        } catch (e) {
+          console.warn('Failed to extract/send developer email:', e);
+        }
         
         return {
           profile: result.profile,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,7 +46,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
 
   // If a cached profile is available, show it and skip all AI/generation logic
   if (publicProfile?.profile) {
-    const profile = publicProfile.profile as DeveloperProfileType;
+    const profile = publicProfile.profile;
     return (
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
         {/* Header */}
@@ -90,13 +90,13 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
           </Card>
           {/* Skills and Development Style */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SkillAssessment skills={profile.skillAssessment} />
-            <DevelopmentStyle traits={profile.developmentStyle} />
+            <SkillAssessment skills={profile.skillAssessment ?? []} />
+            <DevelopmentStyle traits={profile.developmentStyle ?? []} />
           </div>
           {/* Tech Stack */}
-          <TechStack techStack={profile.techStack} />
+          <TechStack techStack={profile.techStack ?? []} />
           {/* Top Repositories */}
-          <TopRepos repos={profile.topRepos} />
+          <TopRepos repos={profile.topRepos ?? []} />
         </div>
       </div>
     );
@@ -195,15 +195,15 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
 
           {/* Skills and Development Style */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SkillAssessment skills={publicProfile.profile?.skillAssessment} />
-            <DevelopmentStyle traits={publicProfile.profile?.developmentStyle} />
+            <SkillAssessment skills={publicProfile.profile?.skillAssessment ?? []} />
+            <DevelopmentStyle traits={publicProfile.profile?.developmentStyle ?? []} />
           </div>
 
           {/* Tech Stack */}
-          <TechStack techStack={publicProfile.profile?.techStack} />
+          <TechStack techStack={publicProfile.profile?.techStack ?? []} />
 
           {/* Top Repositories */}
-          <TopRepos repos={publicProfile.profile?.topRepos} />
+          <TopRepos repos={publicProfile.profile?.topRepos ?? []} />
         </div>
       )}
 

@@ -3,7 +3,6 @@ import RepoPageLayout from "@/components/layouts/RepoPageLayout";
 import { trpc } from '@/lib/trpc/client';
 import { LoadingWave } from '@/components/LoadingWave';
 import { useEffect, useState } from 'react';
-import { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -32,6 +31,15 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
   // Get repo data
   const { files, isLoading: filesLoading, error: filesError, totalFiles } = useRepoData({ user, repo, ref: refName, path });
 
+  // Always call useEffect hooks at the top level
+  useEffect(() => {
+    if (user || repo) {
+      setScorecardData(null);
+      setError(null);
+      setHasGenerated(false);
+    }
+  }, [user, repo]);
+
   // If a cached scorecard is available, show it and skip all AI/generation logic
   if (publicScorecard?.scorecard) {
     return (
@@ -42,14 +50,6 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
       </RepoPageLayout>
     );
   }
-
-  useEffect(() => {
-    if (user || repo) {
-      setScorecardData(null);
-      setError(null);
-      setHasGenerated(false);
-    }
-  }, [user, repo]);
 
   // Handle scorecard generation when files are loaded
   useEffect(() => {

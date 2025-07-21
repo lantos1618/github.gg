@@ -7,7 +7,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-
     "test": "bun --env-file=.env.local test",
     "test:payment": "bun --env-file=.env.local test tests/payment-smoke-test.ts",
     "test:payment:full": "bun --env-file=.env.local test tests/payment-integration.test.ts",
@@ -68,6 +67,7 @@
     "react-syntax-highlighter": "^15.6.1",
     "recharts": "^3.0.2",
     "remark-gfm": "^4.0.1",
+    "resend": "^4.7.0",
     "sonner": "^2.0.5",
     "stripe": "^18.2.1",
     "tailwind-merge": "^3.3.1",

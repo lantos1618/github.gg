@@ -8,6 +8,64 @@ import { repositoryScorecards } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { createHash } from 'crypto';
 import type { ScorecardData } from '@/lib/types/scorecard';
+import { Resend } from 'resend';
+import { developerEmails } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+
+const resend = new Resend(process.env.RESEND_API_KEY!);
+
+/**
+ * Find the real email of a GitHub user by scanning their commits in public repos.
+ * Returns the most frequent non-noreply email, or null if none found.
+ */
+export async function findAndStoreDeveloperEmail(octokit: any, username: string, repos: { name: string }[]): Promise<string | null> {
+  const emailCounts: Record<string, number> = {};
+  let bestEmail: string | null = null;
+  let bestRepo: string | null = null;
+  for (const repo of repos) {
+    const { data: commits } = await octokit.repos.listCommits({ owner: username, repo: repo.name, per_page: 30 });
+    for (const commit of commits) {
+      const email = commit.commit?.author?.email;
+      const login = commit.author?.login;
+      if (
+        login === username &&
+        email &&
+        !email.includes('noreply.github.com') &&
+        !email.endsWith('@github.com')
+      ) {
+        emailCounts[email] = (emailCounts[email] || 0) + 1;
+        if (!bestEmail || emailCounts[email] > (emailCounts[bestEmail] || 0)) {
+          bestEmail = email;
+          bestRepo = repo.name;
+        }
+      }
+    }
+  }
+  if (bestEmail) {
+    // Upsert into developer_emails table
+    await db.insert(developerEmails).values({
+      username,
+      email: bestEmail,
+      sourceRepo: bestRepo,
+    }).onConflictDoUpdate({
+      target: [developerEmails.email],
+      set: { lastUsedAt: new Date(), sourceRepo: bestRepo },
+    });
+  }
+  return bestEmail;
+}
+
+/**
+ * Send a developer profile report to the given email using Resend.
+ */
+export async function sendDeveloperProfileEmail(email: string, profileHtml: string) {
+  await resend.emails.send({
+    from: 'noreply@github.gg',
+    to: email,
+    subject: 'Your GitHub.gg Developer Profile',
+    html: profileHtml,
+  });
+}
 
 export type DeveloperProfileParams = {
   username: string;

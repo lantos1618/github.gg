@@ -354,4 +354,14 @@ export const userAchievements = pgTable('user_achievements', {
   userAchievementIdx: uniqueIndex('user_achievement_idx').on(table.userId, table.achievementId),
 }));
 
+// Developer Emails - for marketing and notifications
+export const developerEmails = pgTable('developer_emails', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  username: text('username').notNull(),
+  email: text('email').notNull().unique(),
+  firstFoundAt: timestamp('first_found_at').notNull().defaultNow(),
+  lastUsedAt: timestamp('last_used_at').notNull().defaultNow(),
+  sourceRepo: text('source_repo'),
+});
+
 // Do NOT import or export relations here. Only table definitions. 

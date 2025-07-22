@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LoadingWave } from '@/components/LoadingWave';
-import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
 import { trpc } from '@/lib/trpc/client';
 import { 
   Trophy, 
@@ -20,18 +19,20 @@ import {
 import { LeaderboardTable } from './LeaderboardTable';
 import { ChallengeForm } from './ChallengeForm';
 import { BattleAnalysis } from './BattleAnalysis';
+import { useAuth } from '@/lib/auth/client';
 
 export function ArenaClientView() {
   const [activeTab, setActiveTab] = useState('overview');
 
   // Auth and plan
-  const { session, user, isSignedIn, isLoading: authLoading, signIn } = require('@/lib/auth/client').useAuth();
+  const { user, isSignedIn, isLoading: authLoading } = useAuth();
   const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery(undefined, { enabled: isSignedIn });
 
-  // Ranking: if signed in, use userId; else, try username from query or skip
+  // Ranking: if signed in, use userId; else, skip query
+  const myRankingQueryEnabled = isSignedIn && !!user?.id;
   const { data: myRanking } = trpc.arena.getMyRanking.useQuery(
-    isSignedIn && user?.id ? { userId: user.id, username: user.name } : undefined,
-    { enabled: isSignedIn && !!user?.id }
+    myRankingQueryEnabled ? { userId: user.id, username: user.name } : { userId: '', username: '' },
+    { enabled: myRankingQueryEnabled }
   );
 
   // Leaderboard is always public

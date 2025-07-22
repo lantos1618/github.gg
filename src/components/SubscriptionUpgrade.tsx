@@ -1,7 +1,7 @@
 "use client";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Key, Crown, Check } from 'lucide-react';
+import { Crown, Check } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { useState } from 'react';
 import Link from 'next/link';

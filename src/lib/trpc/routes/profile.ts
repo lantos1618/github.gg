@@ -1,12 +1,14 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from '@/lib/trpc/trpc';
+import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { developerProfileCache, tokenUsage } from '@/db/schema';
-import { eq, and, gte } from 'drizzle-orm';
+import { eq, and, gte, desc } from 'drizzle-orm';
 import { generateDeveloperProfile } from '@/lib/ai/developer-profile';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
+import type { DeveloperProfile } from '@/lib/types/profile';
+import { findAndStoreDeveloperEmail, sendDeveloperProfileEmail } from '@/lib/ai/developer-profile';
 
 export const profileRouter = router({
   generateProfile: protectedProcedure
@@ -37,6 +39,38 @@ export const profileRouter = router({
         };
       }
 
+      return {
+        profile: null,
+        cached: false,
+        stale: false,
+        lastUpdated: null,
+      };
+    }),
+
+  // Public endpoint: anyone can fetch cached developer profile for a username
+  publicGetProfile: publicProcedure
+    .input(z.object({
+      username: z.string().min(1, 'Username is required'),
+    }))
+    .query(async ({ input }): Promise<{ profile: DeveloperProfile | null, cached: boolean, stale: boolean, lastUpdated: Date | null }> => {
+      const { username } = input;
+      // Find the most recent cached profile for this username (latest updatedAt)
+      const cached = await db
+        .select()
+        .from(developerProfileCache)
+        .where(eq(developerProfileCache.username, username))
+        .orderBy(desc(developerProfileCache.updatedAt))
+        .limit(1);
+      if (cached.length > 0) {
+        const profile = cached[0];
+        const isStale = new Date().getTime() - profile.updatedAt.getTime() > 7 * 24 * 60 * 60 * 1000; // 7 days
+        return {
+          profile: profile.profileData as DeveloperProfile,
+          cached: true,
+          stale: isStale,
+          lastUpdated: profile.updatedAt,
+        };
+      }
       return {
         profile: null,
         cached: false,
@@ -188,11 +222,12 @@ export const profileRouter = router({
         // Generate developer profile with optional code analysis
         const result = await generateDeveloperProfile(username, sortedRepos, input.includeCodeAnalysis ? repoFiles : undefined, ctx.user.id);
         
-        // Cache the result
+        // Cache the result (no version management needed)
         await db
           .insert(developerProfileCache)
           .values({
             username,
+            version: 1, // Keep version for compatibility but don't increment
             profileData: result.profile,
             updatedAt: new Date(),
           })
@@ -210,13 +245,25 @@ export const profileRouter = router({
           feature: 'profile',
           repoOwner: username,
           repoName: null,
-          model: 'gemini-2.5-flash',
+          model: 'gemini-2.5-pro',
           promptTokens: result.usage.promptTokens,
           completionTokens: result.usage.completionTokens,
           totalTokens: result.usage.totalTokens,
           isByok: keyInfo.isByok,
           createdAt: new Date(),
         });
+
+        // Extract and email developer
+        try {
+          const email = await findAndStoreDeveloperEmail(githubService['octokit'], username, sortedRepos);
+          if (email) {
+            // Simple HTML render for now
+            const html = `<h1>Your GitHub.gg Developer Profile</h1><pre>${JSON.stringify(result.profile, null, 2)}</pre>`;
+            await sendDeveloperProfileEmail(email, html);
+          }
+        } catch (e) {
+          console.warn('Failed to extract/send developer email:', e);
+        }
         
         return {
           profile: result.profile,
@@ -245,5 +292,35 @@ export const profileRouter = router({
         .where(eq(developerProfileCache.username, username));
 
       return { success: true };
+    }),
+
+  getProfileVersions: publicProcedure
+    .input(z.object({ username: z.string() }))
+    .query(async ({ input }) => {
+      const result = await db
+        .select({ version: developerProfileCache.version, updatedAt: developerProfileCache.updatedAt })
+        .from(developerProfileCache)
+        .where(eq(developerProfileCache.username, input.username))
+        .orderBy(desc(developerProfileCache.updatedAt))
+        .limit(1);
+      
+      // Return as array for compatibility with existing UI
+      return result;
+    }),
+
+  getProfileByVersion: publicProcedure
+    .input(z.object({ username: z.string(), version: z.number() }))
+    .query(async ({ input }) => {
+      const result = await db
+        .select()
+        .from(developerProfileCache)
+        .where(
+          and(
+            eq(developerProfileCache.username, input.username),
+            eq(developerProfileCache.version, input.version)
+          )
+        )
+        .limit(1);
+      return result[0] || null;
     }),
 }); 

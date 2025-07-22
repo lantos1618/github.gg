@@ -55,7 +55,7 @@ export const adminRouter = router({
         promptTokens: u.promptTokens,
         completionTokens: u.completionTokens,
         totalTokens: u.totalTokens,
-        model: u.model || 'gemini-2.5-flash', // Default model
+        model: u.model || 'gemini-2.5-pro', // Default model
       })));
 
       // Aggregate statistics
@@ -120,7 +120,7 @@ export const adminRouter = router({
         promptTokens: u.promptTokens,
         completionTokens: u.completionTokens,
         totalTokens: u.totalTokens,
-        model: u.model || 'gemini-2.5-flash',
+        model: u.model || 'gemini-2.5-pro',
       })));
 
       return {
@@ -186,7 +186,7 @@ export const adminRouter = router({
           promptTokens: u.promptTokens,
           completionTokens: u.completionTokens,
           totalTokens: u.totalTokens,
-          model: u.model || 'gemini-2.5-flash',
+          model: u.model || 'gemini-2.5-pro',
         })));
 
         return {
@@ -251,7 +251,7 @@ export const adminRouter = router({
           promptTokens: u.promptTokens,
           completionTokens: u.completionTokens,
           totalTokens: u.totalTokens,
-          model: u.model || 'gemini-2.5-flash',
+          model: u.model || 'gemini-2.5-pro',
         });
 
         acc[u.feature].totalTokens += u.totalTokens;

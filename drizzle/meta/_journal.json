@@ -50,6 +50,34 @@
       "when": 1753042614781,
       "tag": "0006_dizzy_apocalypse",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1753134125499,
+      "tag": "0007_sleepy_korg",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1753147260090,
+      "tag": "0008_lying_kylun",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1753152940012,
+      "tag": "0009_fixed_namor",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1753154235696,
+      "tag": "0010_high_genesis",
+      "breakpoints": true
     }
   ]
 }

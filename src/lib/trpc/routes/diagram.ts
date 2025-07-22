@@ -1,12 +1,13 @@
-import { router, protectedProcedure } from '@/lib/trpc/trpc';
+import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { generateRepoDiagramVercel } from '@/lib/ai/diagram';
 import { diagramInputSchema } from '@/lib/types/diagram';
 import { parseGeminiError } from '@/lib/utils/errorHandling';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { db } from '@/db';
 import { tokenUsage, repositoryDiagrams } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
+import { z } from 'zod';
 
 export const diagramRouter = router({
   getDiagram: protectedProcedure
@@ -51,6 +52,81 @@ export const diagramRouter = router({
       };
     }),
 
+  // Public endpoint: anyone can fetch cached diagram for a repo/ref/type
+  publicGetDiagram: publicProcedure
+    .input(diagramInputSchema.pick({ user: true, repo: true, ref: true, diagramType: true }))
+    .query(async ({ input }) => {
+      const { user, repo, ref, diagramType } = input;
+      // Find the most recent diagram for this repo/ref/type (any user)
+      const cached = await db
+        .select()
+        .from(repositoryDiagrams)
+        .where(
+          and(
+            eq(repositoryDiagrams.repoOwner, user),
+            eq(repositoryDiagrams.repoName, repo),
+            eq(repositoryDiagrams.ref, ref || 'main'),
+            eq(repositoryDiagrams.diagramType, diagramType)
+          )
+        )
+        .orderBy(desc(repositoryDiagrams.updatedAt))
+        .limit(1);
+      if (cached.length > 0) {
+        const diagram = cached[0];
+        const isStale = new Date().getTime() - diagram.updatedAt.getTime() > 24 * 60 * 60 * 1000; // 24 hours
+        return {
+          diagramCode: diagram.diagramCode,
+          format: diagram.format,
+          diagramType,
+          cached: true,
+          stale: isStale,
+          lastUpdated: diagram.updatedAt,
+        };
+      }
+      return {
+        diagramCode: null,
+        cached: false,
+        stale: false,
+        lastUpdated: null,
+      };
+    }),
+
+  getDiagramVersions: publicProcedure
+    .input(diagramInputSchema.pick({ user: true, repo: true, ref: true, diagramType: true }))
+    .query(async ({ input }) => {
+      return await db
+        .select({ version: repositoryDiagrams.version, updatedAt: repositoryDiagrams.updatedAt })
+        .from(repositoryDiagrams)
+        .where(
+          and(
+            eq(repositoryDiagrams.repoOwner, input.user),
+            eq(repositoryDiagrams.repoName, input.repo),
+            eq(repositoryDiagrams.ref, input.ref || 'main'),
+            eq(repositoryDiagrams.diagramType, input.diagramType)
+          )
+        )
+        .orderBy(desc(repositoryDiagrams.version));
+    }),
+
+  getDiagramByVersion: publicProcedure
+    .input(diagramInputSchema.pick({ user: true, repo: true, ref: true, diagramType: true }).extend({ version: z.number() }))
+    .query(async ({ input }) => {
+      const result = await db
+        .select()
+        .from(repositoryDiagrams)
+        .where(
+          and(
+            eq(repositoryDiagrams.repoOwner, input.user),
+            eq(repositoryDiagrams.repoName, input.repo),
+            eq(repositoryDiagrams.ref, input.ref || 'main'),
+            eq(repositoryDiagrams.diagramType, input.diagramType),
+            eq(repositoryDiagrams.version, input.version)
+          )
+        )
+        .limit(1);
+      return result[0] || null;
+    }),
+
   generateDiagram: protectedProcedure
     .input(diagramInputSchema)
     .mutation(async ({ input, ctx }) => {
@@ -88,6 +164,21 @@ export const diagramRouter = router({
         });
         
         // 3. Save diagram to database
+        const maxVersionResult = await db
+          .select({ max: desc(repositoryDiagrams.version) })
+          .from(repositoryDiagrams)
+          .where(
+            and(
+              eq(repositoryDiagrams.userId, ctx.user.id),
+              eq(repositoryDiagrams.repoOwner, input.user),
+              eq(repositoryDiagrams.repoName, input.repo),
+              eq(repositoryDiagrams.ref, input.ref || 'main'),
+              eq(repositoryDiagrams.diagramType, diagramType)
+            )
+          )
+          .limit(1);
+        const maxVersion = maxVersionResult[0]?.max ?? 0;
+        const nextVersion = (typeof maxVersion === 'number' ? maxVersion : 0) + 1;
         await db
           .insert(repositoryDiagrams)
           .values({
@@ -96,19 +187,13 @@ export const diagramRouter = router({
             repoName: input.repo,
             ref: input.ref || 'main',
             diagramType,
+            version: nextVersion,
             diagramCode: result.diagramCode,
             format: 'mermaid',
             options: options || {},
             updatedAt: new Date(),
           })
-          .onConflictDoUpdate({
-            target: [repositoryDiagrams.userId, repositoryDiagrams.repoOwner, repositoryDiagrams.repoName, repositoryDiagrams.ref, repositoryDiagrams.diagramType],
-            set: {
-              diagramCode: result.diagramCode,
-              options: options || {},
-              updatedAt: new Date(),
-            },
-          });
+          .onConflictDoNothing();
         
         // 4. Log token usage with actual values from AI response
         await db.insert(tokenUsage).values({
@@ -116,7 +201,7 @@ export const diagramRouter = router({
           feature: 'diagram',
           repoOwner: input.user,
           repoName: input.repo,
-          model: 'gemini-2.5-flash', // Default model used
+          model: 'gemini-2.5-pro', // Default model used
           promptTokens: result.usage.promptTokens,
           completionTokens: result.usage.completionTokens,
           totalTokens: result.usage.totalTokens,

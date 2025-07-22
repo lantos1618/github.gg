@@ -12,6 +12,8 @@ export type ScoredMetric = z.infer<typeof scoredMetricSchema>;
 // Scored repository with significance
 export const scoredRepoSchema = z.object({
   name: z.string(),
+  owner: z.string(),
+  repo: z.string(),
   description: z.string(),
   url: z.string(),
   significanceScore: z.number().min(1).max(10).describe("A score representing the repository's importance to this developer's profile."),

@@ -11,6 +11,8 @@ import {
   SelectItem,
   SelectValue,
 } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Calendar } from 'lucide-react';
 
 interface RepoHeaderProps {
   user: string;
@@ -126,6 +128,47 @@ export function RepoHeader({
           </div>
         </div>
       </div>
+    </div>
+  );
+} 
+
+interface VersionedResourceHeaderProps {
+  title: React.ReactNode;
+  versionSelector?: React.ReactNode;
+  lastUpdated?: string | null;
+  cached?: boolean;
+  stale?: boolean;
+  regenerateButton?: React.ReactNode;
+  children?: React.ReactNode;
+}
+
+export function VersionedResourceHeader({
+  title,
+  versionSelector,
+  lastUpdated,
+  cached,
+  stale,
+  regenerateButton,
+  children,
+}: VersionedResourceHeaderProps) {
+  return (
+    <div className="mb-6">
+      {versionSelector && <div className="mb-2">{versionSelector}</div>}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold flex items-center gap-2">{title}</h1>
+          {lastUpdated && (
+            <span className="flex items-center gap-1 text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              Last updated: {new Date(lastUpdated).toLocaleDateString()}
+            </span>
+          )}
+          {cached && <Badge variant="outline" className="text-xs">Cached</Badge>}
+          {stale && <Badge variant="destructive" className="text-xs">Stale</Badge>}
+        </div>
+        {regenerateButton}
+      </div>
+      {children}
     </div>
   );
 } 

@@ -1,0 +1,1 @@
+ALTER TABLE "repository_scorecards" ALTER COLUMN "version" SET DATA TYPE integer;

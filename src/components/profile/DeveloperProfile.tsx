@@ -171,6 +171,21 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
               <p className="text-gray-700 leading-relaxed">{validProfile.summary}</p>
             </CardContent>
           </Card>
+          {/* Suggestions for Improvement */}
+          {Array.isArray(validProfile.suggestions) && validProfile.suggestions.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Suggestions for Improvement</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="list-disc pl-5 space-y-2">
+                  {validProfile.suggestions.map((suggestion, idx) => (
+                    <li key={idx} className="text-gray-700">{suggestion}</li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
           {/* Skills and Development Style */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <SkillAssessment skills={validProfile.skillAssessment} />

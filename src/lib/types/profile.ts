@@ -37,7 +37,8 @@ export const developerProfileSchema = z.object({
   skillAssessment: z.array(scoredMetricSchema).describe("An assessment of the developer's top 5-7 skills."),
   techStack: z.array(techStackItemSchema),
   developmentStyle: z.array(scoredMetricSchema).describe("An analysis of the developer's coding habits and contribution patterns."),
-  topRepos: z.array(scoredRepoSchema).describe("The developer's 3 most notable or representative repositories.")
+  topRepos: z.array(scoredRepoSchema).describe("The developer's 3 most notable or representative repositories."),
+  suggestions: z.array(z.string()).describe("Concrete suggestions for improvement or next steps for the developer."),
 });
 
 export type DeveloperProfile = z.infer<typeof developerProfileSchema>; 

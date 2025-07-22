@@ -147,6 +147,7 @@ export async function generateDeveloperProfile(
     Analyze their public repositories to produce a fair, evidence-based assessment.
     For each scored metric, provide a score from 1 (novice) to 10 (expert) and a concise reason for your score. 
     Base your reasons on the provided repository data and scorecard analysis.
+    In addition to the summary and scores, provide 3-5 concrete, actionable suggestions for how this developer can improve or what they should focus on next. These should be included as a 'suggestions' array of strings in your output.
     Your entire output must be a single, valid JSON object that strictly adheres to the provided Zod schema.
     Repository Metadata:
     ${JSON.stringify(repoDataForPrompt, null, 2)}

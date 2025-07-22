@@ -114,7 +114,6 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     if ('profileData' in publicProfile) return publicProfile.profileData;
     return null;
   }
-  const profile = getProfileData();
 
   // Loading state
   if (planLoading || publicLoading) {
@@ -125,17 +124,8 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     );
   }
 
-  // Free plan state
-  if (!currentPlan || currentPlan.plan === 'free') {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <SubscriptionUpgrade />
-      </div>
-    );
-  }
-
   // Valid profile state
-  const parsedProfile = developerProfileSchema.safeParse(profile);
+  const parsedProfile = developerProfileSchema.safeParse(getProfileData());
   if (parsedProfile.success) {
     const validProfile = parsedProfile.data;
     return (
@@ -165,7 +155,10 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
               </div>
             )}
           </div>
-          {currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro') ? RegenerateButton(isGenerating || generateProfileMutation.isPending) : null}
+          {/* Only show regenerate if user is allowed */}
+          {currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro')
+            ? RegenerateButton(isGenerating || generateProfileMutation.isPending)
+            : null}
         </div>
         {/* Profile Content */}
         <div className="space-y-8">
@@ -178,6 +171,21 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
               <p className="text-gray-700 leading-relaxed">{validProfile.summary}</p>
             </CardContent>
           </Card>
+          {/* Suggestions for Improvement */}
+          {Array.isArray(validProfile.suggestions) && validProfile.suggestions.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Suggestions for Improvement</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="list-disc pl-5 space-y-2">
+                  {validProfile.suggestions.map((suggestion, idx) => (
+                    <li key={idx} className="text-gray-700">{suggestion}</li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
           {/* Skills and Development Style */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <SkillAssessment skills={validProfile.skillAssessment} />
@@ -188,6 +196,12 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
           {/* Top Repositories */}
           <TopRepos repos={validProfile.topRepos} />
         </div>
+        {/* If user is not allowed to regenerate, show upgrade prompt below profile */}
+        {(!currentPlan || currentPlan.plan === 'free') && (
+          <div className="mt-8">
+            <SubscriptionUpgrade />
+          </div>
+        )}
       </div>
     );
   }

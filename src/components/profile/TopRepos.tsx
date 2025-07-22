@@ -27,14 +27,14 @@ export function TopRepos({ repos }: TopReposProps) {
       <CardContent>
         <div className="space-y-4">
           {repos.map((repo, index) => (
-            <div key={index} className="block group">
+            <div key={index} className="group relative">
               <Link
                 href={`/${repo.owner}/${repo.repo}/scorecard`}
                 className="block"
                 style={{ textDecoration: 'none' }}
               >
                 <div
-                  className="border rounded-lg p-4 space-y-3 transition-all duration-150 group-hover:shadow-lg group-hover:border-blue-500 group-hover:bg-blue-50 cursor-pointer"
+                  className="border rounded-lg p-4 space-y-3 transition-all duration-150 group-hover:shadow-lg group-hover:border-blue-500 group-hover:bg-blue-50 cursor-pointer relative"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -52,6 +52,18 @@ export function TopRepos({ repos }: TopReposProps) {
                         {repo.description || 'No description available'}
                       </p>
                     </div>
+                    {/* External GitHub link positioned in top-right */}
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.open(repo.url, '_blank', 'noopener,noreferrer');
+                      }}
+                      className="text-muted-foreground hover:text-blue-600 transition-colors duration-150 p-1 rounded-sm hover:bg-blue-50"
+                      title="View on GitHub"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </button>
                   </div>
                   <div className="bg-muted/50 rounded-md p-3">
                     <p className="text-xs text-muted-foreground mb-1">
@@ -63,19 +75,6 @@ export function TopRepos({ repos }: TopReposProps) {
                   </div>
                 </div>
               </Link>
-              {/* External GitHub link, outside the main Link */}
-              <div className="mt-1 flex items-center gap-2">
-                <a
-                  href={repo.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-blue-600"
-                  title="View on GitHub"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
             </div>
           ))}
         </div>

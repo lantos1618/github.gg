@@ -10,13 +10,27 @@ import { billingRouter } from '@/lib/trpc/routes/billing';
 import { adminRouter } from '@/lib/trpc/routes/admin';
 import { z } from 'zod';
 import { router } from '@/lib/trpc/trpc';
+import { db } from '@/db';
+import { account } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 export const appRouter = router({
   // Protected user routes
   me: protectedProcedure
-    .query(({ ctx }) => {
+    .query(async ({ ctx }) => {
+      // Get the GitHub username from the account table
+      const userAccount = await db.query.account.findFirst({
+        where: eq(account.userId, ctx.user.id),
+        columns: {
+          accountId: true,
+        },
+      });
+
       return {
-        user: ctx.user,
+        user: {
+          ...ctx.user,
+          githubUsername: userAccount?.accountId,
+        },
         message: 'You are authenticated!',
       };
     }),

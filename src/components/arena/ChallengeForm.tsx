@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -91,16 +92,33 @@ interface BattleResult {
 }
 
 export function ChallengeForm() {
+  const searchParams = useSearchParams();
   const [opponentUsername, setOpponentUsername] = useState('');
   const [selectedCriteria, setSelectedCriteria] = useState<BattleCriteria[]>([...DEFAULT_BATTLE_CRITERIA]);
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
 
-  // Challenge mutation
   const challengeMutation = trpc.arena.challengeDeveloper.useMutation();
   const executeMutation = trpc.arena.executeBattle.useMutation();
+  const { data: currentUser } = trpc.me.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+
+  useEffect(() => {
+    const opponentFromQuery = searchParams.get('opponent');
+    if (opponentFromQuery) {
+      setOpponentUsername(opponentFromQuery);
+    }
+  }, [searchParams]);
 
   const handleChallenge = async () => {
     if (!opponentUsername.trim()) return;
+
+    // Prevent self-challenge
+    if (currentUser?.user?.name === opponentUsername.trim()) {
+      setBattleResult({ error: 'You cannot challenge yourself!' });
+      return;
+    }
 
     try {
       // Create challenge
@@ -134,7 +152,7 @@ export function ChallengeForm() {
     );
   };
 
-  const isFormValid = opponentUsername.trim() && selectedCriteria.length > 0;
+  const isFormValid = opponentUsername.trim() && selectedCriteria.length > 0 && currentUser?.user?.name !== opponentUsername.trim();
   const isPending = challengeMutation.isPending || executeMutation.isPending;
 
   return (
@@ -167,6 +185,11 @@ export function ChallengeForm() {
             <p className="text-sm text-muted-foreground">
               You can challenge any developer, whether they&apos;re registered on github.gg or not!
             </p>
+            {currentUser?.user?.name === opponentUsername.trim() && (
+              <p className="text-sm text-red-600 font-medium">
+                You cannot challenge yourself!
+              </p>
+            )}
           </div>
 
           {/* Criteria Selection */}

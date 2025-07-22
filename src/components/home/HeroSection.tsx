@@ -21,7 +21,10 @@ const staggerChildren = {
 };
 
 export function HeroSection() {
-  const { data: currentPlan } = trpc.user.getCurrentPlan.useQuery();
+  const { data: currentPlan } = trpc.user.getCurrentPlan.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
   
   const createCheckout = trpc.billing.createCheckoutSession.useMutation({
     onSuccess: (data) => {

@@ -1,16 +1,61 @@
 import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
-import { developerProfileCache, tokenUsage } from '@/db/schema';
+import { developerProfileCache, tokenUsage, user, developerEmails } from '@/db/schema';
 import { eq, and, gte, desc } from 'drizzle-orm';
 import { generateDeveloperProfile } from '@/lib/ai/developer-profile';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
-import { createGitHubServiceForUserOperations } from '@/lib/github';
+import { createGitHubServiceForUserOperations, createPublicGitHubService } from '@/lib/github';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import { findAndStoreDeveloperEmail, sendDeveloperProfileEmail } from '@/lib/ai/developer-profile';
+import { Octokit } from '@octokit/rest';
 
 export const profileRouter = router({
+  getDeveloperEmail: publicProcedure
+    .input(z.object({ username: z.string() }))
+    .query(async ({ input }) => {
+      const { username } = input;
+
+      // 1. Check if the user is registered on our platform by username
+      const registeredUser = await db.query.user.findFirst({
+        where: eq(user.name, username),
+      });
+      if (registeredUser?.email) {
+        return { email: registeredUser.email, source: 'database' };
+      }
+
+      // 2. Check our cached developer emails table
+      const cachedEmail = await db.query.developerEmails.findFirst({
+        where: eq(developerEmails.username, username),
+      });
+      if (cachedEmail?.email) {
+        return { email: cachedEmail.email, source: 'cache' };
+      }
+
+      // 3. If not found, scan public GitHub commits as a fallback
+      try {
+        const publicGithubService = createPublicGitHubService();
+        const repos = await publicGithubService.getUserRepositories(username);
+        
+        if (!repos || repos.length === 0) {
+          return { email: null, source: 'no_repos' };
+        }
+        
+        // Scan top 10 repos to keep it fast
+        const topRepos = repos.slice(0, 10).map(r => ({ name: r.name }));
+        
+        // Create a dedicated Octokit instance for commit scanning
+        const octokit = new Octokit({ auth: process.env.GITHUB_PUBLIC_API_KEY! });
+        const foundEmail = await findAndStoreDeveloperEmail(octokit, username, topRepos);
+        
+        return { email: foundEmail, source: foundEmail ? 'github_scan' : 'not_found' };
+      } catch (error) {
+        console.error(`Failed to find email for ${username}:`, error);
+        return { email: null, source: 'error' };
+      }
+    }),
+
   generateProfile: protectedProcedure
     .input(z.object({
       username: z.string().min(1, 'Username is required'),

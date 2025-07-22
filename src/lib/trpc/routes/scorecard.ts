@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { repositoryScorecards, tokenUsage } from '@/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { generateScorecardAnalysis } from '@/lib/ai/scorecard';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
@@ -51,38 +51,54 @@ export const scorecardRouter = router({
         // The AI result is already in the structured format we want
         const scorecardData = scorecardSchema.parse(result.scorecard);
         
-        // Get next version
-        const maxVersionResult = await db
-          .select({ max: desc(repositoryScorecards.version) })
-          .from(repositoryScorecards)
-          .where(
-            and(
-              eq(repositoryScorecards.userId, ctx.user.id),
-              eq(repositoryScorecards.repoOwner, input.user),
-              eq(repositoryScorecards.repoName, input.repo),
-              eq(repositoryScorecards.ref, input.ref || 'main')
-            )
-          )
-          .limit(1);
-        const maxVersion = maxVersionResult[0]?.max ?? 0;
-        const nextVersion = (typeof maxVersion === 'number' ? maxVersion : 0) + 1;
-        
-        // Save to database with structured format
-        await db
-          .insert(repositoryScorecards)
-          .values({
-            userId: ctx.user.id,
-            repoOwner: input.user,
-            repoName: input.repo,
-            ref: input.ref || 'main',
-            version: nextVersion,
-            overallScore: scorecardData.overallScore,
-            metrics: scorecardData.metrics,
-            markdown: scorecardData.markdown,
-            updatedAt: new Date(),
-          })
-          .onConflictDoNothing();
-        
+        // Per-group versioning: get max version for this group, then insert with version = max + 1, retry on conflict
+        let insertedScorecard = null;
+        let attempt = 0;
+        while (!insertedScorecard && attempt < 5) {
+          attempt++;
+          // 1. Get current max version for this group
+          const maxVersionResult = await db
+            .select({ max: sql`MAX(version)` })
+            .from(repositoryScorecards)
+            .where(
+              and(
+                eq(repositoryScorecards.userId, ctx.user.id),
+                eq(repositoryScorecards.repoOwner, input.user),
+                eq(repositoryScorecards.repoName, input.repo),
+                eq(repositoryScorecards.ref, input.ref || 'main')
+              )
+            );
+          const nextVersion = (maxVersionResult[0]?.max ?? 0) + 1;
+
+          try {
+            // 2. Try insert
+            const [result] = await db
+              .insert(repositoryScorecards)
+              .values({
+                userId: ctx.user.id,
+                repoOwner: input.user,
+                repoName: input.repo,
+                ref: input.ref || 'main',
+                version: nextVersion,
+                overallScore: scorecardData.overallScore,
+                metrics: scorecardData.metrics,
+                markdown: scorecardData.markdown,
+                updatedAt: new Date(),
+              })
+              .onConflictDoNothing()
+              .returning();
+            if (result) {
+              insertedScorecard = result;
+            }
+          } catch (e) {
+            // If unique constraint violation, retry
+            if (e.code !== '23505') throw e;
+          }
+        }
+        if (!insertedScorecard) {
+          throw new Error('Failed to insert scorecard after multiple attempts');
+        }
+
         // Log token usage with actual values from AI response
         await db.insert(tokenUsage).values({
           userId: ctx.user.id,
@@ -96,12 +112,17 @@ export const scorecardRouter = router({
           isByok: keyInfo.isByok,
           createdAt: new Date(),
         });
-        
+
+        // Return the inserted scorecard
         return {
-          scorecard: scorecardData,
+          scorecard: {
+            metrics: insertedScorecard.metrics,
+            markdown: insertedScorecard.markdown,
+            overallScore: insertedScorecard.overallScore,
+          },
           cached: false,
           stale: false,
-          lastUpdated: new Date(),
+          lastUpdated: insertedScorecard.updatedAt || new Date(),
         };
       } catch (error) {
         console.error('🔥 Raw error in scorecard route:', error);

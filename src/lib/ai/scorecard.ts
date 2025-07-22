@@ -36,7 +36,7 @@ REQUIREMENTS:
 - Identify 5-8 key metrics to evaluate (e.g., code quality, documentation, testing, security, performance, architecture, maintainability, etc.)
 - Score each metric from 0-100 based on the code quality, patterns, and best practices
 - Provide a concise reason for each metric score
-- Create a comprehensive markdown analysis with emojis and formatting
+- In the markdown, instead of listing the metrics, write a **Business Impact** section that summarizes how the codebase's state affects business goals, developer velocity, onboarding, and risk. Make it actionable and human-readable for stakeholders.
 - Be honest but constructive in your assessment
 
 Your response must be a valid JSON object with this exact structure:
@@ -49,20 +49,22 @@ Your response must be a valid JSON object with this exact structure:
     }
   ],
   "markdown": "# 🏆 Repository Scorecard
-  
-  ## 📊 Overall Score: 85/100
-  
-  ### 🔢 Metrics Breakdown
-  - **Code Quality**: 85/100 - Well-structured code...
-  
-  ### 🥇 Strengths
-  - Excellent code organization
-  
-  ### ⚠️ Areas for Improvement
-  - Could benefit from more tests
-  
-  ### 📝 Recommendations
-  - Add comprehensive unit tests",
+    
+    ## 📊 Overall Score: 85/100
+    
+    ### 💼 Business Impact
+    - The codebase’s strong documentation and modular structure will accelerate onboarding for new developers.
+    - Gaps in testing may increase the risk of production bugs, potentially impacting customer trust.
+    - High code quality and clear architecture support rapid feature development and scalability.
+    
+    ### 🥇 Strengths
+    - Excellent code organization
+    
+    ### ⚠️ Areas for Improvement
+    - Could benefit from more tests
+    
+    ### 📝 Recommendations
+    - Add comprehensive unit tests",
   "overallScore": 85
 }
 

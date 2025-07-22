@@ -26,6 +26,7 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
   const { data: versions, isLoading: versionsLoading } = trpc.scorecard.getScorecardVersions.useQuery({ user, repo, ref: refName || 'main' });
   const generateScorecardMutation = trpc.scorecard.generateScorecard.useMutation();
   const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery();
+  const utils = trpc.useUtils();
 
   // Use the public endpoint for cached scorecard (latest or by version)
   const { data: publicScorecard, isLoading: publicLoading } = trpc.scorecard.publicGetScorecard.useQuery(
@@ -74,6 +75,9 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
         onSuccess: (data: ScorecardResponse) => {
           setScorecardData(data.scorecard.markdown);
           setIsLoading(false);
+          // Invalidate/refetch scorecard and version list
+          utils.scorecard.publicGetScorecard.invalidate();
+          utils.scorecard.getScorecardVersions.invalidate();
         },
         onError: (err: { message: string }) => {
           setError(err.message || 'Failed to generate scorecard');

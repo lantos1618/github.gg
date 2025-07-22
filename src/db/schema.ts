@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean, uniqueIndex, integer, jsonb, varchar } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, boolean, uniqueIndex, integer, jsonb, varchar, serial } from 'drizzle-orm/pg-core';
 import type { ScorecardMetric, DiagramOptions } from '@/lib/types/scorecard';
 
 export const user = pgTable('user', {
@@ -203,7 +203,7 @@ export const repositoryScorecards = pgTable('repository_scorecards', {
   repoOwner: text('repo_owner').notNull(),
   repoName: text('repo_name').notNull(),
   ref: text('ref').default('main'),
-  version: integer('version').notNull().default(1),
+  version: integer('version').notNull(), // Per-group version, set in app logic
   overallScore: integer('overall_score').notNull(), // 0-100 overall score
   metrics: jsonb('metrics').$type<ScorecardMetric[]>().notNull(), // Structured metrics breakdown
   markdown: text('markdown').notNull(), // Full markdown analysis

@@ -16,6 +16,9 @@ import { VersionDropdown } from '@/components/VersionDropdown';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 
+// Define a type for TRPC error responses
+interface TRPCError { message: string }
+
 export default function ScorecardClientView({ user, repo, refName, path }: { user: string; repo: string; refName?: string; path?: string }) {
   const [scorecardData, setScorecardData] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -79,8 +82,14 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
           utils.scorecard.publicGetScorecard.invalidate();
           utils.scorecard.getScorecardVersions.invalidate();
         },
-        onError: (err: { message: string }) => {
-          setError(err.message || 'Failed to generate scorecard');
+        onError: (err: TRPCError | string) => {
+          if (typeof err === 'string') {
+            setError(err);
+          } else if (err && typeof err === 'object' && 'message' in err && typeof err.message === 'string') {
+            setError(err.message);
+          } else {
+            setError('Failed to generate scorecard');
+          }
           setIsLoading(false);
         },
       }
@@ -109,8 +118,14 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
             setScorecardData(data.scorecard.markdown);
             setIsLoading(false);
           },
-          onError: (err: { message: string }) => {
-            setError(err.message || 'Failed to generate scorecard');
+          onError: (err: TRPCError | string) => {
+            if (typeof err === 'string') {
+              setError(err);
+            } else if (err && typeof err === 'object' && 'message' in err && typeof err.message === 'string') {
+              setError(err.message);
+            } else {
+              setError('Failed to generate scorecard');
+            }
             setIsLoading(false);
           },
         }

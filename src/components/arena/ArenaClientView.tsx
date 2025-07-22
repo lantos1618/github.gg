@@ -24,26 +24,28 @@ import { BattleAnalysis } from './BattleAnalysis';
 export function ArenaClientView() {
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Get user data
-  const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery();
-  const { data: myRanking } = trpc.arena.getMyRanking.useQuery();
-  const { data: leaderboard, isLoading: leaderboardLoading } = trpc.arena.getLeaderboard.useQuery({ limit: 10 });
-  const { data: battleHistory, isLoading: historyLoading } = trpc.arena.getBattleHistory.useQuery({ limit: 5 });
+  // Auth and plan
+  const { session, user, isSignedIn, isLoading: authLoading, signIn } = require('@/lib/auth/client').useAuth();
+  const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery(undefined, { enabled: isSignedIn });
 
-  // If plan is loading, show loading
-  if (planLoading) {
+  // Ranking: if signed in, use userId; else, try username from query or skip
+  const { data: myRanking } = trpc.arena.getMyRanking.useQuery(
+    isSignedIn && user?.id ? { userId: user.id, username: user.name } : undefined,
+    { enabled: isSignedIn && !!user?.id }
+  );
+
+  // Leaderboard is always public
+  const { data: leaderboard, isLoading: leaderboardLoading } = trpc.arena.getLeaderboard.useQuery({ limit: 10 });
+
+  // Battle history: only for paid users
+  const canBattle = isSignedIn && currentPlan && currentPlan.plan !== 'free';
+  const { data: battleHistory, isLoading: historyLoading } = trpc.arena.getBattleHistory.useQuery({ limit: 5, offset: 0 }, { enabled: canBattle });
+
+  // Loading state for auth
+  if (authLoading || planLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
         <LoadingWave />
-      </div>
-    );
-  }
-
-  // If user does not have a paid plan, show upgrade
-  if (!currentPlan || currentPlan.plan === 'free') {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <SubscriptionUpgrade />
       </div>
     );
   }
@@ -62,8 +64,8 @@ export function ArenaClientView() {
         </p>
       </div>
 
-      {/* My Ranking Card */}
-      {myRanking && (
+      {/* My Ranking Card (only if signed in) */}
+      {isSignedIn && myRanking && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -126,7 +128,7 @@ export function ArenaClientView() {
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Quick Stats */}
+            {/* Quick Stats (show if signed in, else prompt) */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -135,26 +137,32 @@ export function ArenaClientView() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Total Battles</span>
-                  <span className="font-bold text-lg">{myRanking?.totalBattles || 0}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Win Rate</span>
-                  <span className="font-bold text-lg">
-                    {myRanking && myRanking.totalBattles > 0 
-                      ? ((myRanking.wins / myRanking.totalBattles) * 100).toFixed(1)
-                      : 0}%
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Best Win Streak</span>
-                  <span className="font-bold text-lg">{myRanking?.bestWinStreak || 0}</span>
-                </div>
+                {isSignedIn && myRanking ? (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Total Battles</span>
+                      <span className="font-bold text-lg">{myRanking.totalBattles || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Win Rate</span>
+                      <span className="font-bold text-lg">
+                        {myRanking.totalBattles > 0 
+                          ? ((myRanking.wins / myRanking.totalBattles) * 100).toFixed(1)
+                          : 0}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Best Win Streak</span>
+                      <span className="font-bold text-lg">{myRanking.bestWinStreak || 0}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center text-muted-foreground">Sign in to see your stats</div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Recent Battles */}
+            {/* Recent Battles (only for paid users) */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -163,35 +171,39 @@ export function ArenaClientView() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {historyLoading ? (
-                  <LoadingWave />
-                ) : battleHistory && battleHistory.length > 0 ? (
-                  <div className="space-y-3">
-                    {battleHistory.slice(0, 3).map((battle) => (
-                      <div key={battle.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                        <div className="flex-1">
-                          <div className="font-medium text-sm">
-                            {battle.challengerUsername} vs {battle.opponentUsername}
+                {canBattle ? (
+                  historyLoading ? (
+                    <LoadingWave />
+                  ) : battleHistory && battleHistory.length > 0 ? (
+                    <div className="space-y-3">
+                      {battleHistory.slice(0, 3).map((battle) => (
+                        <div key={battle.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                          <div className="flex-1">
+                            <div className="font-medium text-sm">
+                              {battle.challengerUsername} vs {battle.opponentUsername}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(battle.completedAt!).toLocaleDateString()}
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(battle.completedAt!).toLocaleDateString()}
-                          </div>
+                          <Badge variant={battle.winnerId === battle.challengerId ? "default" : "destructive"} className="text-xs">
+                            {battle.winnerId === battle.challengerId ? "W" : "L"}
+                          </Badge>
                         </div>
-                        <Badge variant={battle.winnerId === battle.challengerId ? "default" : "destructive"} className="text-xs">
-                          {battle.winnerId === battle.challengerId ? "W" : "L"}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-center py-4">
+                      No battles yet. Start your first challenge!
+                    </p>
+                  )
                 ) : (
-                  <p className="text-muted-foreground text-center py-4">
-                    No battles yet. Start your first challenge!
-                  </p>
+                  <div className="text-center text-muted-foreground">Sign in and upgrade to see your battle history</div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Top 5 Developers */}
+            {/* Top 5 Developers (always public) */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -232,19 +244,19 @@ export function ArenaClientView() {
           </div>
         </TabsContent>
 
-        {/* Battle Tab */}
+        {/* Battle Tab (only for paid users) */}
         <TabsContent value="battle" className="space-y-6">
-          <ChallengeForm />
+          {canBattle ? <ChallengeForm /> : <div className="text-center text-muted-foreground">Sign in and upgrade to challenge other developers</div>}
         </TabsContent>
 
-        {/* Rankings Tab */}
+        {/* Rankings Tab (always public) */}
         <TabsContent value="rankings" className="space-y-6">
           <LeaderboardTable />
         </TabsContent>
 
-        {/* History Tab */}
+        {/* History Tab (only for paid users) */}
         <TabsContent value="history" className="space-y-6">
-          <BattleAnalysis />
+          {canBattle ? <BattleAnalysis /> : <div className="text-center text-muted-foreground">Sign in and upgrade to see your battle history</div>}
         </TabsContent>
       </Tabs>
     </div>

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from '@/lib/trpc/trpc';
+import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { 
   developerRankings, 
@@ -20,14 +20,28 @@ import {
 import { INITIAL_ELO_RATING, BYOK_DAILY_BATTLE_LIMIT, ALL_BATTLE_CRITERIA } from '@/lib/constants/arena';
 
 export const arenaRouter = router({
-  // Get user's ranking
-  getMyRanking: protectedProcedure
-    .query(async ({ ctx }) => {
-      return await getOrCreateRanking(ctx.user.id, ctx.user.name || 'Unknown');
+  // Get user's ranking (now public, but requires userId or username)
+  getMyRanking: publicProcedure
+    .input(z.object({ userId: z.string().optional(), username: z.string().optional() }))
+    .query(async ({ input }) => {
+      // If userId is provided, use it; otherwise, fallback to username
+      if (input.userId) {
+        return await getOrCreateRanking(input.userId, input.username || 'Unknown');
+      } else if (input.username) {
+        // Look up by username only (public)
+        const existing = await db
+          .select()
+          .from(developerRankings)
+          .where(eq(developerRankings.username, input.username))
+          .limit(1);
+        return existing[0] || null;
+      } else {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'userId or username required' });
+      }
     }),
 
-  // Get global leaderboard
-  getLeaderboard: protectedProcedure
+  // Get global leaderboard (public)
+  getLeaderboard: publicProcedure
     .input(z.object({
       limit: z.number().min(1).max(100).default(50),
       offset: z.number().min(0).default(0),
@@ -35,7 +49,6 @@ export const arenaRouter = router({
     }))
     .query(async ({ input }) => {
       const { limit, offset, tier } = input;
-
       const rankings = await db
         .select()
         .from(developerRankings)
@@ -43,7 +56,6 @@ export const arenaRouter = router({
         .orderBy(desc(developerRankings.eloRating))
         .limit(limit)
         .offset(offset);
-
       // Calculate win rates and add rank
       const leaderboard = rankings.map((ranking, index) => ({
         rank: offset + index + 1,
@@ -56,11 +68,10 @@ export const arenaRouter = router({
         totalBattles: ranking.totalBattles,
         winStreak: ranking.winStreak,
       }));
-
       return leaderboard;
     }),
 
-  // Challenge another developer
+  // Challenge another developer (protected)
   challengeDeveloper: protectedProcedure
     .input(z.object({
       opponentUsername: z.string().min(1, 'Opponent username is required'),
@@ -148,7 +159,7 @@ export const arenaRouter = router({
       return battle[0];
     }),
 
-  // Execute a battle
+  // Execute a battle (protected)
   executeBattle: protectedProcedure
     .input(z.object({
       battleId: z.string().min(1, 'Battle ID is required'),
@@ -273,7 +284,7 @@ export const arenaRouter = router({
       }
     }),
 
-  // Get battle history
+  // Get battle history (protected)
   getBattleHistory: protectedProcedure
     .input(z.object({
       limit: z.number().min(1).max(100).default(10),
@@ -291,6 +302,18 @@ export const arenaRouter = router({
         .offset(offset);
 
       return battles;
+    }),
+
+  // Get ranking by username (public)
+  getRankingByUsername: publicProcedure
+    .input(z.object({ username: z.string().min(1, 'Username is required') }))
+    .query(async ({ input }) => {
+      const ranking = await db
+        .select()
+        .from(developerRankings)
+        .where(eq(developerRankings.username, input.username))
+        .limit(1);
+      return ranking[0] || null;
     }),
 });
 

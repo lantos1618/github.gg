@@ -18,6 +18,9 @@ import { RefreshCw } from 'lucide-react';
 
 // Define a type for TRPC error responses
 interface TRPCError { message: string }
+function isTRPCError(err: unknown): err is TRPCError {
+  return typeof err === 'object' && err !== null && 'message' in err && typeof (err as { message?: unknown }).message === 'string';
+}
 
 export default function ScorecardClientView({ user, repo, refName, path }: { user: string; repo: string; refName?: string; path?: string }) {
   const [scorecardData, setScorecardData] = useState<string | null>(null);
@@ -85,7 +88,7 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
         onError: (err: TRPCError | string) => {
           if (typeof err === 'string') {
             setError(err);
-          } else if (err && typeof err === 'object' && 'message' in err && typeof err.message === 'string') {
+          } else if (isTRPCError(err)) {
             setError(err.message);
           } else {
             setError('Failed to generate scorecard');
@@ -121,7 +124,7 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
           onError: (err: TRPCError | string) => {
             if (typeof err === 'string') {
               setError(err);
-            } else if (err && typeof err === 'object' && 'message' in err && typeof err.message === 'string') {
+            } else if (isTRPCError(err)) {
               setError(err.message);
             } else {
               setError('Failed to generate scorecard');

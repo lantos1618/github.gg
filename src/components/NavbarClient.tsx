@@ -122,9 +122,6 @@ export function NavbarClient() {
 
   return (
     <div className="flex items-center gap-2">
-      <Button variant="ghost" size="sm" asChild>
-        <Link href="/pricing">Pricing</Link>
-      </Button>
       <Button onClick={signIn} size="sm" className="px-2 sm:px-3">
         <Github className="h-4 w-4 sm:mr-2" />
         <span className="hidden sm:inline">Sign in with GitHub</span>

@@ -114,7 +114,6 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     if ('profileData' in publicProfile) return publicProfile.profileData;
     return null;
   }
-  const profile = getProfileData();
 
   // Loading state
   if (planLoading || publicLoading) {
@@ -125,17 +124,8 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     );
   }
 
-  // Free plan state
-  if (!currentPlan || currentPlan.plan === 'free') {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <SubscriptionUpgrade />
-      </div>
-    );
-  }
-
   // Valid profile state
-  const parsedProfile = developerProfileSchema.safeParse(profile);
+  const parsedProfile = developerProfileSchema.safeParse(getProfileData());
   if (parsedProfile.success) {
     const validProfile = parsedProfile.data;
     return (
@@ -165,7 +155,10 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
               </div>
             )}
           </div>
-          {currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro') ? RegenerateButton(isGenerating || generateProfileMutation.isPending) : null}
+          {/* Only show regenerate if user is allowed */}
+          {currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro')
+            ? RegenerateButton(isGenerating || generateProfileMutation.isPending)
+            : null}
         </div>
         {/* Profile Content */}
         <div className="space-y-8">
@@ -188,6 +181,12 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
           {/* Top Repositories */}
           <TopRepos repos={validProfile.topRepos} />
         </div>
+        {/* If user is not allowed to regenerate, show upgrade prompt below profile */}
+        {(!currentPlan || currentPlan.plan === 'free') && (
+          <div className="mt-8">
+            <SubscriptionUpgrade />
+          </div>
+        )}
       </div>
     );
   }

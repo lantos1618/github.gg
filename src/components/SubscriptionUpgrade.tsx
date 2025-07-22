@@ -12,10 +12,10 @@ interface SubscriptionUpgradeProps {
 }
 
 export function SubscriptionUpgrade({ className = "", onUpgrade }: SubscriptionUpgradeProps) {
-  const [selectedPlan, setSelectedPlan] = useState<'byok' | 'pro' | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<'pro' | null>(null);
   const createCheckout = trpc.billing.createCheckoutSession.useMutation();
 
-  const handleUpgrade = async (plan: 'byok' | 'pro') => {
+  const handleUpgrade = async (plan: 'pro') => {
     setSelectedPlan(plan);
     try {
       const result = await createCheckout.mutateAsync({ plan });
@@ -41,50 +41,6 @@ export function SubscriptionUpgrade({ className = "", onUpgrade }: SubscriptionU
       </div>
 
       <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-        {/* Developer Plan */}
-        <Card className="relative border-2 hover:border-blue-300 transition-colors">
-          <CardHeader className="text-center pb-4">
-            <div className="flex justify-center mb-2">
-              <Key className="h-8 w-8 text-blue-600" />
-            </div>
-            <CardTitle className="text-xl">Developer Plan</CardTitle>
-            <CardDescription className="text-lg font-semibold text-blue-600">
-              $6.90/month
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <ul className="space-y-2 text-sm">
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-green-500" />
-                Use your own Gemini API key
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-green-500" />
-                Unlimited AI analysis
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-green-500" />
-                Repository scorecards
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-green-500" />
-                Code diagrams
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-green-500" />
-                Usage analytics
-              </li>
-            </ul>
-            <Button
-              onClick={() => handleUpgrade('byok')}
-              disabled={createCheckout.isPending && selectedPlan === 'byok'}
-              className="w-full bg-blue-600 hover:bg-blue-700"
-            >
-              {createCheckout.isPending && selectedPlan === 'byok' ? 'Loading...' : 'Get Started'}
-            </Button>
-          </CardContent>
-        </Card>
-
         {/* Pro Plan */}
         <Card className="relative border-2 border-purple-200 hover:border-purple-300 transition-colors">
           <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
@@ -103,10 +59,6 @@ export function SubscriptionUpgrade({ className = "", onUpgrade }: SubscriptionU
           </CardHeader>
           <CardContent className="space-y-3">
             <ul className="space-y-2 text-sm">
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-green-500" />
-                Everything in Developer Plan
-              </li>
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-green-500" />
                 Managed Gemini API key

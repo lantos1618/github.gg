@@ -49,7 +49,23 @@ export const scorecardRouter = router({
         });
         
         // The AI result is already in the structured format we want
-        const scorecardData = result.scorecard;
+        const scorecardData = scorecardSchema.parse(result.scorecard);
+        
+        // Get next version
+        const maxVersionResult = await db
+          .select({ max: desc(repositoryScorecards.version) })
+          .from(repositoryScorecards)
+          .where(
+            and(
+              eq(repositoryScorecards.userId, ctx.user.id),
+              eq(repositoryScorecards.repoOwner, input.user),
+              eq(repositoryScorecards.repoName, input.repo),
+              eq(repositoryScorecards.ref, input.ref || 'main')
+            )
+          )
+          .limit(1);
+        const maxVersion = maxVersionResult[0]?.max ?? 0;
+        const nextVersion = (typeof maxVersion === 'number' ? maxVersion : 0) + 1;
         
         // Save to database with structured format
         await db
@@ -59,20 +75,13 @@ export const scorecardRouter = router({
             repoOwner: input.user,
             repoName: input.repo,
             ref: input.ref || 'main',
+            version: nextVersion,
             overallScore: scorecardData.overallScore,
             metrics: scorecardData.metrics,
             markdown: scorecardData.markdown,
             updatedAt: new Date(),
           })
-          .onConflictDoUpdate({
-            target: [repositoryScorecards.userId, repositoryScorecards.repoOwner, repositoryScorecards.repoName, repositoryScorecards.ref],
-            set: {
-              overallScore: scorecardData.overallScore,
-              metrics: scorecardData.metrics,
-              markdown: scorecardData.markdown,
-              updatedAt: new Date(),
-            },
-          });
+          .onConflictDoNothing();
         
         // Log token usage with actual values from AI response
         await db.insert(tokenUsage).values({
@@ -80,7 +89,7 @@ export const scorecardRouter = router({
           feature: 'scorecard',
           repoOwner: input.user,
           repoName: input.repo,
-          model: 'gemini-2.5-flash', // Default model used
+          model: 'gemini-2.5-pro', // Default model used
           promptTokens: result.usage.promptTokens,
           completionTokens: result.usage.completionTokens,
           totalTokens: result.usage.totalTokens,
@@ -105,73 +114,28 @@ export const scorecardRouter = router({
       }
     }),
 
-  getScorecard: protectedProcedure
-    .input(z.object({
-      user: z.string(),
-      repo: z.string(),
-      ref: z.string().optional().default('main'),
-    }))
-    .query(async ({ input, ctx }) => {
-      const { user, repo, ref } = input;
-      
-      // Check for cached scorecard
-      const cached = await db
-        .select()
-        .from(repositoryScorecards)
-        .where(
-          and(
-            eq(repositoryScorecards.userId, ctx.user.id),
-            eq(repositoryScorecards.repoOwner, user),
-            eq(repositoryScorecards.repoName, repo),
-            eq(repositoryScorecards.ref, ref)
-          )
-        )
-        .limit(1);
-
-      if (cached.length > 0) {
-        const scorecard = cached[0];
-        const isStale = new Date().getTime() - scorecard.updatedAt.getTime() > 24 * 60 * 60 * 1000; // 24 hours
-        
-        return {
-          scorecard: {
-            metrics: scorecard.metrics,
-            markdown: scorecard.markdown,
-            overallScore: scorecard.overallScore,
-          },
-          cached: true,
-          stale: isStale,
-          lastUpdated: scorecard.updatedAt,
-        };
-      }
-
-      return {
-        scorecard: null,
-        cached: false,
-        stale: false,
-        lastUpdated: null,
-      };
-    }),
-
-  // Public endpoint: anyone can fetch cached scorecard for a repo/ref
+  // Unified public endpoint: fetch latest or specific version of a scorecard for a repo/ref
   publicGetScorecard: publicProcedure
     .input(z.object({
       user: z.string(),
       repo: z.string(),
       ref: z.string().optional().default('main'),
+      version: z.number().optional(),
     }))
     .query(async ({ input }) => {
-      const { user, repo, ref } = input;
-      // Find the most recent scorecard for this repo/ref (any user)
+      const { user, repo, ref, version } = input;
+      const baseConditions = [
+        eq(repositoryScorecards.repoOwner, user),
+        eq(repositoryScorecards.repoName, repo),
+        eq(repositoryScorecards.ref, ref),
+      ];
+      if (version !== undefined) {
+        baseConditions.push(eq(repositoryScorecards.version, version));
+      }
       const cached = await db
         .select()
         .from(repositoryScorecards)
-        .where(
-          and(
-            eq(repositoryScorecards.repoOwner, user),
-            eq(repositoryScorecards.repoName, repo),
-            eq(repositoryScorecards.ref, ref)
-          )
-        )
+        .where(and(...baseConditions))
         .orderBy(desc(repositoryScorecards.updatedAt))
         .limit(1);
       if (cached.length > 0) {
@@ -196,62 +160,20 @@ export const scorecardRouter = router({
       };
     }),
 
-  cacheScorecard: protectedProcedure
-    .input(z.object({
-      user: z.string(),
-      repo: z.string(),
-      ref: z.string().optional().default('main'),
-      scorecard: scorecardSchema,
-    }))
-    .mutation(async ({ input, ctx }) => {
-      const { user, repo, ref, scorecard } = input;
-
-      // Upsert scorecard cache
-      await db
-        .insert(repositoryScorecards)
-        .values({
-          userId: ctx.user.id,
-          repoOwner: user,
-          repoName: repo,
-          ref,
-          overallScore: scorecard.overallScore,
-          metrics: scorecard.metrics,
-          markdown: scorecard.markdown,
-          updatedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: [repositoryScorecards.userId, repositoryScorecards.repoOwner, repositoryScorecards.repoName, repositoryScorecards.ref],
-          set: {
-            overallScore: scorecard.overallScore,
-            metrics: scorecard.metrics,
-            markdown: scorecard.markdown,
-            updatedAt: new Date(),
-          },
-        });
-
-      return { success: true };
-    }),
-
-  clearCache: protectedProcedure
-    .input(z.object({
-      user: z.string(),
-      repo: z.string(),
-      ref: z.string().optional().default('main'),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      const { user, repo, ref } = input;
-
-      await db
-        .delete(repositoryScorecards)
+  getScorecardVersions: publicProcedure
+    .input(z.object({ user: z.string(), repo: z.string(), ref: z.string().optional().default('main') }))
+    .query(async ({ input }) => {
+      return await db
+        .select({ version: repositoryScorecards.version, updatedAt: repositoryScorecards.updatedAt })
+        .from(repositoryScorecards)
         .where(
           and(
-            eq(repositoryScorecards.userId, ctx.user.id),
-            eq(repositoryScorecards.repoOwner, user),
-            eq(repositoryScorecards.repoName, repo),
-            eq(repositoryScorecards.ref, ref)
+            eq(repositoryScorecards.repoOwner, input.user),
+            eq(repositoryScorecards.repoName, input.repo),
+            eq(repositoryScorecards.ref, input.ref)
           )
-        );
-
-      return { success: true };
+        )
+        .orderBy(desc(repositoryScorecards.version));
     }),
+
 });

@@ -7,6 +7,7 @@ import { db } from '@/db';
 import { tokenUsage, repositoryDiagrams } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
+import { z } from 'zod';
 
 export const diagramRouter = router({
   getDiagram: protectedProcedure
@@ -90,6 +91,42 @@ export const diagramRouter = router({
       };
     }),
 
+  getDiagramVersions: publicProcedure
+    .input(diagramInputSchema.pick({ user: true, repo: true, ref: true, diagramType: true }))
+    .query(async ({ input }) => {
+      return await db
+        .select({ version: repositoryDiagrams.version, updatedAt: repositoryDiagrams.updatedAt })
+        .from(repositoryDiagrams)
+        .where(
+          and(
+            eq(repositoryDiagrams.repoOwner, input.user),
+            eq(repositoryDiagrams.repoName, input.repo),
+            eq(repositoryDiagrams.ref, input.ref || 'main'),
+            eq(repositoryDiagrams.diagramType, input.diagramType)
+          )
+        )
+        .orderBy(desc(repositoryDiagrams.version));
+    }),
+
+  getDiagramByVersion: publicProcedure
+    .input(diagramInputSchema.pick({ user: true, repo: true, ref: true, diagramType: true }).extend({ version: z.number() }))
+    .query(async ({ input }) => {
+      const result = await db
+        .select()
+        .from(repositoryDiagrams)
+        .where(
+          and(
+            eq(repositoryDiagrams.repoOwner, input.user),
+            eq(repositoryDiagrams.repoName, input.repo),
+            eq(repositoryDiagrams.ref, input.ref || 'main'),
+            eq(repositoryDiagrams.diagramType, input.diagramType),
+            eq(repositoryDiagrams.version, input.version)
+          )
+        )
+        .limit(1);
+      return result[0] || null;
+    }),
+
   generateDiagram: protectedProcedure
     .input(diagramInputSchema)
     .mutation(async ({ input, ctx }) => {
@@ -127,6 +164,21 @@ export const diagramRouter = router({
         });
         
         // 3. Save diagram to database
+        const maxVersionResult = await db
+          .select({ max: desc(repositoryDiagrams.version) })
+          .from(repositoryDiagrams)
+          .where(
+            and(
+              eq(repositoryDiagrams.userId, ctx.user.id),
+              eq(repositoryDiagrams.repoOwner, input.user),
+              eq(repositoryDiagrams.repoName, input.repo),
+              eq(repositoryDiagrams.ref, input.ref || 'main'),
+              eq(repositoryDiagrams.diagramType, diagramType)
+            )
+          )
+          .limit(1);
+        const maxVersion = maxVersionResult[0]?.max ?? 0;
+        const nextVersion = (typeof maxVersion === 'number' ? maxVersion : 0) + 1;
         await db
           .insert(repositoryDiagrams)
           .values({
@@ -135,19 +187,13 @@ export const diagramRouter = router({
             repoName: input.repo,
             ref: input.ref || 'main',
             diagramType,
+            version: nextVersion,
             diagramCode: result.diagramCode,
             format: 'mermaid',
             options: options || {},
             updatedAt: new Date(),
           })
-          .onConflictDoUpdate({
-            target: [repositoryDiagrams.userId, repositoryDiagrams.repoOwner, repositoryDiagrams.repoName, repositoryDiagrams.ref, repositoryDiagrams.diagramType],
-            set: {
-              diagramCode: result.diagramCode,
-              options: options || {},
-              updatedAt: new Date(),
-            },
-          });
+          .onConflictDoNothing();
         
         // 4. Log token usage with actual values from AI response
         await db.insert(tokenUsage).values({
@@ -155,7 +201,7 @@ export const diagramRouter = router({
           feature: 'diagram',
           repoOwner: input.user,
           repoName: input.repo,
-          model: 'gemini-2.5-flash', // Default model used
+          model: 'gemini-2.5-pro', // Default model used
           promptTokens: result.usage.promptTokens,
           completionTokens: result.usage.completionTokens,
           totalTokens: result.usage.totalTokens,

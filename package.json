@@ -56,7 +56,7 @@
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.518.0",
     "mermaid": "^11.7.0",
-    "next": "^15.3.5",
+    "next": "^15.4.2",
     "postgres": "^3.4.7",
     "posthog-js": "^1.255.1",
     "posthog-node": "^5.1.1",

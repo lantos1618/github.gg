@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import RepoPageLayout from '@/components/layouts/RepoPageLayout';
 import { DiagramType } from '@/lib/types/diagram';
-
 import { useDiagramGeneration } from '@/lib/hooks/useDiagramGeneration';
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import {
@@ -15,6 +14,44 @@ import {
 import { LoadingWave } from '@/components/LoadingWave';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { trpc } from '@/lib/trpc/client';
+import { VersionDropdown } from '@/components/VersionDropdown';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
+
+// Type definitions for diagram responses
+type DiagramResponse = {
+  diagramCode: string | null;
+  format: string;
+  diagramType: string;
+  cached: boolean;
+  stale: boolean;
+  lastUpdated: string;
+};
+
+type DiagramDbRow = {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  userId: string;
+  ref: string | null;
+  repoOwner: string;
+  repoName: string;
+  version: number;
+  fileHashes: Record<string, string> | null;
+  diagramType: string;
+  diagramCode: string;
+  format: string;
+  options: Record<string, unknown> | null;
+};
+
+function hasValidDiagram(obj: DiagramResponse | DiagramDbRow | { diagramCode: null; cached: boolean; stale: boolean; lastUpdated: null } | null): obj is DiagramResponse | DiagramDbRow {
+  return !!obj && 
+         typeof obj === 'object' && 
+         'diagramCode' in obj && 
+         obj.diagramCode !== null &&
+         'format' in obj &&
+         'diagramType' in obj;
+}
 
 function DiagramClientView({ 
   user, 
@@ -34,6 +71,7 @@ function DiagramClientView({
   const [showCodePanel, setShowCodePanel] = useState(false);
   const [editableCode, setEditableCode] = useState('');
   const [lastCodePanelSize, setLastCodePanelSize] = useState(30);
+  const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
 
   // Get repo data
   const { files: repoFiles, isLoading: filesLoading, error: filesError, totalFiles } = useRepoData({ user, repo, ref: refName, path });
@@ -41,35 +79,23 @@ function DiagramClientView({
   // Check user plan
   const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery();
 
-  // Use the new public endpoint for cached diagram
-  const { data: publicDiagram, isLoading: publicLoading } = trpc.diagram.publicGetDiagram.useQuery({
+  // Fetch all available versions
+  const { data: versions, isLoading: versionsLoading } = trpc.diagram.getDiagramVersions.useQuery({
     user,
     repo,
     ref: refName || 'main',
     diagramType,
-  }, { enabled: !!user && !!repo && !!diagramType });
+  });
 
-  // Keyboard shortcut to close code panel
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && showCodePanel) {
-        setShowCodePanel(false);
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showCodePanel]);
-
-  // Debounced values - removed unused variables
+  // Use the public endpoint for cached diagram
+  const { data: publicDiagram, isLoading: publicLoading } = selectedVersion
+    ? trpc.diagram.getDiagramByVersion.useQuery({ user, repo, ref: refName || 'main', diagramType, version: selectedVersion }, { enabled: !!user && !!repo && !!diagramType && !!selectedVersion })
+    : trpc.diagram.publicGetDiagram.useQuery({ user, repo, ref: refName || 'main', diagramType }, { enabled: !!user && !!repo && !!diagramType });
 
   // Memoize all inputs to useDiagramGeneration to prevent repeated requests
   const stableFiles = useMemo(() => repoFiles, [repoFiles]);
   const stableOptions = useMemo(() => options, [options]);
   const stableDiagramType = useMemo(() => diagramType, [diagramType]);
-
-  // Debug log to see what is changing
-  console.log('diagram generation inputs', { user, repo, refName, files: stableFiles, diagramType: stableDiagramType, options: stableOptions });
 
   // Diagram generation logic
   const {
@@ -122,14 +148,49 @@ function DiagramClientView({
     setShowCodePanel((prev) => !prev);
   };
 
+  // Add regenerate handler
+  const handleRegenerate = () => {
+    if (!repoFiles || repoFiles.length === 0) return;
+    handleRetryWithContext();
+  };
+
   // Check if user has access to AI features
   const hasAccess = currentPlan?.plan === 'byok' || currentPlan?.plan === 'pro';
 
+  // Type-narrow publicDiagram for rendering
+  const validDiagram = publicDiagram && hasValidDiagram(publicDiagram) ? publicDiagram : null;
+
   // If a cached diagram is available, show it and skip all AI/generation logic
-  if (publicDiagram?.diagramCode) {
+  if (validDiagram && validDiagram.diagramCode) {
+    const diagramCode = validDiagram.diagramCode;
+    
     return (
       <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
         <div className="w-full px-0 text-center mt-8">
+          <VersionDropdown
+            versions={versions}
+            isLoading={versionsLoading}
+            selectedVersion={selectedVersion}
+            onVersionChange={setSelectedVersion}
+          />
+          
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              {/* Removed last updated and cached status display */}
+            </div>
+            
+            {hasAccess && (
+              <Button
+                onClick={handleRegenerate}
+                disabled={isPending}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
+                {isPending ? 'Generating...' : 'Regenerate'}
+              </Button>
+            )}
+          </div>
+          
           <h1>Diagram View</h1>
           <DiagramTypeSelector
             diagramType={diagramType}
@@ -139,14 +200,14 @@ function DiagramClientView({
           <div className="w-full bg-white border rounded-lg shadow overflow-hidden mt-8" style={{minHeight: 500}}>
             <DiagramCodePanel
               showCodePanel={showCodePanel}
-              editableCode={publicDiagram.diagramCode}
+              editableCode={diagramCode}
               onCodeChange={handleCodeChange}
               lastCodePanelSize={lastCodePanelSize}
               onCodePanelSizeChange={setLastCodePanelSize}
               disabled={publicLoading}
             >
               <DiagramPreview
-                code={publicDiagram.diagramCode}
+                code={diagramCode}
                 renderError={renderError}
                 onRenderError={setRenderError}
               />
@@ -189,21 +250,42 @@ function DiagramClientView({
   return (
     <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
       <div className="w-full px-0 text-center mt-8">
-        <h1>Diagram View</h1>
+        <VersionDropdown
+          versions={versions}
+          isLoading={versionsLoading}
+          selectedVersion={selectedVersion}
+          onVersionChange={setSelectedVersion}
+        />
         
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            {/* Removed last updated and cached status display */}
+          </div>
+          
+          {hasAccess && (
+            <Button
+              onClick={() => handleRetryWithContext()}
+              disabled={isPending}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
+              {isPending ? 'Generating...' : 'Regenerate'}
+            </Button>
+          )}
+        </div>
+        
+        <h1>Diagram View</h1>
         <DiagramTypeSelector
           diagramType={diagramType}
           onDiagramTypeChange={setDiagramType}
           disabled={isPending}
         />
-
         {isPending && (
           <div className="my-8 flex flex-col items-center gap-4">
             <LoadingWave size="lg" color="#3b82f6" />
             <div className="text-lg text-blue-700 font-medium">Generating diagram...</div>
           </div>
         )}
-
         <DiagramErrorHandler
           error={error}
           isPending={isPending}
@@ -211,7 +293,6 @@ function DiagramClientView({
           onRetry={handleRetry}
           onRetryWithContext={handleRetryWithContext}
         />
-
         {displayDiagramCode && (
           <div className="w-full bg-white border rounded-lg shadow overflow-hidden" style={{minHeight: 500}}>
             <DiagramControls
@@ -219,11 +300,10 @@ function DiagramClientView({
               onToggleCodePanel={handleToggleCodePanel}
               onCopyMermaid={handleCopyMermaid}
               onCopyDiagram={handleCopyDiagram}
-              onRegenerate={handleRetryWithContext}
+              onRegenerate={(renderError) => handleRetryWithContext(renderError)}
               renderError={renderError}
               disabled={isPending}
             />
-
             <DiagramCodePanel
               showCodePanel={showCodePanel}
               editableCode={editableCode}
@@ -235,27 +315,20 @@ function DiagramClientView({
               <DiagramPreview
                 code={editableCode || displayDiagramCode}
                 renderError={renderError}
-                onRenderError={(err) => {
-                  setRenderError(err);
-                }}
+                onRenderError={setRenderError}
               />
             </DiagramCodePanel>
           </div>
         )}
-
         {!isPending && !displayDiagramCode && !error && (
           <p className="text-gray-500 mt-8">No diagram generated yet.</p>
         )}
-
         {/* Show upgrade prompt if user doesn't have access */}
         {!hasAccess && (
           <div className="mt-8">
             <UpgradePrompt feature="diagram" />
           </div>
         )}
-
-        {/* Branch selector now local to this view */}
-        {/* BranchSelector removed per user request */}
       </div>
     </RepoPageLayout>
   );

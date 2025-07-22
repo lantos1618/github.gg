@@ -48,7 +48,21 @@ Your response must be a valid JSON object with this exact structure:
       "reason": "Well-structured code with good naming conventions and consistent formatting"
     }
   ],
-  "markdown": "# 🏆 Repository Scorecard\n\n## 📊 Overall Score: 85/100\n\n### 🔢 Metrics Breakdown\n- **Code Quality**: 85/100 - Well-structured code...\n\n### 🥇 Strengths\n- Excellent code organization\n\n### ⚠️ Areas for Improvement\n- Could benefit from more tests\n\n### 📝 Recommendations\n- Add comprehensive unit tests",
+  "markdown": "# 🏆 Repository Scorecard
+  
+  ## 📊 Overall Score: 85/100
+  
+  ### 🔢 Metrics Breakdown
+  - **Code Quality**: 85/100 - Well-structured code...
+  
+  ### 🥇 Strengths
+  - Excellent code organization
+  
+  ### ⚠️ Areas for Improvement
+  - Could benefit from more tests
+  
+  ### 📝 Recommendations
+  - Add comprehensive unit tests",
   "overallScore": 85
 }
 
@@ -58,7 +72,7 @@ ANALYZE THESE FILES:
 ${files.map(file => `\n--- ${file.path} ---\n${file.content}`).join('\n')}`;
 
     const { object, usage } = await generateObject({
-      model: google('models/gemini-2.5-flash'),
+      model: google('models/gemini-2.5-pro'),
       schema: scorecardSchema,
       messages: [
         { role: 'user', content: prompt },

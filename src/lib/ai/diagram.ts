@@ -90,7 +90,7 @@ ${files.map((file: { path: string; content: string }) => `--- ${file.path} ---\n
   }
 
   const result = await generateObject({
-    model: google('models/gemini-2.5-flash'),
+    model: google('models/gemini-2.5-pro'),
     schema: diagramSchema,
     messages: [
       { role: 'user', content: prompt },

@@ -151,7 +151,7 @@ export const tokenUsage = pgTable('token_usage', {
   feature: text('feature').notNull(), // 'diagram', 'scorecard', etc.
   repoOwner: text('repo_owner'), // GitHub username/org name
   repoName: text('repo_name'), // Repository name
-  model: text('model'), // AI model used (e.g., gemini-2.5-flash)
+  model: text('model'), // AI model used (e.g., gemini-2.5-pro)
   promptTokens: integer('prompt_tokens').notNull(),
   completionTokens: integer('completion_tokens').notNull(),
   totalTokens: integer('total_tokens').notNull(),
@@ -186,13 +186,14 @@ export const userSubscriptions = pgTable('user_subscriptions', {
 // Developer Profile Cache
 export const developerProfileCache = pgTable('developer_profile_cache', {
   id: uuid('id').primaryKey().defaultRandom(),
-  username: text('username').notNull(),
+  username: text('username').notNull().unique(),
+  version: integer('version').notNull().default(1),
   profileData: jsonb('profile_data').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  // Ensure unique profile per username
-  usernameIdx: uniqueIndex('username_idx').on(table.username),
+  // Ensure unique profile per username and version
+  usernameIdx: uniqueIndex('username_idx').on(table.username, table.version),
 }));
 
 // Repository Scorecards - structured analysis data
@@ -202,6 +203,7 @@ export const repositoryScorecards = pgTable('repository_scorecards', {
   repoOwner: text('repo_owner').notNull(),
   repoName: text('repo_name').notNull(),
   ref: text('ref').default('main'),
+  version: integer('version').notNull().default(1),
   overallScore: integer('overall_score').notNull(), // 0-100 overall score
   metrics: jsonb('metrics').$type<ScorecardMetric[]>().notNull(), // Structured metrics breakdown
   markdown: text('markdown').notNull(), // Full markdown analysis
@@ -209,12 +211,13 @@ export const repositoryScorecards = pgTable('repository_scorecards', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  // Ensure unique scorecard per user, repo, and ref
+  // Ensure unique scorecard per user, repo, ref, and version
   scorecardUniqueIdx: uniqueIndex('scorecard_unique_idx').on(
     table.userId,
     table.repoOwner,
     table.repoName,
-    table.ref
+    table.ref,
+    table.version
   ),
 }));
 
@@ -226,6 +229,7 @@ export const repositoryDiagrams = pgTable('repository_diagrams', {
   repoName: text('repo_name').notNull(),
   ref: text('ref').default('main'),
   diagramType: text('diagram_type').notNull(), // 'file_tree', 'dependency', 'timeline', 'heatmap'
+  version: integer('version').notNull().default(1),
   diagramCode: text('diagram_code').notNull(), // Mermaid diagram code
   format: text('format').notNull().default('mermaid'), // Diagram format
   options: jsonb('options').$type<DiagramOptions>(), // Diagram generation options
@@ -233,13 +237,14 @@ export const repositoryDiagrams = pgTable('repository_diagrams', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  // Ensure unique diagram per user, repo, ref, and type
+  // Ensure unique diagram per user, repo, ref, type, and version
   diagramUniqueIdx: uniqueIndex('diagram_unique_idx').on(
     table.userId,
     table.repoOwner,
     table.repoName,
     table.ref,
-    table.diagramType
+    table.diagramType,
+    table.version
   ),
 }));
 

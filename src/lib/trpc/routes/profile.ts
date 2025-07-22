@@ -54,7 +54,7 @@ export const profileRouter = router({
     }))
     .query(async ({ input }): Promise<{ profile: DeveloperProfile | null, cached: boolean, stale: boolean, lastUpdated: Date | null }> => {
       const { username } = input;
-      // Find the most recent cached profile for this username
+      // Find the most recent cached profile for this username (latest updatedAt)
       const cached = await db
         .select()
         .from(developerProfileCache)
@@ -222,11 +222,12 @@ export const profileRouter = router({
         // Generate developer profile with optional code analysis
         const result = await generateDeveloperProfile(username, sortedRepos, input.includeCodeAnalysis ? repoFiles : undefined, ctx.user.id);
         
-        // Cache the result
+        // Cache the result (no version management needed)
         await db
           .insert(developerProfileCache)
           .values({
             username,
+            version: 1, // Keep version for compatibility but don't increment
             profileData: result.profile,
             updatedAt: new Date(),
           })
@@ -244,7 +245,7 @@ export const profileRouter = router({
           feature: 'profile',
           repoOwner: username,
           repoName: null,
-          model: 'gemini-2.5-flash',
+          model: 'gemini-2.5-pro',
           promptTokens: result.usage.promptTokens,
           completionTokens: result.usage.completionTokens,
           totalTokens: result.usage.totalTokens,
@@ -291,5 +292,35 @@ export const profileRouter = router({
         .where(eq(developerProfileCache.username, username));
 
       return { success: true };
+    }),
+
+  getProfileVersions: publicProcedure
+    .input(z.object({ username: z.string() }))
+    .query(async ({ input }) => {
+      const result = await db
+        .select({ version: developerProfileCache.version, updatedAt: developerProfileCache.updatedAt })
+        .from(developerProfileCache)
+        .where(eq(developerProfileCache.username, input.username))
+        .orderBy(desc(developerProfileCache.updatedAt))
+        .limit(1);
+      
+      // Return as array for compatibility with existing UI
+      return result;
+    }),
+
+  getProfileByVersion: publicProcedure
+    .input(z.object({ username: z.string(), version: z.number() }))
+    .query(async ({ input }) => {
+      const result = await db
+        .select()
+        .from(developerProfileCache)
+        .where(
+          and(
+            eq(developerProfileCache.username, input.username),
+            eq(developerProfileCache.version, input.version)
+          )
+        )
+        .limit(1);
+      return result[0] || null;
     }),
 }); 

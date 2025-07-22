@@ -12,6 +12,7 @@ import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
 import type { ScorecardResponse } from '@/lib/types/scorecard';
+import type { ScorecardMetric } from '@/lib/types/scorecard';
 import { VersionDropdown } from '@/components/VersionDropdown';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
@@ -19,7 +20,15 @@ import { RefreshCw } from 'lucide-react';
 // Define a type for TRPC error responses
 interface TRPCError { message: string }
 function isTRPCError(err: unknown): err is TRPCError {
-  return typeof err === 'object' && err !== null && 'message' in err && typeof (err as { message?: unknown }).message === 'string';
+  if (
+    typeof err === 'object' &&
+    err !== null &&
+    'message' in err
+  ) {
+    const maybeError = err as { message?: unknown };
+    return typeof maybeError.message === 'string';
+  }
+  return false;
 }
 
 export default function ScorecardClientView({ user, repo, refName, path }: { user: string; repo: string; refName?: string; path?: string }) {
@@ -182,7 +191,7 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
                     </tr>
                   </thead>
                   <tbody>
-                    {scorecardDataObj.metrics.map((m: any, i: number) => (
+                    {scorecardDataObj.metrics.map((m: ScorecardMetric, i: number) => (
                       <tr key={i} className="border-t">
                         <td className="px-4 py-2 font-medium whitespace-nowrap">{m.metric}</td>
                         <td className="px-4 py-2">

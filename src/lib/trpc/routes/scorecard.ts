@@ -68,7 +68,9 @@ export const scorecardRouter = router({
                 eq(repositoryScorecards.ref, input.ref || 'main')
               )
             );
-          const nextVersion = (maxVersionResult[0]?.max ?? 0) + 1;
+          const rawMax = maxVersionResult[0]?.max;
+          const maxVersion = typeof rawMax === 'number' ? rawMax : Number(rawMax) || 0;
+          const nextVersion = maxVersion + 1;
 
           try {
             // 2. Try insert
@@ -90,9 +92,13 @@ export const scorecardRouter = router({
             if (result) {
               insertedScorecard = result;
             }
-          } catch (e) {
+          } catch (e: unknown) {
             // If unique constraint violation, retry
-            if (e.code !== '23505') throw e;
+            if (isPgErrorWithCode(e) && e.code === '23505') {
+              // Unique constraint violation, retry
+              continue;
+            }
+            throw e;
           }
         }
         if (!insertedScorecard) {
@@ -198,3 +204,7 @@ export const scorecardRouter = router({
     }),
 
 });
+
+function isPgErrorWithCode(e: unknown): e is { code: string } {
+  return typeof e === 'object' && e !== null && 'code' in e && typeof (e as { code?: unknown }).code === 'string';
+}

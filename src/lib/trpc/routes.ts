@@ -13,23 +13,33 @@ import { router } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { account } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { githubAppInstallations } from '@/db/schema';
 
 export const appRouter = router({
   // Protected user routes
   me: protectedProcedure
     .query(async ({ ctx }) => {
-      // Get the GitHub username from the account table
+      // Get the GitHub username (login) from the githubAppInstallations table via the user's account
       const userAccount = await db.query.account.findFirst({
         where: eq(account.userId, ctx.user.id),
         columns: {
-          accountId: true,
+          installationId: true,
         },
       });
+
+      let githubUsername: string | undefined = undefined;
+      if (userAccount?.installationId) {
+        const installation = await db.query.githubAppInstallations.findFirst({
+          where: eq(githubAppInstallations.installationId, userAccount.installationId),
+          columns: { accountLogin: true },
+        });
+        githubUsername = installation?.accountLogin;
+      }
 
       return {
         user: {
           ...ctx.user,
-          githubUsername: userAccount?.accountId,
+          githubUsername,
         },
         message: 'You are authenticated!',
       };

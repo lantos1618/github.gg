@@ -186,7 +186,7 @@ export const userSubscriptions = pgTable('user_subscriptions', {
 // Developer Profile Cache
 export const developerProfileCache = pgTable('developer_profile_cache', {
   id: uuid('id').primaryKey().defaultRandom(),
-  username: text('username').notNull().unique(),
+  username: text('username').notNull(),
   version: integer('version').notNull().default(1),
   profileData: jsonb('profile_data').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),

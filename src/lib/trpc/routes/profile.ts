@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { developerProfileCache, tokenUsage, user, developerEmails } from '@/db/schema';
-import { eq, and, gte, desc } from 'drizzle-orm';
+import { eq, and, gte, desc, sql } from 'drizzle-orm';
 import { generateDeveloperProfile } from '@/lib/ai/developer-profile';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
@@ -179,10 +179,34 @@ export const profileRouter = router({
         const githubService = await createGitHubServiceForUserOperations(ctx.session);
         const repos = await githubService.getUserRepositories(username);
         
-        // Sort repos by stars and activity for better analysis
-        const sortedRepos = repos
-          .sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0))
-          .slice(0, 20); // Top 20 repos
+        // Smart repo selection: prioritize by stars, forks, and description quality
+        const smartSortedRepos = repos
+          .filter(repo => 
+            // Exclude forks
+            !repo.fork &&
+            // Filter out repos with no description (often throwaway projects)
+            repo.description &&
+            repo.description.length > 10
+            // Removed star filter to include more repos
+          )
+          .sort((a, b) => {
+            // Primary: stars (weighted heavily)
+            const starScore = (b.stargazersCount || 0) - (a.stargazersCount || 0);
+            if (Math.abs(starScore) > 5) return starScore;
+            
+            // Secondary: forks (indicates community interest)
+            const forkScore = (b.forksCount || 0) - (a.forksCount || 0);
+            if (Math.abs(forkScore) > 2) return forkScore;
+            
+            // Tertiary: description length (indicates project maturity)
+            return (b.description?.length || 0) - (a.description?.length || 0);
+          })
+          .slice(0, 15); // Top 15 repos for selection
+
+        console.log(`🎯 Smart repo selection: ${smartSortedRepos.length} repos selected from ${repos.length} total`);
+        smartSortedRepos.slice(0, 5).forEach((repo, i) => {
+          console.log(`  ${i + 1}. ${repo.name} (⭐${repo.stargazersCount || 0}, 🍴${repo.forksCount || 0})`);
+        });
 
         const repoFiles: Array<{
           repoName: string;
@@ -191,9 +215,10 @@ export const profileRouter = router({
 
         // If deep analysis is requested, fetch files from top repositories
         if (input.includeCodeAnalysis) {
-          const topRepos = sortedRepos.slice(0, 5); // Analyze top 5 repos
+          const topRepos = smartSortedRepos.slice(0, 5); // Analyze top 5 repos
+          console.log(`📁 Fetching files for ${topRepos.length} repositories in parallel...`);
           
-          for (const repo of topRepos) {
+          const fileFetchPromises = topRepos.map(async (repo) => {
             try {
               // Fetch key files from the repository
               const files = await githubService.getRepositoryFiles(username, repo.name, 'main');
@@ -252,36 +277,59 @@ export const profileRouter = router({
               const validFiles = fileContents.filter(Boolean) as Array<{ path: string; content: string }>;
               
               if (validFiles.length > 0) {
-                repoFiles.push({
+                return {
                   repoName: repo.name,
                   files: validFiles,
-                });
+                };
               }
+              return null;
             } catch (error) {
-              console.warn(`Failed to analyze ${repo.name}:`, error);
-              // Continue with other repos
+              // Only log if it's not a 404 (expected for some repos)
+              if (error instanceof Error && !error.message.includes('404')) {
+                console.warn(`Failed to analyze ${repo.name}:`, error.message);
+              }
+              return null;
             }
-          }
+          });
+          
+          // Wait for all file fetching to complete
+          const fileResults = await Promise.all(fileFetchPromises);
+          fileResults.forEach(result => {
+            if (result) {
+              repoFiles.push(result);
+            }
+          });
         }
 
-        // Generate developer profile with optional code analysis
-        const result = await generateDeveloperProfile(username, sortedRepos, input.includeCodeAnalysis ? repoFiles : undefined, ctx.user.id);
+        console.log(`🎯 Generating profile for ${username} with ${repoFiles.length} analyzed repos`);
         
-        // Cache the result (no version management needed)
+        // Generate developer profile with optional code analysis
+        const result = await generateDeveloperProfile({
+          username,
+          repos: smartSortedRepos,
+          repoFiles: input.includeCodeAnalysis ? repoFiles : undefined,
+          userId: ctx.user.id
+        });
+        
+        console.log(`✅ Profile generated successfully for ${username}`);
+        
+        // Get next version number
+        const maxVersionResult = await db
+          .select({ max: sql<number>`MAX(version)` })
+          .from(developerProfileCache)
+          .where(eq(developerProfileCache.username, username));
+        const nextVersion = (maxVersionResult[0]?.max || 0) + 1;
+        
+        console.log(`📝 Saving profile version ${nextVersion} for ${username}`);
+        
+        // Cache the result with proper versioning
         await db
           .insert(developerProfileCache)
           .values({
             username,
-            version: 1, // Keep version for compatibility but don't increment
+            version: nextVersion,
             profileData: result.profile,
             updatedAt: new Date(),
-          })
-          .onConflictDoUpdate({
-            target: [developerProfileCache.username],
-            set: {
-              profileData: result.profile,
-              updatedAt: new Date(),
-            },
           });
         
         // Log token usage
@@ -300,7 +348,7 @@ export const profileRouter = router({
 
         // Extract and email developer
         try {
-          const email = await findAndStoreDeveloperEmail(githubService['octokit'], username, sortedRepos);
+          const email = await findAndStoreDeveloperEmail(githubService['octokit'], username, smartSortedRepos);
           if (email) {
             // Simple HTML render for now
             const html = `<h1>Your GitHub.gg Developer Profile</h1><pre>${JSON.stringify(result.profile, null, 2)}</pre>`;
@@ -346,9 +394,7 @@ export const profileRouter = router({
         .select({ version: developerProfileCache.version, updatedAt: developerProfileCache.updatedAt })
         .from(developerProfileCache)
         .where(eq(developerProfileCache.username, input.username))
-        .orderBy(desc(developerProfileCache.updatedAt))
-        .limit(1);
-      
+        .orderBy(desc(developerProfileCache.version));
       // Return as array for compatibility with existing UI
       return result;
     }),

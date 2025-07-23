@@ -78,6 +78,13 @@
       "when": 1753154235696,
       "tag": "0010_high_genesis",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1753233291647,
+      "tag": "0011_groovy_tusk",
+      "breakpoints": true
     }
   ]
 }

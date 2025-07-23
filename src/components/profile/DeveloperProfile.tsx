@@ -60,21 +60,9 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
-  // More robust check for showing challenge button
-  // Use GitHub username for comparison
-  const shouldShowChallengeButton = !userLoading && 
-    currentUser?.user?.githubUsername && 
-    currentUser.user.githubUsername !== username;
+  // More robust check for showing challenge button (case-insensitive)
+  const shouldShowChallengeButton = !!currentUser?.user?.githubUsername && currentUser.user.githubUsername.toLowerCase() !== username.toLowerCase();
 
-  // TEMPORARY DEBUG - Remove this after fixing
-  console.log('🔍 DEBUG CHALLENGE BUTTON:');
-  console.log('  - userLoading:', userLoading);
-  console.log('  - currentUser:', currentUser);
-  console.log('  - currentUser?.user?.name:', currentUser?.user?.name);
-  console.log('  - currentUser?.user?.githubUsername:', currentUser?.user?.githubUsername);
-  console.log('  - username:', username);
-  console.log('  - shouldShowChallengeButton:', shouldShowChallengeButton);
-  console.log('  - currentUser?.user?.githubUsername !== username:', currentUser?.user?.githubUsername !== username);
   const { data: emailData, isLoading: emailLoading } = trpc.profile.getDeveloperEmail.useQuery(
     { username }, 
     { 
@@ -87,14 +75,15 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   // Handle profile generation
   const handleGenerateProfile = useCallback(() => {
     setIsGenerating(true);
-    generateProfileMutation.mutate({ username });
+    generateProfileMutation.mutate({ 
+      username,
+      includeCodeAnalysis: true // Enable code analysis for better profiles
+    });
   }, [generateProfileMutation, username]);
 
   const handleChallenge = useCallback(() => {
-    // Prevent self-challenge
-    if (!currentUser?.user?.githubUsername || currentUser.user.githubUsername === username) {
-      // This shouldn't happen with the current UI logic, but just in case
-      console.warn('Attempted to challenge self or no user data');
+    // Prevent self-challenge (case-insensitive)
+    if (!currentUser?.user?.githubUsername || currentUser.user.githubUsername.toLowerCase() === username.toLowerCase()) {
       return;
     }
     router.push(`/arena?opponent=${username}`);

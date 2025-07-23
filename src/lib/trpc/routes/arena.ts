@@ -4,7 +4,8 @@ import { db } from '@/db';
 import { 
   developerRankings, 
   arenaBattles, 
-  tokenUsage 
+  tokenUsage,
+  developerProfileCache
 } from '@/db/schema';
 import { eq, and, desc, gte } from 'drizzle-orm';
 import { analyzeBattle, calculateEloChange, determineTier } from '@/lib/ai/battle-analysis';
@@ -12,12 +13,18 @@ import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import { 
-  fetchDeveloperData, 
   getOrCreateRanking, 
-  updateRankings, 
-  calculateTokenUsage 
+  updateRankings
 } from '@/lib/arena/battle-helpers';
 import { INITIAL_ELO_RATING, BYOK_DAILY_BATTLE_LIMIT, ALL_BATTLE_CRITERIA } from '@/lib/constants/arena';
+import { generateDeveloperProfile } from '@/lib/ai/developer-profile';
+import type { DeveloperProfile } from '@/lib/types/profile';
+import type { BattleCriteria } from '@/lib/types/arena';
+
+// Helper function to check if a profile is stale (older than 24 hours)
+function isProfileStale(updatedAt: Date): boolean {
+  return new Date().getTime() - updatedAt.getTime() > 24 * 60 * 60 * 1000; // 24 hours
+}
 
 export const arenaRouter = router({
   // Get user's ranking (now public, but requires userId or username)
@@ -166,42 +173,71 @@ export const arenaRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const { battleId } = input;
-
-      // Validate battle
       const battle = await validateBattle(battleId, ctx.user.id);
 
       try {
-        // Get API key info
         const { plan } = await getUserPlanAndKey(ctx.user.id);
         const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
         if (!keyInfo) {
           throw new TRPCError({ 
             code: 'FORBIDDEN', 
-            message: 'Please add your Gemini API key in settings to use this feature' 
+            message: 'API Key required for this feature.' 
           });
         }
-        
-        // Fetch developer data in parallel
-        const [challengerData, opponentData] = await Promise.all([
-          fetchDeveloperData(battle.challengerUsername),
-          fetchDeveloperData(battle.opponentUsername)
+
+        // --- NEW BATTLE LOGIC ---
+        const githubService = await createGitHubServiceForUserOperations(ctx.session);
+
+        // Function to get or generate a developer profile
+        const getOrGenerateProfile = async (username: string): Promise<DeveloperProfile> => {
+          // Check for existing cached profile
+          const existing = await db
+            .select()
+            .from(developerProfileCache)
+            .where(eq(developerProfileCache.username, username))
+            .limit(1);
+          
+          if (existing[0] && !isProfileStale(existing[0].updatedAt)) {
+            return existing[0].profileData as DeveloperProfile;
+          }
+          
+          // Generate a new profile if it's missing or stale
+          const repos = await githubService.getUserRepositories(username);
+          if (repos.length === 0) throw new Error(`${username} has no public repositories.`);
+          
+          const result = await generateDeveloperProfile({ 
+            username, 
+            repos, 
+            userId: ctx.user.id // Attribute generation to the challenger
+          });
+          
+          await db.insert(developerProfileCache).values({
+            username,
+            profileData: result.profile,
+            updatedAt: new Date()
+          }).onConflictDoUpdate({
+            target: developerProfileCache.username,
+            set: { profileData: result.profile, updatedAt: new Date() }
+          });
+          
+          return result.profile;
+        };
+
+        // Get profiles for both developers
+        const [challengerProfile, opponentProfile] = await Promise.all([
+          getOrGenerateProfile(battle.challengerUsername),
+          getOrGenerateProfile(battle.opponentUsername),
         ]);
 
-        // Prepare repository data for analysis
-        const challengerRepos = challengerData.repos.map(repo => 
-          `${repo.name} (${repo.language || 'Unknown'}, ${repo.stargazers_count}⭐)`
-        ).join('\n');
-        
-        const opponentRepos = opponentData.repos.map(repo => 
-          `${repo.name} (${repo.language || 'Unknown'}, ${repo.stargazers_count}⭐)`
-        ).join('\n');
-
-        // Analyze battle
+        // Analyze battle using the structured profiles
         const battleAnalysis = await analyzeBattle(
-          challengerRepos,
-          opponentRepos,
-          battle.challengerUsername
+          challengerProfile,
+          opponentProfile,
+          battle.challengerUsername,
+          battle.opponentUsername,
+          (battle.criteria as BattleCriteria[]) || ALL_BATTLE_CRITERIA
         );
+        // --- END OF NEW BATTLE LOGIC ---
 
         // Get current rankings
         const [challengerRanking, opponentRanking] = await Promise.all([
@@ -251,11 +287,10 @@ export const arenaRouter = router({
         );
 
         // Log token usage
-        const tokenUsage = calculateTokenUsage(battleAnalysis.result);
         await logTokenUsage(
           ctx.user.id,
           battle.challengerUsername,
-          { totalTokens: tokenUsage },
+          battleAnalysis.usage,
           plan === 'byok'
         );
 

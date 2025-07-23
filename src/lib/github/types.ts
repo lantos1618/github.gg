@@ -20,6 +20,7 @@ export interface RepoSummary {
   language?: string;
   topics?: string[];
   url: string;
+  fork?: boolean;
 }
 
 export interface GitHubFilesResponse {

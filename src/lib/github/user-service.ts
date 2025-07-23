@@ -15,6 +15,7 @@ interface GitHubUserRepoData {
   topics: string[];
   html_url: string;
   private?: boolean;
+  fork: boolean; // <-- add this
 }
 
 // User-specific operations
@@ -28,50 +29,21 @@ export class UserService {
   // Get user repositories with pagination to fetch ALL repositories
   async getUserRepositories(username?: string): Promise<RepoSummary[]> {
     try {
-      const allRepos: GitHubUserRepoData[] = [];
-      let page = 1;
-      const perPage = 100;
-      let hasMore = true;
-
       console.log(`🔍 Fetching repositories for ${username || 'authenticated user'}...`);
+      // Use octokit.paginate to fetch all pages automatically
+      const endpoint = username 
+        ? this.octokit.rest.repos.listForUser
+        : this.octokit.rest.repos.listForAuthenticatedUser;
 
-      while (hasMore) {
-        const endpoint = username
-          ? this.octokit.request('GET /users/{username}/repos', { 
-              username, 
-              per_page: perPage, 
-              page, 
-              sort: 'updated'
-            })
-          : this.octokit.request('GET /user/repos', { 
-              affiliation: 'owner,collaborator,organization_member', 
-              per_page: perPage, 
-              page, 
-              sort: 'updated',
-            });
+      const params = username 
+        ? { username, per_page: 100, sort: 'updated' } 
+        : { affiliation: 'owner,collaborator,organization_member', per_page: 100, sort: 'updated' };
 
-        const { data } = await endpoint;
-        // Only keep public repos
-        const repos = (data as GitHubUserRepoData[]).filter(r => !r.private);
-        
-        console.log(`📦 Fetched page ${page}: ${repos.length} public repositories`);
-        
-        allRepos.push(...repos);
-        
-        if (repos.length < perPage) {
-          hasMore = false;
-        } else {
-          page++;
-        }
-        if (page > 10) {
-          console.warn('⚠️ Reached maximum page limit (10), stopping pagination');
-          hasMore = false;
-        }
-      }
-
-      console.log(`✅ Total public repositories fetched: ${allRepos.length}`);
-
-      return allRepos.map((repo) => ({
+      const allRepos = await this.octokit.paginate(endpoint, params as any);
+      // Filter for public repos after fetching
+      const publicRepos = allRepos.filter((r: any) => !r.private);
+      console.log(`✅ Total public repositories fetched: ${publicRepos.length}`);
+      return publicRepos.map((repo: any) => ({
         owner: repo.owner.login,
         name: repo.name,
         description: repo.description || undefined,
@@ -80,6 +52,7 @@ export class UserService {
         language: repo.language || undefined,
         topics: repo.topics || undefined,
         url: repo.html_url,
+        fork: repo.fork,
       }));
     } catch (error: unknown) {
       const errorMessage = parseError(error);

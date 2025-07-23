@@ -1,26 +1,18 @@
 import type { BattleCriteria } from '@/lib/types/arena';
+import type { DeveloperProfile } from '@/lib/types/profile';
 import { ELO_TIERS, K_FACTORS } from '@/lib/constants/arena';
+import { google } from '@ai-sdk/google';
+import { generateObject } from 'ai';
+import { z } from 'zod';
 
 export type BattleAnalysisParams = {
   challenger: {
     username: string;
-    profile: {
-      summary: string;
-      skillAssessment: { name: string; score: number }[];
-      developmentStyle: { name: string; score: number }[];
-      topRepos: { name: string; description: string | null; language: string | null; stargazers_count: number; forks_count: number; updated_at: string }[];
-    };
-    repos: { name: string; description: string | null; language: string | null; stargazers_count: number; forks_count: number; updated_at: string }[];
+    profile: DeveloperProfile;
   };
   opponent: {
     username: string;
-    profile: {
-      summary: string;
-      skillAssessment: { name: string; score: number }[];
-      developmentStyle: { name: string; score: number }[];
-      topRepos: { name: string; description: string | null; language: string | null; stargazers_count: number; forks_count: number; updated_at: string }[];
-    };
-    repos: { name: string; description: string | null; language: string | null; stargazers_count: number; forks_count: number; updated_at: string }[];
+    profile: DeveloperProfile;
   };
   criteria?: BattleCriteria[];
 };
@@ -31,33 +23,11 @@ export type BattleAnalysisResult = {
     reason: string;
     challengerScore: {
       total: number;
-      breakdown: {
-        code_quality: number;
-        project_complexity: number;
-        skill_diversity: number;
-        innovation: number;
-        documentation: number;
-        testing: number;
-        architecture: number;
-        performance: number;
-        security: number;
-        maintainability: number;
-      };
+      breakdown: Record<string, number>;
     };
     opponentScore: {
       total: number;
-      breakdown: {
-        code_quality: number;
-        project_complexity: number;
-        skill_diversity: number;
-        innovation: number;
-        documentation: number;
-        testing: number;
-        architecture: number;
-        performance: number;
-        security: number;
-        maintainability: number;
-      };
+      breakdown: Record<string, number>;
     };
     highlights: string[];
     recommendations: string[];
@@ -69,68 +39,59 @@ export type BattleAnalysisResult = {
   };
 };
 
+const battleResultSchema = z.object({
+  winner: z.string().describe("The GitHub username of the winner."),
+  reason: z.string().describe("A detailed, evidence-based reason for the decision, comparing the two profiles based on the battle criteria."),
+  challengerScore: z.object({
+    total: z.number(),
+    breakdown: z.record(z.string(), z.number()),
+  }),
+  opponentScore: z.object({
+    total: z.number(),
+    breakdown: z.record(z.string(), z.number()),
+  }),
+  highlights: z.array(z.string()).describe("Key strengths or notable achievements for both developers observed during the analysis."),
+  recommendations: z.array(z.string()).describe("Actionable recommendations for both developers to improve their skills."),
+});
+
 /**
- * Analyze battle between two developers using AI
+ * Analyze a battle between two developers based on their generated profiles.
  */
 export async function analyzeBattle(
-  challengerRepos: string,
-  opponentRepos: string,
-  challengerUsername: string
+  challengerProfile: DeveloperProfile,
+  opponentProfile: DeveloperProfile,
+  challengerUsername: string,
+  opponentUsername: string,
+  criteria: BattleCriteria[]
 ): Promise<BattleAnalysisResult> {
-  // This is a placeholder implementation
-  // In a real implementation, you would call an AI service here
-  
-  const mockAnalysis = {
-    winner: challengerUsername,
-    reason: "Based on the analysis of repositories, the challenger demonstrated superior code quality and project complexity.",
-    challengerScore: {
-      total: 75,
-      breakdown: {
-        code_quality: 80,
-        project_complexity: 70,
-        skill_diversity: 75,
-        innovation: 80,
-        documentation: 70,
-        testing: 75,
-        architecture: 80,
-        performance: 70,
-        security: 75,
-        maintainability: 75
-      }
-    },
-    opponentScore: {
-      total: 65,
-      breakdown: {
-        code_quality: 70,
-        project_complexity: 60,
-        skill_diversity: 65,
-        innovation: 70,
-        documentation: 60,
-        testing: 65,
-        architecture: 70,
-        performance: 60,
-        security: 65,
-        maintainability: 65
-      }
-    },
-    highlights: [
-      "Challenger showed excellent code organization",
-      "Strong documentation practices observed",
-      "Innovative problem-solving approaches"
-    ],
-    recommendations: [
-      "Consider adding more comprehensive tests",
-      "Focus on performance optimization",
-      "Enhance documentation practices"
-    ]
-  };
+  const prompt = `
+    You are an expert AI judge for a developer code battle. Your task is to determine a winner based on a comparative analysis of two developer profiles.
+    The battle is between '${challengerUsername}' (Challenger) and '${opponentUsername}' (Opponent).
+
+    Analyze the provided JSON profiles for each developer and decide the winner based on these specific criteria: ${criteria.join(', ')}.
+
+    Provide a detailed breakdown of your reasoning, assign scores for each criterion (1-10), and calculate a total score for each developer.
+    Your entire output must be a single, valid JSON object that strictly adheres to the provided Zod schema.
+
+    **Challenger Profile (${challengerUsername}):**
+    ${JSON.stringify(challengerProfile, null, 2)}
+
+    **Opponent Profile (${opponentUsername}):**
+    ${JSON.stringify(opponentProfile, null, 2)}
+  `;
+
+  const { object, usage } = await generateObject({
+    model: google('models/gemini-2.5-pro'),
+    schema: battleResultSchema,
+    messages: [{ role: 'user', content: prompt }],
+  });
 
   return {
-    result: mockAnalysis,
+    result: object,
     usage: {
-      promptTokens: 0,
-      completionTokens: 0,
-      totalTokens: 0,
+      promptTokens: usage.promptTokens,
+      completionTokens: usage.completionTokens,
+      totalTokens: usage.totalTokens,
     },
   };
 }
@@ -174,8 +135,8 @@ export function determineTier(eloRating: number): string {
  * Generate battle insights and recommendations
  */
 export function generateBattleInsights(
-  challengerProfile: { summary: string; skillAssessment: { name: string; score: number }[]; developmentStyle: { name: string; score: number }[]; topRepos: { name: string; description: string | null; language: string | null; stargazers_count: number; forks_count: number; updated_at: string }[] },
-  opponentProfile: { summary: string; skillAssessment: { name: string; score: number }[]; developmentStyle: { name: string; score: number }[]; topRepos: { name: string; description: string | null; language: string | null; stargazers_count: number; forks_count: number; updated_at: string }[] },
+  challengerProfile: DeveloperProfile,
+  opponentProfile: DeveloperProfile,
   winner: string
 ): { highlights: string[]; recommendations: string[] } {
   const highlights = [

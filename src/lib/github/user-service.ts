@@ -3,20 +3,20 @@ import type { RepoSummary } from './types';
 import { parseError } from '@/lib/types/errors';
 
 // GitHub API response types
-interface GitHubUserRepoData {
-  owner: {
-    login: string;
-  };
+
+// Add this type above the class definition:
+type RawGitHubRepo = {
+  owner: { login: string };
   name: string;
   description: string | null;
   stargazers_count: number;
   forks_count: number;
   language: string | null;
-  topics: string[];
+  topics?: string[];
   html_url: string;
   private?: boolean;
-  fork: boolean; // <-- add this
-}
+  fork?: boolean;
+};
 
 // User-specific operations
 export class UserService {
@@ -30,20 +30,19 @@ export class UserService {
   async getUserRepositories(username?: string): Promise<RepoSummary[]> {
     try {
       console.log(`🔍 Fetching repositories for ${username || 'authenticated user'}...`);
-      // Use octokit.paginate to fetch all pages automatically
-      const endpoint = username 
-        ? this.octokit.rest.repos.listForUser
-        : this.octokit.rest.repos.listForAuthenticatedUser;
-
-      const params = username 
-        ? { username, per_page: 100, sort: 'updated' } 
-        : { affiliation: 'owner,collaborator,organization_member', per_page: 100, sort: 'updated' };
-
-      const allRepos = await this.octokit.paginate(endpoint, params as any);
+      // Use octokit.paginate with the correct route string for type safety
+      const allRepos = await this.octokit.paginate<RawGitHubRepo>(
+        username
+          ? 'GET /users/{username}/repos'
+          : 'GET /user/repos',
+        username
+          ? { username, per_page: 100, sort: 'updated' }
+          : { affiliation: 'owner,collaborator,organization_member', per_page: 100, sort: 'updated' }
+      );
       // Filter for public repos after fetching
-      const publicRepos = allRepos.filter((r: any) => !r.private);
+      const publicRepos = allRepos.filter((r) => !r.private);
       console.log(`✅ Total public repositories fetched: ${publicRepos.length}`);
-      return publicRepos.map((repo: any) => ({
+      return publicRepos.map((repo) => ({
         owner: repo.owner.login,
         name: repo.name,
         description: repo.description || undefined,

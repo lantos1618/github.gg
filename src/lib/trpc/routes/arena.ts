@@ -20,6 +20,7 @@ import { INITIAL_ELO_RATING, BYOK_DAILY_BATTLE_LIMIT, ALL_BATTLE_CRITERIA } from
 import { generateDeveloperProfile } from '@/lib/ai/developer-profile';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import type { BattleCriteria } from '@/lib/types/arena';
+import { sql } from 'drizzle-orm';
 
 // Helper function to check if a profile is stale (older than 24 hours)
 function isProfileStale(updatedAt: Date): boolean {
@@ -211,12 +212,20 @@ export const arenaRouter = router({
             userId: ctx.user.id // Attribute generation to the challenger
           });
           
+          // Get next version number
+          const maxVersionResult = await db
+            .select({ max: sql<number>`MAX(version)` })
+            .from(developerProfileCache)
+            .where(eq(developerProfileCache.username, username));
+          const nextVersion = (maxVersionResult[0]?.max || 0) + 1;
+          
           await db.insert(developerProfileCache).values({
             username,
+            version: nextVersion,
             profileData: result.profile,
             updatedAt: new Date()
           }).onConflictDoUpdate({
-            target: developerProfileCache.username,
+            target: [developerProfileCache.username, developerProfileCache.version],
             set: { profileData: result.profile, updatedAt: new Date() }
           });
           

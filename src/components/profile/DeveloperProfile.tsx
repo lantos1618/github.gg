@@ -25,10 +25,10 @@ interface DeveloperProfileProps {
 export function DeveloperProfile({ username }: DeveloperProfileProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
-  
+
   const router = useRouter();
   const utils = trpc.useUtils();
-  
+
   // Fetch all available versions
   const { data: versions, isLoading: versionsLoading } = trpc.profile.getProfileVersions.useQuery({ username });
 
@@ -55,7 +55,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     refetchOnWindowFocus: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
-  const { data: currentUser, isLoading: userLoading } = trpc.me.useQuery(undefined, {
+  const { data: currentUser } = trpc.me.useQuery(undefined, {
     refetchOnWindowFocus: false,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
@@ -64,8 +64,8 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   const shouldShowChallengeButton = !!currentUser?.user?.githubUsername && currentUser.user.githubUsername.toLowerCase() !== username.toLowerCase();
 
   const { data: emailData, isLoading: emailLoading } = trpc.profile.getDeveloperEmail.useQuery(
-    { username }, 
-    { 
+    { username },
+    {
       enabled: !!currentUser?.user,
       refetchOnWindowFocus: false,
       staleTime: 10 * 60 * 1000, // 10 minutes
@@ -75,7 +75,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   // Handle profile generation
   const handleGenerateProfile = useCallback(() => {
     setIsGenerating(true);
-    generateProfileMutation.mutate({ 
+    generateProfileMutation.mutate({
       username,
       includeCodeAnalysis: true // Enable code analysis for better profiles
     });

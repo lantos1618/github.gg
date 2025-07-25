@@ -27,54 +27,49 @@ export function TopRepos({ repos }: TopReposProps) {
       <CardContent>
         <div className="space-y-4">
           {repos.map((repo, index) => (
-            <div key={index} className="block group">
-              <Link
-                href={`/${repo.owner}/${repo.repo}/scorecard`}
-                className="block"
-                style={{ textDecoration: 'none' }}
-              >
-                <div
-                  className="border rounded-lg p-4 space-y-3 transition-all duration-150 group-hover:shadow-lg group-hover:border-blue-500 group-hover:bg-blue-50 cursor-pointer"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold text-sm">
-                          <span className="flex items-center gap-1">
-                            {repo.name}
-                          </span>
-                        </h4>
-                        <Badge className={`text-xs ${getSignificanceColor(repo.significanceScore)}`}>
-                          Significance: {repo.significanceScore}/10
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        {repo.description || 'No description available'}
-                      </p>
+            <div key={index} className="group relative">
+              <div className="border rounded-lg p-4 space-y-3 transition-all duration-150 group-hover:shadow-lg group-hover:border-blue-500 group-hover:bg-blue-50">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-semibold text-sm">
+                        <span className="flex items-center gap-1">
+                          {repo.name}
+                        </span>
+                      </h4>
+                      <Badge className={`text-xs ${getSignificanceColor(repo.significanceScore)}`}>
+                        Significance: {repo.significanceScore}/10
+                      </Badge>
                     </div>
-                  </div>
-                  <div className="bg-muted/50 rounded-md p-3">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      <strong>Why this repository is significant:</strong>
-                    </p>
-                    <p className="text-xs italic">
-                      &ldquo;{repo.reason}&rdquo;
+                    <p className="text-sm text-muted-foreground mb-2">
+                      {repo.description || 'No description available'}
                     </p>
                   </div>
+                  {/* External GitHub link positioned in top-right */}
+                  <a
+                    href={repo.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-blue-600 transition-colors duration-150 p-1 rounded-sm hover:bg-blue-50 z-10"
+                    title="View on GitHub"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
                 </div>
-              </Link>
-              {/* External GitHub link, outside the main Link */}
-              <div className="mt-1 flex items-center gap-2">
-                <a
-                  href={repo.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-blue-600"
-                  title="View on GitHub"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <ExternalLink className="h-3 w-3" />
-                </a>
+                <div className="bg-muted/50 rounded-md p-3">
+                  <p className="text-xs text-muted-foreground mb-1">
+                    <strong>Why this repository is significant:</strong>
+                  </p>
+                  <p className="text-xs italic">
+                    &ldquo;{repo.reason}&rdquo;
+                  </p>
+                </div>
+                {/* Local navigation link covering the entire card */}
+                <Link
+                  href={`/${repo.owner}/${repo.repo}/scorecard`}
+                  className="absolute inset-0 z-0"
+                  aria-label={`View scorecard for ${repo.name}`}
+                />
               </div>
             </div>
           ))}

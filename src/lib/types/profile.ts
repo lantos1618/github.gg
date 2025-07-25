@@ -16,7 +16,7 @@ export const scoredRepoSchema = z.object({
   repo: z.string(),
   description: z.string(),
   url: z.string(),
-  significanceScore: z.number().min(1).max(10).describe("A score representing the repository's importance to this developer's profile."),
+  significanceScore: z.number().min(1).max(10).describe("A score from 1-10 representing the repository's importance to this developer's profile. Use whole numbers only (1, 2, 3, etc.), not decimals."),
   reason: z.string().describe("Why this repository is considered a top project for them.")
 });
 
@@ -37,7 +37,7 @@ export const developerProfileSchema = z.object({
   skillAssessment: z.array(scoredMetricSchema).describe("An assessment of the developer's top 5-7 skills."),
   techStack: z.array(techStackItemSchema),
   developmentStyle: z.array(scoredMetricSchema).describe("An analysis of the developer's coding habits and contribution patterns."),
-  topRepos: z.array(scoredRepoSchema).describe("The developer's 3 most notable or representative repositories."),
+  topRepos: z.array(scoredRepoSchema).describe("The developer's 5 most notable or representative repositories."),
   suggestions: z.array(z.string()).describe("Concrete suggestions for improvement or next steps for the developer."),
 });
 

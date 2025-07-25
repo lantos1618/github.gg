@@ -23,7 +23,7 @@ export function useInstallationStatus(): InstallationStatus {
     undefined,
     {
       enabled: isSignedIn && !authLoading,
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: false,
       retry: 3,
       retryDelay: 1000,
     }

@@ -11,10 +11,12 @@ import { DevelopmentStyle } from './DevelopmentStyle';
 import { TopRepos } from './TopRepos';
 import { TechStack } from './TechStack';
 import { trpc } from '@/lib/trpc/client';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Sword, Mail } from 'lucide-react';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import { developerProfileSchema } from '@/lib/types/profile';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useRouter } from 'next/navigation';
 
 interface DeveloperProfileProps {
   username: string;
@@ -23,9 +25,10 @@ interface DeveloperProfileProps {
 export function DeveloperProfile({ username }: DeveloperProfileProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
-  
+
+  const router = useRouter();
   const utils = trpc.useUtils();
-  
+
   // Fetch all available versions
   const { data: versions, isLoading: versionsLoading } = trpc.profile.getProfileVersions.useQuery({ username });
 
@@ -47,14 +50,44 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     }
   });
 
-  // Check user plan
-  const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery();
+  // Check user plan and current user
+  const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+  const { data: currentUser } = trpc.me.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+
+  // More robust check for showing challenge button (case-insensitive)
+  const shouldShowChallengeButton = !!currentUser?.user?.githubUsername && currentUser.user.githubUsername.toLowerCase() !== username.toLowerCase();
+
+  const { data: emailData, isLoading: emailLoading } = trpc.profile.getDeveloperEmail.useQuery(
+    { username },
+    {
+      enabled: !!currentUser?.user,
+      refetchOnWindowFocus: false,
+      staleTime: 10 * 60 * 1000, // 10 minutes
+    }
+  );
 
   // Handle profile generation
   const handleGenerateProfile = useCallback(() => {
     setIsGenerating(true);
-    generateProfileMutation.mutate({ username });
+    generateProfileMutation.mutate({
+      username,
+      includeCodeAnalysis: true // Enable code analysis for better profiles
+    });
   }, [generateProfileMutation, username]);
+
+  const handleChallenge = useCallback(() => {
+    // Prevent self-challenge (case-insensitive)
+    if (!currentUser?.user?.githubUsername || currentUser.user.githubUsername.toLowerCase() === username.toLowerCase()) {
+      return;
+    }
+    router.push(`/arena?opponent=${username}`);
+  }, [router, username, currentUser?.user?.githubUsername]);
 
   // Version selector UI
   const VersionSelector = () => {
@@ -92,19 +125,6 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
 
   const versionInfo = getVersionInfo();
 
-  // Regenerate button
-  const RegenerateButton = (disabled: boolean) => (
-    <Button
-      onClick={handleGenerateProfile}
-      disabled={disabled}
-      className="flex items-center gap-2 px-6 py-3 text-base font-medium bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-      size="lg"
-    >
-      <RefreshCw className={`h-5 w-5 ${isGenerating ? 'animate-spin' : ''}`} />
-      {isGenerating ? 'Generating...' : 'Refresh Profile'}
-    </Button>
-  );
-
   // Helper to extract the correct profile object regardless of query source
   function getProfileData() {
     if (!publicProfile) return null;
@@ -130,24 +150,44 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     const validProfile = parsedProfile.data;
     return (
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <Avatar className="h-10 w-10">
+        <div className="flex items-start justify-between mb-6">
+          <div className="flex-1">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16">
                 <AvatarImage src={`https://avatars.githubusercontent.com/${username}`} alt={username} />
-                <AvatarFallback>{username && typeof username === 'string' ? username[0]?.toUpperCase() ?? null : null}</AvatarFallback>
+                <AvatarFallback>{username?.[0]?.toUpperCase()}</AvatarFallback>
               </Avatar>
-              <a
-                href={`https://github.com/${username}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-2xl font-bold hover:underline"
-              >
-                {username}&apos;s Developer Profile
-              </a>
+              <div>
+                <a
+                  href={`https://github.com/${username}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-3xl font-bold hover:underline"
+                >
+                  {username}
+                </a>
+                {currentUser?.user ? (
+                  emailLoading ? (
+                    <Skeleton className="h-5 w-48 mt-1" />
+                  ) : emailData?.email ? (
+                    <div className="flex items-center gap-2 text-muted-foreground mt-1 text-base">
+                      <Mail className="h-4 w-4" />
+                      <a href={`mailto:${emailData.email}`} className="hover:underline">{emailData.email}</a>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-muted-foreground mt-1 text-sm italic">
+                      Email not public
+                    </div>
+                  )
+                ) : (
+                  <div className="flex items-center gap-2 text-muted-foreground mt-1 text-sm italic">
+                    Sign in to view email
+                  </div>
+                )}
+              </div>
             </div>
             {versionInfo && (
-              <div className="mt-1 text-base font-medium flex items-center gap-2">
+              <div className="mt-2 text-base font-medium flex items-center gap-2">
                 <span>Version</span>
                 <VersionSelector />
                 <span>&middot;</span>
@@ -155,10 +195,30 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
               </div>
             )}
           </div>
-          {/* Only show regenerate if user is allowed */}
-          {currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro')
-            ? RegenerateButton(isGenerating || generateProfileMutation.isPending)
-            : null}
+          <div className="flex items-center gap-4">
+            {shouldShowChallengeButton && (
+              <Button
+                onClick={handleChallenge}
+                variant="outline"
+                className="flex items-center gap-2 px-6 py-3 text-base font-medium"
+                size="lg"
+              >
+                <Sword className="h-5 w-5" />
+                Challenge
+              </Button>
+            )}
+            {currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro') && (
+              <Button
+                onClick={handleGenerateProfile}
+                disabled={isGenerating || generateProfileMutation.isPending}
+                className="flex items-center gap-2 px-6 py-3 text-base font-medium bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                size="lg"
+              >
+                <RefreshCw className={`h-5 w-5 ${isGenerating ? 'animate-spin' : ''}`} />
+                {isGenerating ? 'Generating...' : 'Refresh Profile'}
+              </Button>
+            )}
+          </div>
         </div>
         {/* Profile Content */}
         <div className="space-y-8">
@@ -235,15 +295,39 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] px-4">
       <div className="text-center max-w-md">
-        <h2 className="text-2xl font-semibold text-gray-700 mb-4">
-          No Profile Available
-        </h2>
+        <h2 className="text-2xl font-semibold text-gray-700 mb-4">No Profile Available</h2>
         <p className="text-gray-500 mb-8 leading-relaxed">
           Generate an AI-powered developer profile to see insights about {username}&apos;s skills and repositories.
         </p>
-        <div className="flex justify-center">
-          {RegenerateButton(isGenerating || generateProfileMutation.isPending)}
+        <div className="flex justify-center items-center gap-4">
+          {shouldShowChallengeButton && (
+            <Button
+              onClick={handleChallenge}
+              variant="outline"
+              className="flex items-center gap-2"
+              size="lg"
+            >
+              <Sword className="h-5 w-5" />
+              Challenge
+            </Button>
+          )}
+          {currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro') ? (
+            <Button
+              onClick={handleGenerateProfile}
+              disabled={isGenerating || generateProfileMutation.isPending}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              size="lg"
+            >
+              <RefreshCw className={`h-5 w-5 ${isGenerating ? 'animate-spin' : ''}`} />
+              {isGenerating ? 'Generating...' : 'Generate Profile'}
+            </Button>
+          ) : null}
         </div>
+        {(!currentPlan || currentPlan.plan === 'free') && (
+          <div className="mt-8">
+            <SubscriptionUpgrade />
+          </div>
+        )}
       </div>
     </div>
   );

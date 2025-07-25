@@ -20,10 +20,28 @@ interface GitHubRepoData {
   owner: {
     login: string;
   };
+  fork: boolean; // <-- add this
 }
 
 interface GitHubBranchData {
   name: string;
+}
+
+interface CommitHistory {
+  sha: string;
+  message: string;
+  author: {
+    name?: string;
+    email?: string;
+    date?: string;
+  };
+  committer: {
+    name?: string;
+    email?: string;
+    date?: string;
+    login?: string;
+  };
+  parents: string[];
 }
 
 // Repository-specific operations
@@ -128,9 +146,46 @@ export class RepositoryService {
         language: data.language || undefined,
         topics: data.topics || undefined,
         url: data.html_url,
+        fork: data.fork, // type-safe, API-driven
       };
     } catch (error) {
       throw error;
+    }
+  }
+
+  async getCommitHistory(
+    owner: string,
+    repo: string,
+    branch: string,
+    limit: number = 100
+  ): Promise<CommitHistory[]> {
+    try {
+      const response = await this.octokit.rest.repos.listCommits({
+        owner,
+        repo,
+        sha: branch,
+        per_page: limit,
+      });
+
+      return response.data.map(commit => ({
+        sha: commit.sha,
+        message: commit.commit.message,
+        author: {
+          name: commit.commit.author?.name,
+          email: commit.commit.author?.email,
+          date: commit.commit.author?.date,
+        },
+        committer: {
+          name: commit.commit.committer?.name,
+          email: commit.commit.committer?.email,
+          date: commit.commit.committer?.date,
+          login: commit.committer?.login,
+        },
+        parents: commit.parents.map(p => p.sha),
+      }));
+    } catch (error: unknown) {
+      const errorMessage = parseError(error);
+      throw new Error(`Failed to get commit history: ${errorMessage}`);
     }
   }
 

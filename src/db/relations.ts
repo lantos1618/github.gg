@@ -1,5 +1,5 @@
 import { relations } from 'drizzle-orm';
-import { user, tokenUsage, userSubscriptions, userApiKeys } from './schema';
+import { user, tokenUsage, userSubscriptions, userApiKeys, developerEmails } from './schema';
 
 // User relations
 export const userRelations = relations(user, ({ many, one }) => ({
@@ -29,5 +29,13 @@ export const userApiKeysRelations = relations(userApiKeys, ({ one }) => ({
   user: one(user, {
     fields: [userApiKeys.userId],
     references: [user.id],
+  }),
+}));
+
+// Developer Emails relations
+export const developerEmailsRelations = relations(developerEmails, ({ one }) => ({
+  user: one(user, {
+    fields: [developerEmails.username],
+    references: [user.name],
   }),
 })); 

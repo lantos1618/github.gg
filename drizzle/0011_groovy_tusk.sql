@@ -1,0 +1,1 @@
+ALTER TABLE "developer_profile_cache" DROP CONSTRAINT "developer_profile_cache_username_unique";

@@ -5,6 +5,7 @@ import { TRPCProvider } from "@/lib/trpc/provider";
 import { NavbarServer } from "@/components/NavbarServer";
 import { Toaster } from 'sonner'
 import { PostHogProvider } from './providers'
+import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -65,6 +66,7 @@ export default function RootLayout({
             <Toaster position="top-right" richColors />
           </TRPCProvider>
         </PostHogProvider>
+        <Analytics />
       </body>
     </html>
   );

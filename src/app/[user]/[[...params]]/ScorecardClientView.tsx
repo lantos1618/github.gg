@@ -54,6 +54,7 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
   // Helper to extract scorecard data and metadata
   const scorecardDataObj = publicScorecard?.scorecard || null;
   const markdownContent = scorecardDataObj?.markdown || scorecardData;
+  const isPrivateRepo = (publicScorecard as { error?: string })?.error === 'This repository is private';
   
   // Add client-side debug log for markdown content
   console.log('CLIENT DEBUG:', markdownContent);
@@ -147,6 +148,18 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
 
   const overallLoading = filesLoading || isLoading;
   const canAccess = currentPlan && currentPlan.plan !== 'free';
+
+  // If repository is private, show appropriate message
+  if (isPrivateRepo) {
+    return (
+      <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <h2 className="text-xl font-semibold text-gray-600 mb-2">Repository is Private</h2>
+          <p className="text-gray-500">Scorecards are not available for private repositories.</p>
+        </div>
+      </RepoPageLayout>
+    );
+  }
 
   // If a cached scorecard is available, show it
   if (scorecardDataObj) {

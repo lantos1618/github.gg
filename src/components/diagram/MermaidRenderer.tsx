@@ -15,6 +15,12 @@ export function MermaidRenderer({ code, onRenderError, className = "" }: Mermaid
   useEffect(() => {
     if (!ref.current) return;
 
+    // Debug logging
+    console.log('MermaidRenderer: Rendering diagram with code:', code?.substring(0, 100) + '...');
+
+    // Generate a unique ID for this diagram
+    const uniqueId = `mermaid-diagram-${Math.random().toString(36).substr(2, 9)}`;
+
     try {
       mermaid.initialize({
         startOnLoad: false,
@@ -22,12 +28,14 @@ export function MermaidRenderer({ code, onRenderError, className = "" }: Mermaid
         securityLevel: 'loose',
       });
 
-      mermaid.render('mermaid-diagram', code).then(({ svg }) => {
+      mermaid.render(uniqueId, code).then(({ svg }) => {
+        console.log('MermaidRenderer: Successfully rendered diagram');
         if (ref.current) {
           ref.current.innerHTML = svg;
           if (onRenderError) onRenderError(''); // clear error
         }
       }).catch((err: unknown) => {
+        console.error('MermaidRenderer: Error rendering diagram:', err);
         const errorMessage = parseError(err);
         if (ref.current) {
           ref.current.innerHTML = `<div class='text-red-600'>Invalid Mermaid diagram: ${errorMessage}</div>`;
@@ -35,6 +43,7 @@ export function MermaidRenderer({ code, onRenderError, className = "" }: Mermaid
         if (onRenderError) onRenderError(errorMessage);
       });
     } catch (err: unknown) {
+      console.error('MermaidRenderer: Error initializing mermaid:', err);
       const errorMessage = parseError(err);
       if (ref.current) {
         ref.current.innerHTML = `<div class='text-red-600'>Invalid Mermaid diagram: ${errorMessage}</div>`;

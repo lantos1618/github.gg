@@ -21,6 +21,7 @@ interface GitHubRepoData {
     login: string;
   };
   fork: boolean; // <-- add this
+  private: boolean; // <-- add private field
 }
 
 interface GitHubBranchData {
@@ -126,6 +127,7 @@ export class RepositoryService {
         url: data.html_url,
         defaultBranch: data.default_branch,
         updatedAt: data.updated_at,
+        private: data.private,
       };
     } catch (error) {
       throw error;

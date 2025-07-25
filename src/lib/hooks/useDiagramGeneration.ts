@@ -34,6 +34,8 @@ export function useDiagramGeneration({
   const [previousDiagramCode, setPreviousDiagramCode] = useState<string>('');
   const [lastError, setLastError] = useState<string>('');
 
+  const utils = trpc.useUtils();
+
   const generateDiagramMutation = trpc.diagram.generateDiagram.useMutation({
     onSuccess: (data) => {
       setDiagramCode(data.diagramCode);
@@ -43,6 +45,10 @@ export function useDiagramGeneration({
         diagramType,
         filesHash: JSON.stringify(files.map(f => f.path + f.content.length))
       });
+      
+      // Invalidate queries to refresh version list and cached diagrams
+      utils.diagram.getDiagramVersions.invalidate({ user, repo, ref: refName || 'main', diagramType });
+      utils.diagram.publicGetDiagram.invalidate({ user, repo, ref: refName || 'main', diagramType });
     },
     onError: (err) => {
       const errorMessage = err.message || 'Failed to generate diagram';

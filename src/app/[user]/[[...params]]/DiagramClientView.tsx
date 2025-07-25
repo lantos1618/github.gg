@@ -92,6 +92,9 @@ function DiagramClientView({
     ? trpc.diagram.getDiagramByVersion.useQuery({ user, repo, ref: refName || 'main', diagramType, version: selectedVersion }, { enabled: !!user && !!repo && !!diagramType && !!selectedVersion })
     : trpc.diagram.publicGetDiagram.useQuery({ user, repo, ref: refName || 'main', diagramType }, { enabled: !!user && !!repo && !!diagramType });
 
+  // Check if repository is private
+  const isPrivateRepo = (publicDiagram as { error?: string })?.error === 'This repository is private';
+
   // Memoize all inputs to useDiagramGeneration to prevent repeated requests
   const stableFiles = useMemo(() => repoFiles, [repoFiles]);
   const stableOptions = useMemo(() => options, [options]);
@@ -160,10 +163,35 @@ function DiagramClientView({
   // Type-narrow publicDiagram for rendering
   const validDiagram = publicDiagram && hasValidDiagram(publicDiagram) ? publicDiagram : null;
 
-  // If a cached diagram is available, show it and skip all AI/generation logic
-  if (validDiagram && validDiagram.diagramCode) {
-    const diagramCode = validDiagram.diagramCode;
-    
+  // Show diagram if we have a valid cached diagram OR a newly generated diagram
+  const diagramToShow = displayDiagramCode || (validDiagram?.diagramCode || '');
+  
+  // Debug logging
+  console.log('DiagramClientView Debug:', {
+    hasAccess,
+    currentPlan: currentPlan?.plan,
+    isPending,
+    error,
+    displayDiagramCode: !!displayDiagramCode,
+    repoFiles: repoFiles?.length,
+    diagramType,
+    diagramToShow: diagramToShow?.substring(0, 100) + '...',
+    editableCode: editableCode?.substring(0, 100) + '...'
+  });
+
+  // If repository is private, show appropriate message
+  if (isPrivateRepo) {
+    return (
+      <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <h2 className="text-xl font-semibold text-gray-600 mb-2">Repository is Private</h2>
+          <p className="text-gray-500">Diagrams are not available for private repositories.</p>
+        </div>
+      </RepoPageLayout>
+    );
+  }
+
+  if (diagramToShow) {
     return (
       <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
         <div className="w-full px-0 text-center mt-8">
@@ -174,40 +202,48 @@ function DiagramClientView({
             onVersionChange={setSelectedVersion}
           />
           
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              {/* Removed last updated and cached status display */}
-            </div>
+          <h1>Diagram View</h1>
+          <div className="mb-4">
+            <DiagramTypeSelector
+              diagramType={diagramType}
+              onDiagramTypeChange={setDiagramType}
+              disabled={publicLoading || isPending}
+            />
             
             {hasAccess && (
-              <Button
-                onClick={handleRegenerate}
-                disabled={isPending}
-                className="flex items-center gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
-                {isPending ? 'Generating...' : 'Regenerate'}
-              </Button>
+              <div className="flex justify-center mt-4">
+                <Button
+                  onClick={handleRegenerate}
+                  disabled={isPending}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
+                  {isPending ? 'Generating...' : 'Regenerate'}
+                </Button>
+              </div>
             )}
           </div>
           
-          <h1>Diagram View</h1>
-          <DiagramTypeSelector
-            diagramType={diagramType}
-            onDiagramTypeChange={setDiagramType}
-            disabled={publicLoading}
-          />
           <div className="w-full bg-white border rounded-lg shadow overflow-hidden mt-8" style={{minHeight: 500}}>
+            <DiagramControls
+              showCodePanel={showCodePanel}
+              onToggleCodePanel={handleToggleCodePanel}
+              onCopyMermaid={handleCopyMermaid}
+              onCopyDiagram={handleCopyDiagram}
+              onRegenerate={(renderError) => handleRetryWithContext(renderError)}
+              renderError={renderError}
+              disabled={isPending}
+            />
             <DiagramCodePanel
               showCodePanel={showCodePanel}
-              editableCode={diagramCode}
+              editableCode={editableCode || diagramToShow}
               onCodeChange={handleCodeChange}
               lastCodePanelSize={lastCodePanelSize}
               onCodePanelSizeChange={setLastCodePanelSize}
-              disabled={publicLoading}
+              disabled={publicLoading || isPending}
             >
               <DiagramPreview
-                code={diagramCode}
+                code={editableCode || diagramToShow}
                 renderError={renderError}
                 onRenderError={setRenderError}
               />
@@ -238,9 +274,12 @@ function DiagramClientView({
       <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
         <div className="w-full px-4 py-8">
           <div className="text-center">
-            <h2 className="text-xl font-semibold text-red-600 mb-2">Files Loading Failed</h2>
-            <p className="text-gray-600">Unable to load repository files.</p>
-            <p className="text-sm text-gray-500 mt-2">{String(filesError)}</p>
+            <h2 className="text-xl font-semibold text-red-600 mb-2">Repository Not Found</h2>
+            <p className="text-gray-600">The repository <code className="bg-gray-100 px-2 py-1 rounded">{user}/{repo}</code> could not be found or accessed.</p>
+            <p className="text-sm text-gray-500 mt-2">Please check the repository name and ensure it exists and is public.</p>
+            {String(filesError).includes('404') && (
+              <p className="text-xs text-gray-400 mt-2">Error: Repository not found (404)</p>
+            )}
           </div>
         </div>
       </RepoPageLayout>
@@ -257,35 +296,36 @@ function DiagramClientView({
           onVersionChange={setSelectedVersion}
         />
         
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            {/* Removed last updated and cached status display */}
-          </div>
+        <h1>Diagram View</h1>
+        <div className="mb-4">
+          <DiagramTypeSelector
+            diagramType={diagramType}
+            onDiagramTypeChange={setDiagramType}
+            disabled={isPending}
+          />
           
           {hasAccess && (
-            <Button
-              onClick={() => handleRetryWithContext()}
-              disabled={isPending}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
-              {isPending ? 'Generating...' : 'Regenerate'}
-            </Button>
+            <div className="flex justify-center mt-4">
+              <Button
+                onClick={() => handleRetryWithContext()}
+                disabled={isPending}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
+                {isPending ? 'Generating...' : 'Regenerate'}
+              </Button>
+            </div>
           )}
         </div>
         
-        <h1>Diagram View</h1>
-        <DiagramTypeSelector
-          diagramType={diagramType}
-          onDiagramTypeChange={setDiagramType}
-          disabled={isPending}
-        />
         {isPending && (
           <div className="my-8 flex flex-col items-center gap-4">
             <LoadingWave size="lg" color="#3b82f6" />
-            <div className="text-lg text-blue-700 font-medium">Generating diagram...</div>
+            <div className="text-lg text-blue-700 font-medium">Generating {diagramType} diagram...</div>
+            <div className="text-sm text-gray-500">This may take a few moments</div>
           </div>
         )}
+        
         <DiagramErrorHandler
           error={error}
           isPending={isPending}
@@ -293,36 +333,22 @@ function DiagramClientView({
           onRetry={handleRetry}
           onRetryWithContext={handleRetryWithContext}
         />
-        {displayDiagramCode && (
-          <div className="w-full bg-white border rounded-lg shadow overflow-hidden" style={{minHeight: 500}}>
-            <DiagramControls
-              showCodePanel={showCodePanel}
-              onToggleCodePanel={handleToggleCodePanel}
-              onCopyMermaid={handleCopyMermaid}
-              onCopyDiagram={handleCopyDiagram}
-              onRegenerate={(renderError) => handleRetryWithContext(renderError)}
-              renderError={renderError}
-              disabled={isPending}
-            />
-            <DiagramCodePanel
-              showCodePanel={showCodePanel}
-              editableCode={editableCode}
-              onCodeChange={handleCodeChange}
-              lastCodePanelSize={lastCodePanelSize}
-              onCodePanelSizeChange={setLastCodePanelSize}
-              disabled={isPending}
-            >
-              <DiagramPreview
-                code={editableCode || displayDiagramCode}
-                renderError={renderError}
-                onRenderError={setRenderError}
-              />
-            </DiagramCodePanel>
+        
+        {!isPending && !displayDiagramCode && !error && (
+          <div className="text-center mt-8">
+            <p className="text-gray-500 mb-4">No diagram generated yet.</p>
+            {hasAccess ? (
+              repoFiles && repoFiles.length > 0 ? (
+                <p className="text-sm text-gray-400">Click &quot;Regenerate&quot; to generate a diagram, or select a different diagram type.</p>
+              ) : (
+                <p className="text-sm text-gray-400">No files found in repository. Please check the repository path.</p>
+              )
+            ) : (
+              <p className="text-sm text-gray-400">Upgrade your plan to generate diagrams.</p>
+            )}
           </div>
         )}
-        {!isPending && !displayDiagramCode && !error && (
-          <p className="text-gray-500 mt-8">No diagram generated yet.</p>
-        )}
+        
         {/* Show upgrade prompt if user doesn't have access */}
         {!hasAccess && (
           <div className="mt-8">

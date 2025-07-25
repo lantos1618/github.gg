@@ -7,6 +7,8 @@ import { generateScorecardAnalysis } from '@/lib/ai/scorecard';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
 import { scorecardSchema } from '@/lib/types/scorecard';
+import { isPgErrorWithCode } from '@/lib/db/utils';
+import { createGitHubServiceFromSession } from '@/lib/github';
 
 export const scorecardRouter = router({
   generateScorecard: protectedProcedure
@@ -149,8 +151,41 @@ export const scorecardRouter = router({
       ref: z.string().optional().default('main'),
       version: z.number().optional(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const { user, repo, ref, version } = input;
+      
+      // Check repository access and privacy
+      try {
+        const githubService = await createGitHubServiceFromSession(ctx.session);
+        const repoInfo = await githubService.getRepositoryInfo(user, repo);
+        
+        // If the repository is private, check if user has access
+        if (repoInfo.private === true) {
+          // If user is not authenticated, block access
+          if (!ctx.session?.user) {
+            return {
+              scorecard: null,
+              cached: false,
+              stale: false,
+              lastUpdated: null,
+              error: 'This repository is private'
+            };
+          }
+          
+          // User is authenticated, so they should have access (since we successfully fetched repo info)
+          // Continue to show the scorecard
+        }
+      } catch {
+        // If we can't access the repo (404 or no auth), it might be private or user doesn't have access
+        return {
+          scorecard: null,
+          cached: false,
+          stale: false,
+          lastUpdated: null,
+          error: 'Unable to access repository'
+        };
+      }
+      
       const baseConditions = [
         eq(repositoryScorecards.repoOwner, user),
         eq(repositoryScorecards.repoName, repo),
@@ -204,7 +239,3 @@ export const scorecardRouter = router({
     }),
 
 });
-
-function isPgErrorWithCode(e: unknown): e is { code: string } {
-  return typeof e === 'object' && e !== null && 'code' in e && typeof (e as { code?: unknown }).code === 'string';
-}

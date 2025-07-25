@@ -9,6 +9,7 @@ export interface RepositoryInfo {
   url: string;
   defaultBranch: string;
   updatedAt: string;
+  private: boolean;
 }
 
 export interface RepoSummary {

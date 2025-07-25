@@ -5,9 +5,10 @@ import { parseGeminiError } from '@/lib/utils/errorHandling';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { db } from '@/db';
 import { tokenUsage, repositoryDiagrams } from '@/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
+import { createGitHubServiceFromSession } from '@/lib/github';
 
 export const diagramRouter = router({
   getDiagram: protectedProcedure
@@ -55,8 +56,40 @@ export const diagramRouter = router({
   // Public endpoint: anyone can fetch cached diagram for a repo/ref/type
   publicGetDiagram: publicProcedure
     .input(diagramInputSchema.pick({ user: true, repo: true, ref: true, diagramType: true }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const { user, repo, ref, diagramType } = input;
+      
+      // Check repository access and privacy
+      try {
+        const githubService = await createGitHubServiceFromSession(ctx.session);
+        const repoInfo = await githubService.getRepositoryInfo(user, repo);
+        
+        // If the repository is private, check if user has access
+        if (repoInfo.private === true) {
+          // If user is not authenticated, block access
+          if (!ctx.session?.user) {
+            return {
+              diagramCode: null,
+              cached: false,
+              stale: false,
+              lastUpdated: null,
+              error: 'This repository is private',
+            };
+          }
+          // User is authenticated, so they should have access (since we successfully fetched repo info)
+          // Continue to show the diagram
+        }
+      } catch {
+        // If we can't access the repo (404 or no auth), it might be private or user doesn't have access
+        return {
+          diagramCode: null,
+          cached: false,
+          stale: false,
+          lastUpdated: null,
+          error: 'Unable to access repository',
+        };
+      }
+      
       // Find the most recent diagram for this repo/ref/type (any user)
       const cached = await db
         .select()
@@ -69,8 +102,19 @@ export const diagramRouter = router({
             eq(repositoryDiagrams.diagramType, diagramType)
           )
         )
-        .orderBy(desc(repositoryDiagrams.updatedAt))
+        .orderBy(desc(repositoryDiagrams.version))
         .limit(1);
+      
+      console.log('🔥 publicGetDiagram:', {
+        user,
+        repo,
+        ref: ref || 'main',
+        diagramType,
+        cachedCount: cached.length,
+        cachedVersion: cached[0]?.version,
+        cachedUserId: cached[0]?.userId
+      });
+      
       if (cached.length > 0) {
         const diagram = cached[0];
         const isStale = new Date().getTime() - diagram.updatedAt.getTime() > 24 * 60 * 60 * 1000; // 24 hours
@@ -94,7 +138,7 @@ export const diagramRouter = router({
   getDiagramVersions: publicProcedure
     .input(diagramInputSchema.pick({ user: true, repo: true, ref: true, diagramType: true }))
     .query(async ({ input }) => {
-      return await db
+      const versions = await db
         .select({ version: repositoryDiagrams.version, updatedAt: repositoryDiagrams.updatedAt })
         .from(repositoryDiagrams)
         .where(
@@ -106,6 +150,16 @@ export const diagramRouter = router({
           )
         )
         .orderBy(desc(repositoryDiagrams.version));
+      
+      console.log('🔥 getDiagramVersions:', {
+        user: input.user,
+        repo: input.repo,
+        ref: input.ref || 'main',
+        diagramType: input.diagramType,
+        versions: versions.map(v => v.version)
+      });
+      
+      return versions;
     }),
 
   getDiagramByVersion: publicProcedure
@@ -165,7 +219,7 @@ export const diagramRouter = router({
         
         // 3. Save diagram to database
         const maxVersionResult = await db
-          .select({ max: desc(repositoryDiagrams.version) })
+          .select({ max: sql<number>`MAX(${repositoryDiagrams.version})` })
           .from(repositoryDiagrams)
           .where(
             and(
@@ -175,10 +229,20 @@ export const diagramRouter = router({
               eq(repositoryDiagrams.ref, input.ref || 'main'),
               eq(repositoryDiagrams.diagramType, diagramType)
             )
-          )
-          .limit(1);
+          );
         const maxVersion = maxVersionResult[0]?.max ?? 0;
-        const nextVersion = (typeof maxVersion === 'number' ? maxVersion : 0) + 1;
+        const nextVersion = maxVersion + 1;
+        
+        console.log('🔥 Version calculation:', {
+          userId: ctx.user.id,
+          repoOwner: input.user,
+          repoName: input.repo,
+          ref: input.ref || 'main',
+          diagramType,
+          maxVersion,
+          nextVersion
+        });
+        
         await db
           .insert(repositoryDiagrams)
           .values({
@@ -193,7 +257,22 @@ export const diagramRouter = router({
             options: options || {},
             updatedAt: new Date(),
           })
-          .onConflictDoNothing();
+          .onConflictDoUpdate({
+            target: [
+              repositoryDiagrams.userId,
+              repositoryDiagrams.repoOwner,
+              repositoryDiagrams.repoName,
+              repositoryDiagrams.ref,
+              repositoryDiagrams.diagramType,
+              repositoryDiagrams.version
+            ],
+            set: {
+              diagramCode: result.diagramCode,
+              format: 'mermaid',
+              options: options || {},
+              updatedAt: new Date(),
+            }
+          });
         
         // 4. Log token usage with actual values from AI response
         await db.insert(tokenUsage).values({

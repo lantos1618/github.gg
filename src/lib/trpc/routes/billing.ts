@@ -6,9 +6,17 @@ import { eq } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-05-28.basil',
-});
+// Initialize Stripe only if API key is available
+const stripe = process.env.STRIPE_SECRET_KEY 
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2025-05-28.basil',
+    })
+  : null;
+
+// Helper to check if Stripe is configured
+const isStripeConfigured = () => {
+  return !!process.env.STRIPE_SECRET_KEY;
+};
 
 export const billingRouter = router({
   createCheckoutSession: protectedProcedure
@@ -16,6 +24,13 @@ export const billingRouter = router({
       plan: z.enum(['byok', 'pro']) 
     }))
     .mutation(async ({ input, ctx }) => {
+      if (!isStripeConfigured()) {
+        throw new TRPCError({ 
+          code: 'INTERNAL_SERVER_ERROR', 
+          message: 'Payment processing not configured in development mode' 
+        });
+      }
+
       const prices = {
         byok: process.env.STRIPE_BYOK_PRICE_ID,
         pro: process.env.STRIPE_PRO_PRICE_ID
@@ -29,7 +44,7 @@ export const billingRouter = router({
       }
 
       try {
-        const session = await stripe.checkout.sessions.create({
+        const session = await stripe!.checkout.sessions.create({
           customer_email: ctx.user.email,
           line_items: [{ 
             price: prices[input.plan], 
@@ -65,6 +80,13 @@ export const billingRouter = router({
 
   cancelSubscription: protectedProcedure
     .mutation(async ({ ctx }) => {
+      if (!isStripeConfigured()) {
+        throw new TRPCError({ 
+          code: 'INTERNAL_SERVER_ERROR', 
+          message: 'Payment processing not configured in development mode' 
+        });
+      }
+
       const subscription = await db.query.userSubscriptions.findFirst({
         where: eq(userSubscriptions.userId, ctx.user.id)
       });
@@ -77,7 +99,7 @@ export const billingRouter = router({
       }
 
       try {
-        await stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
+        await stripe!.subscriptions.cancel(subscription.stripeSubscriptionId);
         
         // Update subscription status in database
         await db.update(userSubscriptions)
@@ -96,6 +118,13 @@ export const billingRouter = router({
 
   getBillingPortal: protectedProcedure
     .mutation(async ({ ctx }) => {
+      if (!isStripeConfigured()) {
+        throw new TRPCError({ 
+          code: 'INTERNAL_SERVER_ERROR', 
+          message: 'Payment processing not configured in development mode' 
+        });
+      }
+
       const subscription = await db.query.userSubscriptions.findFirst({
         where: eq(userSubscriptions.userId, ctx.user.id)
       });
@@ -108,7 +137,7 @@ export const billingRouter = router({
       }
 
       try {
-        const session = await stripe.billingPortal.sessions.create({
+        const session = await stripe!.billingPortal.sessions.create({
           customer: subscription.stripeCustomerId,
           return_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings`,
         });

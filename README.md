@@ -25,31 +25,31 @@ A modern GitHub repository analyzer built with Next.js, Better Auth, and Octokit
 ```bash
 git clone https://github.com/lantos1618/github.gg.git
 cd github.gg
-bun install
 ```
 
-### 2. Set Up Environment
+### 2. Run Development Setup
 
-Copy the example environment file and configure your GitHub OAuth credentials:
+We've created an automated setup script that will configure everything for local development:
 
 ```bash
-cp .env.local.example .env.local
+# Run the setup script (this will install dependencies, create .env.local, and start the database)
+bun run setup
+# or
+./scripts/setup-dev.sh
 ```
 
-Update the following variables in `.env.local`:
-- `GITHUB_CLIENT_ID`: Your GitHub OAuth App Client ID
-- `GITHUB_CLIENT_SECRET`: Your GitHub OAuth App Client Secret
-- `BETTER_AUTH_SECRET`: A secure random string for session encryption
+### 3. Configure GitHub OAuth (Required)
 
-### 3. Start Database (Local Development)
+After running the setup script, you need to create a GitHub OAuth App:
 
-```bash
-# Start PostgreSQL with Docker
-bun run db:start
-
-# Run database migrations
-bun run db:push
-```
+1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
+2. Click "New OAuth App"
+3. Fill in the details:
+   - **Application name**: `github.gg-dev` (or any name you prefer)
+   - **Homepage URL**: `http://localhost:3000`
+   - **Authorization callback URL**: `http://localhost:3000/api/auth/callback/github`
+4. Copy the Client ID and Client Secret
+5. Update your `.env.local` file with these values
 
 ### 4. Start Development Server
 
@@ -58,6 +58,27 @@ bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Manual Setup (Alternative)
+
+If you prefer to set up manually:
+
+```bash
+# Install dependencies
+bun install
+
+# Create environment file
+cp .env.local.example .env.local
+
+# Start database
+bun run db:start
+
+# Run migrations
+bun run db:push
+
+# Start development server
+bun dev
+```
 
 ## Database Management
 
@@ -113,6 +134,64 @@ For production deployments:
 - Environment variables set in Vercel dashboard
 - Migrations run during build or deployment
 
+## Development Troubleshooting
+
+### Common Issues
+
+**Database Connection Issues:**
+```bash
+# If database won't start
+bun run db:stop
+bun run db:start
+
+# If you need to reset the database
+bun run db:reset
+```
+
+**Environment Variables Missing:**
+- Make sure `.env.local` exists and contains required variables
+- Run `./scripts/setup-dev.sh` to recreate the file
+- Check that GitHub OAuth credentials are set correctly
+
+**Port Already in Use:**
+```bash
+# Check what's using port 3000
+lsof -i :3000
+
+# Kill the process if needed
+kill -9 <PID>
+```
+
+**Docker Issues:**
+```bash
+# Restart Docker
+docker system prune -a
+docker-compose down
+docker-compose up -d postgres
+```
+
+### Development Mode Features
+
+When running in development mode (`NODE_ENV=development`):
+- Enhanced error messages and debugging
+- Mock data for optional services
+- Graceful degradation for missing API keys
+- Development-only UI elements
+
+### Optional Features Setup
+
+**GitHub API Enhancement:**
+- Add `GITHUB_PUBLIC_API_KEY` to `.env.local` for better repository analysis
+- Get a Personal Access Token from GitHub Settings > Developer settings > Personal access tokens
+
+**AI Analysis Features:**
+- Add `GEMINI_API_KEY` to `.env.local` for AI-powered insights
+- Get API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+
+**Payment Features:**
+- Add Stripe keys to `.env.local` for payment integration
+- Set up Stripe account and get test keys from Stripe Dashboard
+
 ## Contributing
 
 1. Fork the repository
@@ -120,6 +199,13 @@ For production deployments:
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
+
+### Development Workflow
+
+1. **Local Development**: Use `./scripts/setup-dev.sh` for initial setup
+2. **Testing**: Run `bun test` to execute all tests
+3. **Database Changes**: Use `bun run db:generate` to create migrations
+4. **Code Quality**: Run `bun run lint` to check code style
 
 ## License
 

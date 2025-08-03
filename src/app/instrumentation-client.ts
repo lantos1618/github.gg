@@ -1,6 +1,2 @@
-import posthog from 'posthog-js';
-
-posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
-  api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST!,
-  capture_pageview: true,
-}); 
+// PostHog is now initialized in @/lib/analytics/posthog
+// This file is kept for compatibility but the actual initialization happens in the posthog module 

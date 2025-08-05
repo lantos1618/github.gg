@@ -4,28 +4,24 @@ import { trpc } from '@/lib/trpc/client';
 import { DiagramType } from '@/lib/types/diagram';
 import { DiagramOptions } from '@/lib/types/errors';
 
-interface File {
-  path: string;
-  content: string;
-  size: number;
-}
-
 interface UseDiagramGenerationProps {
   user: string;
   repo: string;
   refName?: string;
-  files: File[];
+  path?: string; // Add path for context
   diagramType: DiagramType;
   options: DiagramOptions;
+  hasAccess: boolean; // Add a flag to control execution
 }
 
 export function useDiagramGeneration({
   user,
   repo,
   refName,
-  files,
+  path,
   diagramType,
-  options
+  options,
+  hasAccess,
 }: UseDiagramGenerationProps) {
   const [diagramCode, setDiagramCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +39,7 @@ export function useDiagramGeneration({
       setLastError('');
       setLastInput({
         diagramType,
-        filesHash: JSON.stringify(files.map(f => f.path + f.content.length))
+        filesHash: `${user}/${repo}/${refName}/${path}/${diagramType}`
       });
       
       // Invalidate queries to refresh version list and cached diagrams
@@ -59,16 +55,14 @@ export function useDiagramGeneration({
 
   // Auto-generate when input changes
   useEffect(() => {
-    // Guard: Only trigger if all required inputs are present and stable
-    if (!files || files.length === 0) return;
+    // NEW GUARDS: Don't run if user has no access or files aren't loaded yet.
+    if (!hasAccess) return;
     if (!diagramType) return;
-    if (!options) return;
     if (!user || !repo) return;
 
-    const filesHash = JSON.stringify(files.map(f => f.path + f.content.length));
-    const inputChanged = !lastInput || 
-      lastInput.diagramType !== diagramType || 
-      lastInput.filesHash !== filesHash;
+    // The new trigger is much more stable, based on simple strings
+    const currentInputHash = `${user}/${repo}/${refName}/${path}/${diagramType}`;
+    const inputChanged = !lastInput || lastInput.filesHash !== currentInputHash;
 
     // Prevent re-triggering if a request is already pending
     if (!inputChanged || generateDiagramMutation.isPending) return;
@@ -79,12 +73,13 @@ export function useDiagramGeneration({
       setPreviousDiagramCode(diagramCode);
     }
     setDiagramCode('');
-    setLastInput(null);
+    setLastInput({ diagramType, filesHash: currentInputHash });
+
     generateDiagramMutation.mutate({
-      user,
+      owner: user, // Pass owner
       repo,
       ref: refName || 'main',
-      files: files.map(f => ({ path: f.path, content: f.content, size: f.size })),
+      path,
       diagramType,
       options,
       ...(manualRetryKey > 0 && {
@@ -93,7 +88,7 @@ export function useDiagramGeneration({
         isRetry: true,
       }),
     });
-  }, [files, diagramType, manualRetryKey, user, repo, refName, options, lastInput, diagramCode, previousDiagramCode, lastError, generateDiagramMutation]);
+  }, [hasAccess, user, repo, refName, path, diagramType, options, lastInput, generateDiagramMutation, diagramCode, previousDiagramCode, lastError, manualRetryKey]);
 
   const handleRetry = () => {
     setError(null);
@@ -110,10 +105,10 @@ export function useDiagramGeneration({
     
     // Pass the previous diagram code and error to the backend for fixing
     generateDiagramMutation.mutate({
-      user,
+      owner: user, // Pass owner
       repo,
       ref: refName || 'main',
-      files: files.map(f => ({ path: f.path, content: f.content, size: f.size })),
+      path,
       diagramType,
       options,
       previousResult: previousDiagramCode,

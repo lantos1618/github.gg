@@ -1,6 +1,6 @@
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { generateRepoDiagramVercel } from '@/lib/ai/diagram';
-import { diagramInputSchema } from '@/lib/types/diagram';
+import { diagramInputSchemaServer, diagramBaseSchema } from '@/lib/types/diagram';
 import { parseGeminiError } from '@/lib/utils/errorHandling';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { db } from '@/db';
@@ -12,7 +12,7 @@ import { createGitHubServiceFromSession } from '@/lib/github';
 
 export const diagramRouter = router({
   getDiagram: protectedProcedure
-    .input(diagramInputSchema.pick({ user: true, repo: true, ref: true, diagramType: true }))
+    .input(diagramBaseSchema)
     .query(async ({ input, ctx }) => {
       const { user, repo, ref, diagramType } = input;
       
@@ -55,7 +55,7 @@ export const diagramRouter = router({
 
   // Public endpoint: anyone can fetch cached diagram for a repo/ref/type
   publicGetDiagram: publicProcedure
-    .input(diagramInputSchema.pick({ user: true, repo: true, ref: true, diagramType: true }))
+    .input(diagramBaseSchema)
     .query(async ({ input, ctx }) => {
       const { user, repo, ref, diagramType } = input;
       
@@ -136,7 +136,7 @@ export const diagramRouter = router({
     }),
 
   getDiagramVersions: publicProcedure
-    .input(diagramInputSchema.pick({ user: true, repo: true, ref: true, diagramType: true }))
+    .input(diagramBaseSchema)
     .query(async ({ input }) => {
       const versions = await db
         .select({ version: repositoryDiagrams.version, updatedAt: repositoryDiagrams.updatedAt })
@@ -163,7 +163,7 @@ export const diagramRouter = router({
     }),
 
   getDiagramByVersion: publicProcedure
-    .input(diagramInputSchema.pick({ user: true, repo: true, ref: true, diagramType: true }).extend({ version: z.number() }))
+    .input(diagramBaseSchema.extend({ version: z.number() }))
     .query(async ({ input }) => {
       const result = await db
         .select()
@@ -182,9 +182,9 @@ export const diagramRouter = router({
     }),
 
   generateDiagram: protectedProcedure
-    .input(diagramInputSchema)
+    .input(diagramInputSchemaServer)
     .mutation(async ({ input, ctx }) => {
-      const { files, repo, diagramType, options, previousResult, lastError, isRetry } = input;
+      const { owner, repo, ref, diagramType, options, previousResult, lastError, isRetry } = input;
       
       // 1. Check user plan and get API key
       const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
@@ -206,6 +206,24 @@ export const diagramRouter = router({
         });
       }
       
+      // NEW: Fetch files on the server-side
+      const githubService = await createGitHubServiceFromSession(ctx.session);
+      const { files: repoFiles } = await githubService.getRepositoryFiles(
+        owner,
+        repo,
+        ref,
+        500 // Limit to 500 files to prevent abuse on the backend
+      );
+
+      // Filter files to only include those with content and map to expected format
+      const files = repoFiles
+        .filter(file => file.content && file.type === 'file')
+        .map(file => ({
+          path: file.path,
+          content: file.content!,
+          size: file.size,
+        }));
+
       try {
         const result = await generateRepoDiagramVercel({
           files,
@@ -224,9 +242,9 @@ export const diagramRouter = router({
           .where(
             and(
               eq(repositoryDiagrams.userId, ctx.user.id),
-              eq(repositoryDiagrams.repoOwner, input.user),
-              eq(repositoryDiagrams.repoName, input.repo),
-              eq(repositoryDiagrams.ref, input.ref || 'main'),
+              eq(repositoryDiagrams.repoOwner, owner),
+              eq(repositoryDiagrams.repoName, repo),
+              eq(repositoryDiagrams.ref, ref || 'main'),
               eq(repositoryDiagrams.diagramType, diagramType)
             )
           );
@@ -235,9 +253,9 @@ export const diagramRouter = router({
         
         console.log('🔥 Version calculation:', {
           userId: ctx.user.id,
-          repoOwner: input.user,
-          repoName: input.repo,
-          ref: input.ref || 'main',
+          repoOwner: owner,
+          repoName: repo,
+          ref: ref || 'main',
           diagramType,
           maxVersion,
           nextVersion
@@ -247,9 +265,9 @@ export const diagramRouter = router({
           .insert(repositoryDiagrams)
           .values({
             userId: ctx.user.id,
-            repoOwner: input.user,
-            repoName: input.repo,
-            ref: input.ref || 'main',
+            repoOwner: owner,
+            repoName: repo,
+            ref: ref || 'main',
             diagramType,
             version: nextVersion,
             diagramCode: result.diagramCode,
@@ -278,8 +296,8 @@ export const diagramRouter = router({
         await db.insert(tokenUsage).values({
           userId: ctx.user.id,
           feature: 'diagram',
-          repoOwner: input.user,
-          repoName: input.repo,
+          repoOwner: owner,
+          repoName: repo,
           model: 'gemini-2.5-pro', // Default model used
           promptTokens: result.usage.promptTokens,
           completionTokens: result.usage.completionTokens,
@@ -307,7 +325,7 @@ export const diagramRouter = router({
     }),
 
   clearCache: protectedProcedure
-    .input(diagramInputSchema.pick({ user: true, repo: true, ref: true, diagramType: true }))
+    .input(diagramBaseSchema)
     .mutation(async ({ input, ctx }) => {
       const { user, repo, ref, diagramType } = input;
 

@@ -17,7 +17,15 @@ export const DIAGRAM_TYPES = [
   { value: 'gantt', label: 'Gantt Chart' },
 ] as const;
 
-// Input schema for diagram generation
+// Shared schema for common diagram fields
+export const diagramBaseSchema = z.object({
+  user: z.string(),
+  repo: z.string(),
+  ref: z.string().optional().default('main'),
+  diagramType: diagramTypeSchema.default('flowchart'),
+});
+
+// Input schema for diagram generation (legacy - for client-side file transfer)
 export const diagramInputSchema = z.object({
   user: z.string(),
   repo: z.string(),
@@ -27,6 +35,20 @@ export const diagramInputSchema = z.object({
     content: z.string(),
     size: z.number().optional(),
   })),
+  diagramType: diagramTypeSchema.default('flowchart'),
+  options: z.record(z.any()).optional(),
+  // Retry context
+  previousResult: z.string().optional(),
+  lastError: z.string().optional(),
+  isRetry: z.boolean().optional().default(false),
+});
+
+// New schema for server-side file fetching
+export const diagramInputSchemaServer = z.object({
+  owner: z.string(), // Renamed 'user' to 'owner' for clarity
+  repo: z.string(),
+  ref: z.string().optional().default('main'),
+  path: z.string().optional(), // Add path for context
   diagramType: diagramTypeSchema.default('flowchart'),
   options: z.record(z.any()).optional(),
   // Retry context

@@ -78,6 +78,7 @@ function DiagramClientView({
 
   // Check user plan
   const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery();
+  const hasAccess = currentPlan?.plan === 'byok' || currentPlan?.plan === 'pro';
 
   // Fetch all available versions
   const { data: versions, isLoading: versionsLoading } = trpc.diagram.getDiagramVersions.useQuery({
@@ -96,7 +97,6 @@ function DiagramClientView({
   const isPrivateRepo = (publicDiagram as { error?: string })?.error === 'This repository is private';
 
   // Memoize all inputs to useDiagramGeneration to prevent repeated requests
-  const stableFiles = useMemo(() => repoFiles, [repoFiles]);
   const stableOptions = useMemo(() => options, [options]);
   const stableDiagramType = useMemo(() => diagramType, [diagramType]);
 
@@ -112,9 +112,10 @@ function DiagramClientView({
     user,
     repo,
     refName,
-    files: stableFiles,
+    path, // Pass the path
     diagramType: stableDiagramType,
     options: stableOptions,
+    hasAccess, // Control execution with the access flag
   });
 
   // Display logic
@@ -156,9 +157,6 @@ function DiagramClientView({
     if (!repoFiles || repoFiles.length === 0) return;
     handleRetryWithContext();
   };
-
-  // Check if user has access to AI features
-  const hasAccess = currentPlan?.plan === 'byok' || currentPlan?.plan === 'pro';
 
   // Type-narrow publicDiagram for rendering
   const validDiagram = publicDiagram && hasValidDiagram(publicDiagram) ? publicDiagram : null;

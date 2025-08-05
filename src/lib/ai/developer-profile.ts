@@ -10,7 +10,10 @@ import { developerProfileSchema } from '@/lib/types/profile';
 import { generateScorecardAnalysis } from './scorecard';
 import { and, eq, sql } from 'drizzle-orm';
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
+// Initialize Resend only if API key is available
+const resend = process.env.RESEND_API_KEY 
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
 
 // Utility function to check if an error is a PostgreSQL error with a code
 function isPgErrorWithCode(e: unknown): e is { code: string } {
@@ -73,6 +76,11 @@ export async function findAndStoreDeveloperEmail(octokit: Octokit, username: str
  * Send a developer profile report to the given email using Resend.
  */
 export async function sendDeveloperProfileEmail(email: string, profileHtml: string) {
+  if (!resend) {
+    console.log('Resend not configured - skipping email send');
+    return;
+  }
+
   await resend.emails.send({
     from: 'noreply@github.gg',
     to: email,

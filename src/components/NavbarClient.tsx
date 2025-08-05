@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/lib/auth/client';
+import { useAuth } from '@/lib/auth/unified-auth';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,15 +10,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, Settings, User, Github, Crown, Bell, Trophy } from 'lucide-react';
+import { LogOut, Settings, User, Crown, Bell, Trophy } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { trpc } from '@/lib/trpc/client';
 import Link from 'next/link';
 import { Spinner } from './ui/spinner';
 import { useInstallationStatus } from '@/lib/hooks/useInstallationStatus';
+import { SignInButton } from './SignInButton';
 
 export function NavbarClient() {
-  const { user, isSignedIn, signIn, signOut, isLoading } = useAuth();
+  const { user, isSignedIn, signOut, isLoading } = useAuth();
   
   const { 
     hasInstallation, 
@@ -122,10 +123,7 @@ export function NavbarClient() {
 
   return (
     <div className="flex items-center gap-2">
-      <Button onClick={signIn} size="sm" className="px-2 sm:px-3">
-        <Github className="h-4 w-4 sm:mr-2" />
-        <span className="hidden sm:inline">Sign in with GitHub</span>
-      </Button>
+      <SignInButton />
     </div>
   );
 } 

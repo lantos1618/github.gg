@@ -4,13 +4,21 @@ import { db } from '@/db';
 import { userSubscriptions } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-05-28.basil',
-});
+// Initialize Stripe only if configured
+const stripe = process.env.STRIPE_SECRET_KEY 
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2025-05-28.basil',
+    })
+  : null;
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 export async function POST(req: NextRequest) {
+  if (!stripe || !webhookSecret) {
+    console.log('Stripe not configured - ignoring webhook');
+    return NextResponse.json({ received: true });
+  }
+
   const body = await req.text();
   const signature = req.headers.get('stripe-signature')!;
 
@@ -29,7 +37,7 @@ export async function POST(req: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session;
         
         if (session.mode === 'subscription' && session.subscription) {
-          const subscription = await stripe.subscriptions.retrieve(session.subscription as string) as Stripe.Subscription;
+          const subscription = await stripe!.subscriptions.retrieve(session.subscription as string) as Stripe.Subscription;
           const plan = session.metadata?.plan as 'byok' | 'pro';
           const userId = session.metadata?.userId;
           

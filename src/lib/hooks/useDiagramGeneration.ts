@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import { DiagramType } from '@/lib/types/diagram';
 import { DiagramOptions } from '@/lib/types/errors';
@@ -30,6 +30,10 @@ export function useDiagramGeneration({
   const [previousDiagramCode, setPreviousDiagramCode] = useState<string>('');
   const [lastError, setLastError] = useState<string>('');
 
+  // Use ref to track hasAccess without causing re-renders
+  const hasAccessRef = useRef(hasAccess);
+  hasAccessRef.current = hasAccess;
+
   const utils = trpc.useUtils();
 
   const generateDiagramMutation = trpc.diagram.generateDiagram.useMutation({
@@ -56,7 +60,10 @@ export function useDiagramGeneration({
   // Auto-generate when input changes
   useEffect(() => {
     // NEW GUARDS: Don't run if user has no access or files aren't loaded yet.
-    if (!hasAccess) return;
+    if (!hasAccessRef.current) {
+      console.log('🔥 Skipping generation - no access (user not authenticated or no plan)');
+      return;
+    }
     if (!diagramType) return;
     if (!user || !repo) return;
 
@@ -88,7 +95,7 @@ export function useDiagramGeneration({
         isRetry: true,
       }),
     });
-  }, [hasAccess, user, repo, refName, path, diagramType, options, lastInput, generateDiagramMutation, diagramCode, previousDiagramCode, lastError, manualRetryKey]);
+  }, [user, repo, refName, path, diagramType, options, lastInput, generateDiagramMutation, diagramCode, previousDiagramCode, lastError, manualRetryKey]);
 
   const handleRetry = () => {
     setError(null);

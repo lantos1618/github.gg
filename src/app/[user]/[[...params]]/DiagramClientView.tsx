@@ -77,8 +77,11 @@ function DiagramClientView({
   const { files: repoFiles, isLoading: filesLoading, error: filesError, totalFiles } = useRepoData({ user, repo, ref: refName, path });
 
   // Check user plan
-  const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery();
-  const hasAccess = currentPlan?.plan === 'byok' || currentPlan?.plan === 'pro';
+  const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery(undefined, {
+    enabled: false, // Disable this query for now to prevent spamming
+    retry: false, // Don't retry on failure
+  });
+  const hasAccess = useMemo(() => currentPlan?.plan === 'byok' || currentPlan?.plan === 'pro', [currentPlan?.plan]);
 
   // Fetch all available versions
   const { data: versions, isLoading: versionsLoading } = trpc.diagram.getDiagramVersions.useQuery({

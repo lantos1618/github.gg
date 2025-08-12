@@ -68,6 +68,12 @@ export class DevAuth {
         return null;
       }
 
+      // Safely handle the exp field
+      const exp = decoded.exp;
+      if (typeof exp !== 'number') {
+        return null;
+      }
+
       return {
         user: {
           id: user.id,
@@ -76,7 +82,7 @@ export class DevAuth {
           image: user.image,
           githubUsername: user.githubUsername,
         },
-        expiresAt: decoded.exp * 1000, // Convert to milliseconds
+        expiresAt: exp * 1000, // Convert to milliseconds
       };
     } catch {
       return null;

@@ -28,6 +28,9 @@ export const installationRouter = router({
       // Verify the installation actually exists on GitHub
       try {
         const { githubApp } = await import('@/lib/github/app');
+        if (!githubApp) {
+          throw new Error('GitHub App not configured');
+        }
         await githubApp.octokit.request(
           'GET /app/installations/{installation_id}',
           {
@@ -79,6 +82,9 @@ export const installationRouter = router({
       // Verify the installation exists
       try {
         const { githubApp } = await import('@/lib/github/app');
+        if (!githubApp) {
+          throw new Error('GitHub App not configured');
+        }
         await githubApp.octokit.request(
           'GET /app/installations/{installation_id}',
           {

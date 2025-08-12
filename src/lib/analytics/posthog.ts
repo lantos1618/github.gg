@@ -51,14 +51,6 @@ export const safePostHog = {
     }
   },
 
-  set: (properties: Record<string, unknown>) => {
-    if (posthog && isPostHogConfigured()) {
-      posthog.set(properties);
-    } else if (process.env.NODE_ENV === 'development') {
-      console.log('📊 [DEV] PostHog Set:', properties);
-    }
-  },
-
   reset: () => {
     if (posthog && isPostHogConfigured()) {
       posthog.reset();

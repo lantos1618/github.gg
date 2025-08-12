@@ -1,9 +1,9 @@
 
 
 // Mock repository data for development
-const MOCK_REPOS = {
+const MOCK_REPOS: Record<string, unknown> = {
   'dev/dev-project': {
-    id: 987654321,
+    id: 123456789,
     name: 'dev-project',
     full_name: 'dev/dev-project',
     owner: {
@@ -15,167 +15,108 @@ const MOCK_REPOS = {
     description: 'A sample development project for testing',
     private: false,
     fork: false,
-    created_at: '2024-06-01T00:00:00Z',
-    updated_at: '2024-12-01T00:00:00Z',
-    pushed_at: '2024-12-01T00:00:00Z',
-    size: 512,
-    stargazers_count: 15,
-    watchers_count: 15,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+    pushed_at: '2024-01-01T00:00:00Z',
     language: 'JavaScript',
     has_issues: true,
-    has_projects: false,
+    has_projects: true,
     has_downloads: true,
-    has_wiki: false,
+    has_wiki: true,
     has_pages: false,
     has_discussions: false,
-    forks_count: 2,
+    forks_count: 0,
     archived: false,
     disabled: false,
-    license: {
-      key: 'apache-2.0',
-      name: 'Apache License 2.0',
-      url: 'https://api.github.com/licenses/apache-2.0'
-    },
-    default_branch: 'main',
-    topics: ['javascript', 'testing', 'development'],
+    license: null,
+    allow_forking: true,
+    is_template: false,
+    web_commit_signoff_required: false,
+    topics: ['development', 'testing'],
     visibility: 'public',
-    open_issues_count: 1,
-    network_count: 2,
-    subscribers_count: 5
+    default_branch: 'main',
+    permissions: {
+      admin: false,
+      maintain: false,
+      push: false,
+      triage: false,
+      pull: true
+    },
+    allow_squash_merge: true,
+    allow_merge_commit: true,
+    allow_rebase_merge: true,
+    delete_branch_on_merge: false,
+    subscribers_count: 0
   }
 };
 
 // Mock user data
-const MOCK_USERS = {
+const MOCK_USERS: Record<string, unknown> = {
   'dev': {
     login: 'dev',
     id: 123456,
     avatar_url: 'https://github.com/github.png',
-    gravatar_id: '',
-    url: 'https://api.github.com/users/dev',
-    html_url: 'https://github.com/dev',
-    followers_url: 'https://api.github.com/users/dev/followers',
-    following_url: 'https://api.github.com/users/dev/following{/other_user}',
-    gists_url: 'https://api.github.com/users/dev/gists{/gist_id}',
-    starred_url: 'https://api.github.com/users/dev/starred{/owner}{/repo}',
-    subscriptions_url: 'https://api.github.com/users/dev/subscriptions',
-    organizations_url: 'https://api.github.com/users/dev/orgs',
-    repos_url: 'https://api.github.com/users/dev/repos',
-    events_url: 'https://api.github.com/users/dev/events{/privacy}',
-    received_events_url: 'https://api.github.com/users/dev/received_events',
-    type: 'User',
-    site_admin: false,
     name: 'Development User',
     company: null,
-    blog: 'https://dev.dev',
-    location: 'Development City, DC',
+    blog: null,
+    location: null,
     email: 'dev@github.gg',
-    hireable: true,
-    bio: 'Development user for testing GitHub.gg features',
-    twitter_username: 'dev',
-    public_repos: 25,
-    public_gists: 5,
-    followers: 150,
-    following: 50,
-    created_at: '2020-01-01T00:00:00Z',
-    updated_at: '2024-12-01T00:00:00Z'
+    bio: 'Development user for testing',
+    twitter_username: null,
+    public_repos: 1,
+    public_gists: 0,
+    followers: 0,
+    following: 0,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z'
   }
 };
 
 // Mock file data
-const MOCK_FILES = {
+const MOCK_FILES: Record<string, Record<string, unknown>> = {
   'dev/dev-project': {
     'package.json': {
       name: 'dev-project',
       version: '1.0.0',
       description: 'A sample development project for testing',
-      main: 'index.js',
+      main: 'server.js',
       scripts: {
-        dev: 'node server.js',
         start: 'node server.js',
-        test: 'jest'
+        test: 'jest',
+        dev: 'nodemon server.js'
       },
       dependencies: {
-        'express': '^4.18.0',
-        'jest': '^29.0.0',
-        'nodemon': '^3.0.0'
+        express: '^4.18.2',
+        cors: '^2.8.5'
+      },
+      devDependencies: {
+        nodemon: '^3.0.1',
+        jest: '^29.5.0'
       }
     },
-    'README.md': `# Dev Project
-
-A sample development project for testing GitHub.gg features.
-
-## Features
-
-- 🧪 Testing environment
-- 📝 Sample documentation
-- 🔧 Development tools
-- 📊 Example analytics
-
-## Installation
-
-\`\`\`bash
-npm install
-npm run dev
-\`\`\`
-
-## Testing
-
-\`\`\`bash
-npm test
-\`\`\`
-
-## License
-
-Apache-2.0 License`,
-    'server.js': `const express = require('express');
-const app = express();
-const port = process.env.PORT || 3000;
-
-app.get('/', (req, res) => {
-  res.json({ message: 'Dev Project Server Running' });
-});
-
-app.listen(port, () => {
-  console.log(\`Server running on port \${port}\`);
-});`,
-    'src/index.js': `// Main application entry point
-console.log('Dev Project Started');
-
-const config = {
-  environment: 'development',
-  version: '1.0.0',
-  features: ['testing', 'development', 'mock-data']
-};
-
-module.exports = config;`,
-    'tests/unit.test.js': `const { expect } = require('jest');
-
-describe('Dev Project', () => {
-  test('should have correct configuration', () => {
-    const config = require('../src/index.js');
-    expect(config.version).toBe('1.0.0');
-  });
-});`
+    'README.md': '# Dev Project\n\nThis is a sample development project for testing the GitHub.gg application.\n\n## Features\n\n- Sample Express server\n- Basic routing\n- Test setup\n\n## Getting Started\n\n```bash\nnpm install\nnpm start\n```\n\n## Testing\n\n```bash\nnpm test\n```',
+    'server.js': 'const express = require(\'express\');\nconst cors = require(\'cors\');\n\nconst app = express();\nconst PORT = process.env.PORT || 3000;\n\napp.use(cors());\napp.use(express.json());\n\napp.get(\'/\', (req, res) => {\n  res.json({ message: \'Dev Project Server Running!\' });\n});\n\napp.get(\'/api/status\', (req, res) => {\n  res.json({ \n    status: \'ok\', \n    timestamp: new Date().toISOString(),\n    environment: process.env.NODE_ENV || \'development\'\n  });\n});\n\napp.listen(PORT, () => {\n  console.log(`Server running on port ${PORT}`);\n});',
+    'src/index.js': '// Main application entry point\nconsole.log(\'Dev Project Application Starting...\');\n\n// Import and initialize modules\nconst server = require(\'../server\');\n\nconsole.log(\'Dev Project Application Ready!\');',
+    'tests/unit.test.js': 'const { expect } = require(\'jest\');\n\ndescribe(\'Dev Project Tests\', () => {\n  test(\'should pass basic test\', () => {\n    expect(true).toBe(true);\n  });\n  \n  test(\'should handle basic math\', () => {\n    expect(2 + 2).toBe(4);\n  });\n});'
   }
 };
 
 // Mock branches data
-const MOCK_BRANCHES = {
+const MOCK_BRANCHES: Record<string, unknown[]> = {
   'dev/dev-project': [
     {
       name: 'main',
       commit: {
-        sha: 'dev123abc456',
-        url: 'https://api.github.com/repos/dev/dev-project/commits/dev123abc456'
+        sha: 'abc123def456',
+        url: 'https://api.github.com/repos/dev/dev-project/commits/abc123def456'
       },
       protected: false
     },
     {
-      name: 'feature/testing',
+      name: 'develop',
       commit: {
-        sha: 'test456def789',
-        url: 'https://api.github.com/repos/dev/dev-project/commits/test456def789'
+        sha: 'def456ghi789',
+        url: 'https://api.github.com/repos/dev/dev-project/commits/def456ghi789'
       },
       protected: false
     }
@@ -327,9 +268,10 @@ export class DevGitHubService {
     }
 
     // Return all repos for the user
-    return Object.values(MOCK_REPOS).filter(repo => 
-      repo.owner.login === username || username === 'dev'
-    );
+    return Object.values(MOCK_REPOS).filter(repo => {
+      const repoObj = repo as { owner?: { login?: string } };
+      return repoObj.owner?.login === username || username === 'dev';
+    });
   }
 
   // Check if repository exists

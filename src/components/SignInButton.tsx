@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useAuth, isDevAuthMode } from '@/lib/auth/unified-auth';
+import { useAuth, isDevAuthMode } from '@/lib/auth/factory';
 import { DevSignIn } from './DevSignIn';
 import { Github } from 'lucide-react';
 import {
@@ -21,9 +21,7 @@ export function SignInButton() {
 
   // Handle click for production mode (GitHub OAuth)
   const handleProductionSignIn = () => {
-    if (signIn && typeof signIn === 'function') {
-      signIn();
-    }
+    signIn();
   };
 
   // Base button that works in both modes

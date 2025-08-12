@@ -32,38 +32,28 @@ export class GitHubService {
   // Repository operations
   async getRepositoryInfo(owner: string, repo: string): Promise<RepositoryInfo> {
     if (this.isDevMode()) {
-      const mockRepo = await devGitHubService.getRepo(owner, repo);
+      const mockRepo = await devGitHubService.getRepo(owner, repo) as {
+        name: string;
+        description: string | null;
+        stargazers_count?: number;
+        forks_count?: number;
+        language: string | null;
+        topics?: string[];
+        default_branch?: string;
+        updated_at: string;
+        private: boolean;
+      };
       return {
-        id: mockRepo.id,
         name: mockRepo.name,
-        full_name: mockRepo.full_name,
-        owner: mockRepo.owner,
         description: mockRepo.description,
-        private: mockRepo.private,
-        fork: mockRepo.fork,
-        created_at: mockRepo.created_at,
-        updated_at: mockRepo.updated_at,
-        pushed_at: mockRepo.pushed_at,
-        size: mockRepo.size,
-        stargazers_count: mockRepo.stargazers_count,
-        watchers_count: mockRepo.watchers_count,
+        stargazersCount: mockRepo.stargazers_count || 0,
+        forksCount: mockRepo.forks_count || 0,
         language: mockRepo.language,
-        has_issues: mockRepo.has_issues,
-        has_projects: mockRepo.has_projects,
-        has_downloads: mockRepo.has_downloads,
-        has_wiki: mockRepo.has_wiki,
-        has_pages: mockRepo.has_pages,
-        has_discussions: mockRepo.has_discussions,
-        forks_count: mockRepo.forks_count,
-        archived: mockRepo.archived,
-        disabled: mockRepo.disabled,
-        license: mockRepo.license,
-        default_branch: mockRepo.default_branch,
-        topics: mockRepo.topics,
-        visibility: mockRepo.visibility,
-        open_issues_count: mockRepo.open_issues_count,
-        network_count: mockRepo.network_count,
-        subscribers_count: mockRepo.subscribers_count
+        topics: mockRepo.topics || [],
+        url: `https://github.com/${owner}/${repo}`,
+        defaultBranch: mockRepo.default_branch || 'main',
+        updatedAt: mockRepo.updated_at,
+        private: mockRepo.private
       };
     }
     return this.repositoryService.getRepositoryInfo(owner, repo);
@@ -71,38 +61,25 @@ export class GitHubService {
 
   async getRepositoryDetails(owner: string, repo: string): Promise<RepoSummary> {
     if (this.isDevMode()) {
-      const mockRepo = await devGitHubService.getRepo(owner, repo);
+      const mockRepo = await devGitHubService.getRepo(owner, repo) as {
+        name: string;
+        description: string | null;
+        stargazers_count?: number;
+        forks_count?: number;
+        language: string | null;
+        topics?: string[];
+        fork?: boolean;
+      };
       return {
-        id: mockRepo.id,
+        owner,
         name: mockRepo.name,
-        full_name: mockRepo.full_name,
-        owner: mockRepo.owner,
-        description: mockRepo.description,
-        private: mockRepo.private,
-        fork: mockRepo.fork,
-        created_at: mockRepo.created_at,
-        updated_at: mockRepo.updated_at,
-        pushed_at: mockRepo.pushed_at,
-        size: mockRepo.size,
-        stargazers_count: mockRepo.stargazers_count,
-        watchers_count: mockRepo.watchers_count,
-        language: mockRepo.language,
-        has_issues: mockRepo.has_issues,
-        has_projects: mockRepo.has_projects,
-        has_downloads: mockRepo.has_downloads,
-        has_wiki: mockRepo.has_wiki,
-        has_pages: mockRepo.has_pages,
-        has_discussions: mockRepo.has_discussions,
-        forks_count: mockRepo.forks_count,
-        archived: mockRepo.archived,
-        disabled: mockRepo.disabled,
-        license: mockRepo.license,
-        default_branch: mockRepo.default_branch,
-        topics: mockRepo.topics,
-        visibility: mockRepo.visibility,
-        open_issues_count: mockRepo.open_issues_count,
-        network_count: mockRepo.network_count,
-        subscribers_count: mockRepo.subscribers_count
+        description: mockRepo.description || undefined,
+        stargazersCount: mockRepo.stargazers_count || 0,
+        forksCount: mockRepo.forks_count || 0,
+        language: mockRepo.language || undefined,
+        topics: mockRepo.topics || [],
+        url: `https://github.com/${owner}/${repo}`,
+        fork: mockRepo.fork
       };
     }
     return this.repositoryService.getRepositoryDetails(owner, repo);
@@ -131,7 +108,7 @@ export class GitHubService {
 
   async getBranches(owner: string, repo: string): Promise<string[]> {
     if (this.isDevMode()) {
-      const branches = await devGitHubService.getRepoBranches(owner, repo);
+      const branches = await devGitHubService.getRepoBranches(owner, repo) as Array<{ name: string }>;
       return branches.map(branch => branch.name);
     }
     return this.repositoryService.getBranches(owner, repo);
@@ -140,7 +117,27 @@ export class GitHubService {
   // User operations
   async getUserRepositories(username?: string): Promise<RepoSummary[]> {
     if (this.isDevMode()) {
-      return devGitHubService.getUserRepos(username || 'lantos1618');
+      const mockRepos = await devGitHubService.getUserRepos(username || 'dev') as Array<{
+        owner?: { login?: string };
+        name: string;
+        description: string | null;
+        stargazers_count?: number;
+        forks_count?: number;
+        language: string | null;
+        topics?: string[];
+        fork?: boolean;
+      }>;
+      return mockRepos.map(mockRepo => ({
+        owner: mockRepo.owner?.login || 'dev',
+        name: mockRepo.name,
+        description: mockRepo.description || undefined,
+        stargazersCount: mockRepo.stargazers_count || 0,
+        forksCount: mockRepo.forks_count || 0,
+        language: mockRepo.language || undefined,
+        topics: mockRepo.topics || [],
+        url: `https://github.com/${mockRepo.owner?.login || 'dev'}/${mockRepo.name}`,
+        fork: mockRepo.fork
+      }));
     }
     return this.userService.getUserRepositories(username);
   }

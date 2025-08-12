@@ -214,6 +214,9 @@ export async function getBestOctokitForRepo(
 
   // 4. Fallback to app-level access (for public repos)
   console.log(`⚠️ Using app-level access for ${owner}/${repo}`);
+  if (!githubApp) {
+    throw new Error('GitHub App not configured - cannot access repositories');
+  }
   return githubApp.octokit;
 }
 

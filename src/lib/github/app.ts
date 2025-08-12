@@ -8,32 +8,47 @@ import { Octokit } from '@octokit/rest';
 import { createAppAuth } from '@octokit/auth-app';
 import { SessionData, parseError } from '@/lib/types/errors';
 
-// Initialize the GitHub App
-export const githubApp = new App({
-  appId: process.env.GITHUB_APP_ID!,
-  privateKey: process.env.GITHUB_PRIVATE_KEY!.replace(/\\n/g, '\n'),
-});
+// Initialize the GitHub App (only if configured)
+export const githubApp = process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY 
+  ? new App({
+      appId: process.env.GITHUB_APP_ID,
+      privateKey: process.env.GITHUB_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    })
+  : null;
+
+// Helper to check if GitHub App is configured
+export const isGitHubAppConfigured = () => {
+  return !!process.env.GITHUB_APP_ID && !!process.env.GITHUB_PRIVATE_KEY;
+};
 
 // Generate JWT for app authentication
 export function generateAppJWT(): string {
+  if (!process.env.GITHUB_APP_ID || !process.env.GITHUB_PRIVATE_KEY) {
+    throw new Error('GitHub App not configured');
+  }
+
   const now = Math.floor(Date.now() / 1000);
   const payload = {
     iat: now,
     exp: now + 600, // 10 minutes
-    iss: process.env.GITHUB_APP_ID!,
+    iss: process.env.GITHUB_APP_ID,
   };
 
-  return jwt.sign(payload, process.env.GITHUB_PRIVATE_KEY!.replace(/\\n/g, '\n'), {
+  return jwt.sign(payload, process.env.GITHUB_PRIVATE_KEY.replace(/\\n/g, '\n'), {
     algorithm: 'RS256',
   });
 }
 
 // Get installation token for a specific installation
 export async function getInstallationToken(installationId: number): Promise<string> {
+  if (!process.env.GITHUB_APP_ID || !process.env.GITHUB_PRIVATE_KEY) {
+    throw new Error('GitHub App not configured');
+  }
+
   try {
     const auth = createAppAuth({
-      appId: process.env.GITHUB_APP_ID!,
-      privateKey: process.env.GITHUB_PRIVATE_KEY!,
+      appId: process.env.GITHUB_APP_ID,
+      privateKey: process.env.GITHUB_PRIVATE_KEY,
       installationId,
     });
 
@@ -47,11 +62,19 @@ export async function getInstallationToken(installationId: number): Promise<stri
 
 // Get Octokit instance for a specific installation
 export async function getInstallationOctokit(installationId: number) {
+  if (!githubApp) {
+    throw new Error('GitHub App not configured');
+  }
   return await githubApp.getInstallationOctokit(installationId);
 }
 
 // Get installation ID for a repository
 export async function getInstallationIdForRepo(owner: string, repo: string): Promise<number | null> {
+  if (!githubApp) {
+    console.log('GitHub App not configured - running in development mode without GitHub App features');
+    return null;
+  }
+
   try {
     // First, try to get the installation for the repository
     const { data } = await githubApp.octokit.request(
@@ -191,6 +214,9 @@ export async function getBestOctokitForRepo(
 
   // 4. Fallback to app-level access (for public repos)
   console.log(`⚠️ Using app-level access for ${owner}/${repo}`);
+  if (!githubApp) {
+    throw new Error('GitHub App not configured - cannot access repositories');
+  }
   return githubApp.octokit;
 }
 

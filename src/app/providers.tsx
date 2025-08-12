@@ -1,23 +1,22 @@
 'use client'
 
 import { useEffect } from "react"
-import posthog from 'posthog-js'
+import { posthogInstance } from '@/lib/analytics/posthog'
 import { PostHogProvider as PHProvider } from 'posthog-js/react'
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
-      api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://eu.i.posthog.com',
-      person_profiles: 'identified_only',
-      capture_pageview: true,
-      loaded: (ph) => {
-        if (process.env.NODE_ENV === 'development') ph.debug()
-      }
-    })
+    // PostHog is now initialized in the posthog.ts file
+    // This effect is mainly for any additional setup if needed
   }, [])
 
+  // Only render PostHog provider if PostHog is properly configured
+  if (!posthogInstance) {
+    return <>{children}</>;
+  }
+
   return (
-    <PHProvider client={posthog}>
+    <PHProvider client={posthogInstance}>
       {children}
     </PHProvider>
   )

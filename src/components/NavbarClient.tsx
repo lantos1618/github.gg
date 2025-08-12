@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useAuth } from '@/lib/auth/factory';
 import { SignInButton } from './SignInButton';
 import { UserNav } from './profile/UserNav';

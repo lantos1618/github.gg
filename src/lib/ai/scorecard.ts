@@ -33,7 +33,7 @@ FILES: ${files.length} files
 
 REQUIREMENTS:
 - Analyze the codebase and provide an overall score from 0-100
-- Identify 5-8 key metrics to evaluate (e.g., code quality, documentation, testing, security, performance, architecture, maintainability, etc.)
+- Identify 5-8 key metrics to evaluate (e.g., code quality, documentation, testing, security, performance, architecture, maintainability, feature completeness etc.)
 - Score each metric from 0-100 based on the code quality, patterns, and best practices
 - Provide a concise reason for each metric score
 - In the markdown, instead of listing the metrics, write a **Business Impact** section that summarizes how the codebase's state affects business goals, developer velocity, onboarding, and risk. Make it actionable and human-readable for stakeholders.

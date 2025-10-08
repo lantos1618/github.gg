@@ -16,21 +16,27 @@ export async function NavbarServer() {
 
         {/* Navigation Links */}
         <div className="hidden md:flex items-center gap-6 mr-4">
-          <Link 
-            href="/arena" 
+          <Link
+            href="/users"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
+          >
+            🏆 Leaderboard
+          </Link>
+          <Link
+            href="/arena"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
           >
             🏟️ Dev Arena
           </Link>
-          <Link 
-            href="/pricing" 
+          <Link
+            href="/pricing"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
           >
             💸 Pricing
           </Link>
           {process.env.NODE_ENV === 'development' && (
-            <Link 
-              href="/dev" 
+            <Link
+              href="/dev"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
             >
               🔧 Dev Tools

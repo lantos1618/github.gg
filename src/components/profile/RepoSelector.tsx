@@ -30,6 +30,8 @@ export function RepoSelector({ open, onOpenChange, repos, onConfirm, defaultSele
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRepos, setSelectedRepos] = useState<Set<string>>(new Set(defaultSelected));
 
+  console.log('🎭 RepoSelector rendered:', { open, reposCount: repos.length });
+
   // Filter out forks and apply search
   const filteredRepos = repos
     .filter(repo => !repo.fork)

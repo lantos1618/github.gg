@@ -26,7 +26,7 @@ export default function RepoTabsBar() {
     router.replace(newPath);
   };
 
-  const tabIcons: Record<string, any> = {
+  const tabIcons: Record<string, React.ComponentType<{ className?: string }>> = {
     files: FileText,
     scorecard: BarChart3,
     diagram: Network,

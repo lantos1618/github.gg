@@ -7,7 +7,6 @@ import { EnhancedCodeViewer } from '@/components/EnhancedCodeViewer';
 import RepoSkeleton from '@/components/RepoSkeleton';
 import { RepoStatus } from '@/components/RepoStatus';
 import { useRepoData } from '@/lib/hooks/useRepoData';
-import { RepoFile } from '@/types/repo';
 
 interface RepoClientViewProps {
   user: string;

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
 import { Copy, Check, Download, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RepoFile } from '@/types/repo';

@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { developerRankings } from '@/db/schema';
+import { developerRankings, userScoreHistory } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 interface DeveloperData {
@@ -157,6 +157,32 @@ export async function updateRankings(
     .update(developerRankings)
     .set(opponentUpdates)
     .where(eq(developerRankings.userId, opponentId));
+
+  // Log score history for both users
+  await db.insert(userScoreHistory).values([
+    {
+      userId: challengerId,
+      username: challenger.username,
+      eloRating: eloChanges.challenger.newRating,
+      source: 'arena_battle',
+      metadata: {
+        opponentUsername: opponent.username,
+        won: challengerWon,
+        ratingChange: eloChanges.challenger.change,
+      },
+    },
+    {
+      userId: opponentId,
+      username: opponent.username,
+      eloRating: eloChanges.opponent.newRating,
+      source: 'arena_battle',
+      metadata: {
+        opponentUsername: challenger.username,
+        won: !challengerWon,
+        ratingChange: eloChanges.opponent.change,
+      },
+    },
+  ]);
 
   return { challenger: challengerUpdates, opponent: opponentUpdates };
 }

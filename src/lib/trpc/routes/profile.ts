@@ -346,13 +346,30 @@ export const profileRouter = router({
           createdAt: new Date(),
         });
 
-        // Extract and email developer
+        // Extract and email developer using Resend
         try {
           const email = await findAndStoreDeveloperEmail(githubService['octokit'], username, smartSortedRepos);
           if (email) {
-            // Simple HTML render for now
-            const html = `<h1>Your GitHub.gg Developer Profile</h1><pre>${JSON.stringify(result.profile, null, 2)}</pre>`;
-            await sendDeveloperProfileEmail(email, html);
+            // Import the new email function
+            const { sendProfileAnalysisEmail } = await import('@/lib/email/resend');
+
+            // Get analyzer's username
+            const analyzerGithubUsername = ctx.user.name || 'Someone';
+
+            // Send professional email notification
+            await sendProfileAnalysisEmail({
+              recipientEmail: email,
+              recipientUsername: username,
+              analyzerUsername: analyzerGithubUsername,
+              analyzerEmail: ctx.user.email,
+              profileData: {
+                summary: result.profile.summary || 'Your profile has been analyzed!',
+                topSkills: result.profile.techStack?.primary || [],
+                suggestions: result.profile.suggestions || [],
+              },
+            });
+
+            console.log(`✅ Sent profile analysis email to ${email}`);
           }
         } catch (e) {
           console.warn('Failed to extract/send developer email:', e);

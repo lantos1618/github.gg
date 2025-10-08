@@ -301,6 +301,41 @@ export const arenaBattles = pgTable('arena_battles', {
   battleHistoryIdx: uniqueIndex('battle_history_idx').on(table.challengerId, table.opponentId, table.createdAt),
 }));
 
+// Score History tracking for users
+export const userScoreHistory = pgTable('user_score_history', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('userId').references(() => user.id, { onDelete: 'cascade' }).notNull(),
+  username: text('username').notNull(),
+  eloRating: integer('elo_rating').notNull(),
+  overallScore: integer('overall_score'), // For profile scores
+  source: text('source').notNull(), // 'arena_battle', 'profile_generation', 'scorecard'
+  metadata: jsonb('metadata').$type<{
+    battleId?: string;
+    opponentUsername?: string;
+    repoName?: string;
+    [key: string]: unknown;
+  }>(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  // Index for time-series queries
+  userHistoryIdx: uniqueIndex('user_history_idx').on(table.userId, table.createdAt),
+  usernameHistoryIdx: uniqueIndex('username_history_idx').on(table.username, table.createdAt),
+}));
+
+// Repository Score History
+export const repoScoreHistory = pgTable('repo_score_history', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  repoOwner: text('repo_owner').notNull(),
+  repoName: text('repo_name').notNull(),
+  ref: text('ref').default('main'),
+  overallScore: integer('overall_score').notNull(),
+  metrics: jsonb('metrics').$type<ScorecardMetric[]>(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  // Index for time-series queries
+  repoHistoryIdx: uniqueIndex('repo_history_idx').on(table.repoOwner, table.repoName, table.ref, table.createdAt),
+}));
+
 // Tournaments
 export const tournaments = pgTable('tournaments', {
   id: uuid('id').primaryKey().defaultRandom(),

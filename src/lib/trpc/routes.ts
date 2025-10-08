@@ -4,6 +4,7 @@ import { scorecardRouter } from '@/lib/trpc/routes/scorecard';
 import { diagramRouter } from '@/lib/trpc/routes/diagram';
 import { profileRouter } from '@/lib/trpc/routes/profile';
 import { arenaRouter } from '@/lib/trpc/routes/arena';
+import { scoreHistoryRouter } from '@/lib/trpc/routes/score-history';
 import { userRouter } from '@/lib/trpc/routes/user';
 import { featuredRouter } from '@/lib/trpc/routes/featured';
 import { billingRouter } from '@/lib/trpc/routes/billing';
@@ -75,6 +76,7 @@ export const appRouter = router({
 
   // Arena routes
   arena: arenaRouter,
+  scoreHistory: scoreHistoryRouter,
 
   // User management routes
   user: userRouter,

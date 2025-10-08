@@ -17,6 +17,7 @@ import { developerProfileSchema } from '@/lib/types/profile';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
+import { ScoreHistory } from '@/components/ScoreHistory';
 
 interface DeveloperProfileProps {
   username: string;
@@ -33,8 +34,8 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   const { data: versions, isLoading: versionsLoading } = trpc.profile.getProfileVersions.useQuery({ username });
 
   // Use the new public endpoint for cached profile
-  const { data: publicProfile, isLoading: publicLoading } = selectedVersion
-    ? trpc.profile.getProfileByVersion.useQuery({ username, version: selectedVersion }, { enabled: !!username && !!selectedVersion })
+  const { data: publicProfile, isLoading: publicLoading } = selectedVersion !== null
+    ? trpc.profile.getProfileByVersion.useQuery({ username, version: selectedVersion }, { enabled: !!username && selectedVersion !== null })
     : trpc.profile.publicGetProfile.useQuery({ username }, { enabled: !!username });
 
   // Generate profile mutation
@@ -70,6 +71,12 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
       refetchOnWindowFocus: false,
       staleTime: 10 * 60 * 1000, // 10 minutes
     }
+  );
+
+  // Fetch score history for this user
+  const { data: scoreHistory } = trpc.scoreHistory.getUserScoreHistory.useQuery(
+    { username },
+    { enabled: !!username }
   );
 
   // Handle profile generation
@@ -255,6 +262,15 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
           <TechStack techStack={validProfile.techStack} />
           {/* Top Repositories */}
           <TopRepos repos={validProfile.topRepos} />
+          {/* Score History Graph */}
+          {scoreHistory && scoreHistory.length > 0 && (
+            <ScoreHistory
+              data={scoreHistory}
+              title="ELO Rating History"
+              scoreLabel="ELO Rating"
+              color="#8b5cf6"
+            />
+          )}
         </div>
         {/* If user is not allowed to regenerate, show upgrade prompt below profile */}
         {(!currentPlan || currentPlan.plan === 'free') && (

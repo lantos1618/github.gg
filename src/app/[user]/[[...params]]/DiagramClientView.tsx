@@ -195,37 +195,41 @@ function DiagramClientView({
   if (diagramToShow) {
     return (
       <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
-        <div className="w-full px-0 text-center mt-8">
-          <VersionDropdown
-            versions={versions}
-            isLoading={versionsLoading}
-            selectedVersion={selectedVersion}
-            onVersionChange={setSelectedVersion}
-          />
-          
-          <h1>Diagram View</h1>
-          <div className="mb-4">
-            <DiagramTypeSelector
-              diagramType={diagramType}
-              onDiagramTypeChange={setDiagramType}
-              disabled={publicLoading || isPending}
-            />
-            
-            {hasAccess && (
-              <div className="flex justify-center mt-4">
+        <div className="max-w-screen-xl w-full mx-auto px-4 mt-8">
+          {/* Header Controls */}
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-2xl font-bold text-gray-900">Diagram View</h1>
+              <VersionDropdown
+                versions={versions}
+                isLoading={versionsLoading}
+                selectedVersion={selectedVersion}
+                onVersionChange={setSelectedVersion}
+              />
+            </div>
+
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <DiagramTypeSelector
+                diagramType={diagramType}
+                onDiagramTypeChange={setDiagramType}
+                disabled={publicLoading || isPending}
+              />
+
+              {hasAccess && (
                 <Button
                   onClick={handleRegenerate}
                   disabled={isPending}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
                 >
                   <RefreshCw className={`h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
-                  {isPending ? 'Generating...' : 'Regenerate'}
+                  {isPending ? 'Generating...' : 'Regenerate Diagram'}
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-          
-          <div className="w-full bg-white border rounded-lg shadow overflow-hidden mt-8" style={{minHeight: 500}}>
+
+          {/* Diagram Display */}
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden" style={{minHeight: 500}}>
             <DiagramControls
               showCodePanel={showCodePanel}
               onToggleCodePanel={handleToggleCodePanel}
@@ -289,34 +293,37 @@ function DiagramClientView({
 
   return (
     <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
-      <div className="w-full px-0 text-center mt-8">
-        <VersionDropdown
-          versions={versions}
-          isLoading={versionsLoading}
-          selectedVersion={selectedVersion}
-          onVersionChange={setSelectedVersion}
-        />
-        
-        <h1>Diagram View</h1>
-        <div className="mb-4">
-          <DiagramTypeSelector
-            diagramType={diagramType}
-            onDiagramTypeChange={setDiagramType}
-            disabled={isPending}
-          />
-          
-          {hasAccess && (
-            <div className="flex justify-center mt-4">
+      <div className="max-w-screen-xl w-full mx-auto px-4 mt-8">
+        {/* Header Controls */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold text-gray-900">Diagram View</h1>
+            <VersionDropdown
+              versions={versions}
+              isLoading={versionsLoading}
+              selectedVersion={selectedVersion}
+              onVersionChange={setSelectedVersion}
+            />
+          </div>
+
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <DiagramTypeSelector
+              diagramType={diagramType}
+              onDiagramTypeChange={setDiagramType}
+              disabled={isPending}
+            />
+
+            {hasAccess && (
               <Button
                 onClick={() => handleRetryWithContext()}
                 disabled={isPending}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
               >
                 <RefreshCw className={`h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
-                {isPending ? 'Generating...' : 'Regenerate'}
+                {isPending ? 'Generating...' : 'Generate Diagram'}
               </Button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
         
         {isPending && (

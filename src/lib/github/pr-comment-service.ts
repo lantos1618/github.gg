@@ -5,6 +5,26 @@ import { tokenUsage, webhookPreferences } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { PR_REVIEW_CONFIG } from '@/lib/config/pr-review';
 
+interface GitHubPRFile {
+  filename: string;
+  additions: number;
+  deletions: number;
+  changes: number;
+  patch?: string;
+}
+
+/**
+ * Sanitize text to prevent XSS and injection attacks
+ */
+function sanitizeText(text: string): string {
+  return text
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;');
+}
+
 interface PRCommentParams {
   installationId: number;
   owner: string;
@@ -68,7 +88,8 @@ export async function postPRReviewComment({
     const octokit = await getInstallationOctokit(installationId);
 
     // Get PR files with pagination support
-    let allFiles: any[] = [];
+    const startTime = Date.now();
+    let allFiles: GitHubPRFile[] = [];
     let page = 1;
     let hasMore = true;
 
@@ -81,7 +102,7 @@ export async function postPRReviewComment({
         page,
       });
 
-      allFiles = allFiles.concat(files);
+      allFiles = allFiles.concat(files as GitHubPRFile[]);
 
       // Stop if we've reached the end or hit our analysis limit
       hasMore = files.length === PR_REVIEW_CONFIG.filesPerPage && allFiles.length < PR_REVIEW_CONFIG.maxFilesToAnalyze * 2;
@@ -99,12 +120,18 @@ export async function postPRReviewComment({
     // Limit to configured max files to avoid token limits
     const filesToAnalyze = relevantFiles.slice(0, PR_REVIEW_CONFIG.maxFilesToAnalyze);
 
-    console.log(`Analyzing ${filesToAnalyze.length} files for PR #${prNumber} in ${owner}/${repo}`);
+    const fetchTime = Date.now() - startTime;
+    console.log(`Fetched ${allFiles.length} files (${filesToAnalyze.length} relevant) for PR #${prNumber} in ${fetchTime}ms`);
+
+    // Sanitize inputs before sending to AI
+    const sanitizedTitle = sanitizeText(prTitle);
+    const sanitizedDescription = sanitizeText(prDescription || '');
 
     // Analyze the PR
+    const analysisStartTime = Date.now();
     const analysisResult = await analyzePullRequest({
-      prTitle,
-      prDescription,
+      prTitle: sanitizedTitle,
+      prDescription: sanitizedDescription,
       changedFiles: filesToAnalyze.map(f => ({
         filename: f.filename,
         additions: f.additions,
@@ -116,6 +143,9 @@ export async function postPRReviewComment({
       baseBranch,
       headBranch,
     });
+
+    const analysisTime = Date.now() - analysisStartTime;
+    console.log(`AI analysis completed in ${analysisTime}ms (${analysisResult.usage.totalTokens} tokens)`);
 
     // Check if we already have a comment
     const { data: comments } = await octokit.request('GET /repos/{owner}/{repo}/issues/{issue_number}/comments', {
@@ -177,8 +207,11 @@ export async function postPRReviewComment({
       commentId: existingComment?.id,
     };
   } catch (error) {
-    console.error('Error posting PR review comment:', error);
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`Error posting PR review comment for PR #${prNumber} in ${owner}/${repo}:`, errorMessage);
+
+    // Re-throw with more context
+    throw new Error(`Failed to post PR review: ${errorMessage}`);
   }
 }
 

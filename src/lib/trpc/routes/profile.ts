@@ -315,10 +315,10 @@ export const profileRouter = router({
         
         // Get next version number
         const maxVersionResult = await db
-          .select({ max: sql<number>`MAX(version)` })
+          .select({ max: sql<number | null>`COALESCE(MAX(version), 0)` })
           .from(developerProfileCache)
           .where(eq(developerProfileCache.username, username));
-        const nextVersion = (maxVersionResult[0]?.max || 0) + 1;
+        const nextVersion = (maxVersionResult[0]?.max ?? 0) + 1;
         
         console.log(`📝 Saving profile version ${nextVersion} for ${username}`);
         

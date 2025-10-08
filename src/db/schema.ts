@@ -271,7 +271,7 @@ export const developerRankings = pgTable('developer_rankings', {
   // Ensure unique ranking per user
   userRankingIdx: uniqueIndex('user_ranking_idx').on(table.userId),
   // Index for global rankings
-  eloRatingIdx: uniqueIndex('elo_rating_idx').on(table.eloRating),
+  eloRatingIdx: index('elo_rating_idx').on(table.eloRating),
 }));
 
 // Arena Battles

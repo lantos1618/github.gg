@@ -113,7 +113,7 @@ export async function postPRReviewComment({
     const relevantFiles = allFiles.filter(file => {
       const ext = file.filename.split('.').pop()?.toLowerCase();
 
-      return !PR_REVIEW_CONFIG.skipExtensions.includes(ext || '') &&
+      return !(ext && PR_REVIEW_CONFIG.skipExtensions.includes(ext as typeof PR_REVIEW_CONFIG.skipExtensions[number])) &&
              !PR_REVIEW_CONFIG.skipPaths.some(path => file.filename.startsWith(path));
     });
 

@@ -12,6 +12,7 @@ import { analyzeBattle, calculateEloChange, determineTier } from '@/lib/ai/battl
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
+import type { BetterAuthSession } from '@/lib/github/types';
 import { 
   getOrCreateRanking, 
   updateRankings
@@ -31,7 +32,7 @@ function isProfileStale(updatedAt: Date): boolean {
 async function executeBattleAsync(
   battleId: string,
   userId: string,
-  session: any,
+  session: BetterAuthSession | null,
   plan: 'byok' | 'pro'
 ) {
   try {

@@ -412,7 +412,7 @@ export const webhookPreferences = pgTable('webhook_preferences', {
   installationId: integer('installation_id').references(() => githubAppInstallations.installationId, { onDelete: 'cascade' }).notNull().unique(),
   prReviewEnabled: boolean('pr_review_enabled').notNull().default(true),
   autoUpdateEnabled: boolean('auto_update_enabled').notNull().default(true), // Update comment on PR sync
-  minScoreThreshold: integer('min_score_threshold').default(null), // Only comment if score below threshold
+  minScoreThreshold: integer('min_score_threshold'), // Only comment if score below threshold
   excludedRepos: jsonb('excluded_repos').$type<string[]>().default([]), // List of repo full names to exclude
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),

@@ -109,42 +109,7 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
     );
   };
 
-  // Auto-generate if no cached data
-  useEffect(() => {
-    if (files.length > 0 && !filesLoading && !isLoading && !hasGenerated && !scorecardDataObj) {
-      setIsLoading(true);
-      setError(null);
-      setHasGenerated(true);
-      generateScorecardMutation.mutate(
-        {
-          user,
-          repo,
-          ref: refName || 'main',
-          files: files.map((file: { path: string; content: string; size: number }) => ({
-            path: file.path,
-            content: file.content,
-            size: file.size,
-          })),
-        },
-        {
-          onSuccess: (data: ScorecardResponse) => {
-            setScorecardData(data.scorecard.markdown);
-            setIsLoading(false);
-          },
-          onError: (err: TRPCError | string) => {
-            if (typeof err === 'string') {
-              setError(err);
-            } else if (isTRPCError(err)) {
-              setError(err.message);
-            } else {
-              setError('Failed to generate scorecard');
-            }
-            setIsLoading(false);
-          },
-        }
-      );
-    }
-  }, [files, filesLoading, isLoading, hasGenerated, user, repo, refName, generateScorecardMutation, scorecardDataObj]);
+  // Removed auto-generation - users must click to generate
 
   const overallLoading = filesLoading || isLoading;
   const canAccess = currentPlan && currentPlan.plan !== 'free';
@@ -263,22 +228,7 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
           selectedVersion={selectedVersion}
           onVersionChange={setSelectedVersion}
         />
-        
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            {/* Removed last updated and cached status display */}
-          </div>
-          
-          <Button
-            onClick={handleRegenerate}
-            disabled={isLoading || generateScorecardMutation.isPending}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            {isLoading ? 'Generating...' : 'Regenerate'}
-          </Button>
-        </div>
-        
+
         {error && (
           <ErrorDisplay
             error={error}
@@ -298,10 +248,19 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
         )}
         {markdownContent && <MarkdownCardRenderer markdown={markdownContent} />}
         {!markdownContent && !overallLoading && !error && (
-          <div className="text-center py-8">
+          <div className="flex flex-col items-center justify-center min-h-[400px]">
             <h2 className="text-xl font-semibold text-gray-600 mb-2">No Scorecard Available</h2>
-            <p className="text-gray-500">Unable to generate scorecard for this repository.</p>
-            <p className="text-sm text-gray-400 mt-2">Files loaded: {files.length}</p>
+            <p className="text-gray-500 mb-6">Click below to generate an AI-powered scorecard for this repository.</p>
+            <Button
+              onClick={handleRegenerate}
+              disabled={isLoading || generateScorecardMutation.isPending || filesLoading}
+              className="flex items-center gap-2"
+              size="lg"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              {isLoading ? 'Generating Scorecard...' : 'Generate Scorecard'}
+            </Button>
+            <p className="text-sm text-gray-400 mt-4">Files loaded: {files.length}</p>
           </div>
         )}
       </div>

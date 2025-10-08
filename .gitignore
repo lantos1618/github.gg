@@ -48,3 +48,4 @@ next-env.d.ts
 
 # docker
 docker-compose.override.yml
+example_ui_file_explorer/

@@ -109,7 +109,8 @@ export function ChallengeForm() {
     { battleId: activeBattleId! },
     {
       enabled: !!activeBattleId,
-      refetchInterval: (data) => {
+      refetchInterval: (query) => {
+        const data = query.state.data;
         if (!data) return 2000;
         if (data.status === 'in_progress' || data.status === 'pending') return 2000;
         return false;
@@ -131,13 +132,22 @@ export function ChallengeForm() {
           id: battleStatus.id,
           scores: battleStatus.scores,
         },
-        analysis: battleStatus.aiAnalysis ? {
-          winner: battleStatus.aiAnalysis.winner,
-          reason: battleStatus.aiAnalysis.reason,
-          highlights: battleStatus.aiAnalysis.highlights,
-          recommendations: battleStatus.aiAnalysis.recommendations,
+        analysis: battleStatus.aiAnalysis && typeof battleStatus.aiAnalysis === 'object' ? {
+          winner: (battleStatus.aiAnalysis as Record<string, unknown>).winner as string,
+          reason: (battleStatus.aiAnalysis as Record<string, unknown>).reason as string,
+          highlights: (battleStatus.aiAnalysis as Record<string, unknown>).highlights as string[],
+          recommendations: (battleStatus.aiAnalysis as Record<string, unknown>).recommendations as string[],
         } : undefined,
-        eloChange: battleStatus.eloChange,
+        eloChange: battleStatus.eloChange ? {
+          challenger: {
+            change: battleStatus.eloChange.challenger.change,
+            newRating: battleStatus.eloChange.challenger.after,
+          },
+          opponent: {
+            change: battleStatus.eloChange.opponent.change,
+            newRating: battleStatus.eloChange.opponent.after,
+          },
+        } : undefined,
       });
       setActiveBattleId(null);
     } else if (battleStatus && battleStatus.status === 'failed') {

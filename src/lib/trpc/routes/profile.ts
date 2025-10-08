@@ -330,6 +330,14 @@ export const profileRouter = router({
             version: nextVersion,
             profileData: result.profile,
             updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: developerProfileCache.username,
+            set: {
+              version: nextVersion,
+              profileData: result.profile,
+              updatedAt: new Date(),
+            },
           });
         
         // Log token usage

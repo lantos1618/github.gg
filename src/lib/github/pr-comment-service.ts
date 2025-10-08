@@ -3,6 +3,7 @@ import { analyzePullRequest } from '@/lib/ai/pr-analysis';
 import { db } from '@/db';
 import { tokenUsage, webhookPreferences } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { PR_REVIEW_CONFIG } from '@/lib/config/pr-review';
 
 interface PRCommentParams {
   installationId: number;
@@ -15,10 +16,43 @@ interface PRCommentParams {
   headBranch: string;
 }
 
-const GITHUB_GG_COMMENT_MARKER = '<!-- github.gg-ai-review -->';
-
 /**
- * Post or update an AI review comment on a PR
+ * Post or update an AI-powered code review comment on a GitHub pull request.
+ *
+ * This function fetches all changed files from the PR (with pagination support),
+ * filters out non-code files, analyzes the code using AI, and posts or updates
+ * a review comment on the PR with the analysis results.
+ *
+ * @param params - The parameters for posting the PR review
+ * @param params.installationId - GitHub App installation ID for authentication
+ * @param params.owner - Repository owner (username or organization)
+ * @param params.repo - Repository name
+ * @param params.prNumber - Pull request number
+ * @param params.prTitle - Title of the pull request
+ * @param params.prDescription - Description/body of the pull request
+ * @param params.baseBranch - Target branch name (e.g., 'main')
+ * @param params.headBranch - Source branch name (e.g., 'feature/new-feature')
+ *
+ * @returns Promise resolving to an object containing:
+ *   - success: boolean indicating if the operation succeeded
+ *   - analysis: The AI analysis result object
+ *   - commentId: ID of the created/updated comment (if it existed before)
+ *
+ * @throws Error if GitHub API calls fail or AI analysis fails
+ *
+ * @example
+ * ```typescript
+ * const result = await postPRReviewComment({
+ *   installationId: 12345,
+ *   owner: 'myorg',
+ *   repo: 'myrepo',
+ *   prNumber: 42,
+ *   prTitle: 'Add new feature',
+ *   prDescription: 'This PR adds...',
+ *   baseBranch: 'main',
+ *   headBranch: 'feature/new-feature'
+ * });
+ * ```
  */
 export async function postPRReviewComment({
   installationId,
@@ -33,26 +67,37 @@ export async function postPRReviewComment({
   try {
     const octokit = await getInstallationOctokit(installationId);
 
-    // Get PR files
-    const { data: files } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/files', {
-      owner,
-      repo,
-      pull_number: prNumber,
-      per_page: 100,
-    });
+    // Get PR files with pagination support
+    let allFiles: any[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data: files } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/files', {
+        owner,
+        repo,
+        pull_number: prNumber,
+        per_page: PR_REVIEW_CONFIG.filesPerPage,
+        page,
+      });
+
+      allFiles = allFiles.concat(files);
+
+      // Stop if we've reached the end or hit our analysis limit
+      hasMore = files.length === PR_REVIEW_CONFIG.filesPerPage && allFiles.length < PR_REVIEW_CONFIG.maxFilesToAnalyze * 2;
+      page++;
+    }
 
     // Filter to only analyze code files (skip lock files, generated files, etc.)
-    const relevantFiles = files.filter(file => {
+    const relevantFiles = allFiles.filter(file => {
       const ext = file.filename.split('.').pop()?.toLowerCase();
-      const skipExtensions = ['lock', 'json', 'md', 'txt', 'svg', 'png', 'jpg', 'gif'];
-      const skipPaths = ['node_modules/', 'dist/', 'build/', '.next/', 'coverage/'];
 
-      return !skipExtensions.includes(ext || '') &&
-             !skipPaths.some(path => file.filename.startsWith(path));
+      return !PR_REVIEW_CONFIG.skipExtensions.includes(ext || '') &&
+             !PR_REVIEW_CONFIG.skipPaths.some(path => file.filename.startsWith(path));
     });
 
-    // Limit to first 20 files to avoid token limits
-    const filesToAnalyze = relevantFiles.slice(0, 20);
+    // Limit to configured max files to avoid token limits
+    const filesToAnalyze = relevantFiles.slice(0, PR_REVIEW_CONFIG.maxFilesToAnalyze);
 
     console.log(`Analyzing ${filesToAnalyze.length} files for PR #${prNumber} in ${owner}/${repo}`);
 
@@ -80,10 +125,10 @@ export async function postPRReviewComment({
     });
 
     const existingComment = comments.find(comment =>
-      comment.body?.includes(GITHUB_GG_COMMENT_MARKER)
+      comment.body?.includes(PR_REVIEW_CONFIG.commentMarker)
     );
 
-    const commentBody = `${GITHUB_GG_COMMENT_MARKER}\n${analysisResult.markdown}`;
+    const commentBody = `${PR_REVIEW_CONFIG.commentMarker}\n${analysisResult.markdown}`;
 
     if (existingComment) {
       // Update existing comment
@@ -114,7 +159,7 @@ export async function postPRReviewComment({
           feature: 'pr_review',
           repoOwner: owner,
           repoName: repo,
-          model: 'gemini-2.5-pro',
+          model: PR_REVIEW_CONFIG.aiModel,
           promptTokens: analysisResult.usage.promptTokens,
           completionTokens: analysisResult.usage.completionTokens,
           totalTokens: analysisResult.usage.totalTokens,
@@ -138,7 +183,26 @@ export async function postPRReviewComment({
 }
 
 /**
- * Check if a repository has PR review enabled
+ * Check if automated PR reviews are enabled for a specific repository.
+ *
+ * This function checks the webhook preferences for the given installation to determine
+ * if PR reviews should be posted. It returns true if:
+ * 1. No preferences are found (default behavior)
+ * 2. PR reviews are globally enabled AND the repo is not in the exclusion list
+ *
+ * @param installationId - GitHub App installation ID
+ * @param owner - Repository owner (username or organization)
+ * @param repo - Repository name
+ *
+ * @returns Promise<boolean> - true if PR reviews should be posted, false otherwise
+ *
+ * @example
+ * ```typescript
+ * const isEnabled = await isPRReviewEnabled(12345, 'myorg', 'myrepo');
+ * if (isEnabled) {
+ *   await postPRReviewComment({...});
+ * }
+ * ```
  */
 export async function isPRReviewEnabled(installationId: number, owner: string, repo: string): Promise<boolean> {
   try {

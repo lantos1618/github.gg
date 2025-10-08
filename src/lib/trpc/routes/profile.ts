@@ -181,23 +181,19 @@ export const profileRouter = router({
         
         // Smart repo selection: prioritize by stars, forks, and description quality
         const smartSortedRepos = repos
-          .filter(repo => 
-            // Exclude forks
-            !repo.fork &&
-            // Filter out repos with no description (often throwaway projects)
-            repo.description &&
-            repo.description.length > 10
-            // Removed star filter to include more repos
+          .filter(repo =>
+            // Only exclude forks, keep everything else
+            !repo.fork
           )
           .sort((a, b) => {
             // Primary: stars (weighted heavily)
             const starScore = (b.stargazersCount || 0) - (a.stargazersCount || 0);
             if (Math.abs(starScore) > 5) return starScore;
-            
+
             // Secondary: forks (indicates community interest)
             const forkScore = (b.forksCount || 0) - (a.forksCount || 0);
             if (Math.abs(forkScore) > 2) return forkScore;
-            
+
             // Tertiary: description length (indicates project maturity)
             return (b.description?.length || 0) - (a.description?.length || 0);
           })

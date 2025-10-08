@@ -237,22 +237,29 @@ export async function generateDeveloperProfile({
   }
 
   console.log(`🤖 Generating developer profile with AI...`);
-  
+
+  // Validate that we have actual repos
+  if (repos.length === 0) {
+    throw new Error(`No public repositories found for user '${username}'. Cannot generate profile.`);
+  }
+
   const prompt = `
     You are an expert Senior Engineering Manager creating a "Developer Profile" for GitHub user '${username}'.
     Analyze their public repositories metadata and the detailed code analysis from their scorecards to produce a fair, evidence-based assessment.
-    For each scored metric, provide a score from 1 (novice) to 10 (expert) and a concise reason. 
+    For each scored metric, provide a score from 1 (novice) to 10 (expert) and a concise reason.
     Base your reasons on the provided data.
     Also provide 3-5 concrete, actionable suggestions for how this developer can improve.
-    
-    IMPORTANT: You must include exactly 5 repositories in the topRepos array, representing the developer's most notable projects.
-    Choose repositories that best showcase their skills, impact, and technical expertise.
-    
-    CRITICAL: For each repository's significanceScore, use ONLY whole numbers from 1-10 (e.g., 7, 8, 9, 10). 
-    Do NOT use decimal values like 0.8, 0.9, etc. The significanceScore must be an integer between 1 and 10.
-    
+
+    CRITICAL RULES:
+    1. You MUST ONLY use repositories from the provided "Repository Metadata" section below
+    2. DO NOT invent, hallucinate, or create fake repository names
+    3. For each repository in topRepos, the "name" field MUST exactly match a repository name from the metadata
+    4. Include up to 5 repositories in the topRepos array (or fewer if less than 5 exist)
+    5. For significanceScore, use ONLY whole numbers from 1-10 (no decimals)
+
     Your entire output must be a single, valid JSON object that strictly adheres to the provided Zod schema.
-    Repository Metadata:
+
+    Repository Metadata (${repos.length} repositories available):
     ${JSON.stringify(repoDataForPrompt, null, 2)}
     ${scorecardInsights ? `\nDetailed Code Analysis from Scorecards:\n${scorecardInsights}` : ''}
   `;

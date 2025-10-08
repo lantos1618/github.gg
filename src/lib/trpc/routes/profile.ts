@@ -12,6 +12,25 @@ import { findAndStoreDeveloperEmail } from '@/lib/ai/developer-profile';
 import { Octokit } from '@octokit/rest';
 
 export const profileRouter = router({
+  getUserRepositories: protectedProcedure
+    .input(z.object({ username: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const githubService = await createGitHubServiceForUserOperations(ctx.session);
+      const repos = await githubService.getUserRepositories(input.username);
+
+      // Return non-fork repos with essential info
+      return repos
+        .filter(repo => !repo.fork)
+        .map(repo => ({
+          name: repo.name,
+          description: repo.description,
+          language: repo.language,
+          stargazersCount: repo.stargazersCount,
+          forksCount: repo.forksCount,
+          fork: repo.fork,
+        }));
+    }),
+
   getDeveloperEmail: publicProcedure
     .input(z.object({ username: z.string() }))
     .query(async ({ input }) => {
@@ -127,7 +146,8 @@ export const profileRouter = router({
   generateProfileMutation: protectedProcedure
     .input(z.object({
       username: z.string().min(1, 'Username is required'),
-      includeCodeAnalysis: z.boolean().optional().default(false), // New option for deeper analysis
+      includeCodeAnalysis: z.boolean().optional().default(false),
+      selectedRepos: z.array(z.string()).optional(), // User-selected repo names
     }))
     .mutation(async ({ input, ctx }) => {
       const { username } = input;
@@ -178,26 +198,42 @@ export const profileRouter = router({
         // Fetch user repositories
         const githubService = await createGitHubServiceForUserOperations(ctx.session);
         const repos = await githubService.getUserRepositories(username);
-        
-        // Smart repo selection: prioritize by stars, forks, and description quality
-        const smartSortedRepos = repos
-          .filter(repo =>
-            // Only exclude forks, keep everything else
-            !repo.fork
-          )
-          .sort((a, b) => {
-            // Primary: stars (weighted heavily)
-            const starScore = (b.stargazersCount || 0) - (a.stargazersCount || 0);
-            if (Math.abs(starScore) > 5) return starScore;
 
-            // Secondary: forks (indicates community interest)
-            const forkScore = (b.forksCount || 0) - (a.forksCount || 0);
-            if (Math.abs(forkScore) > 2) return forkScore;
+        let smartSortedRepos;
 
-            // Tertiary: description length (indicates project maturity)
-            return (b.description?.length || 0) - (a.description?.length || 0);
-          })
-          .slice(0, 15); // Top 15 repos for selection
+        // If user provided specific repos, use those
+        if (input.selectedRepos && input.selectedRepos.length > 0) {
+          console.log(`🎯 Using ${input.selectedRepos.length} user-selected repositories`);
+          smartSortedRepos = repos.filter(repo =>
+            input.selectedRepos!.includes(repo.name) && !repo.fork
+          );
+          // Maintain user's selection order if possible, otherwise sort by stars
+          smartSortedRepos.sort((a, b) => {
+            const aIndex = input.selectedRepos!.indexOf(a.name);
+            const bIndex = input.selectedRepos!.indexOf(b.name);
+            if (aIndex !== -1 && bIndex !== -1) {
+              return aIndex - bIndex; // Keep user's order
+            }
+            return (b.stargazersCount || 0) - (a.stargazersCount || 0);
+          });
+        } else {
+          // Auto-select: prioritize by stars, forks, and description quality
+          smartSortedRepos = repos
+            .filter(repo => !repo.fork)
+            .sort((a, b) => {
+              // Primary: stars (weighted heavily)
+              const starScore = (b.stargazersCount || 0) - (a.stargazersCount || 0);
+              if (Math.abs(starScore) > 5) return starScore;
+
+              // Secondary: forks (indicates community interest)
+              const forkScore = (b.forksCount || 0) - (a.forksCount || 0);
+              if (Math.abs(forkScore) > 2) return forkScore;
+
+              // Tertiary: description length (indicates project maturity)
+              return (b.description?.length || 0) - (a.description?.length || 0);
+            })
+            .slice(0, 15); // Top 15 repos for auto-selection
+        }
 
         console.log(`🎯 Smart repo selection: ${smartSortedRepos.length} repos selected from ${repos.length} total`);
         smartSortedRepos.slice(0, 5).forEach((repo, i) => {

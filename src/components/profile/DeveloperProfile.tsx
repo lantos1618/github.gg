@@ -10,8 +10,9 @@ import { SkillAssessment } from './SkillAssessment';
 import { DevelopmentStyle } from './DevelopmentStyle';
 import { TopRepos } from './TopRepos';
 import { TechStack } from './TechStack';
+import { RepoSelector } from './RepoSelector';
 import { trpc } from '@/lib/trpc/client';
-import { RefreshCw, Sword, Mail } from 'lucide-react';
+import { RefreshCw, Sword, Mail, FolderGit2 } from 'lucide-react';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import { developerProfileSchema } from '@/lib/types/profile';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -27,6 +28,7 @@ interface DeveloperProfileProps {
 export function DeveloperProfile({ username }: DeveloperProfileProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
+  const [showRepoSelector, setShowRepoSelector] = useState(false);
 
   const router = useRouter();
   const utils = trpc.useUtils();
@@ -65,6 +67,15 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
+  // Check if viewing own profile
+  const isOwnProfile = currentUser?.user?.name?.toLowerCase() === username.toLowerCase();
+
+  // Fetch user repos if viewing own profile
+  const { data: userRepos, isLoading: reposLoading } = trpc.profile.getUserRepositories.useQuery(
+    { username },
+    { enabled: isOwnProfile && !!currentUser }
+  );
+
   // More robust check for showing challenge button (case-insensitive)
   const shouldShowChallengeButton = !!currentUser?.user?.githubUsername && currentUser.user.githubUsername.toLowerCase() !== username.toLowerCase();
 
@@ -88,7 +99,17 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     setIsGenerating(true);
     generateProfileMutation.mutate({
       username,
-      includeCodeAnalysis: true // Enable code analysis for better profiles
+      includeCodeAnalysis: true
+    });
+  }, [generateProfileMutation, username]);
+
+  // Handle profile generation with selected repos
+  const handleGenerateWithSelectedRepos = useCallback((selectedRepoNames: string[]) => {
+    setIsGenerating(true);
+    generateProfileMutation.mutate({
+      username,
+      includeCodeAnalysis: true,
+      selectedRepos: selectedRepoNames,
     });
   }, [generateProfileMutation, username]);
 
@@ -219,15 +240,29 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
               </Button>
             )}
             {currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro') && (
-              <Button
-                onClick={handleGenerateProfile}
-                disabled={isGenerating || generateProfileMutation.isPending}
-                className="flex items-center gap-2 px-6 py-3 text-base font-medium bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                size="lg"
-              >
-                <RefreshCw className={`h-5 w-5 ${isGenerating ? 'animate-spin' : ''}`} />
-                {isGenerating ? 'Generating...' : 'Refresh Profile'}
-              </Button>
+              <>
+                {isOwnProfile && (
+                  <Button
+                    onClick={() => setShowRepoSelector(true)}
+                    disabled={isGenerating || generateProfileMutation.isPending || reposLoading}
+                    className="flex items-center gap-2 px-6 py-3 text-base font-medium"
+                    size="lg"
+                    variant="outline"
+                  >
+                    <FolderGit2 className="h-5 w-5" />
+                    Select Repos & Generate
+                  </Button>
+                )}
+                <Button
+                  onClick={handleGenerateProfile}
+                  disabled={isGenerating || generateProfileMutation.isPending}
+                  className="flex items-center gap-2 px-6 py-3 text-base font-medium bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                  size="lg"
+                >
+                  <RefreshCw className={`h-5 w-5 ${isGenerating ? 'animate-spin' : ''}`} />
+                  {isGenerating ? 'Generating...' : (isOwnProfile ? 'Quick Refresh' : 'Refresh Profile')}
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -349,6 +384,17 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
           </div>
         )}
       </div>
+
+      {/* Repo Selector Modal */}
+      {isOwnProfile && userRepos && (
+        <RepoSelector
+          open={showRepoSelector}
+          onOpenChange={setShowRepoSelector}
+          repos={userRepos}
+          onConfirm={handleGenerateWithSelectedRepos}
+          defaultSelected={validProfile?.topRepos?.map(r => r.name).filter(Boolean) || []}
+        />
+      )}
     </div>
   );
 } 

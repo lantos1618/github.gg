@@ -157,7 +157,7 @@ export async function sendProfileAnalysisEmail(data: ProfileAnalysisEmailData) {
 
   try {
     const response = await resend.emails.send({
-      from: 'GitHub.gg <agent@lambda.run>',
+      from: 'GitHub.gg <noreply@github.gg>',
       to: recipientEmail,
       subject: `${analyzerUsername} analyzed your GitHub profile!`,
       html,
@@ -272,7 +272,7 @@ export async function sendScorecardEmail(data: {
 
   try {
     const response = await resend.emails.send({
-      from: 'GitHub.gg <agent@lambda.run>',
+      from: 'GitHub.gg <noreply@github.gg>',
       to: recipientEmail,
       subject: `${analyzerUsername} analyzed your repository ${repoName}!`,
       html,

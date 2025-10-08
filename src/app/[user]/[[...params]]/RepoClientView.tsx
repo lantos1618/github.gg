@@ -1,5 +1,6 @@
 "use client";
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import React from 'react';
 import RepoPageLayout from '@/components/layouts/RepoPageLayout';
 import { FileTreeSidebar } from '@/components/FileTreeSidebar';
 import { EnhancedCodeViewer } from '@/components/EnhancedCodeViewer';
@@ -17,7 +18,32 @@ interface RepoClientViewProps {
 
 export default function RepoClientView({ user, repo, refName, path }: RepoClientViewProps) {
   const { files, isLoading, error, totalFiles } = useRepoData({ user, repo, ref: refName, path });
-  const [selectedFile, setSelectedFile] = useState<RepoFile | null>(null);
+  const [selectedFilePaths, setSelectedFilePaths] = useState<Set<string>>(new Set());
+
+  // Auto-select all files when files load
+  React.useEffect(() => {
+    if (files && files.length > 0) {
+      setSelectedFilePaths(new Set(files.map(f => f.path)));
+    }
+  }, [files]);
+
+  // Get selected file objects
+  const selectedFiles = useMemo(() => {
+    return files.filter(f => selectedFilePaths.has(f.path));
+  }, [files, selectedFilePaths]);
+
+  // Toggle file selection
+  const handleToggleFile = (filePath: string) => {
+    setSelectedFilePaths(prev => {
+      const next = new Set(prev);
+      if (next.has(filePath)) {
+        next.delete(filePath);
+      } else {
+        next.add(filePath);
+      }
+      return next;
+    });
+  };
 
   return (
     <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
@@ -32,15 +58,15 @@ export default function RepoClientView({ user, repo, refName, path }: RepoClient
             <div className="w-80 flex-shrink-0">
               <FileTreeSidebar
                 files={files}
-                onFileSelect={setSelectedFile}
-                selectedFile={selectedFile?.path}
+                selectedFiles={selectedFilePaths}
+                onToggleFile={handleToggleFile}
                 className="h-full rounded-lg shadow-sm"
               />
             </div>
 
             {/* Code Viewer */}
             <div className="flex-1 overflow-auto">
-              <EnhancedCodeViewer file={selectedFile} />
+              <EnhancedCodeViewer files={selectedFiles} />
             </div>
           </div>
         )}

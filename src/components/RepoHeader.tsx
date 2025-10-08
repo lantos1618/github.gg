@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Calendar } from 'lucide-react';
+import { Calendar, Download } from 'lucide-react';
 
 interface RepoHeaderProps {
   user: string;
@@ -20,19 +20,21 @@ interface RepoHeaderProps {
   refName?: string;
   onBranchChange?: (value: string) => void;
   onCopyAll: () => void;
+  onDownloadAll: () => void;
   isCopying: boolean;
   copied: boolean;
   fileCount?: number;
 }
 
-export function RepoHeader({ 
-  user, 
-  repo, 
+export function RepoHeader({
+  user,
+  repo,
   refName,
   onBranchChange,
-  onCopyAll, 
-  isCopying, 
-  copied, 
+  onCopyAll,
+  onDownloadAll,
+  isCopying,
+  copied,
   fileCount
 }: RepoHeaderProps) {
   const githubUrl = `https://github.com/${user}/${repo}`;
@@ -110,7 +112,7 @@ export function RepoHeader({
               ) : null}
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button
               onClick={onCopyAll}
               disabled={isCopying}
@@ -124,6 +126,13 @@ export function RepoHeader({
               </span>
               {isCopying && <LoadingWave size="sm" color="white" />}
               {copied && <AnimatedTick size="sm" color="#10b981" />}
+            </button>
+            <button
+              onClick={onDownloadAll}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              <Download className="h-5 w-5" />
+              <span>Download All</span>
             </button>
           </div>
         </div>

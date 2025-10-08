@@ -28,6 +28,23 @@ export default function RepoPageLayout({
   const pathname = usePathname();
   const { data: branches = [] } = trpc.github.getBranches.useQuery({ owner: user, repo });
 
+  const handleDownloadAll = useCallback(() => {
+    const allContent = files.map(file => {
+      const separator = '='.repeat(80);
+      return `${separator}\n// File: ${file.path}\n${separator}\n\n${file.content || ''}`;
+    }).join('\n\n');
+
+    const blob = new Blob([allContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${user}-${repo}-${refName || 'main'}-${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [files, user, repo, refName]);
+
   // Handler to update the route when a branch is selected
   const handleBranchChange = useCallback((branch: string) => {
     try {
@@ -69,6 +86,7 @@ export default function RepoPageLayout({
         refName={refName}
         onBranchChange={handleBranchChange}
         onCopyAll={copyAllContent}
+        onDownloadAll={handleDownloadAll}
         isCopying={isCopying}
         copied={copied}
         fileCount={totalFiles}

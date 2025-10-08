@@ -71,10 +71,13 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   const isOwnProfile = currentUser?.user?.name?.toLowerCase() === username.toLowerCase();
 
   // Fetch user repos if viewing own profile
-  const { data: userRepos, isLoading: reposLoading } = trpc.profile.getUserRepositories.useQuery(
+  const { data: userRepos, isLoading: reposLoading, error: reposError } = trpc.profile.getUserRepositories.useQuery(
     { username },
     { enabled: isOwnProfile && !!currentUser }
   );
+
+  // Debug logging
+  console.log('🔍 Debug:', { isOwnProfile, username, currentUser: currentUser?.user?.name, userRepos: userRepos?.length, reposLoading, reposError });
 
   // More robust check for showing challenge button (case-insensitive)
   const shouldShowChallengeButton = !!currentUser?.user?.githubUsername && currentUser.user.githubUsername.toLowerCase() !== username.toLowerCase();
@@ -386,11 +389,11 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
       </div>
 
       {/* Repo Selector Modal */}
-      {isOwnProfile && userRepos && (
+      {isOwnProfile && (
         <RepoSelector
           open={showRepoSelector}
           onOpenChange={setShowRepoSelector}
-          repos={userRepos}
+          repos={userRepos || []}
           onConfirm={handleGenerateWithSelectedRepos}
           defaultSelected={[]}
         />

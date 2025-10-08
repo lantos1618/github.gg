@@ -18,6 +18,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 import { ScoreHistory } from '@/components/ScoreHistory';
+import { toast } from 'sonner';
 
 interface DeveloperProfileProps {
   username: string;
@@ -45,9 +46,12 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
       // Invalidate queries to refresh the data
       utils.profile.publicGetProfile.invalidate({ username });
       utils.profile.getProfileVersions.invalidate({ username });
+      toast.success('Profile refreshed successfully!');
     },
-    onError: () => {
+    onError: (error) => {
       setIsGenerating(false);
+      console.error('Profile generation error:', error);
+      toast.error(error.message || 'Failed to generate profile');
     }
   });
 

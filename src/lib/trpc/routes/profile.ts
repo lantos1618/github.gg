@@ -23,8 +23,8 @@ export const profileRouter = router({
         .filter(repo => !repo.fork)
         .map(repo => ({
           name: repo.name,
-          description: repo.description,
-          language: repo.language,
+          description: repo.description || null,
+          language: repo.language || null,
           stargazersCount: repo.stargazersCount,
           forksCount: repo.forksCount,
           fork: repo.fork,

@@ -392,7 +392,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
           onOpenChange={setShowRepoSelector}
           repos={userRepos}
           onConfirm={handleGenerateWithSelectedRepos}
-          defaultSelected={validProfile?.topRepos?.map(r => r.name).filter(Boolean) || []}
+          defaultSelected={[]}
         />
       )}
     </div>

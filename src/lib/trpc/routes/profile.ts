@@ -27,7 +27,7 @@ export const profileRouter = router({
           language: repo.language || null,
           stargazersCount: repo.stargazersCount,
           forksCount: repo.forksCount,
-          fork: repo.fork,
+          fork: false, // Already filtered out forks above
         }));
     }),
 

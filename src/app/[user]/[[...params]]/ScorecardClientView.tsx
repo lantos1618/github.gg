@@ -35,7 +35,6 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
   const [scorecardData, setScorecardData] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasGenerated, setHasGenerated] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   
   const { data: versions, isLoading: versionsLoading } = trpc.scorecard.getScorecardVersions.useQuery({ user, repo, ref: refName || 'main' });
@@ -67,7 +66,6 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
     if (user || repo) {
       setScorecardData(null);
       setError(null);
-      setHasGenerated(false);
     }
   }, [user, repo]);
 
@@ -75,7 +73,6 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
   const handleRegenerate = () => {
     setIsLoading(true);
     setError(null);
-    setHasGenerated(true);
     generateScorecardMutation.mutate(
       {
         user,

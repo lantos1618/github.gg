@@ -28,12 +28,12 @@ export const roadmapItems: RoadmapItem[] = [
   {
     title: "Webhook & Real-time Analysis",
     description: "Automated code analysis triggered by GitHub events",
-    completed: false
+    completed: true
   },
   {
     title: "Automated GitHub Comments",
     description: "Bot comments on PRs with code quality insights and suggestions",
-    completed: false
+    completed: true
   },
   {
     title: "Intelligent Documentation Generation",
@@ -53,7 +53,7 @@ export const roadmapItems: RoadmapItem[] = [
   {
     title: "Developer Profile Analytics",
     description: "Skill assessment, technology stack analysis, and contribution patterns",
-    completed: false
+    completed: true
   },
   {
     title: "Hiring Intelligence Tools",

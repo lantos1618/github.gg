@@ -96,6 +96,7 @@ export function ChallengeForm() {
   const [opponentUsername, setOpponentUsername] = useState('');
   const [selectedCriteria, setSelectedCriteria] = useState<BattleCriteria[]>([...DEFAULT_BATTLE_CRITERIA]);
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
+  const [activeBattleId, setActiveBattleId] = useState<string | null>(null);
 
   const challengeMutation = trpc.arena.challengeDeveloper.useMutation();
   const executeMutation = trpc.arena.executeBattle.useMutation();
@@ -104,12 +105,46 @@ export function ChallengeForm() {
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
+  const { data: battleStatus } = trpc.arena.checkBattleStatus.useQuery(
+    { battleId: activeBattleId! },
+    {
+      enabled: !!activeBattleId,
+      refetchInterval: (data) => {
+        if (!data) return 2000;
+        if (data.status === 'in_progress' || data.status === 'pending') return 2000;
+        return false;
+      },
+    }
+  );
+
   useEffect(() => {
     const opponentFromQuery = searchParams.get('opponent');
     if (opponentFromQuery) {
       setOpponentUsername(opponentFromQuery);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (battleStatus && battleStatus.status === 'completed') {
+      setBattleResult({
+        battle: {
+          id: battleStatus.id,
+          scores: battleStatus.scores,
+        },
+        analysis: battleStatus.aiAnalysis ? {
+          winner: battleStatus.aiAnalysis.winner,
+          reason: battleStatus.aiAnalysis.reason,
+          highlights: battleStatus.aiAnalysis.highlights,
+          recommendations: battleStatus.aiAnalysis.recommendations,
+        } : undefined,
+        eloChange: battleStatus.eloChange,
+      });
+      setActiveBattleId(null);
+    } else if (battleStatus && battleStatus.status === 'failed') {
+      setBattleResult({ error: 'Battle failed. Please try again.' });
+      setActiveBattleId(null);
+    }
+  }, [battleStatus]);
 
   const handleChallenge = async () => {
     if (!opponentUsername.trim()) return;
@@ -121,26 +156,29 @@ export function ChallengeForm() {
     }
 
     try {
+      setBattleResult(null);
+
       // Create challenge
       const battle = await challengeMutation.mutateAsync({
         opponentUsername: opponentUsername.trim(),
         criteria: selectedCriteria,
       });
 
-      // Execute battle immediately
-      const result = await executeMutation.mutateAsync({
+      // Execute battle immediately (async)
+      await executeMutation.mutateAsync({
         battleId: battle.id,
       });
+
+      // Start polling for status
+      setActiveBattleId(battle.id);
 
       // Reset form
       setOpponentUsername('');
       setSelectedCriteria([...DEFAULT_BATTLE_CRITERIA]);
-
-      // Show result inline
-      setBattleResult(result);
     } catch (error) {
       console.error('Battle failed:', error);
       setBattleResult({ error: error instanceof Error ? error.message : 'Unknown error' });
+      setActiveBattleId(null);
     }
   };
 
@@ -153,7 +191,7 @@ export function ChallengeForm() {
   };
 
   const isFormValid = opponentUsername.trim() && selectedCriteria.length > 0 && currentUser?.user?.name !== opponentUsername.trim();
-  const isPending = challengeMutation.isPending || executeMutation.isPending;
+  const isPending = challengeMutation.isPending || executeMutation.isPending || !!activeBattleId;
 
   return (
     <>

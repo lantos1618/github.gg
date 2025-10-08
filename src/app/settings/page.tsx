@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Key, Trash2, BarChart3 } from 'lucide-react';
+import { Eye, EyeOff, Key, Trash2, BarChart3, Webhook } from 'lucide-react';
 
 export default function SettingsPage() {
   const [apiKey, setApiKey] = useState('');
@@ -18,6 +20,8 @@ export default function SettingsPage() {
     startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1), // This month
   });
   const { data: currentPlan } = trpc.user.getCurrentPlan.useQuery();
+  const { data: webhookPrefs, refetch: refetchWebhookPrefs } = trpc.webhooks.getPreferences.useQuery();
+  const { data: installationInfo } = trpc.webhooks.getInstallationInfo.useQuery();
   
   const saveApiKey = trpc.user.saveApiKey.useMutation({
     onSuccess: () => {
@@ -43,6 +47,16 @@ export default function SettingsPage() {
       if (data.url) {
         window.location.href = data.url;
       }
+    },
+    onError: (err) => {
+      toast.error(err.message);
+    }
+  });
+
+  const updateWebhookPrefs = trpc.webhooks.updatePreferences.useMutation({
+    onSuccess: () => {
+      toast.success('Webhook settings updated!');
+      refetchWebhookPrefs();
     },
     onError: (err) => {
       toast.error(err.message);
@@ -228,6 +242,83 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Webhook Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Webhook className="h-5 w-5" />
+              PR Review Automation
+            </CardTitle>
+            <CardDescription>
+              Configure automated pull request reviews for your repositories.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!installationInfo ? (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800 mb-3">
+                  GitHub App not installed. Install the GitHub.gg app to enable PR reviews.
+                </p>
+                <Button variant="outline" asChild>
+                  <a href="/install" target="_blank" rel="noopener noreferrer">
+                    Install GitHub App
+                  </a>
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm text-green-800">
+                      ✓ GitHub App installed for <strong>{installationInfo.accountLogin}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="pr-review-enabled">Enable PR Reviews</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Automatically post AI-powered code reviews on pull requests
+                    </p>
+                  </div>
+                  <Switch
+                    id="pr-review-enabled"
+                    checked={webhookPrefs?.prReviewEnabled ?? true}
+                    onCheckedChange={(checked) => {
+                      updateWebhookPrefs.mutate({ prReviewEnabled: checked });
+                    }}
+                    disabled={updateWebhookPrefs.isPending}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="auto-update-enabled">Auto-update Comments</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Update review comment when PR is updated
+                    </p>
+                  </div>
+                  <Switch
+                    id="auto-update-enabled"
+                    checked={webhookPrefs?.autoUpdateEnabled ?? true}
+                    onCheckedChange={(checked) => {
+                      updateWebhookPrefs.mutate({ autoUpdateEnabled: checked });
+                    }}
+                    disabled={updateWebhookPrefs.isPending || !webhookPrefs?.prReviewEnabled}
+                  />
+                </div>
+
+                <div className="pt-4 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    💡 <strong>Tip:</strong> PR reviews analyze code quality, security, performance, and maintainability. Comments include actionable recommendations for improvements.
+                  </p>
                 </div>
               </div>
             )}

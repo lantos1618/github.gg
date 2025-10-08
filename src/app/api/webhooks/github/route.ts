@@ -2,13 +2,65 @@ import { Webhooks } from '@octokit/webhooks';
 import { db } from '@/db';
 import { githubAppInstallations, installationRepositories } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { postPRReviewComment, isPRReviewEnabled } from '@/lib/github/pr-comment-service';
 
 // Only initialize webhooks if the secret is available
-const webhooks = process.env.GITHUB_WEBHOOK_SECRET 
+const webhooks = process.env.GITHUB_WEBHOOK_SECRET
   ? new Webhooks({
       secret: process.env.GITHUB_WEBHOOK_SECRET,
     })
   : null;
+
+// Background handler for PR analysis
+async function handlePRAnalysis({
+  installationId,
+  owner,
+  repo,
+  prNumber,
+  prTitle,
+  prDescription,
+  baseBranch,
+  headBranch,
+}: {
+  installationId?: number;
+  owner: string;
+  repo: string;
+  prNumber: number;
+  prTitle: string;
+  prDescription: string;
+  baseBranch: string;
+  headBranch: string;
+}) {
+  if (!installationId) {
+    console.error('No installation ID provided for PR analysis');
+    return;
+  }
+
+  // Check if PR review is enabled for this repo
+  const isEnabled = await isPRReviewEnabled(installationId, owner, repo);
+  if (!isEnabled) {
+    console.log(`PR review not enabled for ${owner}/${repo}`);
+    return;
+  }
+
+  console.log(`Starting PR analysis for #${prNumber} in ${owner}/${repo}`);
+
+  try {
+    await postPRReviewComment({
+      installationId,
+      owner,
+      repo,
+      prNumber,
+      prTitle,
+      prDescription,
+      baseBranch,
+      headBranch,
+    });
+    console.log(`Successfully posted review for PR #${prNumber} in ${owner}/${repo}`);
+  } catch (error) {
+    console.error(`Failed to post review for PR #${prNumber}:`, error);
+  }
+}
 
 // Event Handlers - only register if webhooks is available
 if (webhooks) {
@@ -116,12 +168,38 @@ if (webhooks) {
 
   webhooks.on('pull_request.opened', async ({ payload }) => {
     console.log(`PR opened: ${payload.pull_request.title} in ${payload.repository.full_name}`);
-    // TODO: Trigger analysis and post results as PR comment
+
+    // Trigger PR analysis in the background
+    handlePRAnalysis({
+      installationId: payload.installation?.id,
+      owner: payload.repository.owner.login,
+      repo: payload.repository.name,
+      prNumber: payload.pull_request.number,
+      prTitle: payload.pull_request.title,
+      prDescription: payload.pull_request.body || '',
+      baseBranch: payload.pull_request.base.ref,
+      headBranch: payload.pull_request.head.ref,
+    }).catch(error => {
+      console.error('Failed to analyze PR:', error);
+    });
   });
 
   webhooks.on('pull_request.synchronize', async ({ payload }) => {
     console.log(`PR updated: ${payload.pull_request.title} in ${payload.repository.full_name}`);
-    // TODO: Re-run analysis and update existing comment
+
+    // Re-run analysis when PR is updated
+    handlePRAnalysis({
+      installationId: payload.installation?.id,
+      owner: payload.repository.owner.login,
+      repo: payload.repository.name,
+      prNumber: payload.pull_request.number,
+      prTitle: payload.pull_request.title,
+      prDescription: payload.pull_request.body || '',
+      baseBranch: payload.pull_request.base.ref,
+      headBranch: payload.pull_request.head.ref,
+    }).catch(error => {
+      console.error('Failed to re-analyze PR:', error);
+    });
   });
 }
 

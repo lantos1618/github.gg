@@ -9,6 +9,7 @@ import { userRouter } from '@/lib/trpc/routes/user';
 import { featuredRouter } from '@/lib/trpc/routes/featured';
 import { billingRouter } from '@/lib/trpc/routes/billing';
 import { adminRouter } from '@/lib/trpc/routes/admin';
+import { webhooksRouter } from '@/lib/trpc/routes/webhooks';
 import { z } from 'zod';
 import { router } from '@/lib/trpc/trpc';
 import { db } from '@/db';
@@ -89,6 +90,9 @@ export const appRouter = router({
 
   // Admin routes
   admin: adminRouter,
+
+  // Webhook settings routes
+  webhooks: webhooksRouter,
 });
 
 export type AppRouter = typeof appRouter; 

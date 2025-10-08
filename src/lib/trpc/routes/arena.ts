@@ -27,6 +27,139 @@ function isProfileStale(updatedAt: Date): boolean {
   return new Date().getTime() - updatedAt.getTime() > 24 * 60 * 60 * 1000; // 24 hours
 }
 
+// Async battle execution function
+async function executeBattleAsync(
+  battleId: string,
+  userId: string,
+  session: any,
+  plan: 'byok' | 'pro'
+) {
+  try {
+    const battle = await db
+      .select()
+      .from(arenaBattles)
+      .where(eq(arenaBattles.id, battleId))
+      .limit(1);
+
+    if (!battle[0]) throw new Error('Battle not found');
+
+    const githubService = await createGitHubServiceForUserOperations(session);
+
+    // Function to get or generate a developer profile
+    const getOrGenerateProfile = async (username: string): Promise<DeveloperProfile> => {
+      const existing = await db
+        .select()
+        .from(developerProfileCache)
+        .where(eq(developerProfileCache.username, username))
+        .limit(1);
+
+      if (existing[0] && !isProfileStale(existing[0].updatedAt)) {
+        return existing[0].profileData as DeveloperProfile;
+      }
+
+      const repos = await githubService.getUserRepositories(username);
+      if (repos.length === 0) throw new Error(`${username} has no public repositories.`);
+
+      const result = await generateDeveloperProfile({
+        username,
+        repos,
+        userId
+      });
+
+      const maxVersionResult = await db
+        .select({ max: sql<number>`MAX(version)` })
+        .from(developerProfileCache)
+        .where(eq(developerProfileCache.username, username));
+      const nextVersion = (maxVersionResult[0]?.max || 0) + 1;
+
+      await db.insert(developerProfileCache).values({
+        username,
+        version: nextVersion,
+        profileData: result.profile,
+        updatedAt: new Date()
+      }).onConflictDoUpdate({
+        target: [developerProfileCache.username, developerProfileCache.version],
+        set: { profileData: result.profile, updatedAt: new Date() }
+      });
+
+      return result.profile;
+    };
+
+    const [challengerProfile, opponentProfile] = await Promise.all([
+      getOrGenerateProfile(battle[0].challengerUsername),
+      getOrGenerateProfile(battle[0].opponentUsername),
+    ]);
+
+    const battleAnalysis = await analyzeBattle(
+      challengerProfile,
+      opponentProfile,
+      battle[0].challengerUsername,
+      battle[0].opponentUsername,
+      (battle[0].criteria as BattleCriteria[]) || ALL_BATTLE_CRITERIA
+    );
+
+    const [challengerRanking, opponentRanking] = await Promise.all([
+      db.select().from(developerRankings).where(eq(developerRankings.userId, battle[0].challengerId)).limit(1),
+      db.select().from(developerRankings).where(eq(developerRankings.userId, battle[0].opponentId)).limit(1)
+    ]);
+
+    const challengerWon = battleAnalysis.result.winner === battle[0].challengerUsername;
+    const challengerCurrentRating = challengerRanking[0]?.eloRating || INITIAL_ELO_RATING;
+    const opponentCurrentRating = opponentRanking[0]?.eloRating || INITIAL_ELO_RATING;
+
+    const eloChanges = calculateEloChange(
+      challengerCurrentRating,
+      opponentCurrentRating,
+      challengerWon
+    );
+
+    await updateBattleResults(
+      battle[0],
+      battleAnalysis.result,
+      challengerRanking[0],
+      opponentRanking[0],
+      {
+        challenger: {
+          before: challengerCurrentRating,
+          after: eloChanges.challenger.newRating,
+          change: eloChanges.challenger.change,
+        },
+        opponent: {
+          before: opponentCurrentRating,
+          after: eloChanges.opponent.newRating,
+          change: eloChanges.opponent.change,
+        },
+      },
+      challengerWon
+    );
+
+    await updateUserRankings(
+      battle[0],
+      challengerRanking[0],
+      opponentRanking[0],
+      eloChanges,
+      challengerWon
+    );
+
+    await logTokenUsage(
+      userId,
+      battle[0].challengerUsername,
+      battleAnalysis.usage,
+      plan === 'byok'
+    );
+  } catch (error) {
+    console.error('Async battle execution failed:', error);
+
+    await db
+      .update(arenaBattles)
+      .set({
+        status: 'failed',
+        completedAt: new Date(),
+      })
+      .where(eq(arenaBattles.id, battleId));
+  }
+}
+
 export const arenaRouter = router({
   // Get user's ranking (now public, but requires userId or username)
   getMyRanking: publicProcedure
@@ -180,153 +313,85 @@ export const arenaRouter = router({
         const { plan } = await getUserPlanAndKey(ctx.user.id);
         const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
         if (!keyInfo) {
-          throw new TRPCError({ 
-            code: 'FORBIDDEN', 
-            message: 'API Key required for this feature.' 
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'API Key required for this feature.'
           });
         }
 
-        // --- NEW BATTLE LOGIC ---
-        const githubService = await createGitHubServiceForUserOperations(ctx.session);
-
-        // Function to get or generate a developer profile
-        const getOrGenerateProfile = async (username: string): Promise<DeveloperProfile> => {
-          // Check for existing cached profile
-          const existing = await db
-            .select()
-            .from(developerProfileCache)
-            .where(eq(developerProfileCache.username, username))
-            .limit(1);
-          
-          if (existing[0] && !isProfileStale(existing[0].updatedAt)) {
-            return existing[0].profileData as DeveloperProfile;
-          }
-          
-          // Generate a new profile if it's missing or stale
-          const repos = await githubService.getUserRepositories(username);
-          if (repos.length === 0) throw new Error(`${username} has no public repositories.`);
-          
-          const result = await generateDeveloperProfile({ 
-            username, 
-            repos, 
-            userId: ctx.user.id // Attribute generation to the challenger
-          });
-          
-          // Get next version number
-          const maxVersionResult = await db
-            .select({ max: sql<number>`MAX(version)` })
-            .from(developerProfileCache)
-            .where(eq(developerProfileCache.username, username));
-          const nextVersion = (maxVersionResult[0]?.max || 0) + 1;
-          
-          await db.insert(developerProfileCache).values({
-            username,
-            version: nextVersion,
-            profileData: result.profile,
-            updatedAt: new Date()
-          }).onConflictDoUpdate({
-            target: [developerProfileCache.username, developerProfileCache.version],
-            set: { profileData: result.profile, updatedAt: new Date() }
-          });
-          
-          return result.profile;
-        };
-
-        // Get profiles for both developers
-        const [challengerProfile, opponentProfile] = await Promise.all([
-          getOrGenerateProfile(battle.challengerUsername),
-          getOrGenerateProfile(battle.opponentUsername),
-        ]);
-
-        // Analyze battle using the structured profiles
-        const battleAnalysis = await analyzeBattle(
-          challengerProfile,
-          opponentProfile,
-          battle.challengerUsername,
-          battle.opponentUsername,
-          (battle.criteria as BattleCriteria[]) || ALL_BATTLE_CRITERIA
-        );
-        // --- END OF NEW BATTLE LOGIC ---
-
-        // Get current rankings
-        const [challengerRanking, opponentRanking] = await Promise.all([
-          db.select().from(developerRankings).where(eq(developerRankings.userId, battle.challengerId)).limit(1),
-          db.select().from(developerRankings).where(eq(developerRankings.userId, battle.opponentId)).limit(1)
-        ]);
-
-        // Calculate ELO changes
-        const challengerWon = battleAnalysis.result.winner === battle.challengerUsername;
-        const challengerCurrentRating = challengerRanking[0]?.eloRating || INITIAL_ELO_RATING;
-        const opponentCurrentRating = opponentRanking[0]?.eloRating || INITIAL_ELO_RATING;
-
-        const eloChanges = calculateEloChange(
-          challengerCurrentRating,
-          opponentCurrentRating,
-          challengerWon
-        );
-
-        // Update battle results
-        const updatedBattle = await updateBattleResults(
-          battle,
-          battleAnalysis.result,
-          challengerRanking[0],
-          opponentRanking[0],
-          {
-            challenger: {
-              before: challengerCurrentRating,
-              after: eloChanges.challenger.newRating,
-              change: eloChanges.challenger.change,
-            },
-            opponent: {
-              before: opponentCurrentRating,
-              after: eloChanges.opponent.newRating,
-              change: eloChanges.opponent.change,
-            },
-          },
-          challengerWon
-        );
-
-        // Update user rankings
-        await updateUserRankings(
-          battle,
-          challengerRanking[0],
-          opponentRanking[0],
-          eloChanges,
-          challengerWon
-        );
-
-        // Log token usage
-        await logTokenUsage(
-          ctx.user.id,
-          battle.challengerUsername,
-          battleAnalysis.usage,
-          plan === 'byok'
-        );
-
-        return {
-          battle: updatedBattle,
-          analysis: battleAnalysis.result,
-          eloChange: eloChanges,
-        };
-
-      } catch (error) {
-        console.error('Battle execution failed:', error);
-        
-        // Update battle status to failed
+        // Mark battle as in_progress
         await db
           .update(arenaBattles)
-          .set({ 
+          .set({ status: 'in_progress' })
+          .where(eq(arenaBattles.id, battleId));
+
+        // Start async execution without awaiting (fire and forget)
+        executeBattleAsync(battleId, ctx.user.id, ctx.session, plan as 'byok' | 'pro').catch(error => {
+          console.error('Async battle execution failed:', error);
+        });
+
+        // Return immediately with in_progress status
+        return {
+          battleId: battle.id,
+          status: 'in_progress',
+          message: 'Battle started. This may take a minute...'
+        };
+      } catch (error) {
+        console.error('Battle initiation failed:', error);
+
+        await db
+          .update(arenaBattles)
+          .set({
             status: 'failed',
             completedAt: new Date(),
           })
           .where(eq(arenaBattles.id, battleId));
 
-        throw new TRPCError({ 
-          code: 'INTERNAL_SERVER_ERROR', 
-          message: 'Battle execution failed. Please try again.' 
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to start battle'
         });
       }
     }),
+
+  // Check battle status (protected)
+  checkBattleStatus: protectedProcedure
+    .input(z.object({
+      battleId: z.string().min(1, 'Battle ID is required'),
+    }))
+    .query(async ({ input, ctx }) => {
+      const battle = await db
+        .select()
+        .from(arenaBattles)
+        .where(
+          and(
+            eq(arenaBattles.id, input.battleId),
+            eq(arenaBattles.challengerId, ctx.user.id)
+          )
+        )
+        .limit(1);
+
+      if (battle.length === 0) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Battle not found'
+        });
+      }
+
+      const b = battle[0];
+      return {
+        id: b.id,
+        status: b.status,
+        challengerUsername: b.challengerUsername,
+        opponentUsername: b.opponentUsername,
+        winnerId: b.winnerId,
+        scores: b.scores,
+        aiAnalysis: b.aiAnalysis,
+        eloChange: b.eloChange,
+        completedAt: b.completedAt,
+      };
+    }),
+
 
   // Get battle history (protected)
   getBattleHistory: protectedProcedure

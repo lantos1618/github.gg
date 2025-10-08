@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean, uniqueIndex, integer, jsonb, varchar } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, boolean, uniqueIndex, index, integer, jsonb, varchar } from 'drizzle-orm/pg-core';
 import type { ScorecardMetric, DiagramOptions } from '@/lib/types/scorecard';
 
 export const user = pgTable('user', {
@@ -306,20 +306,22 @@ export const userScoreHistory = pgTable('user_score_history', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('userId').references(() => user.id, { onDelete: 'cascade' }).notNull(),
   username: text('username').notNull(),
-  eloRating: integer('elo_rating').notNull(),
+  eloRating: integer('elo_rating'), // Nullable - only for arena battles
   overallScore: integer('overall_score'), // For profile scores
   source: text('source').notNull(), // 'arena_battle', 'profile_generation', 'scorecard'
   metadata: jsonb('metadata').$type<{
     battleId?: string;
     opponentUsername?: string;
+    won?: boolean;
+    ratingChange?: number;
     repoName?: string;
     [key: string]: unknown;
   }>(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
-  // Index for time-series queries
-  userHistoryIdx: uniqueIndex('user_history_idx').on(table.userId, table.createdAt),
-  usernameHistoryIdx: uniqueIndex('username_history_idx').on(table.username, table.createdAt),
+  // Index for time-series queries (non-unique to allow multiple entries at same timestamp)
+  userHistoryIdx: index('user_history_idx').on(table.userId, table.createdAt),
+  usernameHistoryIdx: index('username_history_idx').on(table.username, table.createdAt),
 }));
 
 // Repository Score History
@@ -332,8 +334,8 @@ export const repoScoreHistory = pgTable('repo_score_history', {
   metrics: jsonb('metrics').$type<ScorecardMetric[]>(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
-  // Index for time-series queries
-  repoHistoryIdx: uniqueIndex('repo_history_idx').on(table.repoOwner, table.repoName, table.ref, table.createdAt),
+  // Index for time-series queries (non-unique to allow multiple entries at same timestamp)
+  repoHistoryIdx: index('repo_history_idx').on(table.repoOwner, table.repoName, table.ref, table.createdAt),
 }));
 
 // Tournaments

@@ -8,7 +8,7 @@ import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForUserOperations, createPublicGitHubService } from '@/lib/github';
 import type { DeveloperProfile } from '@/lib/types/profile';
-import { findAndStoreDeveloperEmail, sendDeveloperProfileEmail } from '@/lib/ai/developer-profile';
+import { findAndStoreDeveloperEmail } from '@/lib/ai/developer-profile';
 import { Octokit } from '@octokit/rest';
 
 export const profileRouter = router({
@@ -364,7 +364,7 @@ export const profileRouter = router({
               analyzerEmail: ctx.user.email,
               profileData: {
                 summary: result.profile.summary || 'Your profile has been analyzed!',
-                topSkills: result.profile.techStack?.primary || [],
+                topSkills: result.profile.techStack?.slice(0, 5).map(item => item.name) || [],
                 suggestions: result.profile.suggestions || [],
               },
             });

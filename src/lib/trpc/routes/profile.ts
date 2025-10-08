@@ -209,8 +209,8 @@ export const profileRouter = router({
           files: Array<{ path: string; content: string }>;
         }> = [];
 
-        // If deep analysis is requested, fetch files from top repositories
-        if (input.includeCodeAnalysis) {
+        // Always fetch files and generate scorecards for better profile quality
+        if (input.includeCodeAnalysis && smartSortedRepos.length > 0) {
           const topRepos = smartSortedRepos.slice(0, 5); // Analyze top 5 repos
           console.log(`📁 Fetching files for ${topRepos.length} repositories in parallel...`);
           
@@ -344,13 +344,27 @@ export const profileRouter = router({
 
         // Extract and email developer using Resend
         try {
+          console.log(`📧 Attempting to find email for ${username}...`);
           const email = await findAndStoreDeveloperEmail(githubService['octokit'], username, smartSortedRepos);
+
           if (email) {
+            console.log(`✉️  Found email: ${email}`);
+
             // Import the new email function
             const { sendProfileAnalysisEmail } = await import('@/lib/email/resend');
 
             // Get analyzer's username
             const analyzerGithubUsername = ctx.user.name || 'Someone';
+
+            // Calculate average scorecard score if available
+            const scorecardScores = result.profile.topRepos
+              ?.map(repo => repo.significanceScore)
+              .filter(Boolean) || [];
+            const avgScore = scorecardScores.length > 0
+              ? Math.round(scorecardScores.reduce((a, b) => a + b, 0) / scorecardScores.length * 10)
+              : undefined;
+
+            console.log(`📤 Sending email to ${email}...`);
 
             // Send professional email notification
             await sendProfileAnalysisEmail({
@@ -360,15 +374,18 @@ export const profileRouter = router({
               analyzerEmail: ctx.user.email,
               profileData: {
                 summary: result.profile.summary || 'Your profile has been analyzed!',
+                overallScore: avgScore,
                 topSkills: result.profile.techStack?.slice(0, 5).map(item => item.name) || [],
                 suggestions: result.profile.suggestions || [],
               },
             });
 
-            console.log(`✅ Sent profile analysis email to ${email}`);
+            console.log(`✅ Successfully sent profile analysis email to ${email}`);
+          } else {
+            console.log(`⚠️  No email found for ${username} in their commits`);
           }
         } catch (e) {
-          console.warn('Failed to extract/send developer email:', e);
+          console.error('❌ Failed to extract/send developer email:', e);
         }
         
         return {

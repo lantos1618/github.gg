@@ -297,8 +297,8 @@ export const arenaBattles = pgTable('arena_battles', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   completedAt: timestamp('completed_at'),
 }, (table) => ({
-  // Index for battle history
-  battleHistoryIdx: uniqueIndex('battle_history_idx').on(table.challengerId, table.opponentId, table.createdAt),
+  // Index for battle history (non-unique to allow multiple battles between same users)
+  battleHistoryIdx: index('battle_history_idx').on(table.challengerId, table.opponentId, table.createdAt),
 }));
 
 // Score History tracking for users

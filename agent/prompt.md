@@ -1,5 +1,7 @@
 
 
+careful this thing is causing OOM.
+
 Could you provide the SendGrid API key, or would you like me to:
 1. Use the existing RESEND_API_KEY to send the email instead, (USE THE EXISTING RESEND for application)
 2. Wait for you to add a SendGrid API key to the environment (USE THIS TO TALK TO ME DO NOT USE IN APPLICATION)

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   File,
   Folder,
@@ -19,7 +18,8 @@ import {
   FolderOpen,
   Copy,
   Check,
-  ArrowRight
+  ArrowRight,
+  X
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,8 @@ interface FileTreeSidebarProps {
   selectedFiles: Set<string>;
   onToggleFile: (filePath: string) => void;
   className?: string;
+  isOpen?: boolean;
+  onToggle?: () => void;
 }
 
 const getFileIcon = (filename?: string) => {
@@ -149,15 +151,15 @@ const FileTreeItem = React.memo(function FileTreeItem({
     return (
       <div
         key={node.path}
+        onClick={() => onToggleFile(node.file!.path)}
         className={`
-          flex items-center py-2 px-3 rounded-lg mx-2 transition-all duration-150 group
+          flex items-center py-2 px-3 rounded-lg mx-2 group cursor-pointer
           ${isSelected ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-900 border border-blue-200' : 'hover:bg-gray-50'}
         `}
         style={{ paddingLeft: `${level * 16 + 12}px` }}
       >
         <div
-          onClick={() => onToggleFile(node.file!.path)}
-          className="flex items-center flex-1 cursor-pointer"
+          className="flex items-center flex-1"
         >
           {isSelected ? (
             <CheckCircle2 className="w-4 h-4 mr-3 flex-shrink-0 text-blue-600" />
@@ -175,10 +177,10 @@ const FileTreeItem = React.memo(function FileTreeItem({
         {isSelected && (
           <button
             onClick={handleGoto}
-            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-blue-200 rounded transition-all ml-1"
+            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-blue-200 rounded transition-all ml-1 cursor-pointer"
             title="Go to file"
           >
-            <ArrowRight className="w-3.5 h-3.5 text-blue-600" />
+            <ArrowRight className="w-3.5 h-3.5 text-blue-600 cursor-pointer" />
           </button>
         )}
       </div>
@@ -199,8 +201,8 @@ const FileTreeItem = React.memo(function FileTreeItem({
     <div key={node.path}>
       <div
         className={`
-          flex items-center py-2 px-3 rounded-lg mx-2 transition-all duration-150 group
-          ${hasSelected ? 'bg-blue-50/50' : 'hover:bg-gray-50'}
+          flex items-center py-2 px-3 rounded-lg mx-2 group cursor-pointer
+          ${hasSelected ? 'bg-blue-50/50 border border-blue-200' : 'hover:bg-gray-50'}
         `}
         style={{ paddingLeft: `${level * 16 + 12}px` }}
       >
@@ -209,7 +211,7 @@ const FileTreeItem = React.memo(function FileTreeItem({
             e.stopPropagation();
             onToggleFolder(node.path);
           }}
-          className="p-0.5 -ml-1 hover:bg-gray-200 rounded transition-colors flex-shrink-0"
+          className="p-0.5 -ml-1 hover:bg-gray-200 rounded transition-colors flex-shrink-0 cursor-pointer"
         >
           {isExpanded ? (
             <ChevronDown className="w-4 h-4 text-gray-500" />
@@ -219,7 +221,7 @@ const FileTreeItem = React.memo(function FileTreeItem({
         </button>
         <div
           onClick={() => onToggleAllInFolder(node)}
-          className="flex items-center flex-1 cursor-pointer ml-1"
+          className="flex items-center flex-1 ml-1 cursor-pointer"
         >
           <FolderIcon className={`w-4 h-4 mr-2 flex-shrink-0 ${hasSelected ? 'text-blue-500' : 'text-gray-500'}`} />
           <span className={`flex-1 text-sm font-medium truncate ${hasSelected ? 'text-blue-900' : ''}`}>
@@ -228,29 +230,22 @@ const FileTreeItem = React.memo(function FileTreeItem({
         </div>
       </div>
 
-      <AnimatePresence>
-        {isExpanded && node.children && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.15 }}
-          >
-            {node.children.map(child => (
-              <FileTreeItem
-                key={child.path}
-                node={child}
-                level={level + 1}
-                selectedFiles={selectedFiles}
-                expandedFolders={expandedFolders}
-                onToggleFile={onToggleFile}
-                onToggleFolder={onToggleFolder}
-                onToggleAllInFolder={onToggleAllInFolder}
-              />
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {isExpanded && node.children && (
+        <div>
+          {node.children.map(child => (
+            <FileTreeItem
+              key={child.path}
+              node={child}
+              level={level + 1}
+              selectedFiles={selectedFiles}
+              expandedFolders={expandedFolders}
+              onToggleFile={onToggleFile}
+              onToggleFolder={onToggleFolder}
+              onToggleAllInFolder={onToggleAllInFolder}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 });
@@ -259,34 +254,15 @@ export function FileTreeSidebar({
   files,
   selectedFiles,
   onToggleFile,
-  className
+  className,
+  isOpen = true,
+  onToggle
 }: FileTreeSidebarProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [copiedTree, setCopiedTree] = useState(false);
 
   const fileTree = useMemo(() => buildFileTree(files), [files]);
-
-  const getAllFolderPaths = (tree: TreeNode[]): string[] => {
-    const paths: string[] = [];
-    const traverse = (nodes: TreeNode[]) => {
-      nodes.forEach(node => {
-        if (node.type === 'folder') {
-          paths.push(node.path);
-          if (node.children) {
-            traverse(node.children);
-          }
-        }
-      });
-    };
-    traverse(tree);
-    return paths;
-  };
-
-  React.useEffect(() => {
-    const allFolders = getAllFolderPaths(fileTree);
-    setExpandedFolders(new Set(allFolders));
-  }, [fileTree]);
 
   const filteredFiles = useMemo(() => {
     if (!searchTerm) return files;
@@ -357,7 +333,22 @@ export function FileTreeSidebar({
   };
 
   return (
-    <aside className={`bg-white border-r border-gray-200 flex flex-col h-full ${className || ''}`}>
+    <>
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={onToggle}
+        />
+      )}
+
+      <aside className={`
+        bg-white border-r border-gray-200 flex flex-col h-full
+        fixed lg:static inset-y-0 left-0 z-50 w-80
+        transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        ${className || ''}
+      `} style={{ contain: 'layout style paint', willChange: isOpen ? 'transform' : 'auto' }}>
       {/* Header */}
       <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-gray-100/50">
         <div className="flex items-center justify-between mb-4">
@@ -365,23 +356,34 @@ export function FileTreeSidebar({
             <Folder className="w-5 h-5 mr-2 text-blue-500" />
             Files
           </h2>
-          <button
-            onClick={handleCopyFileTree}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-            title="Copy file tree"
-          >
-            {copiedTree ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-green-600" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5" />
-                Copy Tree
-              </>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCopyFileTree}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
+              title="Copy file tree"
+            >
+              {copiedTree ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-green-600" />
+                  <span className="hidden sm:inline">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Copy</span>
+                </>
+              )}
+            </button>
+            {onToggle && (
+              <button
+                onClick={onToggle}
+                className="lg:hidden p-1.5 hover:bg-gray-200 rounded-md transition-colors cursor-pointer"
+                title="Close sidebar"
+              >
+                <X className="w-5 h-5" />
+              </button>
             )}
-          </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -412,7 +414,7 @@ export function FileTreeSidebar({
       </div>
 
       {/* File List */}
-      <div className="flex-1 overflow-y-auto py-2 bg-gradient-to-b from-white to-gray-50/30">
+      <div className="flex-1 overflow-y-auto py-2 bg-gradient-to-b from-white to-gray-50/30" style={{ willChange: 'scroll-position' }}>
         {searchTerm ? (
           filteredFiles.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
@@ -429,7 +431,7 @@ export function FileTreeSidebar({
                 <div
                   key={file.path}
                   className={`
-                    flex items-center py-2.5 px-3 cursor-pointer rounded-lg mx-2 transition-all duration-150 group
+                    flex items-center py-2.5 px-3 cursor-pointer rounded-lg mx-2 group
                     ${isSelected ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-900 border border-blue-200' : 'hover:bg-gray-50'}
                   `}
                   onClick={() => onToggleFile(file.path)}
@@ -466,5 +468,6 @@ export function FileTreeSidebar({
         )}
       </div>
     </aside>
+    </>
   );
 }

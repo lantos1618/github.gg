@@ -68,7 +68,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   });
 
   // Check if viewing own profile
-  const isOwnProfile = currentUser?.user?.name?.toLowerCase() === username.toLowerCase();
+  const isOwnProfile = currentUser?.user?.githubUsername?.toLowerCase() === username.toLowerCase();
 
   // Fetch user repos if viewing own profile
   const { data: userRepos, isLoading: reposLoading, error: reposError } = trpc.profile.getUserRepositories.useQuery(
@@ -77,7 +77,15 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   );
 
   // Debug logging
-  console.log('🔍 Debug:', { isOwnProfile, username, currentUser: currentUser?.user?.name, userRepos: userRepos?.length, reposLoading, reposError });
+  console.log('🔍 Debug:', {
+    isOwnProfile,
+    username,
+    githubUsername: currentUser?.user?.githubUsername,
+    currentPlan: currentPlan?.plan,
+    userRepos: userRepos?.length,
+    reposLoading,
+    reposError
+  });
 
   // More robust check for showing challenge button (case-insensitive)
   const shouldShowChallengeButton = !!currentUser?.user?.githubUsername && currentUser.user.githubUsername.toLowerCase() !== username.toLowerCase();
@@ -170,20 +178,22 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     return null;
   }
 
-  // Loading state
-  if (planLoading || publicLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <LoadingWave />
-      </div>
-    );
-  }
+  // Render content based on state
+  const renderContent = () => {
+    // Loading state
+    if (planLoading || publicLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <LoadingWave />
+        </div>
+      );
+    }
 
-  // Valid profile state
-  const parsedProfile = developerProfileSchema.safeParse(getProfileData());
-  if (parsedProfile.success) {
-    const validProfile = parsedProfile.data;
-    return (
+    // Valid profile state
+    const parsedProfile = developerProfileSchema.safeParse(getProfileData());
+    if (parsedProfile.success) {
+      const validProfile = parsedProfile.data;
+      return (
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
         <div className="flex items-start justify-between mb-6">
           <div className="flex-1">
@@ -325,13 +335,13 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
           </div>
         )}
       </div>
-    );
-  }
+      );
+    }
 
-  // Error state
-  const error = typeof generateProfileMutation.error?.message === 'string' ? generateProfileMutation.error.message : null;
-  if (error) {
-    return (
+    // Error state
+    const error = typeof generateProfileMutation.error?.message === 'string' ? generateProfileMutation.error.message : null;
+    if (error) {
+      return (
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
         <ErrorDisplay
           error={error ?? null}
@@ -339,22 +349,22 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
           onRetry={handleGenerateProfile}
         />
       </div>
-    );
-  }
+      );
+    }
 
-  // Loading state (after mutation)
-  const isLoading = publicLoading || planLoading;
-  if (isLoading && !publicProfile) {
-    return (
+    // Loading state (after mutation)
+    const isLoading = publicLoading || planLoading;
+    if (isLoading && !publicProfile) {
+      return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
         <LoadingWave />
         <p className="mt-4 text-gray-600">Loading developer profile...</p>
       </div>
-    );
-  }
+      );
+    }
 
-  // No profile state
-  return (
+    // No profile state
+    return (
     <div className="flex flex-col items-center justify-center min-h-[400px] px-4">
       <div className="text-center max-w-md">
         <h2 className="text-2xl font-semibold text-gray-700 mb-4">No Profile Available</h2>
@@ -392,7 +402,14 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
         )}
       </div>
 
-      {/* Repo Selector Modal */}
+    </div>
+    );
+  };
+
+  return (
+    <>
+      {renderContent()}
+      {/* Repo Selector Modal - Always rendered */}
       {isOwnProfile && (
         <RepoSelector
           open={showRepoSelector}
@@ -402,6 +419,6 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
           defaultSelected={[]}
         />
       )}
-    </div>
+    </>
   );
 } 

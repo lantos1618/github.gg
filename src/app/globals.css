@@ -229,6 +229,18 @@ html, body {
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Make all buttons and links show pointer cursor */
+  button,
+  a,
+  [role="button"],
+  [type="button"],
+  [type="submit"],
+  [type="reset"],
+  label[for],
+  select {
+    @apply cursor-pointer;
+  }
 }
 
 /*

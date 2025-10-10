@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Copy, Check, Download, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RepoFile } from '@/types/repo';
@@ -55,6 +55,80 @@ const generateBreadcrumb = (filePath: string) => {
   }));
 };
 
+const FileItem = memo(function FileItem({ file, fileIndex, copiedFile, onCopy, onDownload }: {
+  file: RepoFile;
+  fileIndex: number;
+  copiedFile: string | null;
+  onCopy: (path: string, content: string) => void;
+  onDownload: (name: string, content: string) => void;
+}) {
+  const fileName = file.path.split('/').pop() || file.path;
+  const content = file.content || '';
+  const breadcrumbs = generateBreadcrumb(file.path);
+  const extension = fileName.split('.').pop() || 'txt';
+  const language = getLanguageFromExtension(extension);
+  const lines = content.split('\n');
+
+  return (
+    <div key={file.path} id={`file-${file.path}`} className={fileIndex > 0 ? 'border-t-4 border-gray-300' : ''} style={{ contentVisibility: 'auto' }}>
+      {/* File Header with Breadcrumb */}
+      <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100/50 sticky top-0 z-10">
+        {/* Breadcrumb Navigation */}
+        <nav className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 overflow-x-auto scrollbar-hide">
+          {breadcrumbs.map((crumb) => (
+            <div key={crumb.path} className="flex items-center flex-shrink-0">
+              <span className={`whitespace-nowrap ${crumb.isLast ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
+                {crumb.name}
+              </span>
+              {!crumb.isLast && <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 mx-0.5 sm:mx-1" />}
+            </div>
+          ))}
+        </nav>
+
+        {/* File Info & Actions */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+          <div className="flex items-center space-x-3 sm:space-x-4 text-xs sm:text-sm text-gray-500">
+            <span>{formatFileSize(file.size)}</span>
+            <span>{lines.length} lines</span>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onCopy(file.path, content)}
+              className="flex-1 sm:flex-initial text-xs sm:text-sm h-8 px-2 sm:px-3"
+            >
+              {copiedFile === file.path ? <Check className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" /> : <Copy className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />}
+              <span className="hidden sm:inline">{copiedFile === file.path ? 'Copied!' : 'Copy'}</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onDownload(fileName, content)}
+              className="flex-1 sm:flex-initial text-xs sm:text-sm h-8 px-2 sm:px-3"
+            >
+              <Download className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Download</span>
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Code Content */}
+      <div className="relative shiki-wrapper" style={{ contain: 'layout style paint' }}>
+        <ShikiHighlighter
+          language={language}
+          theme="github-dark"
+          showLineNumbers={true}
+        >
+          {content}
+        </ShikiHighlighter>
+      </div>
+    </div>
+  );
+});
+
 export function EnhancedCodeViewer({ files }: EnhancedCodeViewerProps) {
   const [copiedFile, setCopiedFile] = useState<string | null>(null);
 
@@ -96,74 +170,17 @@ export function EnhancedCodeViewer({ files }: EnhancedCodeViewerProps) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
       {/* Scrollable Files */}
-      <div className="overflow-y-auto max-h-[calc(100vh-200px)]">
-        {files.map((file, fileIndex) => {
-          const fileName = file.path.split('/').pop() || file.path;
-          const content = file.content || '';
-          const breadcrumbs = generateBreadcrumb(file.path);
-          const extension = fileName.split('.').pop() || 'txt';
-          const language = getLanguageFromExtension(extension);
-          const lines = content.split('\n');
-
-          return (
-            <div key={file.path} id={`file-${file.path}`} className={fileIndex > 0 ? 'border-t-4 border-gray-300' : ''}>
-              {/* File Header with Breadcrumb */}
-              <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100/50 sticky top-0 z-10">
-                {/* Breadcrumb Navigation */}
-                <nav className="flex items-center space-x-2 text-sm text-gray-600 mb-3 overflow-x-auto">
-                  {breadcrumbs.map((crumb) => (
-                    <div key={crumb.path} className="flex items-center">
-                      <span className={`whitespace-nowrap ${crumb.isLast ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
-                        {crumb.name}
-                      </span>
-                      {!crumb.isLast && <ChevronRight className="w-4 h-4 text-gray-400 mx-1" />}
-                    </div>
-                  ))}
-                </nav>
-
-                {/* File Info */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500 mt-1">
-                      <span>{formatFileSize(file.size)}</span>
-                      <span>{lines.length} lines</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleCopyFile(file.path, content)}
-                    >
-                      {copiedFile === file.path ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
-                      {copiedFile === file.path ? 'Copied!' : 'Copy'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDownloadFile(fileName, content)}
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Download
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Code Content */}
-              <div className="relative shiki-wrapper">
-                <ShikiHighlighter
-                  language={language}
-                  theme="github-dark"
-                  showLineNumbers={true}
-                >
-                  {content}
-                </ShikiHighlighter>
-              </div>
-            </div>
-          );
-        })}
+      <div className="overflow-y-auto max-h-[calc(100vh-200px)]" style={{ willChange: 'scroll-position' }}>
+        {files.map((file, fileIndex) => (
+          <FileItem
+            key={file.path}
+            file={file}
+            fileIndex={fileIndex}
+            copiedFile={copiedFile}
+            onCopy={handleCopyFile}
+            onDownload={handleDownloadFile}
+          />
+        ))}
       </div>
     </div>
   );

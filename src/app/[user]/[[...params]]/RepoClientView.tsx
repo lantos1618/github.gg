@@ -7,6 +7,7 @@ import { EnhancedCodeViewer } from '@/components/EnhancedCodeViewer';
 import RepoSkeleton from '@/components/RepoSkeleton';
 import { RepoStatus } from '@/components/RepoStatus';
 import { useRepoData } from '@/lib/hooks/useRepoData';
+import { Menu } from 'lucide-react';
 
 interface RepoClientViewProps {
   user: string;
@@ -18,6 +19,7 @@ interface RepoClientViewProps {
 export default function RepoClientView({ user, repo, refName, path }: RepoClientViewProps) {
   const { files, isLoading, error, totalFiles } = useRepoData({ user, repo, ref: refName, path });
   const [selectedFilePaths, setSelectedFilePaths] = useState<Set<string>>(new Set());
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Auto-select all files when files load
   React.useEffect(() => {
@@ -46,20 +48,41 @@ export default function RepoClientView({ user, repo, refName, path }: RepoClient
 
   return (
     <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
-      <div className="max-w-screen-xl w-full mx-auto mt-8">
+      <div className="max-w-screen-xl w-full mx-auto mt-4 sm:mt-8 px-2 sm:px-4">
         {isLoading ? (
-          <div className="p-8">
+          <div className="p-4 sm:p-8">
             <RepoSkeleton />
           </div>
         ) : (
-          <div className="flex gap-4 h-[calc(100vh-200px)]">
+          <div className="flex gap-2 sm:gap-4 h-[calc(100vh-200px)]">
+            {/* Mobile toggle button */}
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden fixed bottom-6 left-6 z-30 p-4 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+              title="Open file tree"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+
             {/* File Tree Sidebar */}
-            <div className="w-80 flex-shrink-0">
+            <div className="hidden lg:block lg:w-80 flex-shrink-0">
               <FileTreeSidebar
                 files={files}
                 selectedFiles={selectedFilePaths}
                 onToggleFile={handleToggleFile}
                 className="h-full rounded-lg shadow-sm"
+              />
+            </div>
+
+            {/* Mobile Sidebar */}
+            <div className="lg:hidden">
+              <FileTreeSidebar
+                files={files}
+                selectedFiles={selectedFilePaths}
+                onToggleFile={handleToggleFile}
+                className="h-full rounded-lg shadow-sm"
+                isOpen={isSidebarOpen}
+                onToggle={() => setIsSidebarOpen(false)}
               />
             </div>
 

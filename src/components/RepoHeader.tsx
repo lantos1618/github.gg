@@ -61,77 +61,80 @@ export function RepoHeader({
   };
 
   return (
-    <div className="max-w-screen-xl w-full mx-auto px-4">
-      <div className="flex flex-col gap-4 mb-8 bg-white p-8 rounded-xl shadow-lg border border-gray-200 mt-8">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-1">
-              <Link 
-                href={`/${user}`}
-                className="hover:text-gray-600 transition-colors"
+    <div className="max-w-screen-xl w-full mx-auto px-2 sm:px-4">
+      <div className="flex flex-col gap-3 sm:gap-4 mb-8 bg-white p-3 sm:p-8 rounded-xl shadow-lg border border-gray-200 mt-4 sm:mt-8">
+        {/* Title row */}
+        <div className="flex flex-col gap-3">
+          <h1 className="text-lg sm:text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-1 break-all">
+            <Link
+              href={`/${user}`}
+              className="hover:text-gray-600 transition-colors"
+            >
+              {user}
+            </Link>
+            <span className="text-gray-800">/</span>
+            <a
+              href={githubUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-gray-600 transition-colors break-all"
+            >
+              {repo}
+            </a>
+          </h1>
+
+          {/* Meta info row */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+            {fileCount !== undefined && (
+              <p className="text-xs sm:text-sm text-gray-600">
+                {fileCount} file{fileCount !== 1 ? 's' : ''}
+              </p>
+            )}
+            {loadingBranches ? (
+              <span className="text-xs text-gray-400">Loading branches...</span>
+            ) : branchError ? (
+              <span className="text-xs text-red-500">{branchError.message || 'Failed to load branches'}</span>
+            ) : branches.length > 0 ? (
+              <Select
+                value={selectedBranch}
+                onValueChange={handleBranchChange}
+                disabled={loadingBranches}
               >
-                {user}
-              </Link>
-              <span className="text-gray-800">/</span>
-              <a 
-                href={githubUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-gray-600 transition-colors"
-              >
-                {repo}
-              </a>
-            </h1>
-            <div className="flex items-center gap-4 mt-1">
-              {fileCount !== undefined && (
-                <p className="text-sm text-gray-600">
-                  {fileCount} file{fileCount !== 1 ? 's' : ''}
-                </p>
-              )}
-              {loadingBranches ? (
-                <span className="text-xs text-gray-400">Loading branches...</span>
-              ) : branchError ? (
-                <span className="text-xs text-red-500">{branchError.message || 'Failed to load branches'}</span>
-              ) : branches.length > 0 ? (
-                <Select
-                  value={selectedBranch}
-                  onValueChange={handleBranchChange}
-                  disabled={loadingBranches}
-                >
-                  <SelectTrigger className="w-[120px] text-xs">
-                    <SelectValue placeholder="Select branch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branches.map(branch => (
-                      <SelectItem key={branch} value={branch} className="text-xs">
-                        {branch}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : null}
-            </div>
+                <SelectTrigger className="w-full sm:w-[120px] text-xs">
+                  <SelectValue placeholder="Select branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.map(branch => (
+                    <SelectItem key={branch} value={branch} className="text-xs">
+                      {branch}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* Buttons row */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full">
             <button
               onClick={onCopyAll}
               disabled={isCopying}
-              className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed min-w-[160px] justify-center cursor-pointer"
+              className="w-full sm:w-auto px-3 sm:px-4 py-2.5 sm:py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed sm:min-w-[140px] justify-center cursor-pointer text-sm"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
               </svg>
               <span>
-                {isCopying ? 'Copying' : copied ? 'Copied!' : 'Copy Code'}
+                {isCopying ? 'Copying...' : copied ? 'Copied!' : 'Copy Code'}
               </span>
               {isCopying && <LoadingWave size="sm" color="white" />}
               {copied && <AnimatedTick size="sm" color="#10b981" />}
             </button>
             <button
               onClick={onDownloadAll}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto px-3 sm:px-4 py-2.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 justify-center cursor-pointer text-sm"
             >
-              <Download className="h-5 w-5" />
+              <Download className="h-4 w-4 flex-shrink-0" />
               <span>Download All</span>
             </button>
           </div>

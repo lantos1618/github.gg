@@ -48,17 +48,17 @@ export function WikiGenerationButton({ owner, repo }: WikiGenerationButtonProps)
 
     toast.info(`Generating wiki documentation${chunking ? ' with chunking' : ''}...`, {
       description: chunking
-        ? 'Analyzing large repo in chunks for comprehensive documentation.'
-        : 'This may take a minute. Analyzing your codebase with AI.',
+        ? 'Massive repo detected. Using multi-pass chunking strategy.'
+        : 'Analyzing codebase with 1M token context window.',
     });
 
     try {
       await generateWiki.mutateAsync({
         owner,
         repo,
-        maxFiles: chunking ? 300 : 50, // More files when chunking (Gemini 2.5 Pro: 1M token limit)
+        maxFiles: chunking ? 500 : 200, // Standard: 200 files (~800k tokens), Chunked: 500+ files
         useChunking: chunking,
-        tokensPerChunk: 100000, // 100k tokens per chunk (~400k chars of code)
+        tokensPerChunk: 800000, // 800k tokens per chunk (utilizing 1M context window)
       });
     } catch (error) {
       // Error handled in onError callback
@@ -95,15 +95,15 @@ export function WikiGenerationButton({ owner, repo }: WikiGenerationButtonProps)
           <DropdownMenuItem onClick={() => handleGenerate(false)}>
             <Book className="h-4 w-4 mr-2" />
             <div className="flex flex-col">
-              <span>Standard (up to 50 files)</span>
-              <span className="text-xs text-muted-foreground">Faster, single pass</span>
+              <span>Standard (up to 200 files)</span>
+              <span className="text-xs text-muted-foreground">1M token context, single pass</span>
             </div>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => handleGenerate(true)}>
             <Settings className="h-4 w-4 mr-2" />
             <div className="flex flex-col">
-              <span>Chunked (up to 300 files)</span>
-              <span className="text-xs text-muted-foreground">Token-based chunking, comprehensive analysis</span>
+              <span>Massive Repos (500+ files)</span>
+              <span className="text-xs text-muted-foreground">Multi-pass chunking at 800k tokens/chunk</span>
             </div>
           </DropdownMenuItem>
         </DropdownMenuContent>

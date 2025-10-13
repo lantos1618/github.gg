@@ -117,14 +117,20 @@ export interface DocumentationParams {
   }>;
   packageJson?: Record<string, unknown>;
   readme?: string;
-  useChunking?: boolean; // Enable chunking for large repos
-  tokensPerChunk?: number; // Target tokens per chunk (default: 100k, Gemini 2.5 Pro max: 1M input)
+  useChunking?: boolean; // Enable chunking for massive repos
+  tokensPerChunk?: number; // Target tokens per chunk (default: 800k, Gemini 2.5 Pro max: 1M input)
 }
 
 /**
  * Estimate token count from text
  * Approximation: 1 token ≈ 4 characters (rough average for code)
  * Gemini 2.5 Pro limits: 1M input tokens, 32k output tokens
+ *
+ * We chunk at 800k tokens to leave headroom for:
+ * - Prompt structure and instructions (~50k tokens)
+ * - README/package.json content (~50k tokens)
+ * - Output generation (32k tokens)
+ * - Safety buffer (68k tokens)
  */
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
@@ -256,7 +262,7 @@ export async function generateDocumentation({
   packageJson,
   readme,
   useChunking = false,
-  tokensPerChunk = 100000, // 100k tokens per chunk (Gemini 2.5 Pro supports up to 1M)
+  tokensPerChunk = 800000, // 800k tokens per chunk (Gemini 2.5 Pro: 1M context window)
 }: DocumentationParams): Promise<DocumentationResponse> {
   try {
     let totalInputTokens = 0;

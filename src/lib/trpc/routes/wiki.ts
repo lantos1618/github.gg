@@ -75,9 +75,9 @@ export const wikiRouter = router({
     .input(z.object({
       owner: z.string(),
       repo: z.string(),
-      maxFiles: z.number().optional().default(50),
+      maxFiles: z.number().optional().default(200),
       useChunking: z.boolean().optional().default(false),
-      tokensPerChunk: z.number().optional().default(100000), // 100k tokens per chunk
+      tokensPerChunk: z.number().optional().default(800000), // 800k tokens per chunk (1M context window)
     }))
     .mutation(async ({ input, ctx }) => {
       const { owner, repo, maxFiles, useChunking, tokensPerChunk } = input;

@@ -21,20 +21,66 @@ function isPgErrorWithCode(e: unknown): e is { code: string } {
 }
 
 /**
+ * Extract email from a git patch format
+ * Parses lines like "From: Name <email@example.com>" or "Author: Name <email@example.com>"
+ */
+function extractEmailFromPatch(patchText: string): string | null {
+  const lines = patchText.split('\n');
+  for (const line of lines) {
+    // Look for From: or Author: lines
+    if (line.startsWith('From:') || line.startsWith('Author:')) {
+      // Extract email from format: "Name <email@example.com>"
+      const emailMatch = line.match(/<([^>]+)>/);
+      if (emailMatch && emailMatch[1]) {
+        const email = emailMatch[1];
+        // Filter out noreply emails
+        if (!email.includes('noreply.github.com') && !email.endsWith('@github.com')) {
+          return email;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Find the real email of a GitHub user by scanning their commits in public repos.
  * Returns the most frequent non-noreply email, or null if none found.
+ * Fallback: If API doesn't return emails, fetch commit patches to extract them.
  */
 export async function findAndStoreDeveloperEmail(octokit: Octokit, username: string, repos: { name: string }[]): Promise<string | null> {
   const emailCounts: Record<string, number> = {};
   let bestEmail: string | null = null;
   let bestRepo: string | null = null;
-  
+
   for (const repo of repos) {
     try {
       const { data: commits } = await octokit.repos.listCommits({ owner: username, repo: repo.name, per_page: 30 });
+
       for (const commit of commits) {
-        const email = commit.commit?.author?.email;
         const login = commit.author?.login;
+        let email = commit.commit?.author?.email;
+
+        // If no email in API response or it's a noreply email, try fetching the patch as fallback
+        if (login === username && (!email || email.includes('noreply.github.com') || email.endsWith('@github.com'))) {
+          try {
+            // Fetch commit patch to extract real email
+            const patchResponse = await fetch(`https://github.com/${username}/${repo.name}/commit/${commit.sha}.patch`);
+            if (patchResponse.ok) {
+              const patchText = await patchResponse.text();
+              const patchEmail = extractEmailFromPatch(patchText);
+              if (patchEmail) {
+                email = patchEmail;
+                console.log(`✉️  Found email from patch for ${username}: ${email}`);
+              }
+            }
+          } catch (patchError) {
+            // Silently continue if patch fetch fails
+            console.warn(`Failed to fetch patch for commit ${commit.sha}:`, patchError);
+          }
+        }
+
+        // Count valid emails
         if (
           login === username &&
           email &&
@@ -58,7 +104,7 @@ export async function findAndStoreDeveloperEmail(octokit: Octokit, username: str
       continue;
     }
   }
-  
+
   if (bestEmail) {
     await db.insert(developerEmails).values({
       username,

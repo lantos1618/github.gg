@@ -1,6 +1,10 @@
 import ScorecardClientView from './ScorecardClientView';
 import RepoClientView from './RepoClientView';
 import DiagramClientView from './DiagramClientView';
+import PRListClientView from './PRListClientView';
+import PRDetailClientView from './PRDetailClientView';
+import IssueListClientView from './IssueListClientView';
+import IssueDetailClientView from './IssueDetailClientView';
 import { notFound } from 'next/navigation';
 import { parseRepoPath, parseRepoPathWithBranches } from '@/lib/utils';
 import { createGitHubServiceFromSession } from '@/lib/github';
@@ -48,6 +52,34 @@ export default async function Page({ params }: PageProps) {
     : parseRepoPath(awaitedParams);
     
   const { ref, path, tab, currentPath } = parsed;
+
+  // Handle pulls routes
+  if (rest.length >= 2 && rest[1] === 'pulls') {
+    if (rest.length === 2) {
+      // /user/repo/pulls - show all PRs
+      return <PRListClientView user={user} repo={repo} />;
+    } else if (rest.length === 3) {
+      // /user/repo/pulls/123 - show specific PR
+      const prNumber = parseInt(rest[2], 10);
+      if (!isNaN(prNumber)) {
+        return <PRDetailClientView user={user} repo={repo} number={prNumber} />;
+      }
+    }
+  }
+
+  // Handle issues routes
+  if (rest.length >= 2 && rest[1] === 'issues') {
+    if (rest.length === 2) {
+      // /user/repo/issues - show all issues
+      return <IssueListClientView user={user} repo={repo} />;
+    } else if (rest.length === 3) {
+      // /user/repo/issues/123 - show specific issue
+      const issueNumber = parseInt(rest[2], 10);
+      if (!isNaN(issueNumber)) {
+        return <IssueDetailClientView user={user} repo={repo} number={issueNumber} />;
+      }
+    }
+  }
 
   if (tab === 'scorecard' || currentPath.endsWith('/scorecard')) {
     return (

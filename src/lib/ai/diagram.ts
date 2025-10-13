@@ -108,9 +108,9 @@ ${files.map((file: { path: string; content: string }) => `--- ${file.path} ---\n
     return {
       diagramCode: result.object.diagramCode,
       usage: {
-        promptTokens: result.usage.promptTokens,
-        completionTokens: result.usage.completionTokens,
-        totalTokens: result.usage.totalTokens,
+        promptTokens: (result.usage as unknown as { inputTokens?: number }).inputTokens || 0,
+        completionTokens: (result.usage as unknown as { outputTokens?: number }).outputTokens || 0,
+        totalTokens: ((result.usage as unknown as { inputTokens?: number; outputTokens?: number }).inputTokens || 0) + ((result.usage as unknown as { inputTokens?: number; outputTokens?: number }).outputTokens || 0),
       },
     };
   }
@@ -149,9 +149,9 @@ ${files.map((file: { path: string; content: string }) => `--- ${file.path} ---\n
   return {
     diagramCode: result.object.diagramCode,
     usage: {
-      promptTokens: result.usage.promptTokens,
-      completionTokens: result.usage.completionTokens,
-      totalTokens: result.usage.totalTokens,
+      promptTokens: (result.usage as unknown as { inputTokens?: number }).inputTokens || 0,
+      completionTokens: (result.usage as unknown as { outputTokens?: number }).outputTokens || 0,
+      totalTokens: ((result.usage as unknown as { inputTokens?: number; outputTokens?: number }).inputTokens || 0) + ((result.usage as unknown as { inputTokens?: number; outputTokens?: number }).outputTokens || 0),
     },
   };
 } 

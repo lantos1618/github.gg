@@ -36,7 +36,7 @@ export const diagramInputSchema = z.object({
     size: z.number().optional(),
   })),
   diagramType: diagramTypeSchema.default('flowchart'),
-  options: z.record(z.any()).optional(),
+  options: z.record(z.string(), z.unknown()).optional(),
   // Retry context
   previousResult: z.string().optional(),
   lastError: z.string().optional(),
@@ -50,7 +50,7 @@ export const diagramInputSchemaServer = z.object({
   ref: z.string().optional().default('main'),
   path: z.string().optional(), // Add path for context
   diagramType: diagramTypeSchema.default('flowchart'),
-  options: z.record(z.any()).optional(),
+  options: z.record(z.string(), z.unknown()).optional(),
   // Retry context
   previousResult: z.string().optional(),
   lastError: z.string().optional(),

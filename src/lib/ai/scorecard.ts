@@ -84,9 +84,9 @@ ${files.map(file => `\n--- ${file.path} ---\n${file.content}`).join('\n')}`;
     return {
       scorecard: object,
       usage: {
-        promptTokens: usage.promptTokens,
-        completionTokens: usage.completionTokens,
-        totalTokens: usage.totalTokens,
+        promptTokens: (usage as unknown as { inputTokens?: number }).inputTokens || 0,
+        completionTokens: (usage as unknown as { outputTokens?: number }).outputTokens || 0,
+        totalTokens: ((usage as unknown as { inputTokens?: number; outputTokens?: number }).inputTokens || 0) + ((usage as unknown as { inputTokens?: number; outputTokens?: number }).outputTokens || 0),
       },
     };
   } catch (error) {

@@ -17,7 +17,7 @@ interface RepoClientViewProps {
 }
 
 export default function RepoClientView({ user, repo, refName, path }: RepoClientViewProps) {
-  const { files, isLoading, error, totalFiles } = useRepoData({ user, repo, ref: refName, path });
+  const { files, isLoading, error } = useRepoData({ user, repo, ref: refName, path });
   const [selectedFilePaths, setSelectedFilePaths] = useState<Set<string>>(new Set());
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 

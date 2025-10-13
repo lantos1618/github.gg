@@ -70,7 +70,7 @@ export function FeatureRequestBox() {
               Have a Feature Request?
             </h3>
             <p className="text-gray-600">
-              We'd love to hear your ideas! Share your thoughts and help us build something amazing.
+              We&apos;d love to hear your ideas! Share your thoughts and help us build something amazing.
             </p>
           </div>
 

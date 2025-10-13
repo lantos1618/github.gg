@@ -175,7 +175,6 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
   
   const responsiveRows = useResponsiveRows();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth] = useState(0);
 
   // NEW: State for shuffled repos
   const [shuffledRows, setShuffledRows] = useState<RepoData[][] | null>(null);
@@ -191,9 +190,8 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
     }
   }, []);
 
-  // For row refs and widths
+  // For row refs
   const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const [rowWidths, setRowWidths] = useState<number[]>([]);
 
   useEffect(() => {
     const sponsors = sponsorReposRaw || [];
@@ -241,14 +239,6 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
     const rows = Array.from({ length: responsiveRows }, (_, i) => finalRepos.slice(i * 8, (i + 1) * 8));
     setShuffledRows(rows);
   }, [popularReposRaw, sponsorReposRaw, userReposRaw, installationReposRaw, auth.isSignedIn, responsiveRows]);
-
-  useEffect(() => {
-    if (shuffledRows) {
-      setRowWidths(
-        shuffledRows.map((_, idx) => rowRefs.current[idx]?.scrollWidth || 0)
-      );
-    }
-  }, [shuffledRows, containerWidth]);
 
   const isLoading = false;
 

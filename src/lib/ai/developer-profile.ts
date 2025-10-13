@@ -229,9 +229,12 @@ export async function generateDeveloperProfile({
     scorecardResults.forEach(result => {
       if (result) {
         scorecardInsights += `\n\n## Repository: ${result.repoName}\n${result.scorecard.markdown}`;
-        totalUsage.promptTokens += result.usage.promptTokens;
-        totalUsage.completionTokens += result.usage.completionTokens;
-        totalUsage.totalTokens += result.usage.totalTokens;
+        const usageData = result.usage as unknown as { inputTokens?: number; outputTokens?: number };
+        const inputTokens = usageData.inputTokens || 0;
+        const outputTokens = usageData.outputTokens || 0;
+        totalUsage.promptTokens += inputTokens;
+        totalUsage.completionTokens += outputTokens;
+        totalUsage.totalTokens += inputTokens + outputTokens;
       }
     });
   }
@@ -272,9 +275,12 @@ export async function generateDeveloperProfile({
   
   console.log(`✅ AI profile generation completed`);
 
-  totalUsage.promptTokens += usage.promptTokens;
-  totalUsage.completionTokens += usage.completionTokens;
-  totalUsage.totalTokens += usage.totalTokens;
+  const usageData = usage as unknown as { inputTokens?: number; outputTokens?: number };
+  const inputTokens = usageData.inputTokens || 0;
+  const outputTokens = usageData.outputTokens || 0;
+  totalUsage.promptTokens += inputTokens;
+  totalUsage.completionTokens += outputTokens;
+  totalUsage.totalTokens += inputTokens + outputTokens;
 
   const patchedProfile = {
     ...object,

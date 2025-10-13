@@ -86,12 +86,16 @@ export async function analyzeBattle(
     messages: [{ role: 'user', content: prompt }],
   });
 
+  const usageData = usage as unknown as { inputTokens?: number; outputTokens?: number };
+  const inputTokens = usageData.inputTokens || 0;
+  const outputTokens = usageData.outputTokens || 0;
+
   return {
     result: object,
     usage: {
-      promptTokens: usage.promptTokens,
-      completionTokens: usage.completionTokens,
-      totalTokens: usage.totalTokens,
+      promptTokens: inputTokens,
+      completionTokens: outputTokens,
+      totalTokens: inputTokens + outputTokens,
     },
   };
 }

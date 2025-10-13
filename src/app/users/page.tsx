@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { LoadingWave } from '@/components/LoadingWave';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Search, User, Sparkles, Clock, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, User, Sparkles, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import type { DeveloperProfile } from '@/lib/types/profile';
@@ -84,9 +84,9 @@ export default function UsersPage() {
           </p>
         </div>
 
-        {/* Search and Sort Controls */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
+        {/* Search Control */}
+        <div className="mb-6">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <Input
               type="text"
@@ -98,34 +98,6 @@ export default function UsersPage() {
               }}
               className="pl-10 py-6 text-lg"
             />
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              variant={sortField === 'date' ? 'default' : 'outline'}
-              onClick={() => toggleSort('date')}
-              className="flex items-center gap-2"
-            >
-              <Clock className="h-4 w-4" />
-              Date
-              {sortField === 'date' && <ArrowUpDown className="h-3 w-3" />}
-            </Button>
-            <Button
-              variant={sortField === 'score' ? 'default' : 'outline'}
-              onClick={() => toggleSort('score')}
-              className="flex items-center gap-2"
-            >
-              Score
-              {sortField === 'score' && <ArrowUpDown className="h-3 w-3" />}
-            </Button>
-            <Button
-              variant={sortField === 'username' ? 'default' : 'outline'}
-              onClick={() => toggleSort('username')}
-              className="flex items-center gap-2"
-            >
-              Name
-              {sortField === 'username' && <ArrowUpDown className="h-3 w-3" />}
-            </Button>
           </div>
         </div>
 

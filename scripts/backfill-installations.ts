@@ -45,15 +45,18 @@ async function backfillInstallations() {
 
       if (!existing) {
         // Insert installation record
+        const account = installation.account;
+        const accountType = account && 'type' in account ? account.type : 'User';
+        const accountLogin = account && 'login' in account ? account.login : account && 'slug' in account ? account.slug : 'unknown';
+
         await db.insert(githubAppInstallations).values({
           installationId: installation.id,
-          accountId: installation.account?.id || 0,
-          accountType: installation.account?.type || 'User',
-          accountLogin: installation.account?.login || 'unknown',
-          accountAvatarUrl: installation.account?.avatar_url,
-          accountName: installation.account?.login || 'unknown',
+          accountId: account?.id || 0,
+          accountType,
+          accountLogin,
+          accountAvatarUrl: account?.avatar_url,
+          accountName: accountLogin,
           repositorySelection: installation.repository_selection,
-          targetType: installation.target_type,
         });
         console.log(`  ✓ Created installation record`);
       } else {

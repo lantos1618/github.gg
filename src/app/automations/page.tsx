@@ -9,10 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
-import { Webhook, Activity, Search, RefreshCw, ExternalLink } from 'lucide-react';
+import { Webhook, Activity, Search, RefreshCw, ExternalLink, Sparkles, Zap, Shield } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useSession } from '@/lib/auth/client';
 
 export default function AutomationsPage() {
+  const { data: session, isPending: sessionLoading } = useSession();
   const [repoSearch, setRepoSearch] = useState('');
   const [activitySearch, setActivitySearch] = useState('');
 
@@ -53,6 +55,66 @@ export default function AutomationsPage() {
       enabled: !currentStatus,
     });
   };
+
+  // Show marketing content when logged out
+  if (!sessionLoading && !session) {
+    return (
+      <div className="container py-8 max-w-6xl px-4 md:px-8">
+        <div className="mb-12 text-center">
+          <h1 className="text-5xl font-bold mb-4">AI-Powered GitHub Automations</h1>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            Let AI analyze your pull requests, provide detailed reviews, and keep your team informed - automatically.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-8 mb-12">
+          <Card>
+            <CardHeader>
+              <Sparkles className="h-12 w-12 text-purple-600 mb-2" />
+              <CardTitle>Smart PR Reviews</CardTitle>
+              <CardDescription>
+                AI analyzes every pull request and provides detailed code reviews, catching bugs and suggesting improvements.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Zap className="h-12 w-12 text-yellow-600 mb-2" />
+              <CardTitle>Instant Feedback</CardTitle>
+              <CardDescription>
+                Get automated feedback within seconds of opening a PR. No more waiting for reviewers.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Shield className="h-12 w-12 text-blue-600 mb-2" />
+              <CardTitle>Security Scanning</CardTitle>
+              <CardDescription>
+                Automatically detect security vulnerabilities, code smells, and potential bugs before they hit production.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+
+        <Card className="max-w-2xl mx-auto">
+          <CardContent className="pt-6 text-center">
+            <h2 className="text-2xl font-bold mb-4">Ready to automate your workflow?</h2>
+            <p className="text-muted-foreground mb-6">
+              Sign in with GitHub to install our app and start automating your repositories.
+            </p>
+            <Button size="lg" asChild>
+              <Link href="/api/auth/sign-in">
+                Sign In with GitHub
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!installationInfo) {
     return (

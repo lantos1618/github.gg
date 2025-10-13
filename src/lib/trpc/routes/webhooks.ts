@@ -32,7 +32,7 @@ export const webhooksRouter = router({
         prReviewEnabled: true,
         autoUpdateEnabled: true,
         minScoreThreshold: null,
-        excludedRepos: [],
+        // excludedRepos defaults to [] in SQL, no need to specify
       }).returning();
       prefs = newPrefs;
     }
@@ -85,7 +85,7 @@ export const webhooksRouter = router({
           prReviewEnabled: input.prReviewEnabled ?? true,
           autoUpdateEnabled: input.autoUpdateEnabled ?? true,
           minScoreThreshold: input.minScoreThreshold ?? null,
-          excludedRepos: input.excludedRepos ?? [],
+          ...(input.excludedRepos ? { excludedRepos: input.excludedRepos } : {}),
         }).returning();
         return created;
       }
@@ -183,7 +183,7 @@ export const webhooksRouter = router({
           prReviewEnabled: true,
           autoUpdateEnabled: true,
           minScoreThreshold: null,
-          excludedRepos: [],
+          // excludedRepos defaults to [] in SQL, no need to specify
         }).returning();
         prefs = newPrefs;
       }

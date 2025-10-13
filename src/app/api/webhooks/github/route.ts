@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { githubAppInstallations, installationRepositories } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { postPRReviewComment, isPRReviewEnabled } from '@/lib/github/pr-comment-service';
+import { postCommitAnalysisComment, postIssueAnalysisComment, isAnalysisEnabled } from '@/lib/github/commit-issue-comment-service';
 
 // Only initialize webhooks if the secret is available
 const webhooks = process.env.GITHUB_WEBHOOK_SECRET
@@ -59,6 +60,84 @@ async function handlePRAnalysis({
     console.log(`Successfully posted review for PR #${prNumber} in ${owner}/${repo}`);
   } catch (error) {
     console.error(`Failed to post review for PR #${prNumber}:`, error);
+  }
+}
+
+// Background handler for commit analysis
+async function handleCommitAnalysis({
+  installationId,
+  owner,
+  repo,
+  commitSha,
+}: {
+  installationId?: number;
+  owner: string;
+  repo: string;
+  commitSha: string;
+}) {
+  if (!installationId) {
+    console.error('No installation ID provided for commit analysis');
+    return;
+  }
+
+  // Check if analysis is enabled for this repo
+  const isEnabled = await isAnalysisEnabled(installationId, owner, repo);
+  if (!isEnabled) {
+    console.log(`Commit analysis not enabled for ${owner}/${repo}`);
+    return;
+  }
+
+  console.log(`Starting commit analysis for ${commitSha.slice(0, 7)} in ${owner}/${repo}`);
+
+  try {
+    await postCommitAnalysisComment({
+      installationId,
+      owner,
+      repo,
+      commitSha,
+    });
+    console.log(`Successfully posted analysis for commit ${commitSha.slice(0, 7)} in ${owner}/${repo}`);
+  } catch (error) {
+    console.error(`Failed to analyze commit ${commitSha.slice(0, 7)}:`, error);
+  }
+}
+
+// Background handler for issue analysis
+async function handleIssueAnalysis({
+  installationId,
+  owner,
+  repo,
+  issueNumber,
+}: {
+  installationId?: number;
+  owner: string;
+  repo: string;
+  issueNumber: number;
+}) {
+  if (!installationId) {
+    console.error('No installation ID provided for issue analysis');
+    return;
+  }
+
+  // Check if analysis is enabled for this repo
+  const isEnabled = await isAnalysisEnabled(installationId, owner, repo);
+  if (!isEnabled) {
+    console.log(`Issue analysis not enabled for ${owner}/${repo}`);
+    return;
+  }
+
+  console.log(`Starting issue analysis for #${issueNumber} in ${owner}/${repo}`);
+
+  try {
+    await postIssueAnalysisComment({
+      installationId,
+      owner,
+      repo,
+      issueNumber,
+    });
+    console.log(`Successfully posted analysis for issue #${issueNumber} in ${owner}/${repo}`);
+  } catch (error) {
+    console.error(`Failed to analyze issue #${issueNumber}:`, error);
   }
 }
 
@@ -161,9 +240,26 @@ if (webhooks) {
   });
 
   webhooks.on('push', async ({ payload }) => {
-    console.log(`Push event for ${payload.repository.full_name}`);
-    // TODO: Trigger background job for analysis
-    // This will be implemented when we add background job processing
+    console.log(`Push event for ${payload.repository.full_name} with ${payload.commits.length} commits`);
+
+    if (!payload.repository.owner) {
+      console.error('No owner found in push event');
+      return;
+    }
+
+    // Analyze each commit (limit to last 3 to avoid overwhelming API)
+    const commitsToAnalyze = payload.commits.slice(-3);
+
+    for (const commit of commitsToAnalyze) {
+      handleCommitAnalysis({
+        installationId: payload.installation?.id,
+        owner: payload.repository.owner.login,
+        repo: payload.repository.name,
+        commitSha: commit.id,
+      }).catch(error => {
+        console.error(`Failed to analyze commit ${commit.id.slice(0, 7)}:`, error);
+      });
+    }
   });
 
   webhooks.on('pull_request.opened', async ({ payload }) => {
@@ -199,6 +295,20 @@ if (webhooks) {
       headBranch: payload.pull_request.head.ref,
     }).catch(error => {
       console.error('Failed to re-analyze PR:', error);
+    });
+  });
+
+  webhooks.on('issues.opened', async ({ payload }) => {
+    console.log(`Issue opened: #${payload.issue.number} - ${payload.issue.title} in ${payload.repository.full_name}`);
+
+    // Trigger issue analysis in the background
+    handleIssueAnalysis({
+      installationId: payload.installation?.id,
+      owner: payload.repository.owner.login,
+      repo: payload.repository.name,
+      issueNumber: payload.issue.number,
+    }).catch(error => {
+      console.error('Failed to analyze issue:', error);
     });
   });
 }

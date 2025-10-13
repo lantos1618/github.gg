@@ -129,7 +129,7 @@ Your response must be a valid JSON object following the schema provided.`;
  * Format PR analysis as a markdown comment
  */
 function formatPRAnalysisAsMarkdown(analysis: PRAnalysisResult, prTitle: string, repoName: string): string {
-  return `## ${analysis.emoji} GitHub.gg AI Code Review
+  return `## ${analysis.emoji} gh.gg AI Code Review
 
 **Overall Score: ${analysis.overallScore}/100**
 
@@ -182,5 +182,5 @@ ${analysis.recommendations.map((r, i) => `${i + 1}. ${r}`).join('\n')}
 
 ---
 
-<sub>🤖 Powered by [GitHub.gg](https://github.gg) | [Analyze your repos](https://github.gg/${repoName})</sub>`;
+<sub>🤖 Powered by [gh.gg](https://github.gg) | [Analyze your repos](https://github.gg/${repoName})</sub>`;
 }

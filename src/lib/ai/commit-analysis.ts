@@ -203,5 +203,5 @@ ${analysis.howToFix.length > 0 ? analysis.howToFix.map(fix => {
 
 ---
 
-<sub>🤖 Powered by [gh.gg](https://gh.gg) | [Analyze your repos](https://gh.gg/${repoName})</sub>`;
+<sub>🤖 Powered by [gh.gg](https://github.gg) | [Analyze your repos](https://github.gg/${repoName})</sub>`;
 }

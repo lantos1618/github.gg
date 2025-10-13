@@ -232,5 +232,5 @@ ${analysis.howToImprove.length > 0 ? analysis.howToImprove.map(improvement => {
 
 ---
 
-<sub>🤖 Powered by [gh.gg](https://gh.gg) | [Analyze your repos](https://gh.gg/${repoName})</sub>`;
+<sub>🤖 Powered by [gh.gg](https://github.gg) | [Analyze your repos](https://github.gg/${repoName})</sub>`;
 }

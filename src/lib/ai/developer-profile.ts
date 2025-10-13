@@ -9,7 +9,6 @@ import { generateObject } from 'ai';
 import { developerProfileSchema } from '@/lib/types/profile';
 import { generateScorecardAnalysis } from './scorecard';
 import { and, eq, sql } from 'drizzle-orm';
-import { convertAIUsage, type AISDKv5Usage } from './usage-adapter';
 
 // Initialize Resend only if API key is available
 const resend = process.env.RESEND_API_KEY 
@@ -103,8 +102,8 @@ export type DeveloperProfileParams = {
 export type DeveloperProfileResult = {
   profile: DeveloperProfile;
   usage: {
-    promptTokens: number;
-    completionTokens: number;
+    inputTokens: number;
+    outputTokens: number;
     totalTokens: number;
   };
 };
@@ -124,7 +123,7 @@ export async function generateDeveloperProfile({
     topics: repo.topics,
   }));
 
-  const totalUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+  const totalUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
   let scorecardInsights = '';
 
   if (repoFiles && repoFiles.length > 0) {
@@ -164,7 +163,7 @@ export async function generateDeveloperProfile({
               metrics: existing.metrics,
               markdown: existing.markdown,
             },
-            usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }, // No new tokens used
+            usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 }, // No new tokens used
           };
         }
       }
@@ -230,10 +229,9 @@ export async function generateDeveloperProfile({
     scorecardResults.forEach(result => {
       if (result) {
         scorecardInsights += `\n\n## Repository: ${result.repoName}\n${result.scorecard.markdown}`;
-        const converted = convertAIUsage(result.usage);
-        totalUsage.promptTokens += converted.promptTokens;
-        totalUsage.completionTokens += converted.completionTokens;
-        totalUsage.totalTokens += converted.totalTokens;
+        totalUsage.inputTokens += result.usage.inputTokens;
+        totalUsage.outputTokens += result.usage.outputTokens;
+        totalUsage.totalTokens += result.usage.totalTokens;
       }
     });
   }
@@ -274,10 +272,9 @@ export async function generateDeveloperProfile({
   
   console.log(`✅ AI profile generation completed`);
 
-  const converted = convertAIUsage(usage as AISDKv5Usage);
-  totalUsage.promptTokens += converted.promptTokens;
-  totalUsage.completionTokens += converted.completionTokens;
-  totalUsage.totalTokens += converted.totalTokens;
+  totalUsage.inputTokens += usage.inputTokens || 0;
+  totalUsage.outputTokens += usage.outputTokens || 0;
+  totalUsage.totalTokens += (usage.inputTokens || 0) + (usage.outputTokens || 0);
 
   const patchedProfile = {
     ...object,

@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { DiagramType } from '@/lib/types/diagram';
-import { convertAIUsage, type AISDKv5Usage } from './usage-adapter';
 
 export const diagramSchema = z.object({
   diagramCode: z.string(),
@@ -22,8 +21,8 @@ export interface DiagramAnalysisParams {
 export interface DiagramAnalysisResult {
   diagramCode: string;
   usage: {
-    promptTokens: number;
-    completionTokens: number;
+    inputTokens: number;
+    outputTokens: number;
     totalTokens: number;
   };
 }
@@ -108,7 +107,11 @@ ${files.map((file: { path: string; content: string }) => `--- ${file.path} ---\n
 
     return {
       diagramCode: result.object.diagramCode,
-      usage: convertAIUsage(result.usage as AISDKv5Usage),
+      usage: {
+        inputTokens: result.usage.inputTokens || 0,
+        outputTokens: result.usage.outputTokens || 0,
+        totalTokens: (result.usage.inputTokens || 0) + (result.usage.outputTokens || 0),
+      },
     };
   }
 
@@ -145,6 +148,10 @@ ${files.map((file: { path: string; content: string }) => `--- ${file.path} ---\n
 
   return {
     diagramCode: result.object.diagramCode,
-    usage: convertAIUsage(result.usage as AISDKv5Usage),
+    usage: {
+      inputTokens: result.usage.inputTokens || 0,
+      outputTokens: result.usage.outputTokens || 0,
+      totalTokens: (result.usage.inputTokens || 0) + (result.usage.outputTokens || 0),
+    },
   };
 } 

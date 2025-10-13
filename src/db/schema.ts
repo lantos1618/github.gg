@@ -152,8 +152,8 @@ export const tokenUsage = pgTable('token_usage', {
   repoOwner: text('repo_owner'), // GitHub username/org name
   repoName: text('repo_name'), // Repository name
   model: text('model'), // AI model used (e.g., gemini-2.5-pro)
-  promptTokens: integer('prompt_tokens').notNull(),
-  completionTokens: integer('completion_tokens').notNull(),
+  inputTokens: integer('input_tokens').notNull(),
+  outputTokens: integer('output_tokens').notNull(),
   totalTokens: integer('total_tokens').notNull(),
   isByok: boolean('is_byok').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow(),

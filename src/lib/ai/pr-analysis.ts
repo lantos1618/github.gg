@@ -1,7 +1,6 @@
 import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { convertAIUsage, type AISDKv5Usage } from './usage-adapter';
 
 const prAnalysisSchema = z.object({
   overallScore: z.number().min(0).max(100),
@@ -51,8 +50,8 @@ export interface PRAnalysisResponse {
   analysis: PRAnalysisResult;
   markdown: string;
   usage: {
-    promptTokens: number;
-    completionTokens: number;
+    inputTokens: number;
+    outputTokens: number;
     totalTokens: number;
   };
 }
@@ -108,7 +107,11 @@ Your response must be a valid JSON object following the schema provided.`;
     return {
       analysis: object,
       markdown,
-      usage: convertAIUsage(usage as AISDKv5Usage),
+      usage: {
+        inputTokens: usage.inputTokens || 0,
+        outputTokens: usage.outputTokens || 0,
+        totalTokens: (usage.inputTokens || 0) + (usage.outputTokens || 0),
+      },
     };
   } catch (error) {
     console.error('PR Analysis error:', error);

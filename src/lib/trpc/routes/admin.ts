@@ -52,8 +52,8 @@ export const adminRouter = router({
 
       // Calculate costs
       const costBreakdown = calculateTotalCost(usage.map(u => ({
-        promptTokens: u.promptTokens,
-        completionTokens: u.completionTokens,
+        inputTokens: u.inputTokens,
+        outputTokens: u.outputTokens,
         totalTokens: u.totalTokens,
         model: u.model || 'gemini-2.5-pro', // Default model
       })));
@@ -117,8 +117,8 @@ export const adminRouter = router({
       });
 
       const costBreakdown = calculateTotalCost(usage.map(u => ({
-        promptTokens: u.promptTokens,
-        completionTokens: u.completionTokens,
+        inputTokens: u.inputTokens,
+        outputTokens: u.outputTokens,
         totalTokens: u.totalTokens,
         model: u.model || 'gemini-2.5-pro',
       })));
@@ -183,8 +183,8 @@ export const adminRouter = router({
       const usersWithUsage = users.map(user => {
         const userUsage = usageMap.get(user.id) || [];
         const costBreakdown = calculateTotalCost(userUsage.map(u => ({
-          promptTokens: u.promptTokens,
-          completionTokens: u.completionTokens,
+          inputTokens: u.inputTokens,
+          outputTokens: u.outputTokens,
           totalTokens: u.totalTokens,
           model: u.model || 'gemini-2.5-pro',
         })));
@@ -248,8 +248,8 @@ export const adminRouter = router({
         }
 
         const cost = calculateTokenCost({
-          promptTokens: u.promptTokens,
-          completionTokens: u.completionTokens,
+          inputTokens: u.inputTokens,
+          outputTokens: u.outputTokens,
           totalTokens: u.totalTokens,
           model: u.model || 'gemini-2.5-pro',
         });
@@ -331,8 +331,8 @@ export const adminRouter = router({
       // Use DRY utility for daily stats
       const stats = calculateDailyCostAndRevenue({
         usages: usage.map(u => ({
-          promptTokens: u.promptTokens,
-          completionTokens: u.completionTokens,
+          inputTokens: u.inputTokens,
+          outputTokens: u.outputTokens,
           totalTokens: u.totalTokens,
           model: u.model || undefined,
           createdAt: u.createdAt || undefined,

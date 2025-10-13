@@ -58,8 +58,8 @@ export default function AdminDashboard() {
     // Flatten all usage records for the month
     const usageRecords = usageStats.usage.map(u => ({
       userId: u.userId,
-      promptTokens: u.promptTokens,
-      completionTokens: u.completionTokens,
+      inputTokens: u.inputTokens,
+      outputTokens: u.outputTokens,
       totalTokens: u.totalTokens,
       isByok: u.isByok,
       model: u.model ?? undefined,

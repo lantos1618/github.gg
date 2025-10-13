@@ -514,7 +514,7 @@ async function updateUserRankings(
 async function logTokenUsage(
   userId: string,
   username: string,
-  usage: { totalTokens: number },
+  usage: { inputTokens: number; outputTokens: number; totalTokens: number },
   isByok: boolean
 ) {
   await db.insert(tokenUsage).values({
@@ -522,9 +522,9 @@ async function logTokenUsage(
     feature: 'arena_battle',
     repoOwner: username,
     repoName: null,
-    model: 'gemini-1.5-flash',
-    promptTokens: 0, // Not available in current implementation
-    completionTokens: 0, // Not available in current implementation
+    model: 'gemini-2.5-pro',
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
     totalTokens: usage.totalTokens,
     isByok,
     createdAt: new Date(),

@@ -2,8 +2,8 @@
 // Based on official pricing: https://ai.google.dev/pricing
 
 export interface TokenUsage {
-  promptTokens: number;
-  completionTokens: number;
+  inputTokens: number;
+  outputTokens: number;
   totalTokens: number;
   model: string;
 }
@@ -40,37 +40,37 @@ const DEFAULT_PRICING = GEMINI_2_5_FLASH_PRICING;
  * Calculate the cost for token usage based on the model used
  */
 export function calculateTokenCost(usage: TokenUsage): CostBreakdown {
-  const { promptTokens, completionTokens, model } = usage;
-  
+  const { inputTokens, outputTokens, model } = usage;
+
   let inputCost = 0;
   let outputCost = 0;
-  
+
   // Determine pricing based on model
-  if (model.includes('gemini-2.5-pro')) {
-    inputCost = (promptTokens / 1_000_000) * GEMINI_2_5_FLASH_PRICING.input;
-    outputCost = (completionTokens / 1_000_000) * GEMINI_2_5_FLASH_PRICING.output;
+  if (model.includes('gemini-2.5-flash')) {
+    inputCost = (inputTokens / 1_000_000) * GEMINI_2_5_FLASH_PRICING.input;
+    outputCost = (outputTokens / 1_000_000) * GEMINI_2_5_FLASH_PRICING.output;
   } else if (model.includes('gemini-2.5-pro')) {
     // Determine if this is a small or large prompt
-    const isLargePrompt = promptTokens > 200_000;
-    
-    const inputRate = isLargePrompt 
-      ? GEMINI_2_5_PRO_PRICING.input.large 
+    const isLargePrompt = inputTokens > 200_000;
+
+    const inputRate = isLargePrompt
+      ? GEMINI_2_5_PRO_PRICING.input.large
       : GEMINI_2_5_PRO_PRICING.input.small;
-    
-    const outputRate = isLargePrompt 
-      ? GEMINI_2_5_PRO_PRICING.output.large 
+
+    const outputRate = isLargePrompt
+      ? GEMINI_2_5_PRO_PRICING.output.large
       : GEMINI_2_5_PRO_PRICING.output.small;
-    
-    inputCost = (promptTokens / 1_000_000) * inputRate;
-    outputCost = (completionTokens / 1_000_000) * outputRate;
+
+    inputCost = (inputTokens / 1_000_000) * inputRate;
+    outputCost = (outputTokens / 1_000_000) * outputRate;
   } else {
     // Fallback to default pricing
-    inputCost = (promptTokens / 1_000_000) * DEFAULT_PRICING.input;
-    outputCost = (completionTokens / 1_000_000) * DEFAULT_PRICING.output;
+    inputCost = (inputTokens / 1_000_000) * DEFAULT_PRICING.input;
+    outputCost = (outputTokens / 1_000_000) * DEFAULT_PRICING.output;
   }
-  
+
   const totalCost = inputCost + outputCost;
-  
+
   return {
     inputCost: Math.round(inputCost * 100) / 100, // Round to 2 decimal places
     outputCost: Math.round(outputCost * 100) / 100,
@@ -122,8 +122,8 @@ export function calculateTotalCost(usages: TokenUsage[]): CostBreakdown {
  */
 export function calculateDailyCostAndRevenue({ usages, subscriptions, days, getPlanPrice }: {
   usages: Array<{
-    promptTokens: number;
-    completionTokens: number;
+    inputTokens: number;
+    outputTokens: number;
     totalTokens: number;
     model?: string;
     createdAt?: Date;
@@ -143,8 +143,8 @@ export function calculateDailyCostAndRevenue({ usages, subscriptions, days, getP
       .reduce((sum, u) => {
         if (!u.createdAt) return sum;
         const costObj = calculateTokenCost({
-          promptTokens: u.promptTokens,
-          completionTokens: u.completionTokens,
+          inputTokens: u.inputTokens,
+          outputTokens: u.outputTokens,
           totalTokens: u.totalTokens,
           model: u.model || 'gemini-2.5-pro',
         });
@@ -166,8 +166,8 @@ export function calculateDailyCostAndRevenue({ usages, subscriptions, days, getP
  */
 export function calculatePerUserCostAndUsage(usages: Array<{
   userId: string;
-  promptTokens: number;
-  completionTokens: number;
+  inputTokens: number;
+  outputTokens: number;
   totalTokens: number;
   isByok: boolean;
   model?: string;
@@ -175,8 +175,8 @@ export function calculatePerUserCostAndUsage(usages: Array<{
   const userMap = new Map<string, { totalCost: number; totalTokens: number; byokTokens: number; managedTokens: number; }>();
   usages.forEach(u => {
     const costObj = calculateTokenCost({
-      promptTokens: u.promptTokens,
-      completionTokens: u.completionTokens,
+      inputTokens: u.inputTokens,
+      outputTokens: u.outputTokens,
       totalTokens: u.totalTokens,
       model: u.model || 'gemini-2.5-pro',
     });

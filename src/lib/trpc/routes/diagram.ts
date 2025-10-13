@@ -299,8 +299,8 @@ export const diagramRouter = router({
           repoOwner: owner,
           repoName: repo,
           model: 'gemini-2.5-pro', // Default model used
-          promptTokens: result.usage.promptTokens,
-          completionTokens: result.usage.completionTokens,
+          inputTokens: result.usage.inputTokens,
+          outputTokens: result.usage.outputTokens,
           totalTokens: result.usage.totalTokens,
           isByok: keyInfo.isByok,
         });

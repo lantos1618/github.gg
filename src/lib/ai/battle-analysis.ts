@@ -4,7 +4,6 @@ import { ELO_TIERS, K_FACTORS } from '@/lib/constants/arena';
 import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { convertAIUsage, type AISDKv5Usage } from './usage-adapter';
 
 export type BattleAnalysisParams = {
   challenger: {
@@ -34,8 +33,8 @@ export type BattleAnalysisResult = {
     recommendations: string[];
   };
   usage: {
-    promptTokens: number;
-    completionTokens: number;
+    inputTokens: number;
+    outputTokens: number;
     totalTokens: number;
   };
 };
@@ -89,7 +88,11 @@ export async function analyzeBattle(
 
   return {
     result: object,
-    usage: convertAIUsage(usage as AISDKv5Usage),
+    usage: {
+      inputTokens: usage.inputTokens || 0,
+      outputTokens: usage.outputTokens || 0,
+      totalTokens: (usage.inputTokens || 0) + (usage.outputTokens || 0),
+    },
   };
 }
 

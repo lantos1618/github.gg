@@ -76,9 +76,11 @@ export const wikiRouter = router({
       owner: z.string(),
       repo: z.string(),
       maxFiles: z.number().optional().default(50),
+      useChunking: z.boolean().optional().default(false),
+      tokensPerChunk: z.number().optional().default(100000), // 100k tokens per chunk
     }))
     .mutation(async ({ input, ctx }) => {
-      const { owner, repo, maxFiles } = input;
+      const { owner, repo, maxFiles, useChunking, tokensPerChunk } = input;
       const githubService = createPublicGitHubService();
 
       try {
@@ -191,6 +193,8 @@ export const wikiRouter = router({
           files,
           packageJson,
           readme,
+          useChunking,
+          tokensPerChunk,
         });
 
         // Log token usage

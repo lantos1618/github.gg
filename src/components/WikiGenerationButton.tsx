@@ -1,11 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { Book, Loader2, ExternalLink } from 'lucide-react';
+import { Book, Loader2, ExternalLink, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc/client';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface WikiGenerationButtonProps {
   owner: string;
@@ -15,6 +23,7 @@ interface WikiGenerationButtonProps {
 export function WikiGenerationButton({ owner, repo }: WikiGenerationButtonProps) {
   const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [useChunking, setUseChunking] = useState(false);
 
   const generateWiki = trpc.wiki.generateWikiPages.useMutation({
     onSuccess: (data) => {
@@ -33,17 +42,23 @@ export function WikiGenerationButton({ owner, repo }: WikiGenerationButtonProps)
     },
   });
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (chunking: boolean) => {
     setIsGenerating(true);
-    toast.info('Generating wiki documentation...', {
-      description: 'This may take a minute. Analyzing your codebase with AI.',
+    setUseChunking(chunking);
+
+    toast.info(`Generating wiki documentation${chunking ? ' with chunking' : ''}...`, {
+      description: chunking
+        ? 'Analyzing large repo in chunks for comprehensive documentation.'
+        : 'This may take a minute. Analyzing your codebase with AI.',
     });
 
     try {
       await generateWiki.mutateAsync({
         owner,
         repo,
-        maxFiles: 50,
+        maxFiles: chunking ? 300 : 50, // More files when chunking (Gemini 2.5 Pro: 1M token limit)
+        useChunking: chunking,
+        tokensPerChunk: 100000, // 100k tokens per chunk (~400k chars of code)
       });
     } catch (error) {
       // Error handled in onError callback
@@ -53,25 +68,46 @@ export function WikiGenerationButton({ owner, repo }: WikiGenerationButtonProps)
 
   return (
     <div className="flex items-center gap-2">
-      <Button
-        onClick={handleGenerate}
-        disabled={isGenerating}
-        size="sm"
-        variant="outline"
-        className="gap-2"
-      >
-        {isGenerating ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Generating Wiki...
-          </>
-        ) : (
-          <>
-            <Book className="h-4 w-4" />
-            Generate Wiki Docs
-          </>
-        )}
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            disabled={isGenerating}
+            size="sm"
+            variant="outline"
+            className="gap-2"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {useChunking ? 'Chunking & Stitching...' : 'Generating Wiki...'}
+              </>
+            ) : (
+              <>
+                <Book className="h-4 w-4" />
+                Generate Wiki Docs
+              </>
+            )}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>Generation Mode</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => handleGenerate(false)}>
+            <Book className="h-4 w-4 mr-2" />
+            <div className="flex flex-col">
+              <span>Standard (up to 50 files)</span>
+              <span className="text-xs text-muted-foreground">Faster, single pass</span>
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleGenerate(true)}>
+            <Settings className="h-4 w-4 mr-2" />
+            <div className="flex flex-col">
+              <span>Chunked (up to 300 files)</span>
+              <span className="text-xs text-muted-foreground">Token-based chunking, comprehensive analysis</span>
+            </div>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <Button
         onClick={() => router.push(`/wiki/${owner}/${repo}`)}
         size="sm"

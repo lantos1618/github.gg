@@ -2,6 +2,30 @@ import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 
+// Partial documentation schema for chunks
+const partialDocumentationSchema = z.object({
+  components: z.array(z.object({
+    name: z.string(),
+    type: z.enum(['module', 'class', 'function', 'component', 'service', 'util']),
+    description: z.string(),
+    location: z.string(),
+    purpose: z.string(),
+    keyMethods: z.array(z.object({
+      name: z.string(),
+      description: z.string(),
+      parameters: z.string().optional(),
+      returns: z.string().optional(),
+    })).optional(),
+    dependencies: z.array(z.string()).optional(),
+  })),
+  apiEndpoints: z.array(z.object({
+    endpoint: z.string(),
+    method: z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH']),
+    description: z.string(),
+  })),
+  observations: z.string().describe('Key observations about this chunk of code'),
+});
+
 const documentationSchema = z.object({
   overview: z.object({
     summary: z.string().describe('High-level summary of what the codebase does'),
@@ -93,6 +117,17 @@ export interface DocumentationParams {
   }>;
   packageJson?: Record<string, unknown>;
   readme?: string;
+  useChunking?: boolean; // Enable chunking for large repos
+  tokensPerChunk?: number; // Target tokens per chunk (default: 100k, Gemini 2.5 Pro max: 1M input)
+}
+
+/**
+ * Estimate token count from text
+ * Approximation: 1 token ≈ 4 characters (rough average for code)
+ * Gemini 2.5 Pro limits: 1M input tokens, 32k output tokens
+ */
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
 }
 
 export interface DocumentationResponse {
@@ -106,6 +141,111 @@ export interface DocumentationResponse {
 }
 
 /**
+ * Analyze a chunk of files and return partial documentation
+ */
+async function analyzeChunk(
+  files: Array<{ path: string; content: string; language: string; size: number }>,
+  chunkIndex: number,
+  totalChunks: number,
+  repoName: string
+) {
+  const fileContents = files.map(f => `
+// ${f.path} (${f.language}, ${f.size} bytes)
+${f.content.slice(0, 2000)} // Truncated if too long
+`).join('\n\n');
+
+  const prompt = `You are analyzing chunk ${chunkIndex + 1} of ${totalChunks} for repository: ${repoName}
+
+IMPORTANT: This is CHUNK ${chunkIndex + 1}/${totalChunks}. Focus on documenting the components and APIs in THIS chunk only.
+
+CODEBASE FILES IN THIS CHUNK:
+${fileContents}
+
+Extract and document:
+1. All components, classes, functions, modules in these files
+2. Any API endpoints or routes defined in these files
+3. Key observations about the code patterns and architecture in this chunk
+
+Your response must be a valid JSON object following the schema provided.`;
+
+  const { object, usage } = await generateObject({
+    model: google('models/gemini-2.5-pro'),
+    schema: partialDocumentationSchema,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  return { result: object, usage };
+}
+
+/**
+ * Stitch together all chunk analyses into final comprehensive documentation
+ */
+async function stitchChunks(
+  chunkResults: Array<z.infer<typeof partialDocumentationSchema>>,
+  repoName: string,
+  repoDescription?: string,
+  primaryLanguage?: string,
+  packageJson?: Record<string, unknown>,
+  readme?: string
+) {
+  const allComponents = chunkResults.flatMap(chunk => chunk.components);
+  const allApiEndpoints = chunkResults.flatMap(chunk => chunk.apiEndpoints);
+  const allObservations = chunkResults.map((chunk, i) => `Chunk ${i + 1}: ${chunk.observations}`).join('\n\n');
+
+  const prompt = `You are an expert technical writer creating final comprehensive documentation by analyzing chunked results.
+
+REPOSITORY INFORMATION:
+Repository: ${repoName}
+${repoDescription ? `Description: ${repoDescription}` : ''}
+${primaryLanguage ? `Primary Language: ${primaryLanguage}` : ''}
+
+${readme ? `EXISTING README:
+${readme.slice(0, 2000)}
+
+` : ''}${packageJson ? `PACKAGE.JSON:
+${JSON.stringify(packageJson, null, 2).slice(0, 1000)}
+
+` : ''}ANALYZED COMPONENTS (${allComponents.length} total):
+${JSON.stringify(allComponents.slice(0, 50), null, 2)}
+
+API ENDPOINTS (${allApiEndpoints.length} total):
+${JSON.stringify(allApiEndpoints, null, 2)}
+
+OBSERVATIONS FROM ALL CHUNKS:
+${allObservations}
+
+REQUIREMENTS:
+- Generate comprehensive, unified documentation from the chunked analysis
+- Create a coherent overview that ties all components together
+- Provide architectural insights based on all observed patterns
+- Include practical examples and getting started guide
+- Make sure the documentation flows naturally as a single document
+- Fill in any gaps by inferring from the component relationships
+- Use clear, concise language
+
+Generate complete structured documentation that covers:
+1. Overview and purpose
+2. Getting started guide
+3. Architecture and design patterns
+4. Component/module documentation (synthesized from chunks)
+5. API reference (synthesized from chunks)
+6. Best practices
+7. Troubleshooting
+8. Code examples
+9. Contributing guidelines
+
+Your response must be a valid JSON object following the schema provided.`;
+
+  const { object, usage } = await generateObject({
+    model: google('models/gemini-2.5-pro'),
+    schema: documentationSchema,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  return { result: object, usage };
+}
+
+/**
  * Generate comprehensive documentation from a codebase
  */
 export async function generateDocumentation({
@@ -115,9 +255,90 @@ export async function generateDocumentation({
   files,
   packageJson,
   readme,
+  useChunking = false,
+  tokensPerChunk = 100000, // 100k tokens per chunk (Gemini 2.5 Pro supports up to 1M)
 }: DocumentationParams): Promise<DocumentationResponse> {
   try {
-    // Prepare file contents for analysis
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+
+    // Estimate total tokens
+    const totalEstimatedTokens = files.reduce((sum, f) => {
+      const content = f.content.slice(0, 2000);
+      return sum + estimateTokens(content) + estimateTokens(f.path);
+    }, 0);
+
+    // Decide whether to use chunking (if estimated tokens > tokensPerChunk)
+    const shouldChunk = useChunking && totalEstimatedTokens > tokensPerChunk;
+
+    if (shouldChunk) {
+      console.log(`🔄 Using token-based chunking: ${totalEstimatedTokens} estimated tokens, ~${Math.ceil(totalEstimatedTokens / tokensPerChunk)} chunks`);
+
+      // Split files into token-based chunks
+      const chunks: Array<Array<typeof files[0]>> = [];
+      let currentChunk: Array<typeof files[0]> = [];
+      let currentChunkTokens = 0;
+
+      for (const file of files) {
+        const content = file.content.slice(0, 2000);
+        const fileTokens = estimateTokens(content) + estimateTokens(file.path);
+
+        // If adding this file would exceed the limit, start a new chunk
+        if (currentChunkTokens + fileTokens > tokensPerChunk && currentChunk.length > 0) {
+          chunks.push(currentChunk);
+          currentChunk = [file];
+          currentChunkTokens = fileTokens;
+        } else {
+          currentChunk.push(file);
+          currentChunkTokens += fileTokens;
+        }
+      }
+
+      // Add the last chunk if it has files
+      if (currentChunk.length > 0) {
+        chunks.push(currentChunk);
+      }
+
+      // Analyze each chunk
+      const chunkResults: Array<z.infer<typeof partialDocumentationSchema>> = [];
+      for (let i = 0; i < chunks.length; i++) {
+        console.log(`📝 Analyzing chunk ${i + 1}/${chunks.length} (${chunks[i].length} files)...`);
+        const { result, usage } = await analyzeChunk(chunks[i], i, chunks.length, repoName);
+        chunkResults.push(result);
+        totalInputTokens += usage.inputTokens || 0;
+        totalOutputTokens += usage.outputTokens || 0;
+      }
+
+      // Stitch all chunks together
+      console.log(`🧵 Stitching ${chunks.length} chunks together into final documentation...`);
+      const { result, usage } = await stitchChunks(
+        chunkResults,
+        repoName,
+        repoDescription,
+        primaryLanguage,
+        packageJson,
+        readme
+      );
+      totalInputTokens += usage.inputTokens || 0;
+      totalOutputTokens += usage.outputTokens || 0;
+
+      const markdown = formatDocumentationAsMarkdown(result, repoName);
+
+      console.log(`✅ Chunked documentation complete! Total tokens: ${totalInputTokens + totalOutputTokens}`);
+
+      return {
+        documentation: result,
+        markdown,
+        usage: {
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          totalTokens: totalInputTokens + totalOutputTokens,
+        },
+      };
+    }
+
+    // Original non-chunked path
+    console.log(`📝 Generating documentation without chunking (${files.length} files)`);
     const fileContents = files
       .slice(0, 50) // Limit to 50 files to avoid token limits
       .map(f => `

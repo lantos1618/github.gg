@@ -29,6 +29,12 @@ export async function NavbarServer() {
             🏟️ Dev Arena
           </Link>
           <Link
+            href="/automations"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
+          >
+            🤖 Automations
+          </Link>
+          <Link
             href="/pricing"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
           >

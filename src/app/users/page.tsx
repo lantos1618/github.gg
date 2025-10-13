@@ -4,29 +4,76 @@ import { useState } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { LoadingWave } from '@/components/LoadingWave';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Search, User, Sparkles, Clock } from 'lucide-react';
+import { Search, User, Sparkles, Clock, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import type { DeveloperProfile } from '@/lib/types/profile';
 
+type SortField = 'date' | 'score' | 'username';
+type SortOrder = 'asc' | 'desc';
+
 export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
 
   const { data: profiles, isLoading } = trpc.profile.getAllAnalyzedProfiles.useQuery({
-    limit: 100,
+    limit: 200, // Fetch more for client-side sorting
     offset: 0,
   });
 
+  // Filter profiles
   const filteredProfiles = profiles?.filter(profile =>
     profile.username.toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
 
+  // Sort profiles
+  const sortedProfiles = [...filteredProfiles].sort((a, b) => {
+    const aProfile = a.profileData as DeveloperProfile;
+    const bProfile = b.profileData as DeveloperProfile;
+
+    let comparison = 0;
+
+    if (sortField === 'date') {
+      comparison = new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    } else if (sortField === 'score') {
+      const aScore = aProfile.topRepos?.length
+        ? aProfile.topRepos.map(r => r.significanceScore || 0).reduce((a, b) => a + b, 0) / aProfile.topRepos.length
+        : 0;
+      const bScore = bProfile.topRepos?.length
+        ? bProfile.topRepos.map(r => r.significanceScore || 0).reduce((a, b) => a + b, 0) / bProfile.topRepos.length
+        : 0;
+      comparison = bScore - aScore;
+    } else if (sortField === 'username') {
+      comparison = a.username.localeCompare(b.username);
+    }
+
+    return sortOrder === 'asc' ? -comparison : comparison;
+  });
+
+  // Paginate
+  const totalPages = Math.ceil(sortedProfiles.length / pageSize);
+  const paginatedProfiles = sortedProfiles.slice(page * pageSize, (page + 1) * pageSize);
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('desc');
+    }
+    setPage(0); // Reset to first page
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pt-20 pb-12">
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
             <User className="h-10 w-10 text-purple-600" />
@@ -37,16 +84,48 @@ export default function UsersPage() {
           </p>
         </div>
 
-        <div className="mb-6">
-          <div className="relative">
+        {/* Search and Sort Controls */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <Input
               type="text"
               placeholder="Search developers by username..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(0);
+              }}
               className="pl-10 py-6 text-lg"
             />
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant={sortField === 'date' ? 'default' : 'outline'}
+              onClick={() => toggleSort('date')}
+              className="flex items-center gap-2"
+            >
+              <Clock className="h-4 w-4" />
+              Date
+              {sortField === 'date' && <ArrowUpDown className="h-3 w-3" />}
+            </Button>
+            <Button
+              variant={sortField === 'score' ? 'default' : 'outline'}
+              onClick={() => toggleSort('score')}
+              className="flex items-center gap-2"
+            >
+              Score
+              {sortField === 'score' && <ArrowUpDown className="h-3 w-3" />}
+            </Button>
+            <Button
+              variant={sortField === 'username' ? 'default' : 'outline'}
+              onClick={() => toggleSort('username')}
+              className="flex items-center gap-2"
+            >
+              Name
+              {sortField === 'username' && <ArrowUpDown className="h-3 w-3" />}
+            </Button>
           </div>
         </div>
 
@@ -54,7 +133,7 @@ export default function UsersPage() {
           <div className="flex justify-center items-center py-20">
             <LoadingWave />
           </div>
-        ) : filteredProfiles.length === 0 ? (
+        ) : paginatedProfiles.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <p className="text-gray-500 text-lg">
@@ -63,88 +142,184 @@ export default function UsersPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-3">
-            {filteredProfiles.map((profile) => {
-              const profileData = profile.profileData as DeveloperProfile;
-              const topSkills = profileData.techStack?.slice(0, 5) || [];
-              const avgScore = profileData.topRepos?.length
-                ? Math.round(
-                    profileData.topRepos
-                      .map(r => r.significanceScore || 0)
-                      .reduce((a, b) => a + b, 0) / profileData.topRepos.length * 10
-                  )
-                : null;
+          <>
+            {/* Table View */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Developer
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                        Summary
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                        Top Skills
+                      </th>
+                      <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Score
+                      </th>
+                      <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                        Analyzed
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {paginatedProfiles.map((profile) => {
+                      const profileData = profile.profileData as DeveloperProfile;
+                      const topSkills = profileData.techStack?.slice(0, 3) || [];
+                      const avgScore = profileData.topRepos?.length
+                        ? Math.round(
+                            profileData.topRepos
+                              .map(r => r.significanceScore || 0)
+                              .reduce((a, b) => a + b, 0) / profileData.topRepos.length * 10
+                          )
+                        : null;
 
-              return (
-                <Link key={`${profile.username}-${profile.version}`} href={`/${profile.username}`}>
-                  <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                          <Avatar className="h-16 w-16">
-                            <AvatarImage
-                              src={`https://avatars.githubusercontent.com/${profile.username}`}
-                              alt={profile.username}
-                            />
-                            <AvatarFallback>{profile.username[0]?.toUpperCase()}</AvatarFallback>
-                          </Avatar>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h3 className="font-semibold text-lg text-gray-900 truncate">
-                                {profile.username}
-                              </h3>
-                              <Badge variant="secondary" className="flex items-center gap-1">
-                                <Sparkles className="h-3 w-3" />
-                                AI Analyzed
-                              </Badge>
-                            </div>
-
-                            {profileData.summary && (
-                              <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                                {profileData.summary}
+                      return (
+                        <tr key={`${profile.username}-${profile.version}`} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <Link href={`/${profile.username}`} className="flex items-center gap-3 group">
+                              <Avatar className="h-12 w-12">
+                                <AvatarImage
+                                  src={`https://avatars.githubusercontent.com/${profile.username}`}
+                                  alt={profile.username}
+                                />
+                                <AvatarFallback>{profile.username[0]?.toUpperCase()}</AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-gray-900 group-hover:text-purple-600 transition-colors truncate">
+                                  {profile.username}
+                                </p>
+                                <div className="flex items-center gap-1 mt-1">
+                                  <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                                    <Sparkles className="h-2.5 w-2.5" />
+                                    AI
+                                  </Badge>
+                                  {profileData.topRepos && (
+                                    <span className="text-xs text-gray-500 sm:hidden">
+                                      {profileData.topRepos.length} repos
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </Link>
+                          </td>
+                          <td className="px-6 py-4 hidden lg:table-cell">
+                            <Link href={`/${profile.username}`}>
+                              <p className="text-sm text-gray-600 line-clamp-2 max-w-md">
+                                {profileData.summary || 'No summary available'}
                               </p>
-                            )}
-
-                            <div className="flex flex-wrap gap-2">
-                              {topSkills.map((skill, idx) => (
-                                <Badge key={idx} variant="outline" className="text-xs">
-                                  {skill.name}
-                                </Badge>
-                              ))}
-                              {topSkills.length > 0 && profileData.techStack && profileData.techStack.length > 5 && (
-                                <Badge variant="outline" className="text-xs text-gray-500">
-                                  +{profileData.techStack.length - 5} more
-                                </Badge>
+                            </Link>
+                          </td>
+                          <td className="px-6 py-4 hidden md:table-cell">
+                            <Link href={`/${profile.username}`}>
+                              <div className="flex flex-wrap gap-1">
+                                {topSkills.map((skill, idx) => (
+                                  <Badge key={idx} variant="outline" className="text-xs">
+                                    {skill.name}
+                                  </Badge>
+                                ))}
+                                {profileData.techStack && profileData.techStack.length > 3 && (
+                                  <Badge variant="outline" className="text-xs text-gray-500">
+                                    +{profileData.techStack.length - 3}
+                                  </Badge>
+                                )}
+                              </div>
+                            </Link>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <Link href={`/${profile.username}`}>
+                              {avgScore !== null ? (
+                                <div className="inline-flex flex-col items-center">
+                                  <span className="text-2xl font-bold text-purple-600">
+                                    {avgScore}
+                                  </span>
+                                  <span className="text-xs text-gray-500">/10</span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">N/A</span>
                               )}
-                            </div>
-                          </div>
-                        </div>
+                            </Link>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center hidden sm:table-cell">
+                            <Link href={`/${profile.username}`}>
+                              <div className="text-xs text-gray-500">
+                                {formatDistanceToNow(new Date(profile.updatedAt), { addSuffix: true })}
+                              </div>
+                              {profileData.topRepos && (
+                                <div className="text-xs text-gray-400 mt-1">
+                                  {profileData.topRepos.length} repos
+                                </div>
+                              )}
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-                        <div className="text-right space-y-2 flex-shrink-0">
-                          {avgScore !== null && (
-                            <div className="text-2xl font-bold text-purple-600">
-                              {avgScore}/10
-                            </div>
-                          )}
-                          <div className="flex items-center gap-1 text-xs text-gray-500">
-                            <Clock className="h-3 w-3" />
-                            {formatDistanceToNow(new Date(profile.updatedAt), { addSuffix: true })}
-                          </div>
-                          {profileData.topRepos && (
-                            <div className="text-xs text-gray-500">
-                              {profileData.topRepos.length} repos analyzed
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-between">
+                <div className="text-sm text-gray-500">
+                  Showing {page * pageSize + 1} to {Math.min((page + 1) * pageSize, sortedProfiles.length)} of {sortedProfiles.length} profiles
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(page - 1)}
+                    disabled={page === 0}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i;
+                      } else if (page < 3) {
+                        pageNum = i;
+                      } else if (page > totalPages - 4) {
+                        pageNum = totalPages - 5 + i;
+                      } else {
+                        pageNum = page - 2 + i;
+                      }
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={page === pageNum ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setPage(pageNum)}
+                          className="w-10"
+                        >
+                          {pageNum + 1}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(page + 1)}
+                    disabled={page === totalPages - 1}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
+
       </div>
     </div>
   );

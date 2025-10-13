@@ -1,26 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
-import { Webhook, Activity, Search, RefreshCw, ExternalLink, Sparkles, Zap, Shield } from 'lucide-react';
+import { Webhook, Activity, Search, RefreshCw, ExternalLink, Sparkles, Zap, Shield, Check, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useSession } from '@/lib/auth/client';
+import { SortableTable, Column } from '@/components/ui/sortable-table';
 
-type RepoSortOption = 'name-asc' | 'name-desc' | 'activity' | 'enabled';
+type RepoWithActivity = {
+  id: string;
+  repositoryId: number;
+  fullName: string;
+  webhookEnabled: boolean;
+  lastActivity?: Date;
+};
 
 export default function AutomationsPage() {
   const { data: session, isPending: sessionLoading } = useSession();
   const [repoSearch, setRepoSearch] = useState('');
   const [activitySearch, setActivitySearch] = useState('');
-  const [repoSort, setRepoSort] = useState<RepoSortOption>('activity');
 
   // Queries
   const { data: repos, refetch: refetchRepos } = trpc.webhooks.getRepositories.useQuery();
@@ -41,12 +45,8 @@ export default function AutomationsPage() {
     },
   });
 
-  // Filter and sort repos by search
-  const filteredRepos = (() => {
-    const filtered = repos?.filter(repo =>
-      repo.fullName.toLowerCase().includes(repoSearch.toLowerCase())
-    ) || [];
-
+  // Filter repos and add activity data
+  const filteredRepos: RepoWithActivity[] = (() => {
     // Create a map of repo activity (most recent activity timestamp)
     const repoActivityMap = new Map<string, Date>();
     activityLog?.activities.forEach(activity => {
@@ -60,31 +60,14 @@ export default function AutomationsPage() {
       }
     });
 
-    // Sort based on selected option
-    return [...filtered].sort((a, b) => {
-      switch (repoSort) {
-        case 'name-asc':
-          return a.fullName.localeCompare(b.fullName);
-        case 'name-desc':
-          return b.fullName.localeCompare(a.fullName);
-        case 'enabled':
-          // Enabled first, then alphabetical
-          if (a.webhookEnabled !== b.webhookEnabled) {
-            return a.webhookEnabled ? -1 : 1;
-          }
-          return a.fullName.localeCompare(b.fullName);
-        case 'activity':
-          // Most recent activity first
-          const aActivity = repoActivityMap.get(a.fullName);
-          const bActivity = repoActivityMap.get(b.fullName);
-          if (!aActivity && !bActivity) return a.fullName.localeCompare(b.fullName);
-          if (!aActivity) return 1;
-          if (!bActivity) return -1;
-          return bActivity.getTime() - aActivity.getTime();
-        default:
-          return 0;
-      }
-    });
+    const filtered = repos?.filter(repo =>
+      repo.fullName.toLowerCase().includes(repoSearch.toLowerCase())
+    ) || [];
+
+    return filtered.map(repo => ({
+      ...repo,
+      lastActivity: repoActivityMap.get(repo.fullName),
+    }));
   })();
 
   // Filter activities by search
@@ -100,6 +83,117 @@ export default function AutomationsPage() {
       enabled: !currentStatus,
     });
   };
+
+  // State for table sorting
+  const [sortedRepos, setSortedRepos] = useState<RepoWithActivity[]>([]);
+
+  // Update sorted repos whenever filteredRepos changes
+  useEffect(() => {
+    setSortedRepos(filteredRepos);
+  }, [filteredRepos]);
+
+  const handleRepoSort = (key: string, direction: 'asc' | 'desc' | null) => {
+    if (!direction) {
+      setSortedRepos(filteredRepos);
+      return;
+    }
+
+    const sorted = [...filteredRepos].sort((a, b) => {
+      const multiplier = direction === 'asc' ? 1 : -1;
+
+      switch (key) {
+        case 'name':
+          return a.fullName.localeCompare(b.fullName) * multiplier;
+        case 'status':
+          return ((a.webhookEnabled ? 1 : 0) - (b.webhookEnabled ? 1 : 0)) * multiplier;
+        case 'activity':
+          if (!a.lastActivity && !b.lastActivity) return 0;
+          if (!a.lastActivity) return 1;
+          if (!b.lastActivity) return -1;
+          return (a.lastActivity.getTime() - b.lastActivity.getTime()) * multiplier;
+        default:
+          return 0;
+      }
+    });
+
+    setSortedRepos(sorted);
+  };
+
+  // Define repo table columns
+  const repoColumns: Column<RepoWithActivity>[] = [
+    {
+      key: 'name',
+      header: 'Repository',
+      sortable: true,
+      render: (repo) => (
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{repo.fullName}</span>
+          <a
+            href={`https://github.com/${repo.fullName}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+      ),
+    },
+    {
+      key: 'id',
+      header: 'ID',
+      sortable: false,
+      render: (repo) => <span className="text-sm text-muted-foreground">{repo.repositoryId}</span>,
+      className: 'hidden md:table-cell',
+      headerClassName: 'hidden md:table-cell text-left',
+    },
+    {
+      key: 'activity',
+      header: 'Last Activity',
+      sortable: true,
+      render: (repo) => (
+        <span className="text-sm text-muted-foreground">
+          {repo.lastActivity ? formatDistanceToNow(repo.lastActivity, { addSuffix: true }) : 'Never'}
+        </span>
+      ),
+      className: 'hidden lg:table-cell',
+      headerClassName: 'hidden lg:table-cell text-left',
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      render: (repo) => (
+        <div className="flex items-center gap-2">
+          {repo.webhookEnabled ? (
+            <span className="flex items-center gap-1 text-green-600">
+              <Check className="h-4 w-4" />
+              <span className="text-sm font-medium">Enabled</span>
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-muted-foreground">
+              <X className="h-4 w-4" />
+              <span className="text-sm font-medium">Disabled</span>
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'toggle',
+      header: 'Actions',
+      sortable: false,
+      render: (repo) => (
+        <Switch
+          checked={repo.webhookEnabled}
+          onCheckedChange={() => handleToggleRepo(repo.fullName, repo.webhookEnabled)}
+          disabled={toggleRepoWebhook.isPending || !webhookPrefs?.prReviewEnabled}
+        />
+      ),
+      className: 'text-right',
+      headerClassName: 'text-right',
+    },
+  ];
 
   // Show marketing content when logged out
   if (!sessionLoading && !session) {
@@ -241,80 +335,28 @@ export default function AutomationsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Search and Sort */}
-            <div className="mb-4 flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search repositories..."
-                  value={repoSearch}
-                  onChange={(e) => setRepoSearch(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={repoSort} onValueChange={(value) => setRepoSort(value as RepoSortOption)}>
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="Sort by..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="activity">Recent Activity</SelectItem>
-                  <SelectItem value="enabled">Enabled First</SelectItem>
-                  <SelectItem value="name-asc">Name (A-Z)</SelectItem>
-                  <SelectItem value="name-desc">Name (Z-A)</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* Search */}
+            <div className="mb-4 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search repositories..."
+                value={repoSearch}
+                onChange={(e) => setRepoSearch(e.target.value)}
+                className="pl-10"
+              />
             </div>
 
-            {/* Repos List */}
-            {filteredRepos.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {repoSearch ? 'No repositories found matching your search.' : 'No repositories found.'}
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                {filteredRepos.map((repo) => (
-                  <div
-                    key={repo.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium truncate">{repo.fullName}</p>
-                          <a
-                            href={`https://github.com/${repo.fullName}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-muted-foreground hover:text-foreground"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          ID: {repo.repositoryId}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <Label
-                          htmlFor={`webhook-${repo.id}`}
-                          className="text-sm font-medium cursor-pointer"
-                        >
-                          {repo.webhookEnabled ? 'Enabled' : 'Disabled'}
-                        </Label>
-                      </div>
-                      <Switch
-                        id={`webhook-${repo.id}`}
-                        checked={repo.webhookEnabled}
-                        onCheckedChange={() => handleToggleRepo(repo.fullName, repo.webhookEnabled)}
-                        disabled={toggleRepoWebhook.isPending || !webhookPrefs?.prReviewEnabled}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* Repos Table */}
+            <SortableTable
+              data={sortedRepos.length > 0 ? sortedRepos : filteredRepos}
+              columns={repoColumns}
+              rowKey={(repo) => repo.id}
+              onSort={handleRepoSort}
+              defaultSortKey="activity"
+              defaultSortDirection="desc"
+              emptyMessage={repoSearch ? 'No repositories found matching your search.' : 'No repositories found.'}
+              maxHeight="400px"
+            />
           </CardContent>
         </Card>
 

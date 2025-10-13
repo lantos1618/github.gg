@@ -7,16 +7,20 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
 import { Webhook, Activity, Search, RefreshCw, ExternalLink, Sparkles, Zap, Shield } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useSession } from '@/lib/auth/client';
 
+type RepoSortOption = 'name-asc' | 'name-desc' | 'activity' | 'enabled';
+
 export default function AutomationsPage() {
   const { data: session, isPending: sessionLoading } = useSession();
   const [repoSearch, setRepoSearch] = useState('');
   const [activitySearch, setActivitySearch] = useState('');
+  const [repoSort, setRepoSort] = useState<RepoSortOption>('activity');
 
   // Queries
   const { data: repos, refetch: refetchRepos } = trpc.webhooks.getRepositories.useQuery();
@@ -37,10 +41,51 @@ export default function AutomationsPage() {
     },
   });
 
-  // Filter repos by search
-  const filteredRepos = repos?.filter(repo =>
-    repo.fullName.toLowerCase().includes(repoSearch.toLowerCase())
-  ) || [];
+  // Filter and sort repos by search
+  const filteredRepos = (() => {
+    const filtered = repos?.filter(repo =>
+      repo.fullName.toLowerCase().includes(repoSearch.toLowerCase())
+    ) || [];
+
+    // Create a map of repo activity (most recent activity timestamp)
+    const repoActivityMap = new Map<string, Date>();
+    activityLog?.activities.forEach(activity => {
+      if (activity.repoOwner && activity.repoName && activity.createdAt) {
+        const repoFullName = `${activity.repoOwner}/${activity.repoName}`;
+        const activityDate = new Date(activity.createdAt);
+        const existing = repoActivityMap.get(repoFullName);
+        if (!existing || activityDate > existing) {
+          repoActivityMap.set(repoFullName, activityDate);
+        }
+      }
+    });
+
+    // Sort based on selected option
+    return [...filtered].sort((a, b) => {
+      switch (repoSort) {
+        case 'name-asc':
+          return a.fullName.localeCompare(b.fullName);
+        case 'name-desc':
+          return b.fullName.localeCompare(a.fullName);
+        case 'enabled':
+          // Enabled first, then alphabetical
+          if (a.webhookEnabled !== b.webhookEnabled) {
+            return a.webhookEnabled ? -1 : 1;
+          }
+          return a.fullName.localeCompare(b.fullName);
+        case 'activity':
+          // Most recent activity first
+          const aActivity = repoActivityMap.get(a.fullName);
+          const bActivity = repoActivityMap.get(b.fullName);
+          if (!aActivity && !bActivity) return a.fullName.localeCompare(b.fullName);
+          if (!aActivity) return 1;
+          if (!bActivity) return -1;
+          return bActivity.getTime() - aActivity.getTime();
+        default:
+          return 0;
+      }
+    });
+  })();
 
   // Filter activities by search
   const filteredActivities = activityLog?.activities.filter(activity =>
@@ -196,15 +241,28 @@ export default function AutomationsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Search */}
-            <div className="mb-4 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search repositories..."
-                value={repoSearch}
-                onChange={(e) => setRepoSearch(e.target.value)}
-                className="pl-10"
-              />
+            {/* Search and Sort */}
+            <div className="mb-4 flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search repositories..."
+                  value={repoSearch}
+                  onChange={(e) => setRepoSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={repoSort} onValueChange={(value) => setRepoSort(value as RepoSortOption)}>
+                <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectValue placeholder="Sort by..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="activity">Recent Activity</SelectItem>
+                  <SelectItem value="enabled">Enabled First</SelectItem>
+                  <SelectItem value="name-asc">Name (A-Z)</SelectItem>
+                  <SelectItem value="name-desc">Name (Z-A)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Repos List */}

@@ -482,4 +482,37 @@ export const issueAnalysisCache = pgTable('issue_analysis_cache', {
   ),
 }));
 
+// Repository Wiki Pages - SEO-optimized documentation
+export const repositoryWikiPages = pgTable('repository_wiki_pages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  repoOwner: text('repo_owner').notNull(),
+  repoName: text('repo_name').notNull(),
+  slug: text('slug').notNull(), // URL-friendly: 'overview', 'api-reference', 'components'
+  title: text('title').notNull(),
+  content: text('content').notNull(), // Markdown content
+  summary: text('summary'), // Short description for SEO
+  version: integer('version').notNull().default(1),
+  fileHashes: jsonb('file_hashes').$type<Record<string, string>>(), // Detect code changes
+  metadata: jsonb('metadata').$type<{
+    keywords?: string[];
+    category?: string;
+    order?: number;
+    parent?: string;
+  }>(),
+  isPublic: boolean('is_public').notNull().default(true), // Public for Google indexing
+  viewCount: integer('view_count').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  // Ensure unique page per repo and slug
+  wikiPageUniqueIdx: uniqueIndex('wiki_page_unique_idx').on(
+    table.repoOwner,
+    table.repoName,
+    table.slug,
+    table.version
+  ),
+  // Index for public pages (Google crawling)
+  publicPagesIdx: index('public_pages_idx').on(table.isPublic, table.repoOwner, table.repoName),
+}));
+
 // Do NOT import or export relations here. Only table definitions. 

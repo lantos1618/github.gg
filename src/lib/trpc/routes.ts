@@ -11,6 +11,7 @@ import { billingRouter } from '@/lib/trpc/routes/billing';
 import { adminRouter } from '@/lib/trpc/routes/admin';
 import { webhooksRouter } from '@/lib/trpc/routes/webhooks';
 import { githubAnalysisRouter } from '@/lib/trpc/routes/github-analysis';
+import { wikiRouter } from '@/lib/trpc/routes/wiki';
 import { z } from 'zod';
 import { router } from '@/lib/trpc/trpc';
 import { db } from '@/db';
@@ -97,6 +98,9 @@ export const appRouter = router({
 
   // GitHub PR and Issue analysis routes
   githubAnalysis: githubAnalysisRouter,
+
+  // Wiki documentation routes
+  wiki: wikiRouter,
 });
 
 export type AppRouter = typeof appRouter; 

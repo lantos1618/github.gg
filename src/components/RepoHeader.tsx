@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Download } from 'lucide-react';
+import { WikiGenerationButton } from './WikiGenerationButton';
 
 interface RepoHeaderProps {
   user: string;
@@ -137,6 +138,9 @@ export function RepoHeader({
               <Download className="h-4 w-4 flex-shrink-0" />
               <span>Download All</span>
             </button>
+            <div className="w-full sm:w-auto">
+              <WikiGenerationButton owner={user} repo={repo} />
+            </div>
           </div>
         </div>
       </div>

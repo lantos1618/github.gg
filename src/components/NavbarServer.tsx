@@ -23,10 +23,10 @@ export async function NavbarServer() {
             👥 Profiles
           </Link>
           <Link
-            href="/arena/leaderboard"
+            href="/repos"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
           >
-            🏆 Leaderboard
+            📦 Repos
           </Link>
           <Link
             href="/arena"

@@ -213,7 +213,7 @@ export default function AutomationsPage() {
                 {repoSearch ? 'No repositories found matching your search.' : 'No repositories found.'}
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
                 {filteredRepos.map((repo) => (
                   <div
                     key={repo.id}

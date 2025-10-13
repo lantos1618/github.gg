@@ -79,7 +79,10 @@ export function SortableTable<T>({
   }
 
   return (
-    <div className={`overflow-x-auto ${maxHeight ? `max-h-[${maxHeight}] overflow-y-auto` : ''}`}>
+    <div
+      className="overflow-x-auto"
+      style={maxHeight ? { maxHeight, overflowY: 'auto' } : undefined}
+    >
       <table className="w-full">
         <thead className="sticky top-0 bg-background z-10">
           <tr className="border-b">

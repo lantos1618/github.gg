@@ -124,7 +124,7 @@ export default function AutomationsPage() {
           <CardContent className="pt-6">
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800 mb-3">
-                GitHub App not installed. Install the GitHub.gg app to enable automations.
+                GitHub App not installed. Install the gh.gg app to enable automations.
               </p>
               <Button variant="outline" asChild>
                 <a href="/install" target="_blank" rel="noopener noreferrer">

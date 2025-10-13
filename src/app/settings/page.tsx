@@ -263,7 +263,7 @@ export default function SettingsPage() {
             {!installationInfo ? (
               <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <p className="text-sm text-yellow-800 mb-3">
-                  GitHub App not installed. Install the GitHub.gg app to enable PR reviews.
+                  GitHub App not installed. Install the gh.gg app to enable PR reviews.
                 </p>
                 <Button variant="outline" asChild>
                   <a href="/install" target="_blank" rel="noopener noreferrer">

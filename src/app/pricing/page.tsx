@@ -53,7 +53,7 @@ export default function PricingPage() {
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
         <p className="text-xl text-muted-foreground">
-          Unlock the full potential of GitHub.gg
+          Unlock the full potential of gh.gg
         </p>
       </div>
 

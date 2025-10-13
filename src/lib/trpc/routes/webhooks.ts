@@ -60,7 +60,7 @@ export const webhooksRouter = router({
       if (!userAccount?.installationId) {
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message: 'No GitHub App installation found. Please install the GitHub.gg app first.',
+          message: 'No GitHub App installation found. Please install the gh.gg app first.',
         });
       }
 

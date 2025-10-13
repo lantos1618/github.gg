@@ -10,7 +10,7 @@ export async function NavbarServer() {
         <Link href="/" className="mr-auto flex items-center gap-2">
           <span className="font-bold sm:hidden">gh.gg</span>
           <span className="font-bold hidden sm:inline">
-            github.gg
+            gh.gg
           </span>
         </Link>
 

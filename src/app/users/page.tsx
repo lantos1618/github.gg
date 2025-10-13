@@ -149,8 +149,14 @@ export default function UsersPage() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Developer
+                      <th
+                        className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        onClick={() => toggleSort('username')}
+                      >
+                        <div className="flex items-center gap-2">
+                          Developer
+                          {sortField === 'username' && <ArrowUpDown className="h-3 w-3" />}
+                        </div>
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
                         Summary
@@ -158,11 +164,23 @@ export default function UsersPage() {
                       <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
                         Top Skills
                       </th>
-                      <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Score
+                      <th
+                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        onClick={() => toggleSort('score')}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          Score
+                          {sortField === 'score' && <ArrowUpDown className="h-3 w-3" />}
+                        </div>
                       </th>
-                      <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                        Analyzed
+                      <th
+                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell cursor-pointer hover:bg-gray-100"
+                        onClick={() => toggleSort('date')}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          Analyzed
+                          {sortField === 'date' && <ArrowUpDown className="h-3 w-3" />}
+                        </div>
                       </th>
                     </tr>
                   </thead>
@@ -237,7 +255,7 @@ export default function UsersPage() {
                                   <span className="text-2xl font-bold text-purple-600">
                                     {avgScore}
                                   </span>
-                                  <span className="text-xs text-gray-500">/10</span>
+                                  <span className="text-xs text-gray-500">/100</span>
                                 </div>
                               ) : (
                                 <span className="text-gray-400">N/A</span>

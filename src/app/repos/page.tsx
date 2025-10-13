@@ -138,17 +138,35 @@ export default function ReposPage() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Repository
+                      <th
+                        className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        onClick={() => toggleSort('name')}
+                      >
+                        <div className="flex items-center gap-2">
+                          Repository
+                          {sortField === 'name' && <ArrowUpDown className="h-3 w-3" />}
+                        </div>
                       </th>
                       <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
                         Metrics
                       </th>
-                      <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Score
+                      <th
+                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        onClick={() => toggleSort('score')}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          Score
+                          {sortField === 'score' && <ArrowUpDown className="h-3 w-3" />}
+                        </div>
                       </th>
-                      <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                        Analyzed
+                      <th
+                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell cursor-pointer hover:bg-gray-100"
+                        onClick={() => toggleSort('date')}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          Analyzed
+                          {sortField === 'date' && <ArrowUpDown className="h-3 w-3" />}
+                        </div>
                       </th>
                     </tr>
                   </thead>

@@ -108,6 +108,16 @@ export const webhooksRouter = router({
       where: eq(githubAppInstallations.installationId, userAccount.installationId),
     });
 
+    // If we have an installationId but no full record, return basic info
+    if (!installation && userAccount.installationId) {
+      return {
+        installationId: userAccount.installationId,
+        accountLogin: userAccount.accountId || 'Unknown',
+        accountType: 'User',
+        targetType: 'User',
+      };
+    }
+
     return installation;
   }),
 

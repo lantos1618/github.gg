@@ -238,4 +238,39 @@ export const scorecardRouter = router({
         .orderBy(desc(repositoryScorecards.version));
     }),
 
+  getAllAnalyzedRepos: publicProcedure
+    .input(z.object({
+      limit: z.number().optional().default(100),
+      offset: z.number().optional().default(0),
+    }))
+    .query(async ({ input }) => {
+      const scorecards = await db.select({
+        repoOwner: repositoryScorecards.repoOwner,
+        repoName: repositoryScorecards.repoName,
+        ref: repositoryScorecards.ref,
+        overallScore: repositoryScorecards.overallScore,
+        metrics: repositoryScorecards.metrics,
+        updatedAt: repositoryScorecards.updatedAt,
+        version: repositoryScorecards.version,
+      })
+      .from(repositoryScorecards)
+      .orderBy(desc(repositoryScorecards.updatedAt))
+      .limit(input.limit)
+      .offset(input.offset);
+
+      // Group by repo (owner + name + ref) and take latest version
+      const latestRepos = new Map<string, typeof scorecards[0]>();
+      for (const scorecard of scorecards) {
+        const key = `${scorecard.repoOwner}/${scorecard.repoName}/${scorecard.ref}`;
+        const existing = latestRepos.get(key);
+        if (!existing || scorecard.version > existing.version) {
+          latestRepos.set(key, scorecard);
+        }
+      }
+
+      return Array.from(latestRepos.values()).sort((a, b) =>
+        b.updatedAt.getTime() - a.updatedAt.getTime()
+      );
+    }),
+
 });

@@ -4,6 +4,7 @@ import { ELO_TIERS, K_FACTORS } from '@/lib/constants/arena';
 import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { convertAIUsage, type AISDKv5Usage } from './usage-adapter';
 
 export type BattleAnalysisParams = {
   challenger: {
@@ -86,17 +87,9 @@ export async function analyzeBattle(
     messages: [{ role: 'user', content: prompt }],
   });
 
-  const usageData = usage as unknown as { inputTokens?: number; outputTokens?: number };
-  const inputTokens = usageData.inputTokens || 0;
-  const outputTokens = usageData.outputTokens || 0;
-
   return {
     result: object,
-    usage: {
-      promptTokens: inputTokens,
-      completionTokens: outputTokens,
-      totalTokens: inputTokens + outputTokens,
-    },
+    usage: convertAIUsage(usage as AISDKv5Usage),
   };
 }
 

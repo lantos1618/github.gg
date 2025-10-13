@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { scorecardSchema, type ScorecardData } from '@/lib/types/scorecard';
+import { convertAIUsage, type AISDKv5Usage } from './usage-adapter';
 
 export interface ScorecardAnalysisParams {
   files: Array<{ path: string; content: string }>;
@@ -83,11 +84,7 @@ ${files.map(file => `\n--- ${file.path} ---\n${file.content}`).join('\n')}`;
 
     return {
       scorecard: object,
-      usage: {
-        promptTokens: (usage as unknown as { inputTokens?: number }).inputTokens || 0,
-        completionTokens: (usage as unknown as { outputTokens?: number }).outputTokens || 0,
-        totalTokens: ((usage as unknown as { inputTokens?: number; outputTokens?: number }).inputTokens || 0) + ((usage as unknown as { inputTokens?: number; outputTokens?: number }).outputTokens || 0),
-      },
+      usage: convertAIUsage(usage as AISDKv5Usage),
     };
   } catch (error) {
     console.error('Gemini API error:', error);

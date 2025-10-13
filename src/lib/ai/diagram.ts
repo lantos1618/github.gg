@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { DiagramType } from '@/lib/types/diagram';
+import { convertAIUsage, type AISDKv5Usage } from './usage-adapter';
 
 export const diagramSchema = z.object({
   diagramCode: z.string(),
@@ -107,11 +108,7 @@ ${files.map((file: { path: string; content: string }) => `--- ${file.path} ---\n
 
     return {
       diagramCode: result.object.diagramCode,
-      usage: {
-        promptTokens: (result.usage as unknown as { inputTokens?: number }).inputTokens || 0,
-        completionTokens: (result.usage as unknown as { outputTokens?: number }).outputTokens || 0,
-        totalTokens: ((result.usage as unknown as { inputTokens?: number; outputTokens?: number }).inputTokens || 0) + ((result.usage as unknown as { inputTokens?: number; outputTokens?: number }).outputTokens || 0),
-      },
+      usage: convertAIUsage(result.usage as AISDKv5Usage),
     };
   }
 
@@ -148,10 +145,6 @@ ${files.map((file: { path: string; content: string }) => `--- ${file.path} ---\n
 
   return {
     diagramCode: result.object.diagramCode,
-    usage: {
-      promptTokens: (result.usage as unknown as { inputTokens?: number }).inputTokens || 0,
-      completionTokens: (result.usage as unknown as { outputTokens?: number }).outputTokens || 0,
-      totalTokens: ((result.usage as unknown as { inputTokens?: number; outputTokens?: number }).inputTokens || 0) + ((result.usage as unknown as { inputTokens?: number; outputTokens?: number }).outputTokens || 0),
-    },
+    usage: convertAIUsage(result.usage as AISDKv5Usage),
   };
 } 

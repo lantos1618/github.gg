@@ -9,6 +9,7 @@ import { generateObject } from 'ai';
 import { developerProfileSchema } from '@/lib/types/profile';
 import { generateScorecardAnalysis } from './scorecard';
 import { and, eq, sql } from 'drizzle-orm';
+import { convertAIUsage, type AISDKv5Usage } from './usage-adapter';
 
 // Initialize Resend only if API key is available
 const resend = process.env.RESEND_API_KEY 
@@ -229,12 +230,10 @@ export async function generateDeveloperProfile({
     scorecardResults.forEach(result => {
       if (result) {
         scorecardInsights += `\n\n## Repository: ${result.repoName}\n${result.scorecard.markdown}`;
-        const usageData = result.usage as unknown as { inputTokens?: number; outputTokens?: number };
-        const inputTokens = usageData.inputTokens || 0;
-        const outputTokens = usageData.outputTokens || 0;
-        totalUsage.promptTokens += inputTokens;
-        totalUsage.completionTokens += outputTokens;
-        totalUsage.totalTokens += inputTokens + outputTokens;
+        const converted = convertAIUsage(result.usage);
+        totalUsage.promptTokens += converted.promptTokens;
+        totalUsage.completionTokens += converted.completionTokens;
+        totalUsage.totalTokens += converted.totalTokens;
       }
     });
   }
@@ -275,12 +274,10 @@ export async function generateDeveloperProfile({
   
   console.log(`✅ AI profile generation completed`);
 
-  const usageData = usage as unknown as { inputTokens?: number; outputTokens?: number };
-  const inputTokens = usageData.inputTokens || 0;
-  const outputTokens = usageData.outputTokens || 0;
-  totalUsage.promptTokens += inputTokens;
-  totalUsage.completionTokens += outputTokens;
-  totalUsage.totalTokens += inputTokens + outputTokens;
+  const converted = convertAIUsage(usage as AISDKv5Usage);
+  totalUsage.promptTokens += converted.promptTokens;
+  totalUsage.completionTokens += converted.completionTokens;
+  totalUsage.totalTokens += converted.totalTokens;
 
   const patchedProfile = {
     ...object,

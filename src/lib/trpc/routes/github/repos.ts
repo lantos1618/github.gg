@@ -41,23 +41,59 @@ export const reposRouter = router({
         // Shuffle the sampled list and return the requested number of repos.
         const shuffled = shuffleArray(reposWithSpecial).slice(0, input.limit);
         if (shuffled.length === 0) {
-          // Fallback: return CACHED_REPOS if cache is empty, mapping to RepoSummary shape
-          return CACHED_REPOS.slice(0, input.limit).map(repo => ({
-            description: '',
-            stargazersCount: 0,
-            forksCount: 0,
-            language: '',
-            topics: [],
+          // Cache is empty - fetch and populate from GitHub
+          const githubService = await createGitHubServiceFromSession(null);
+          const targetRepos = CACHED_REPOS.slice(0, input.limit);
+
+          const reposWithDetails = await Promise.allSettled(
+            targetRepos.map(async (repo) => {
+              try {
+                const details = await githubService.getRepositoryDetails(repo.owner, repo.name);
+
+                // Cache the details for future use
+                await db.insert(cachedRepos).values({
+                  owner: details.owner,
+                  name: details.name,
+                  description: details.description,
+                  stargazersCount: details.stargazersCount,
+                  forksCount: details.forksCount,
+                  language: details.language,
+                  topics: details.topics,
+                  userId: null, // Global cache entry
+                  lastFetched: new Date(),
+                }).onConflictDoNothing();
+
+                return {
+                  ...details,
+                  special: repo.special || false,
+                };
+              } catch (error) {
+                console.warn(`Failed to fetch ${repo.owner}/${repo.name}:`, error);
+                return null;
+              }
+            })
+          );
+
+          const validRepos = reposWithDetails
+            .filter(result => result.status === 'fulfilled' && result.value)
+            .map(result => (result as PromiseFulfilledResult<RepoSummary & { special?: boolean }>).value);
+
+          return validRepos.map(repo => ({
+            description: repo.description?.trim() || undefined,
+            stargazersCount: repo.stargazersCount,
+            forksCount: repo.forksCount,
+            language: repo.language?.trim() || undefined,
+            topics: repo.topics || [],
             owner: repo.owner,
             name: repo.name,
             url: `https://github.com/${repo.owner}/${repo.name}`,
           }));
         }
         return shuffled.map(repo => ({
-          description: repo.description || '',
+          description: repo.description?.trim() || undefined,
           stargazersCount: repo.stargazersCount,
           forksCount: repo.forksCount,
-          language: repo.language || '',
+          language: repo.language?.trim() || undefined,
           topics: repo.topics || [],
           owner: repo.owner,
           name: repo.name,

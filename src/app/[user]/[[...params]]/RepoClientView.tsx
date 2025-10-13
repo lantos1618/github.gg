@@ -47,7 +47,13 @@ export default function RepoClientView({ user, repo, refName, path }: RepoClient
   };
 
   return (
-    <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
+    <RepoPageLayout
+      user={user}
+      repo={repo}
+      refName={refName}
+      files={selectedFiles}
+      totalFiles={selectedFiles.length}
+    >
       <div className="max-w-screen-xl w-full mx-auto mt-4 sm:mt-8 px-2 sm:px-4">
         {isLoading ? (
           <div className="p-4 sm:p-8">

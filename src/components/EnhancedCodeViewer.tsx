@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, memo } from 'react';
-import { Copy, Check, Download, ChevronRight } from 'lucide-react';
+import { useState, memo, useRef, useEffect } from 'react';
+import { Copy, Check, Download, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RepoFile } from '@/types/repo';
 import ShikiHighlighter from 'react-shiki/web';
+
+const MAX_LINES_INITIAL = 300; // Show first 300 lines by default
+const LARGE_FILE_THRESHOLD = 500; // Files over 500 lines are considered large
 
 interface EnhancedCodeViewerProps {
   files: RepoFile[];
@@ -62,6 +65,11 @@ const FileItem = memo(function FileItem({ file, fileIndex, copiedFile, onCopy, o
   onCopy: (path: string, content: string) => void;
   onDownload: (name: string, content: string) => void;
 }) {
+  const [isInView, setIsInView] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isHighlighting, setIsHighlighting] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const fileName = file.path.split('/').pop() || file.path;
   const content = file.content || '';
   const breadcrumbs = generateBreadcrumb(file.path);
@@ -69,8 +77,57 @@ const FileItem = memo(function FileItem({ file, fileIndex, copiedFile, onCopy, o
   const language = getLanguageFromExtension(extension);
   const lines = content.split('\n');
 
+  const isLargeFile = lines.length > LARGE_FILE_THRESHOLD;
+  const displayContent = isLargeFile && !isExpanded
+    ? lines.slice(0, MAX_LINES_INITIAL).join('\n')
+    : content;
+  const hiddenLinesCount = isLargeFile ? lines.length - MAX_LINES_INITIAL : 0;
+
+  // Lazy load with Intersection Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !isInView) {
+            setIsInView(true);
+          }
+        });
+      },
+      {
+        rootMargin: '200px', // Start loading 200px before entering viewport
+        threshold: 0.01
+      }
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => {
+      if (containerRef.current) {
+        observer.unobserve(containerRef.current);
+      }
+    };
+  }, [isInView]);
+
+  // Track when Shiki finishes highlighting
+  useEffect(() => {
+    if (isInView) {
+      const timer = setTimeout(() => {
+        setIsHighlighting(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isInView, displayContent]);
+
   return (
-    <div key={file.path} id={`file-${file.path}`} className={fileIndex > 0 ? 'border-t-4 border-gray-300' : ''} style={{ contentVisibility: 'auto' }}>
+    <div
+      ref={containerRef}
+      key={file.path}
+      id={`file-${file.path}`}
+      className={fileIndex > 0 ? 'border-t-4 border-gray-300' : ''}
+      style={{ contentVisibility: 'auto', minHeight: isInView ? 'auto' : '400px' }}
+    >
       {/* File Header with Breadcrumb */}
       <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100/50 sticky top-0 z-10">
         {/* Breadcrumb Navigation */}
@@ -90,6 +147,11 @@ const FileItem = memo(function FileItem({ file, fileIndex, copiedFile, onCopy, o
           <div className="flex items-center space-x-3 sm:space-x-4 text-xs sm:text-sm text-gray-500">
             <span>{formatFileSize(file.size)}</span>
             <span>{lines.length} lines</span>
+            {isLargeFile && !isExpanded && (
+              <span className="text-amber-600 font-medium">
+                (showing first {MAX_LINES_INITIAL})
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -116,15 +178,43 @@ const FileItem = memo(function FileItem({ file, fileIndex, copiedFile, onCopy, o
       </div>
 
       {/* Code Content */}
-      <div className="relative shiki-wrapper" style={{ contain: 'layout style paint' }}>
-        <ShikiHighlighter
-          language={language}
-          theme="github-dark"
-          showLineNumbers={true}
-        >
-          {content}
-        </ShikiHighlighter>
-      </div>
+      {isInView ? (
+        <>
+          <div className="relative shiki-wrapper" style={{ contain: 'layout style paint' }}>
+            {isHighlighting && (
+              <div className="absolute inset-0 bg-gray-900 flex items-center justify-center z-10">
+                <div className="text-gray-400 text-sm">Loading syntax highlighting...</div>
+              </div>
+            )}
+            <ShikiHighlighter
+              language={language}
+              theme="github-dark"
+              showLineNumbers={true}
+            >
+              {displayContent}
+            </ShikiHighlighter>
+          </div>
+
+          {/* Expand button for large files */}
+          {isLargeFile && !isExpanded && (
+            <div className="border-t border-gray-700 bg-gray-800 p-4 text-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsExpanded(true)}
+                className="bg-gray-700 hover:bg-gray-600 text-white border-gray-600"
+              >
+                <ChevronDown className="w-4 h-4 mr-2" />
+                Show {hiddenLinesCount} more lines
+              </Button>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="bg-gray-900 p-8 flex items-center justify-center min-h-[200px]">
+          <div className="text-gray-500 text-sm">Scroll to load content...</div>
+        </div>
+      )}
     </div>
   );
 });

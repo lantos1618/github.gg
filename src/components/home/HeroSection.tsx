@@ -58,7 +58,7 @@ export function HeroSection() {
             variants={fadeUpVariants}
             transition={{ duration: 0.5 }}
           >
-            github.gg
+            gh.gg
           </motion.h1>
 
           <motion.p

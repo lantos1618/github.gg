@@ -1,17 +1,17 @@
-export interface RoadmapItem {
+export interface Feature {
   title: string;
   description: string;
   completed: boolean;
 }
 
-export const roadmapItems: RoadmapItem[] = [
+export const features: Feature[] = [
   {
     title: "GitHub OAuth Authentication",
     description: "Secure user authentication and session management via GitHub",
     completed: true
   },
   {
-    title: "Repository File Browsing", 
+    title: "Repository File Browsing",
     description: "Browse and view files from GitHub repositories with intelligent filtering",
     completed: true
   },
@@ -66,7 +66,7 @@ export const roadmapItems: RoadmapItem[] = [
     completed: false
   },
   {
-    title: "Code Quality Metrics & Recommendations", 
+    title: "Code Quality Metrics & Recommendations",
     description: "Analyze code complexity, maintainability, and suggest improvements",
     completed: false
   },
@@ -85,4 +85,4 @@ export const roadmapItems: RoadmapItem[] = [
     description: "Scan for security issues, dependency vulnerabilities, and best practices",
     completed: false
   }
-]; 
+];

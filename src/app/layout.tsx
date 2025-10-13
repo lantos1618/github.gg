@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "github.gg",
-  description: "github.gg intelligence",
+  title: "gh.gg",
+  description: "gh.gg - The missing intelligence layer for GitHub",
   icons: {
     icon: [
       { url: '/favicon/favicon-16x16.png', sizes: '16x16', type: 'image/png' },

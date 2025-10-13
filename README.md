@@ -1,6 +1,8 @@
-# GitHub.gg
+# gh.gg
 
 A modern GitHub repository analyzer built with Next.js, Better Auth, and Octokit, powered by Bun.
+
+> **Note:** gh.gg is not affiliated with, endorsed by, or sponsored by GitHub, Inc. GitHub is a registered trademark of GitHub, Inc.
 
 ## Features
 
@@ -45,7 +47,7 @@ After running the setup script, you need to create a GitHub OAuth App:
 1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
 2. Click "New OAuth App"
 3. Fill in the details:
-   - **Application name**: `github.gg-dev` (or any name you prefer)
+   - **Application name**: `gh.gg-dev` (or any name you prefer)
    - **Homepage URL**: `http://localhost:3000`
    - **Authorization callback URL**: `http://localhost:3000/api/auth/callback/github`
 4. Copy the Client ID and Client Secret

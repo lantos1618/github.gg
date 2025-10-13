@@ -269,11 +269,11 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
       <div
         ref={containerRef}
         className={cn(
-          `w-full overflow-hidden select-none flex flex-col items-center ${justifyClass}`,
+          `w-full overflow-hidden select-none relative`,
           className
         )}
         aria-hidden="true"
-        style={{}}
+        style={{ height: '600px' }}
       >
         {/* Overlay hero content in the center for large screens */}
         {typeof window !== 'undefined' && window.innerWidth > 1024 && children && (
@@ -281,64 +281,69 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
             {children}
           </div>
         )}
-        {/* Use shuffledRows if available, otherwise render nothing (prevents SSR mismatch) */}
-        {shuffledRows && shuffledRows.map((row, idx) => {
-          const colorsForRow = Array.isArray(rowColors[idx]) ? rowColors[idx] : [];
-          const rowWidth = rowWidths[idx] || 0;
-          const repeatCount = rowWidth > 0 && containerWidth > 0 ? Math.ceil(containerWidth / rowWidth) + 1 : 2;
-          const shouldAnimate = rowWidth > containerWidth;
-          return (
-            <motion.div
-              key={`row-${idx}`}
-              ref={(el) => {
-                rowRefs.current[idx] = el;
-              }}
-              className="flex items-center whitespace-nowrap py-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: idx * 0.1 }}
-              style={shouldAnimate ? {
-                animation: `scroll${idx % 2 === 0 ? 'Left' : 'Right'} 180s linear infinite`,
-              } : { justifyContent: 'center' }}
-            >
-              {Array.from({ length: shouldAnimate ? repeatCount : 1 }).flatMap((_, duplicateIndex) =>
-                row.map((repo, repoIdx) => {
-                  const color = colorsForRow[repoIdx % colorsForRow.length] || '#FFD1D1';
-                  return (
-                    <motion.div
-                      key={`${idx}-${repo.owner}-${repo.name}-${repoIdx}-${duplicateIndex}-${repo.isUserRepo ? 'user' : 'cached'}`}
-                      style={{
-                        viewTransitionName: `repo-${repo.owner}-${repo.name}-${repoIdx}-${duplicateIndex}`
-                      }}
-                      initial={{ opacity: 0, scale: 0.8, y: -20 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.8, y: 20 }}
-                      transition={{
-                        type: "spring",
-                        stiffness: 400,
-                        delay: repo.isUserRepo ? 0.2 : 0
-                      }}
-                    >
-                      <RepoItem
-                        repo={repo}
-                        color={color}
-                        isSkeleton={isLoading && repo.isPlaceholder}
-                      />
-                    </motion.div>
-                  );
-                })
-              )}
-            </motion.div>
-          );
-        })}
+
+        {/* Scrolling rows with snake pattern (alternating directions) */}
+        {shuffledRows && (
+          <div className="space-y-4">
+            {shuffledRows.map((row, rowIndex) => {
+              const colors = rowColors[rowIndex] || pastelColors;
+              // Top row goes right (reading direction), then alternates
+              const direction = rowIndex % 2 === 0 ? 'right' : 'left';
+              const duration = 80 + (rowIndex % 3) * 10; // Slower animation
+
+              // Skip empty rows
+              if (!row || row.length === 0) return null;
+
+              return (
+                <div
+                  key={rowIndex}
+                  ref={(el) => { rowRefs.current[rowIndex] = el; }}
+                  className={cn(
+                    "flex items-center gap-2 sm:gap-4",
+                    justifyClass
+                  )}
+                  style={{
+                    width: 'fit-content',
+                    animation: `scroll${direction === 'left' ? 'Left' : 'Right'} ${duration}s linear infinite`,
+                  }}
+                >
+                  {/* Duplicate row content 3 times for seamless loop */}
+                  {[...row, ...row, ...row].map((repo, repoIndex) => {
+                    const colorIndex = repoIndex % colors.length;
+                    return (
+                      <motion.div
+                        key={`${repo.owner}-${repo.name}-${repoIndex}`}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 400,
+                          delay: Math.min(repoIndex * 0.03, 0.6)
+                        }}
+                      >
+                        <RepoItem
+                          repo={repo}
+                          color={colors[colorIndex]}
+                          isSkeleton={isLoading && repo.isPlaceholder}
+                        />
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <style jsx global>{`
+
           @keyframes scrollLeft {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
+            0% { transform: translateX(-33.333%); }
+            100% { transform: translateX(-66.666%); }
           }
           @keyframes scrollRight {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(50%); }
+            0% { transform: translateX(-66.666%); }
+            100% { transform: translateX(-33.333%); }
           }
           @keyframes shimmer {
             0% { background-position: 200% 0; }

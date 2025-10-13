@@ -1,3 +1,3 @@
 export { HeroSection } from './HeroSection';
-export { RoadmapSection } from './RoadmapSection';
-export { RoadmapItem } from './RoadmapItem'; 
+export { FeaturesTimeline } from './FeaturesTimeline';
+export { FeatureRequestBox } from './FeatureRequestBox'; 

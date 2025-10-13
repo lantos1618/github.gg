@@ -20,6 +20,12 @@ export async function NavbarServer() {
             href="/users"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
           >
+            👥 Profiles
+          </Link>
+          <Link
+            href="/arena/leaderboard"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
+          >
             🏆 Leaderboard
           </Link>
           <Link

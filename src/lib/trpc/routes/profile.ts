@@ -480,4 +480,38 @@ export const profileRouter = router({
         .limit(1);
       return result[0] || null;
     }),
+
+  // Get all analyzed profiles (latest version only per username)
+  getAllAnalyzedProfiles: publicProcedure
+    .input(z.object({
+      limit: z.number().optional().default(100),
+      offset: z.number().optional().default(0),
+    }))
+    .query(async ({ input }) => {
+      // Get all profiles with their latest version
+      const profiles = await db
+        .select({
+          username: developerProfileCache.username,
+          profileData: developerProfileCache.profileData,
+          updatedAt: developerProfileCache.updatedAt,
+          version: developerProfileCache.version,
+        })
+        .from(developerProfileCache)
+        .orderBy(desc(developerProfileCache.updatedAt))
+        .limit(input.limit)
+        .offset(input.offset);
+
+      // Group by username and take the latest version
+      const latestProfiles = new Map<string, typeof profiles[0]>();
+      for (const profile of profiles) {
+        const existing = latestProfiles.get(profile.username);
+        if (!existing || profile.version > existing.version) {
+          latestProfiles.set(profile.username, profile);
+        }
+      }
+
+      return Array.from(latestProfiles.values()).sort((a, b) =>
+        b.updatedAt.getTime() - a.updatedAt.getTime()
+      );
+    }),
 }); 

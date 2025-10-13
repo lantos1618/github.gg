@@ -17,13 +17,14 @@ describe('Payment Integration Tests', () => {
     await db.delete(userSubscriptions).where(eq(userSubscriptions.userId, testUserId));
     await db.delete(userApiKeys).where(eq(userApiKeys.userId, testUserId));
     await db.delete(tokenUsage).where(eq(tokenUsage.userId, testUserId));
-    
-    // Create test user first
+    await db.delete(user).where(eq(user.id, testUserId));
+
+    // Create test user first with unique email
     await db.insert(user).values({
       id: testUserId,
       name: 'Test User',
-      email: 'test@example.com',
-    }).onConflictDoNothing();
+      email: `test-${testUserId}@example.com`, // Unique email per test run
+    });
   });
 
   afterAll(async () => {
@@ -31,6 +32,7 @@ describe('Payment Integration Tests', () => {
     await db.delete(userSubscriptions).where(eq(userSubscriptions.userId, testUserId));
     await db.delete(userApiKeys).where(eq(userApiKeys.userId, testUserId));
     await db.delete(tokenUsage).where(eq(tokenUsage.userId, testUserId));
+    await db.delete(user).where(eq(user.id, testUserId));
   });
 
   describe('Database Schema & Operations', () => {
@@ -183,8 +185,8 @@ describe('Payment Integration Tests', () => {
         {
           userId: testUserId,
           feature: 'diagram',
-          promptTokens: 500,
-          completionTokens: 500,
+          inputTokens: 500,
+          outputTokens: 500,
           totalTokens: 1000,
           isByok: true,
           createdAt: new Date(),
@@ -192,8 +194,8 @@ describe('Payment Integration Tests', () => {
         {
           userId: testUserId,
           feature: 'scorecard',
-          promptTokens: 1000,
-          completionTokens: 1000,
+          inputTokens: 1000,
+          outputTokens: 1000,
           totalTokens: 2000,
           isByok: false,
           createdAt: new Date(),
@@ -201,8 +203,8 @@ describe('Payment Integration Tests', () => {
         {
           userId: testUserId,
           feature: 'diagram',
-          promptTokens: 250,
-          completionTokens: 250,
+          inputTokens: 250,
+          outputTokens: 250,
           totalTokens: 500,
           isByok: true,
           createdAt: new Date(),
@@ -236,8 +238,8 @@ describe('Payment Integration Tests', () => {
         {
           userId: testUserId,
           feature: 'diagram',
-          promptTokens: 500,
-          completionTokens: 500,
+          inputTokens: 500,
+          outputTokens: 500,
           totalTokens: 1000,
           isByok: true,
           createdAt: now,
@@ -245,8 +247,8 @@ describe('Payment Integration Tests', () => {
         {
           userId: testUserId,
           feature: 'scorecard',
-          promptTokens: 1000,
-          completionTokens: 1000,
+          inputTokens: 1000,
+          outputTokens: 1000,
           totalTokens: 2000,
           isByok: false,
           createdAt: yesterday,
@@ -254,8 +256,8 @@ describe('Payment Integration Tests', () => {
         {
           userId: testUserId,
           feature: 'diagram',
-          promptTokens: 250,
-          completionTokens: 250,
+          inputTokens: 250,
+          outputTokens: 250,
           totalTokens: 500,
           isByok: true,
           createdAt: lastWeek,
@@ -279,7 +281,7 @@ describe('Payment Integration Tests', () => {
         where: eq(userSubscriptions.userId, testUserId),
       });
 
-      expect(subscription).toBeNull();
+      expect(subscription).toBeUndefined();
     });
 
     test('active subscription grants plan access', async () => {

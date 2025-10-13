@@ -137,12 +137,16 @@ export function parseRepoPathWithBranches(
   
   const path = pathParts.length > 0 ? pathParts.join("/") : undefined;
   
-  // Build currentPath
+  // Build currentPath with URL-encoded branch name (if it contains slashes)
   let currentPath = `/${user}`;
   if (repo) currentPath += `/${repo}`;
-  if (ref) currentPath += `/tree/${ref}`;
+  if (ref) {
+    // URL-encode slashes in branch names (e.g., jv/kxoosrpyvqlm -> jv%2Fkxoosrpyvqlm)
+    const encodedRef = ref.includes('/') ? encodeURIComponent(ref) : ref;
+    currentPath += `/tree/${encodedRef}`;
+  }
   if (path) currentPath += `/${path}`;
   if (tab) currentPath += `/${tab}`;
-  
+
   return { user, repo, ref, path, tab, currentPath };
 }

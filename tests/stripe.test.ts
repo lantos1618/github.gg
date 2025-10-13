@@ -32,13 +32,14 @@ describe('Stripe Payment Integration', () => {
     await db.delete(userSubscriptions).where(eq(userSubscriptions.userId, testUserId));
     await db.delete(userApiKeys).where(eq(userApiKeys.userId, testUserId));
     await db.delete(tokenUsage).where(eq(tokenUsage.userId, testUserId));
-    
-    // Create test user first
+    await db.delete(user).where(eq(user.id, testUserId));
+
+    // Create test user first with unique email
     await db.insert(user).values({
       id: testUserId,
       name: 'Test User',
-      email: 'test@example.com',
-    }).onConflictDoNothing();
+      email: `test-${testUserId}@example.com`, // Unique email per test run
+    });
   });
 
   afterAll(async () => {
@@ -46,6 +47,7 @@ describe('Stripe Payment Integration', () => {
     await db.delete(userSubscriptions).where(eq(userSubscriptions.userId, testUserId));
     await db.delete(userApiKeys).where(eq(userApiKeys.userId, testUserId));
     await db.delete(tokenUsage).where(eq(tokenUsage.userId, testUserId));
+    await db.delete(user).where(eq(user.id, testUserId));
   });
 
   describe('Checkout Flow', () => {
@@ -201,7 +203,7 @@ describe('Stripe Payment Integration', () => {
         where: eq(userSubscriptions.userId, testUserId),
       });
 
-      expect(subscription).toBeNull();
+      expect(subscription).toBeUndefined();
     });
   });
 
@@ -214,7 +216,7 @@ describe('Stripe Payment Integration', () => {
         where: eq(userSubscriptions.userId, testUserId),
       });
 
-      expect(subscription).toBeNull();
+      expect(subscription).toBeUndefined();
     });
 
     test('returns correct plan for active subscription', async () => {
@@ -286,7 +288,7 @@ describe('Stripe Payment Integration', () => {
         where: eq(userApiKeys.userId, testUserId),
       });
 
-      expect(apiKey).toBeNull();
+      expect(apiKey).toBeUndefined();
     });
   });
 
@@ -297,8 +299,8 @@ describe('Stripe Payment Integration', () => {
         {
           userId: testUserId,
           feature: 'diagram',
-          promptTokens: 500,
-          completionTokens: 500,
+          inputTokens: 500,
+          outputTokens: 500,
           totalTokens: 1000,
           isByok: true,
           createdAt: new Date(),
@@ -306,8 +308,8 @@ describe('Stripe Payment Integration', () => {
         {
           userId: testUserId,
           feature: 'scorecard',
-          promptTokens: 1000,
-          completionTokens: 1000,
+          inputTokens: 1000,
+          outputTokens: 1000,
           totalTokens: 2000,
           isByok: false,
           createdAt: new Date(),
@@ -355,8 +357,8 @@ describe('Stripe Payment Integration', () => {
       await db.insert(tokenUsage).values({
         userId: testUserId,
         feature: 'scorecard',
-        promptTokens: 1000,
-        completionTokens: 2000,
+        inputTokens: 1000,
+        outputTokens: 2000,
         totalTokens: 3000,
         isByok: false,
         createdAt: now,
@@ -383,8 +385,8 @@ describe('Stripe Payment Integration', () => {
       await db.insert(tokenUsage).values({
         userId: testUserId,
         feature: 'scorecard',
-        promptTokens: 1000,
-        completionTokens: 2000,
+        inputTokens: 1000,
+        outputTokens: 2000,
         totalTokens: 3000,
         isByok: false,
         createdAt: now,

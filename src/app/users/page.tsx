@@ -320,15 +320,6 @@ export default function UsersPage() {
           </>
         )}
 
-        {/* Note about duplicates */}
-        {!isLoading && sortedProfiles.length > 0 && (
-          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800">
-              <strong>Note:</strong> If you see duplicate profiles, this is due to database inconsistencies.
-              Duplicate entries (like &quot;lantos&quot; and &quot;lantos1618&quot;) need to be cleaned up manually in the database.
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );

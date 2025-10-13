@@ -9,6 +9,7 @@ import { Search, CircleDot, ExternalLink, AlertCircle, Clock, MessageSquare } fr
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import RepoPageLayout from '@/components/layouts/RepoPageLayout';
 
 interface IssueListClientViewProps {
   user: string;
@@ -33,34 +34,24 @@ export default function IssueListClientView({ user, repo }: IssueListClientViewP
 
   if (error) {
     return (
-      <div className="container py-8 max-w-6xl">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-5 w-5" />
-              <p>Failed to load issues: {error.message}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <RepoPageLayout user={user} repo={repo} files={[]} totalFiles={0}>
+        <div className="container py-8 max-w-6xl">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="h-5 w-5" />
+                <p>Failed to load issues: {error.message}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </RepoPageLayout>
     );
   }
 
   return (
-    <div className="container py-8 max-w-6xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">
-          <Link href={`/${user}`} className="hover:underline">{user}</Link>
-          {' / '}
-          <Link href={`/${user}/${repo}`} className="hover:underline">{repo}</Link>
-          {' / '}
-          Issues
-        </h1>
-        <p className="text-muted-foreground">
-          View and analyze all issues for this repository
-        </p>
-      </div>
-
+    <RepoPageLayout user={user} repo={repo} files={[]} totalFiles={0}>
+      <div className="container py-8 max-w-6xl">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -107,66 +98,62 @@ export default function IssueListClientView({ user, repo }: IssueListClientViewP
           ) : (
             <div className="space-y-3">
               {filteredIssues.map((issue) => (
-                <Link
-                  key={issue.number}
-                  href={`/${user}/${repo}/issues/${issue.number}`}
-                  className="block"
-                >
-                  <div className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-mono text-sm text-muted-foreground">#{issue.number}</span>
-                          <h3 className="font-semibold truncate">{issue.title}</h3>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                <div key={issue.number} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-mono text-sm text-muted-foreground">#{issue.number}</span>
+                        <Link href={`/${user}/${repo}/issues/${issue.number}`}>
+                          <h3 className="font-semibold truncate hover:underline">{issue.title}</h3>
+                        </Link>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <CircleDot className="h-3 w-3" />
+                          {issue.user}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {formatDistanceToNow(new Date(issue.updatedAt), { addSuffix: true })}
+                        </span>
+                        {issue.comments > 0 && (
                           <span className="flex items-center gap-1">
-                            <CircleDot className="h-3 w-3" />
-                            {issue.user}
+                            <MessageSquare className="h-3 w-3" />
+                            {issue.comments}
                           </span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {formatDistanceToNow(new Date(issue.updatedAt), { addSuffix: true })}
-                          </span>
-                          {issue.comments > 0 && (
-                            <span className="flex items-center gap-1">
-                              <MessageSquare className="h-3 w-3" />
-                              {issue.comments}
-                            </span>
-                          )}
-                        </div>
-                        {issue.labels.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {issue.labels.map((label) => (
-                              <Badge key={label} variant="secondary" className="text-xs">
-                                {label}
-                              </Badge>
-                            ))}
-                          </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={issue.state === 'open' ? 'default' : 'secondary'}>
-                          {issue.state}
-                        </Badge>
-                        <a
-                          href={`https://github.com/${user}/${repo}/issues/${issue.number}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-muted-foreground hover:text-foreground"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      </div>
+                      {issue.labels.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {issue.labels.map((label) => (
+                            <Badge key={label} variant="secondary" className="text-xs">
+                              {label}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={issue.state === 'open' ? 'default' : 'secondary'}>
+                        {issue.state}
+                      </Badge>
+                      <a
+                        href={`https://github.com/${user}/${repo}/issues/${issue.number}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
                     </div>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
     </div>
+    </RepoPageLayout>
   );
 }

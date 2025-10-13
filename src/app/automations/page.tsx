@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -46,7 +46,7 @@ export default function AutomationsPage() {
   });
 
   // Filter repos and add activity data
-  const filteredRepos: RepoWithActivity[] = (() => {
+  const filteredRepos = useMemo((): RepoWithActivity[] => {
     // Create a map of repo activity (most recent activity timestamp)
     const repoActivityMap = new Map<string, Date>();
     activityLog?.activities.forEach(activity => {
@@ -68,7 +68,7 @@ export default function AutomationsPage() {
       ...repo,
       lastActivity: repoActivityMap.get(repo.fullName),
     }));
-  })();
+  }, [repos, repoSearch, activityLog]);
 
   // Filter activities by search
   const filteredActivities = activityLog?.activities.filter(activity =>

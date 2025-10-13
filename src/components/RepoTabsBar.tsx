@@ -2,7 +2,7 @@
 import { useRouter, usePathname } from 'next/navigation';
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, BarChart3, Network } from 'lucide-react';
+import { FileText, BarChart3, Network, CircleDot, GitPullRequest } from 'lucide-react';
 import { REPO_TABS } from '@/lib/repoTabs';
 
 export default function RepoTabsBar() {
@@ -30,6 +30,8 @@ export default function RepoTabsBar() {
     files: FileText,
     scorecard: BarChart3,
     diagram: Network,
+    issues: CircleDot,
+    pulls: GitPullRequest,
   };
 
   return (

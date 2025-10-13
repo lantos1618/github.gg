@@ -6,7 +6,8 @@ import { analyzeCommit } from '@/lib/ai/commit-analysis';
 import { analyzeIssue } from '@/lib/ai/issue-analysis';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
-import { tokenUsage } from '@/db/schema';
+import { tokenUsage, prAnalysisCache, issueAnalysisCache } from '@/db/schema';
+import { desc, and, eq } from 'drizzle-orm';
 
 export const githubAnalysisRouter = router({
   // Get all PRs for a repository
@@ -37,9 +38,9 @@ export const githubAnalysisRouter = router({
           user: pr.user?.login || 'unknown',
           createdAt: pr.created_at,
           updatedAt: pr.updated_at,
-          additions: pr.additions || 0,
-          deletions: pr.deletions || 0,
-          changedFiles: pr.changed_files || 0,
+          additions: 0, // Not available in list endpoint
+          deletions: 0, // Not available in list endpoint
+          changedFiles: 0, // Not available in list endpoint
           labels: pr.labels.map(l => typeof l === 'string' ? l : l.name || ''),
           draft: pr.draft,
         }));
@@ -151,24 +152,72 @@ export const githubAnalysisRouter = router({
         });
 
         // Log token usage
-        await db.insert(tokenUsage).values({
-          userId: ctx.user.id,
-          feature: 'pr_analysis',
-          repoOwner: owner,
-          repoName: repo,
-          model: 'gemini-2.5-pro',
-          inputTokens: analysisResult.usage.inputTokens,
-          outputTokens: analysisResult.usage.outputTokens,
-          totalTokens: analysisResult.usage.totalTokens,
-          isByok: false,
-          createdAt: new Date(),
-        });
+        try {
+          await db.insert(tokenUsage).values({
+            userId: ctx.user.id,
+            feature: 'pr_analysis',
+            repoOwner: owner,
+            repoName: repo,
+            model: 'gemini-2.5-pro',
+            inputTokens: analysisResult.usage.inputTokens,
+            outputTokens: analysisResult.usage.outputTokens,
+            totalTokens: analysisResult.usage.totalTokens,
+            isByok: false,
+          });
+        } catch (dbError) {
+          console.error('Failed to log token usage for PR analysis:', dbError);
+          // Don't fail the entire request if token logging fails
+        }
+
+        // Get the latest version for this PR
+        const latestAnalysis = await db
+          .select()
+          .from(prAnalysisCache)
+          .where(
+            and(
+              eq(prAnalysisCache.userId, ctx.user.id),
+              eq(prAnalysisCache.repoOwner, owner),
+              eq(prAnalysisCache.repoName, repo),
+              eq(prAnalysisCache.prNumber, number)
+            )
+          )
+          .orderBy(desc(prAnalysisCache.version))
+          .limit(1);
+
+        const nextVersion = latestAnalysis.length > 0 ? latestAnalysis[0].version + 1 : 1;
+
+        // Cache the analysis
+        try {
+          await db.insert(prAnalysisCache).values({
+            userId: ctx.user.id,
+            repoOwner: owner,
+            repoName: repo,
+            prNumber: number,
+            version: nextVersion,
+            overallScore: analysisResult.analysis.overallScore,
+            analysis: analysisResult.analysis,
+            markdown: analysisResult.markdown,
+            prSnapshot: {
+              title: pr.data.title,
+              baseBranch: pr.data.base.ref,
+              headBranch: pr.data.head.ref,
+              additions: pr.data.additions || 0,
+              deletions: pr.data.deletions || 0,
+              changedFiles: pr.data.changed_files || 0,
+            },
+          });
+        } catch (cacheError) {
+          console.error('Failed to cache PR analysis:', cacheError);
+          // Don't fail the entire request if caching fails
+        }
 
         return {
           analysis: analysisResult.analysis,
           markdown: analysisResult.markdown,
+          version: nextVersion,
         };
       } catch (error) {
+        console.error('PR analysis error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to analyze PR: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -294,28 +343,160 @@ export const githubAnalysisRouter = router({
         });
 
         // Log token usage
-        await db.insert(tokenUsage).values({
-          userId: ctx.user.id,
-          feature: 'issue_analysis',
-          repoOwner: owner,
-          repoName: repo,
-          model: 'gemini-2.5-pro',
-          inputTokens: analysisResult.usage.inputTokens,
-          outputTokens: analysisResult.usage.outputTokens,
-          totalTokens: analysisResult.usage.totalTokens,
-          isByok: false,
-          createdAt: new Date(),
-        });
+        try {
+          await db.insert(tokenUsage).values({
+            userId: ctx.user.id,
+            feature: 'issue_analysis',
+            repoOwner: owner,
+            repoName: repo,
+            model: 'gemini-2.5-pro',
+            inputTokens: analysisResult.usage.inputTokens,
+            outputTokens: analysisResult.usage.outputTokens,
+            totalTokens: analysisResult.usage.totalTokens,
+            isByok: false,
+          });
+        } catch (dbError) {
+          console.error('Failed to log token usage for issue analysis:', dbError);
+          // Don't fail the entire request if token logging fails
+        }
+
+        // Get the latest version for this issue
+        const latestAnalysis = await db
+          .select()
+          .from(issueAnalysisCache)
+          .where(
+            and(
+              eq(issueAnalysisCache.userId, ctx.user.id),
+              eq(issueAnalysisCache.repoOwner, owner),
+              eq(issueAnalysisCache.repoName, repo),
+              eq(issueAnalysisCache.issueNumber, number)
+            )
+          )
+          .orderBy(desc(issueAnalysisCache.version))
+          .limit(1);
+
+        const nextVersion = latestAnalysis.length > 0 ? latestAnalysis[0].version + 1 : 1;
+
+        // Cache the analysis
+        try {
+          await db.insert(issueAnalysisCache).values({
+            userId: ctx.user.id,
+            repoOwner: owner,
+            repoName: repo,
+            issueNumber: number,
+            version: nextVersion,
+            overallScore: analysisResult.analysis.overallScore,
+            slopRanking: analysisResult.analysis.slopRanking,
+            suggestedPriority: analysisResult.analysis.suggestedPriority,
+            analysis: analysisResult.analysis,
+            markdown: analysisResult.markdown,
+            issueSnapshot: {
+              title: issue.data.title,
+              state: issue.data.state,
+              comments: issue.data.comments,
+              labels: issue.data.labels.map(l => typeof l === 'string' ? l : l.name || ''),
+            },
+          });
+        } catch (cacheError) {
+          console.error('Failed to cache issue analysis:', cacheError);
+          // Don't fail the entire request if caching fails
+        }
 
         return {
           analysis: analysisResult.analysis,
           markdown: analysisResult.markdown,
+          version: nextVersion,
         };
       } catch (error) {
+        console.error('Issue analysis error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to analyze issue: ${error instanceof Error ? error.message : 'Unknown error'}`,
         });
+      }
+    }),
+
+  // Get cached PR analysis (public endpoint)
+  getCachedPRAnalysis: publicProcedure
+    .input(z.object({
+      owner: z.string(),
+      repo: z.string(),
+      number: z.number(),
+      version: z.number().optional(),
+    }))
+    .query(async ({ input }) => {
+      const { owner, repo, number, version } = input;
+
+      try {
+        const conditions = [
+          eq(prAnalysisCache.repoOwner, owner),
+          eq(prAnalysisCache.repoName, repo),
+          eq(prAnalysisCache.prNumber, number),
+        ];
+
+        if (version !== undefined) {
+          conditions.push(eq(prAnalysisCache.version, version));
+        }
+
+        const baseQuery = db
+          .select()
+          .from(prAnalysisCache)
+          .where(and(...conditions));
+
+        const result = version === undefined
+          ? await baseQuery.orderBy(desc(prAnalysisCache.version)).limit(1)
+          : await baseQuery;
+
+        if (result.length === 0) {
+          return null;
+        }
+
+        return result[0];
+      } catch (error) {
+        console.error('Failed to fetch cached PR analysis:', error);
+        return null;
+      }
+    }),
+
+  // Get cached issue analysis (public endpoint)
+  getCachedIssueAnalysis: publicProcedure
+    .input(z.object({
+      owner: z.string(),
+      repo: z.string(),
+      number: z.number(),
+      version: z.number().optional(),
+    }))
+    .query(async ({ input }) => {
+      const { owner, repo, number, version } = input;
+
+      try {
+        const conditions = [
+          eq(issueAnalysisCache.repoOwner, owner),
+          eq(issueAnalysisCache.repoName, repo),
+          eq(issueAnalysisCache.issueNumber, number),
+        ];
+
+        if (version !== undefined) {
+          conditions.push(eq(issueAnalysisCache.version, version));
+        }
+
+        const baseQuery = db
+          .select()
+          .from(issueAnalysisCache)
+          .where(and(...conditions));
+
+        const result = version === undefined
+          ? await baseQuery.orderBy(desc(issueAnalysisCache.version)).limit(1)
+          : await baseQuery;
+
+        if (result.length === 0) {
+          return null;
+        }
+
+        return result[0];
+      } catch (error) {
+        console.error('Failed to fetch cached issue analysis:', error);
+        return null;
       }
     }),
 });

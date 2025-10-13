@@ -80,7 +80,13 @@ Files Changed: ${changedFiles.length}
 
 REQUIREMENTS:
 - Provide an overall score from 0-100 for this PR
-- Analyze code quality, security, performance, and maintainability
+- Provide breakdown scores for code quality, security, performance, and maintainability (EACH also 0-100)
+  * 90-100: Excellent
+  * 80-89: Good
+  * 70-79: Acceptable
+  * 60-69: Needs improvement
+  * Below 60: Significant issues
+- The overall score should reflect a weighted average of the breakdown scores
 - Be constructive and helpful
 - Identify specific issues with line references when possible
 - Suggest practical improvements

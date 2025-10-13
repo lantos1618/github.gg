@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { trpc } from '@/lib/trpc/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { GitPullRequest, ExternalLink, AlertCircle, Clock, FileCode, Sparkles, ArrowLeft } from 'lucide-react';
@@ -10,6 +9,11 @@ import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { MarkdownCardRenderer } from '@/components/MarkdownCardRenderer';
+import RepoPageLayout from '@/components/layouts/RepoPageLayout';
 
 interface PRDetailClientViewProps {
   user: string;
@@ -18,7 +22,7 @@ interface PRDetailClientViewProps {
 }
 
 export default function PRDetailClientView({ user, repo, number }: PRDetailClientViewProps) {
-  const [showAnalysis, setShowAnalysis] = useState(false);
+  const utils = trpc.useUtils();
 
   const { data: pr, isLoading, error } = trpc.githubAnalysis.getPRDetails.useQuery({
     owner: user,
@@ -26,10 +30,17 @@ export default function PRDetailClientView({ user, repo, number }: PRDetailClien
     number,
   });
 
+  const { data: cachedAnalysis } = trpc.githubAnalysis.getCachedPRAnalysis.useQuery({
+    owner: user,
+    repo,
+    number,
+  });
+
   const analyzePR = trpc.githubAnalysis.analyzePR.useMutation({
     onSuccess: () => {
-      setShowAnalysis(true);
       toast.success('PR analysis complete!');
+      // Invalidate and refetch the cached analysis
+      utils.githubAnalysis.getCachedPRAnalysis.invalidate();
     },
     onError: (err) => {
       toast.error(`Analysis failed: ${err.message}`);
@@ -46,35 +57,40 @@ export default function PRDetailClientView({ user, repo, number }: PRDetailClien
 
   if (error) {
     return (
-      <div className="container py-8 max-w-6xl">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-5 w-5" />
-              <p>Failed to load pull request: {error.message}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <RepoPageLayout user={user} repo={repo} files={[]} totalFiles={0}>
+        <div className="container py-8 max-w-6xl">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="h-5 w-5" />
+                <p>Failed to load pull request: {error.message}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </RepoPageLayout>
     );
   }
 
   if (isLoading || !pr) {
     return (
-      <div className="container py-8 max-w-6xl">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center py-8 text-muted-foreground">
-              Loading pull request...
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <RepoPageLayout user={user} repo={repo} files={[]} totalFiles={0}>
+        <div className="container py-8 max-w-6xl">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center py-8 text-muted-foreground">
+                Loading pull request...
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </RepoPageLayout>
     );
   }
 
   return (
-    <div className="container py-8 max-w-6xl">
+    <RepoPageLayout user={user} repo={repo} files={[]} totalFiles={0}>
+      <div className="container py-8 max-w-6xl">
       {/* Breadcrumb */}
       <div className="mb-4">
         <Link href={`/${user}/${repo}/pulls`} className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
@@ -115,7 +131,7 @@ export default function PRDetailClientView({ user, repo, number }: PRDetailClien
               className="gap-2"
             >
               <Sparkles className="h-4 w-4" />
-              {analyzePR.isPending ? 'Analyzing...' : 'Analyze PR'}
+              {analyzePR.isPending ? 'Analyzing...' : cachedAnalysis ? 'Regenerate Analysis' : 'Analyze PR'}
             </Button>
             <Button variant="outline" asChild>
               <a
@@ -198,31 +214,44 @@ export default function PRDetailClientView({ user, repo, number }: PRDetailClien
               <CardTitle>Description</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="prose prose-sm max-w-none">
-                <ReactMarkdown>{pr.body}</ReactMarkdown>
+              <div className="markdown-content rounded-md border border-input bg-background p-6 overflow-y-auto max-h-[400px]">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    code: ({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'> & { inline?: boolean }) => {
+                      const match = /language-(\w+)/.exec(className || '');
+
+                      return !props.inline && match ? (
+                        <SyntaxHighlighter
+                          language={match[1]}
+                          PreTag="div"
+                          {...props}
+                          style={tomorrow}
+                        >
+                          {String(children).replace(/\n$/, '')}
+                        </SyntaxHighlighter>
+                      ) : (
+                        <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono" {...props}>
+                          {children}
+                        </code>
+                      );
+                    }
+                  }}
+                >
+                  {pr.body}
+                </ReactMarkdown>
               </div>
             </CardContent>
           </Card>
         )}
 
         {/* AI Analysis */}
-        {showAnalysis && analyzePR.data && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5" />
-                AI Analysis
-              </CardTitle>
-              <CardDescription>
-                Overall Score: {analyzePR.data.analysis.overallScore}/100
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="prose prose-sm max-w-none">
-                <ReactMarkdown>{analyzePR.data.markdown}</ReactMarkdown>
-              </div>
-            </CardContent>
-          </Card>
+        {cachedAnalysis && (
+          <MarkdownCardRenderer
+            markdown={cachedAnalysis.markdown}
+            title="AI Analysis"
+            description={`Overall Score: ${cachedAnalysis.overallScore}/100 | Version: ${cachedAnalysis.version}`}
+          />
         )}
 
         {/* Changed Files */}
@@ -246,5 +275,6 @@ export default function PRDetailClientView({ user, repo, number }: PRDetailClien
         </Card>
       </div>
     </div>
+    </RepoPageLayout>
   );
 }

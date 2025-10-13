@@ -418,4 +418,68 @@ export const webhookPreferences = pgTable('webhook_preferences', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+// PR Analysis Cache
+export const prAnalysisCache = pgTable('pr_analysis_cache', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('userId').references(() => user.id, { onDelete: 'cascade' }).notNull(),
+  repoOwner: text('repo_owner').notNull(),
+  repoName: text('repo_name').notNull(),
+  prNumber: integer('pr_number').notNull(),
+  version: integer('version').notNull(), // Per-PR version, increments on regeneration
+  overallScore: integer('overall_score').notNull(), // 0-100 overall score
+  analysis: jsonb('analysis').notNull(), // Structured analysis data
+  markdown: text('markdown').notNull(), // Full markdown analysis
+  prSnapshot: jsonb('pr_snapshot').$type<{
+    title: string;
+    baseBranch: string;
+    headBranch: string;
+    additions: number;
+    deletions: number;
+    changedFiles: number;
+  }>(), // Snapshot of PR at time of analysis
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  // Ensure unique analysis per user, repo, PR number, and version
+  prAnalysisUniqueIdx: uniqueIndex('pr_analysis_unique_idx').on(
+    table.userId,
+    table.repoOwner,
+    table.repoName,
+    table.prNumber,
+    table.version
+  ),
+}));
+
+// Issue Analysis Cache
+export const issueAnalysisCache = pgTable('issue_analysis_cache', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('userId').references(() => user.id, { onDelete: 'cascade' }).notNull(),
+  repoOwner: text('repo_owner').notNull(),
+  repoName: text('repo_name').notNull(),
+  issueNumber: integer('issue_number').notNull(),
+  version: integer('version').notNull(), // Per-issue version, increments on regeneration
+  overallScore: integer('overall_score').notNull(), // 0-100 overall score
+  slopRanking: integer('slop_ranking').notNull(), // 0-100 slop score
+  suggestedPriority: text('suggested_priority').notNull(), // Priority level
+  analysis: jsonb('analysis').notNull(), // Structured analysis data
+  markdown: text('markdown').notNull(), // Full markdown analysis
+  issueSnapshot: jsonb('issue_snapshot').$type<{
+    title: string;
+    state: string;
+    comments: number;
+    labels: string[];
+  }>(), // Snapshot of issue at time of analysis
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  // Ensure unique analysis per user, repo, issue number, and version
+  issueAnalysisUniqueIdx: uniqueIndex('issue_analysis_unique_idx').on(
+    table.userId,
+    table.repoOwner,
+    table.repoName,
+    table.issueNumber,
+    table.version
+  ),
+}));
+
 // Do NOT import or export relations here. Only table definitions. 

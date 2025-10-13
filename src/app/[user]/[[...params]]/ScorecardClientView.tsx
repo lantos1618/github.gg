@@ -3,11 +3,6 @@ import RepoPageLayout from "@/components/layouts/RepoPageLayout";
 import { trpc } from '@/lib/trpc/client';
 import { LoadingWave } from '@/components/LoadingWave';
 import { useEffect, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { tomorrow } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
@@ -16,6 +11,7 @@ import type { ScorecardMetric } from '@/lib/types/scorecard';
 import { VersionDropdown } from '@/components/VersionDropdown';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
+import { MarkdownCardRenderer } from '@/components/MarkdownCardRenderer';
 
 // Define a type for TRPC error responses
 interface TRPCError { message: string }
@@ -188,7 +184,10 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
               </div>
             </div>
           )}
-          <MarkdownCardRenderer markdown={scorecardDataObj.markdown} />
+          <MarkdownCardRenderer
+            markdown={scorecardDataObj.markdown}
+            title="Repository Scorecard"
+          />
         </div>
       </RepoPageLayout>
     );
@@ -243,7 +242,12 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
             {!filesLoading && isLoading && <p className="text-sm text-gray-500 mt-2">Generating scorecard...</p>}
           </div>
         )}
-        {markdownContent && <MarkdownCardRenderer markdown={markdownContent} />}
+        {markdownContent && (
+          <MarkdownCardRenderer
+            markdown={markdownContent}
+            title="Repository Scorecard"
+          />
+        )}
         {!markdownContent && !overallLoading && !error && (
           <div className="flex flex-col items-center justify-center min-h-[400px]">
             <h2 className="text-xl font-semibold text-gray-600 mb-2">No Scorecard Available</h2>
@@ -262,44 +266,5 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
         )}
       </div>
     </RepoPageLayout>
-  );
-}
-
-function MarkdownCardRenderer({ markdown }: { markdown: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Repository Scorecard</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="markdown-content min-h-[400px] rounded-md border border-input bg-background p-6 overflow-y-auto">
-          <ReactMarkdown 
-            remarkPlugins={[remarkGfm]}
-            components={{
-              code: ({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'> & { inline?: boolean }) => {
-                const match = /language-(\w+)/.exec(className || '');
-
-                return !props.inline && match ? (
-                  <SyntaxHighlighter
-                    language={match[1]}
-                    PreTag="div"
-                    {...props}
-                    style={tomorrow}
-                  >
-                    {String(children).replace(/\n$/, '')}
-                  </SyntaxHighlighter>
-                ) : (
-                  <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono" {...props}>
-                    {children}
-                  </code>
-                );
-              }
-            }}
-          >
-            {markdown}
-          </ReactMarkdown>
-        </div>
-      </CardContent>
-    </Card>
   );
 } 

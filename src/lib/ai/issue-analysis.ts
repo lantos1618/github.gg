@@ -99,13 +99,18 @@ REQUIREMENTS:
 - Calculate a "SLOP RANKING" (0 = pristine issue, 100 = complete garbage)
   * High slop indicators: vague title, no details, no steps to reproduce, demanding tone, obvious duplicates
   * Low slop indicators: clear title, detailed description, steps to reproduce, expected vs actual behavior, respectful tone
-- Analyze clarity (is the issue understandable? well-written?)
+- Analyze clarity, actionability, completeness, AI generation likelihood, and duplicate likelihood (EACH scored 0-100)
+  * 90-100: Excellent
+  * 80-89: Good
+  * 70-79: Acceptable
+  * 60-69: Needs improvement
+  * Below 60: Significant issues
 - Assess actionability (can a developer act on this? is it reproducible?)
 - Check completeness (what info is provided vs missing?)
-- Detect if this looks AI-generated without human review
+- Detect if this looks AI-generated without human review (score 0-100, where 0 = human, 100 = definitely AI)
 - Suggest appropriate labels (bug, enhancement, question, documentation, etc.)
 - Recommend priority level (critical, high, medium, low)
-- Estimate duplicate likelihood
+- Estimate duplicate likelihood (score 0-100)
 - Provide specific "How to Improve" recommendations
 - Choose an emoji to represent issue quality (🚀, ✅, ⚠️, 🔴, 💩)
 

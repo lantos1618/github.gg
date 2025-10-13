@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { trpc } from '@/lib/trpc/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CircleDot, ExternalLink, AlertCircle, Clock, MessageSquare, Sparkles, ArrowLeft } from 'lucide-react';
@@ -10,6 +9,11 @@ import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { MarkdownCardRenderer } from '@/components/MarkdownCardRenderer';
+import RepoPageLayout from '@/components/layouts/RepoPageLayout';
 
 interface IssueDetailClientViewProps {
   user: string;
@@ -18,7 +22,7 @@ interface IssueDetailClientViewProps {
 }
 
 export default function IssueDetailClientView({ user, repo, number }: IssueDetailClientViewProps) {
-  const [showAnalysis, setShowAnalysis] = useState(false);
+  const utils = trpc.useUtils();
 
   const { data: issue, isLoading, error } = trpc.githubAnalysis.getIssueDetails.useQuery({
     owner: user,
@@ -26,10 +30,17 @@ export default function IssueDetailClientView({ user, repo, number }: IssueDetai
     number,
   });
 
+  const { data: cachedAnalysis } = trpc.githubAnalysis.getCachedIssueAnalysis.useQuery({
+    owner: user,
+    repo,
+    number,
+  });
+
   const analyzeIssue = trpc.githubAnalysis.analyzeIssueEndpoint.useMutation({
     onSuccess: () => {
-      setShowAnalysis(true);
       toast.success('Issue analysis complete!');
+      // Invalidate and refetch the cached analysis
+      utils.githubAnalysis.getCachedIssueAnalysis.invalidate();
     },
     onError: (err) => {
       toast.error(`Analysis failed: ${err.message}`);
@@ -46,35 +57,40 @@ export default function IssueDetailClientView({ user, repo, number }: IssueDetai
 
   if (error) {
     return (
-      <div className="container py-8 max-w-6xl">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-5 w-5" />
-              <p>Failed to load issue: {error.message}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <RepoPageLayout user={user} repo={repo} files={[]} totalFiles={0}>
+        <div className="container py-8 max-w-6xl">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="h-5 w-5" />
+                <p>Failed to load issue: {error.message}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </RepoPageLayout>
     );
   }
 
   if (isLoading || !issue) {
     return (
-      <div className="container py-8 max-w-6xl">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center py-8 text-muted-foreground">
-              Loading issue...
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <RepoPageLayout user={user} repo={repo} files={[]} totalFiles={0}>
+        <div className="container py-8 max-w-6xl">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center py-8 text-muted-foreground">
+                Loading issue...
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </RepoPageLayout>
     );
   }
 
   return (
-    <div className="container py-8 max-w-6xl">
+    <RepoPageLayout user={user} repo={repo} files={[]} totalFiles={0}>
+      <div className="container py-8 max-w-6xl">
       {/* Breadcrumb */}
       <div className="mb-4">
         <Link href={`/${user}/${repo}/issues`} className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
@@ -118,7 +134,7 @@ export default function IssueDetailClientView({ user, repo, number }: IssueDetai
               className="gap-2"
             >
               <Sparkles className="h-4 w-4" />
-              {analyzeIssue.isPending ? 'Analyzing...' : 'Analyze Issue'}
+              {analyzeIssue.isPending ? 'Analyzing...' : cachedAnalysis ? 'Regenerate Analysis' : 'Analyze Issue'}
             </Button>
             <Button variant="outline" asChild>
               <a
@@ -184,35 +200,47 @@ export default function IssueDetailClientView({ user, repo, number }: IssueDetai
               <CardTitle>Description</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="prose prose-sm max-w-none">
-                <ReactMarkdown>{issue.body}</ReactMarkdown>
+              <div className="markdown-content rounded-md border border-input bg-background p-6 overflow-y-auto max-h-[400px]">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    code: ({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'> & { inline?: boolean }) => {
+                      const match = /language-(\w+)/.exec(className || '');
+
+                      return !props.inline && match ? (
+                        <SyntaxHighlighter
+                          language={match[1]}
+                          PreTag="div"
+                          {...props}
+                          style={tomorrow}
+                        >
+                          {String(children).replace(/\n$/, '')}
+                        </SyntaxHighlighter>
+                      ) : (
+                        <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono" {...props}>
+                          {children}
+                        </code>
+                      );
+                    }
+                  }}
+                >
+                  {issue.body}
+                </ReactMarkdown>
               </div>
             </CardContent>
           </Card>
         )}
 
         {/* AI Analysis */}
-        {showAnalysis && analyzeIssue.data && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5" />
-                AI Analysis
-              </CardTitle>
-              <CardDescription>
-                Overall Score: {analyzeIssue.data.analysis.overallScore}/100 |
-                Slop Ranking: {analyzeIssue.data.analysis.slopRanking}/100 |
-                Priority: {analyzeIssue.data.analysis.suggestedPriority}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="prose prose-sm max-w-none">
-                <ReactMarkdown>{analyzeIssue.data.markdown}</ReactMarkdown>
-              </div>
-            </CardContent>
-          </Card>
+        {cachedAnalysis && (
+          <MarkdownCardRenderer
+            markdown={cachedAnalysis.markdown}
+            title="AI Analysis"
+            description={`Overall Score: ${cachedAnalysis.overallScore}/100 | Slop Ranking: ${cachedAnalysis.slopRanking}/100 | Priority: ${cachedAnalysis.suggestedPriority} | Version: ${cachedAnalysis.version}`}
+          />
         )}
       </div>
     </div>
+    </RepoPageLayout>
   );
 }

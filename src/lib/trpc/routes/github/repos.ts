@@ -333,24 +333,88 @@ export const reposRouter = router({
       }
     }),
 
-  // Get Sponsor repositories
+  // Get Sponsor repositories (with caching)
   getSponsorRepos: publicProcedure
     .query(async ({ ctx }) => {
       try {
-        const githubService = await createGitHubServiceFromSession(ctx.session);
-        
-        const sponsorDetails = await Promise.allSettled(
-          CACHED_REPOS.filter(repo => repo.sponsor).map(repo => 
-            githubService.getRepositoryDetails(repo.owner, repo.name)
-          )
-        );
-        
-        return sponsorDetails
-          .filter(result => result.status === 'fulfilled' && result.value)
-          .map(result => ({ 
-            ...(result as PromiseFulfilledResult<RepoSummary>).value, 
-            isSponsor: true 
-          }));
+        const sponsorRepos = CACHED_REPOS.filter(repo => repo.sponsor);
+
+        // Try to get from cache first
+        const now = new Date();
+        const cacheThreshold = new Date(now.getTime() - CACHE_DURATION);
+        const allCachedRepos = await db.select().from(cachedRepos).where(sql`${cachedRepos.userId} IS NULL`);
+        const cachedReposMap = new Map(allCachedRepos.map(r => [`${r.owner}/${r.name}`, r]));
+
+        const reposFromCache: (RepoSummary & { isSponsor: true })[] = [];
+        const reposToFetch: typeof sponsorRepos = [];
+
+        // Check which repos are cached
+        sponsorRepos.forEach(repo => {
+          const cached = cachedReposMap.get(`${repo.owner}/${repo.name}`);
+          if (cached && cached.lastFetched > cacheThreshold) {
+            reposFromCache.push({
+              owner: cached.owner,
+              name: cached.name,
+              description: cached.description || undefined,
+              stargazersCount: cached.stargazersCount,
+              forksCount: cached.forksCount,
+              language: cached.language || undefined,
+              topics: cached.topics || [],
+              url: `https://github.com/${cached.owner}/${cached.name}`,
+              isSponsor: true,
+            });
+          } else {
+            reposToFetch.push(repo);
+          }
+        });
+
+        // Only fetch uncached repos
+        if (reposToFetch.length > 0) {
+          const githubService = await createGitHubServiceFromSession(ctx.session);
+          const sponsorDetails = await Promise.allSettled(
+            reposToFetch.map(async (repo) => {
+              try {
+                const details = await githubService.getRepositoryDetails(repo.owner, repo.name);
+
+                // Cache for future use
+                await db.insert(cachedRepos).values({
+                  owner: details.owner,
+                  name: details.name,
+                  description: details.description,
+                  stargazersCount: details.stargazersCount,
+                  forksCount: details.forksCount,
+                  language: details.language,
+                  topics: details.topics,
+                  userId: null,
+                  lastFetched: new Date(),
+                }).onConflictDoUpdate({
+                  target: [cachedRepos.owner, cachedRepos.name, cachedRepos.userId],
+                  set: {
+                    description: details.description,
+                    stargazersCount: details.stargazersCount,
+                    forksCount: details.forksCount,
+                    language: details.language,
+                    topics: details.topics,
+                    lastFetched: new Date(),
+                  },
+                });
+
+                return { ...details, isSponsor: true as const };
+              } catch (error) {
+                console.warn(`Failed to fetch sponsor repo ${repo.owner}/${repo.name}:`, error);
+                return null;
+              }
+            })
+          );
+
+          const fetchedRepos = sponsorDetails
+            .filter(result => result.status === 'fulfilled' && result.value)
+            .map(result => (result as PromiseFulfilledResult<RepoSummary & { isSponsor: true }>).value);
+
+          return [...reposFromCache, ...fetchedRepos];
+        }
+
+        return reposFromCache;
 
       } catch (error) {
         console.error('Failed to get sponsor repos:', error);

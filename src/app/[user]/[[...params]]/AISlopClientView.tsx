@@ -64,6 +64,7 @@ export default function AISlopClientView({ user, repo, refName, path }: { user: 
   const markdownContent = analysisDataObj?.markdown || analysisData;
   const isPrivateRepo = (publicAnalysis as { error?: string })?.error === 'This repository is private';
 
+
   // Reset state when user/repo changes
   useEffect(() => {
     if (user || repo) {

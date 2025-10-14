@@ -30,7 +30,7 @@ interface AISlopResponse {
   analysis: AISlopData;
   cached: boolean;
   stale: boolean;
-  lastUpdated: Date;
+  lastUpdated: Date | string;
 }
 
 export default function AISlopClientView({ user, repo, refName, path }: { user: string; repo: string; refName?: string; path?: string }) {

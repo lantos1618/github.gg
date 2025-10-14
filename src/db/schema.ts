@@ -525,6 +525,9 @@ export const repositoryWikiPages = pgTable('repository_wiki_pages', {
     category?: string;
     order?: number;
     parent?: string;
+    systemPrompt?: string;      // AI-designed prompt for generating this page
+    dependsOn?: string[];        // Page slugs this page depends on
+    priority?: number;           // Generation priority (1-10)
   }>(),
   isPublic: boolean('is_public').notNull().default(true), // Public for Google indexing
   viewCount: integer('view_count').notNull().default(0),

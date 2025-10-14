@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
 import { createPublicGitHubService } from '@/lib/github';
-import { generateDocumentation } from '@/lib/ai/documentation';
+import { generateWikiWithCache } from '@/lib/ai/wiki-generator';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
 import { tokenUsage, repositoryWikiPages } from '@/db/schema';
@@ -17,53 +17,6 @@ function calculateFileHash(files: Array<{ path: string; content: string }>): str
     .sort()
     .join('\n');
   return crypto.createHash('sha256').update(content).digest('hex');
-}
-
-/**
- * Split documentation into multiple pages by section
- */
-function splitDocumentationIntoPages(markdown: string, repoName: string): Array<{
-  slug: string;
-  title: string;
-  content: string;
-  summary: string;
-  order: number;
-}> {
-  const pages: Array<{
-    slug: string;
-    title: string;
-    content: string;
-    summary: string;
-    order: number;
-  }> = [];
-
-  // Split by main sections (## headers)
-  const sections = markdown.split(/(?=^## )/gm).filter(Boolean);
-
-  sections.forEach((section, index) => {
-    const titleMatch = section.match(/^## (.+)/);
-    if (!titleMatch) return;
-
-    const title = titleMatch[1].replace(/[📚🚀🏗️🧩🔌✅🔧💡🤝]/g, '').trim();
-    const slug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-
-    // Extract first paragraph as summary
-    const paragraphs = section.split('\n\n').filter(p => !p.startsWith('#') && p.trim());
-    const summary = paragraphs[0]?.substring(0, 200) || title;
-
-    pages.push({
-      slug,
-      title,
-      content: section,
-      summary,
-      order: index,
-    });
-  });
-
-  return pages;
 }
 
 export const wikiRouter = router({
@@ -185,16 +138,15 @@ export const wikiRouter = router({
 
         await collectFiles('');
 
-        // Generate documentation using AI
-        const docResult = await generateDocumentation({
-          repoName: `${owner}/${repo}`,
+        // Generate wiki using Gemini context caching
+        const wikiResult = await generateWikiWithCache({
+          owner,
+          repo,
           repoDescription: repoData.data.description || undefined,
           primaryLanguage: repoData.data.language || undefined,
           files,
           packageJson,
           readme,
-          useChunking,
-          tokensPerChunk,
         });
 
         // Log token usage
@@ -204,10 +156,10 @@ export const wikiRouter = router({
             feature: 'wiki_generation',
             repoOwner: owner,
             repoName: repo,
-            model: 'gemini-2.5-pro',
-            inputTokens: docResult.usage.inputTokens,
-            outputTokens: docResult.usage.outputTokens,
-            totalTokens: docResult.usage.totalTokens,
+            model: 'gemini-2.0-flash-exp',
+            inputTokens: wikiResult.usage.inputTokens,
+            outputTokens: wikiResult.usage.outputTokens,
+            totalTokens: wikiResult.usage.totalTokens,
             isByok: false,
           });
         } catch (dbError) {
@@ -220,9 +172,6 @@ export const wikiRouter = router({
         files.forEach(f => {
           fileHashes[f.path] = crypto.createHash('sha256').update(f.content).digest('hex');
         });
-
-        // Split documentation into pages
-        const pages = splitDocumentationIntoPages(docResult.markdown, `${owner}/${repo}`);
 
         // Check if we need to create new versions
         const existingPages = await db
@@ -241,7 +190,7 @@ export const wikiRouter = router({
 
         // Insert all pages with the new version
         const insertedPages = await Promise.all(
-          pages.map(page =>
+          wikiResult.pages.map((page, index) =>
             db.insert(repositoryWikiPages).values({
               repoOwner: owner,
               repoName: repo,
@@ -252,9 +201,13 @@ export const wikiRouter = router({
               version: nextVersion,
               fileHashes,
               metadata: {
-                order: page.order,
+                order: index,
                 keywords: [owner, repo, 'documentation', 'wiki'],
                 category: 'documentation',
+                // Store AI-generated metadata for regeneration
+                systemPrompt: '', // Will be populated in future enhancement
+                dependsOn: [],
+                priority: 10 - index, // Higher priority for earlier pages
               },
               isPublic: true,
               viewCount: 0,
@@ -266,7 +219,7 @@ export const wikiRouter = router({
           success: true,
           version: nextVersion,
           pages: insertedPages.map(p => p[0]),
-          usage: docResult.usage,
+          usage: wikiResult.usage,
         };
       } catch (error) {
         console.error('Wiki generation error:', error);

@@ -2,7 +2,7 @@
 import { useRouter, usePathname } from 'next/navigation';
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, BarChart3, Network, CircleDot, GitPullRequest } from 'lucide-react';
+import { FileText, BarChart3, Network, CircleDot, GitPullRequest, Bot } from 'lucide-react';
 import { REPO_TABS } from '@/lib/repoTabs';
 
 export default function RepoTabsBar() {
@@ -13,10 +13,10 @@ export default function RepoTabsBar() {
     const segments = pathname.replace(/\/$/, '').split('/');
     const lastSegment = segments[segments.length - 1];
     const activeTab = REPO_TABS.find(tab => tab.path === lastSegment)?.key || 'files';
-    const basePath = REPO_TABS.some(tab => tab.path === lastSegment) 
-      ? segments.slice(0, -1).join('/') 
+    const basePath = REPO_TABS.some(tab => tab.path === lastSegment)
+      ? segments.slice(0, -1).join('/')
       : pathname.replace(/\/$/, '');
-    
+
     return { activeTab, basePath };
   }, [pathname]);
 
@@ -29,6 +29,7 @@ export default function RepoTabsBar() {
   const tabIcons: Record<string, React.ComponentType<{ className?: string }>> = {
     files: FileText,
     scorecard: BarChart3,
+    'ai-slop': Bot,
     diagram: Network,
     issues: CircleDot,
     pulls: GitPullRequest,

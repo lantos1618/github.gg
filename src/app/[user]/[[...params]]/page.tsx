@@ -1,4 +1,5 @@
 import ScorecardClientView from './ScorecardClientView';
+import AISlopClientView from './AISlopClientView';
 import RepoClientView from './RepoClientView';
 import DiagramClientView from './DiagramClientView';
 import PRListClientView from './PRListClientView';
@@ -84,6 +85,12 @@ export default async function Page({ params }: PageProps) {
   if (tab === 'scorecard' || currentPath.endsWith('/scorecard')) {
     return (
       <ScorecardClientView user={user} repo={repo} refName={ref} path={path} />
+    );
+  }
+
+  if (tab === 'ai-slop' || currentPath.endsWith('/ai-slop')) {
+    return (
+      <AISlopClientView user={user} repo={repo} refName={ref} path={path} />
     );
   }
 

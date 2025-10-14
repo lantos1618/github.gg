@@ -1,4 +1,5 @@
 import { parseError } from '@/lib/types/errors';
+import { TRPCClientError } from '@trpc/client';
 
 /**
  * Parse Gemini API error to extract user-friendly message
@@ -8,52 +9,73 @@ export function parseGeminiError(error: unknown): string {
 }
 
 /**
- * Check if an error is a rate limit error
+ * Check if an error is a tRPC error with specific code
  */
-export function isRateLimitError(error: string | null): boolean {
-  if (!error) return false;
-  
-  const lowerError = error.toLowerCase();
-  const isRateLimit = lowerError.includes('rate limit') || 
-                     lowerError.includes('429') || 
+function isTRPCError(error: unknown, code?: string): boolean {
+  if (!(error instanceof TRPCClientError)) {
+    return false;
+  }
+  if (code) {
+    return error.data?.code === code;
+  }
+  return true;
+}
+
+/**
+ * Check if an error is a rate limit error
+ * Checks both tRPC error codes and fallback to message parsing for external APIs
+ */
+export function isRateLimitError(error: unknown): boolean {
+  // Check tRPC error code first (most reliable)
+  if (isTRPCError(error, 'TOO_MANY_REQUESTS')) {
+    return true;
+  }
+
+  // Fallback to message parsing for external API errors (Gemini, GitHub, etc.)
+  const errorMessage = typeof error === 'string' ? error : parseError(error);
+  if (!errorMessage) return false;
+
+  const lowerError = errorMessage.toLowerCase();
+  const isRateLimit = lowerError.includes('rate limit') ||
+                     lowerError.includes('429') ||
                      lowerError.includes('quota') ||
                      lowerError.includes('exceeded') ||
                      lowerError.includes('too many requests') ||
                      lowerError.includes('resource_exhausted') ||
                      lowerError.includes('resource exhausted');
-  
-  console.log('🔍 Rate limit check:', { error, isRateLimit }); // Debug log
+
   return isRateLimit;
 }
 
 /**
  * Check if an error is a subscription error
+ * Uses tRPC error codes for reliable detection
  */
-export function isSubscriptionError(error: string | null): boolean {
-  if (!error) return false;
-  
-  const lowerError = error.toLowerCase();
-  const isSubscription = lowerError.includes('active subscription required') || 
+export function isSubscriptionError(error: unknown): boolean {
+  // Check tRPC FORBIDDEN error code (most reliable)
+  if (isTRPCError(error, 'FORBIDDEN')) {
+    return true;
+  }
+
+  // Fallback to message parsing for backward compatibility
+  const errorMessage = typeof error === 'string' ? error : parseError(error);
+  if (!errorMessage) return false;
+
+  const lowerError = errorMessage.toLowerCase();
+  const isSubscription = lowerError.includes('active subscription required') ||
                         lowerError.includes('subscription required') ||
-                        lowerError.includes('forbidden') ||
-                        lowerError.includes('403') ||
                         lowerError.includes('please add your gemini api key') ||
-                        lowerError.includes('need a subscription') ||
-                        lowerError.includes('requires a paid plan') ||
-                        lowerError.includes('paid plan');
-  
-  console.log('🔍 Subscription check:', { error, isSubscription }); // Debug log
+                        lowerError.includes('requires a paid plan');
+
   return isSubscription;
 }
 
 /**
  * Get error display configuration
  */
-export function getErrorDisplayConfig(error: string | null) {
+export function getErrorDisplayConfig(error: unknown) {
   const isRateLimit = isRateLimitError(error);
   const isSubscription = isSubscriptionError(error);
-  
-  console.log('🎨 Error display config:', { error, isRateLimit, isSubscription }); // Debug log
   
   if (isSubscription) {
     return {

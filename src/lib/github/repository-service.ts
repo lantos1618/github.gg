@@ -99,7 +99,7 @@ export class RepositoryService {
 
   // Get tarball data directly (no double download!)
   async getTarballData(owner: string, repo: string, ref: string): Promise<ArrayBuffer> {
- 
+
     try {
       const response = await this.octokit.request('GET /repos/{owner}/{repo}/tarball/{ref}', {
         owner,
@@ -108,6 +108,10 @@ export class RepositoryService {
       });
       return response.data as ArrayBuffer;
     } catch (error: unknown) {
+      // Don't wrap 404 errors - let them bubble up so we can detect them
+      if (isApiError(error) && error.status === 404) {
+        throw error;
+      }
       const errorMessage = parseError(error);
       throw new Error(`Failed to get tarball: ${errorMessage}`);
     }
@@ -204,10 +208,23 @@ export class RepositoryService {
       await this.validateRepoAccess(owner, repo);
 
       // Get the target ref (default branch if not provided)
-      const targetRef = ref || await this.getDefaultBranch(owner, repo);
+      let targetRef = ref || await this.getDefaultBranch(owner, repo);
+      let tarballData: ArrayBuffer;
 
-      // Get tarball data directly (no double download!)
-      const tarballData = await this.getTarballData(owner, repo, targetRef);
+      // Try to get tarball data - if ref doesn't exist, fallback to default branch
+      try {
+        tarballData = await this.getTarballData(owner, repo, targetRef);
+      } catch (error: unknown) {
+        // If the ref doesn't exist (404), fallback to default branch
+        if (isApiError(error) && error.status === 404 && ref) {
+          console.warn(`Branch/ref '${ref}' not found for ${owner}/${repo}, falling back to default branch`);
+          const defaultBranch = await this.getDefaultBranch(owner, repo);
+          targetRef = defaultBranch;
+          tarballData = await this.getTarballData(owner, repo, defaultBranch);
+        } else {
+          throw error;
+        }
+      }
 
       // Convert ArrayBuffer to Node.js ReadableStream
       const stream = Readable.from(Buffer.from(tarballData));
@@ -218,7 +235,7 @@ export class RepositoryService {
           files.push(file);
         }
       }, path);
-      
+
       // Transform the files to match the expected type structure
       const transformedFiles = files.map(file => ({
         name: file.path.split('/').pop() || file.path,
@@ -227,7 +244,7 @@ export class RepositoryService {
         type: file.type === 'dir' ? 'directory' as const : 'file' as const,
         content: file.content
       }));
-      
+
       return {
         files: transformedFiles,
         totalFiles: transformedFiles.length,

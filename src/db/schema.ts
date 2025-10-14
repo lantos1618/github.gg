@@ -248,6 +248,33 @@ export const repositoryDiagrams = pgTable('repository_diagrams', {
   ),
 }));
 
+// AI Slop Analyses - AI-generated code detection and analysis
+export const aiSlopAnalyses = pgTable('ai_slop_analyses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('userId').references(() => user.id, { onDelete: 'cascade' }).notNull(),
+  repoOwner: text('repo_owner').notNull(),
+  repoName: text('repo_name').notNull(),
+  ref: text('ref').default('main'),
+  version: integer('version').notNull(), // Per-group version, set in app logic
+  overallScore: integer('overall_score').notNull(), // 0-100 overall code quality score
+  aiGeneratedPercentage: integer('ai_generated_percentage').notNull(), // 0-100 estimated AI-generated percentage
+  detectedPatterns: jsonb('detected_patterns').$type<string[]>().notNull(), // List of AI slop patterns detected
+  metrics: jsonb('metrics').$type<ScorecardMetric[]>().notNull(), // Structured metrics breakdown
+  markdown: text('markdown').notNull(), // Full markdown analysis with recommendations
+  fileHashes: jsonb('file_hashes').$type<Record<string, string>>(), // Hash of files to detect changes
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  // Ensure unique AI slop analysis per user, repo, ref, and version
+  aiSlopUniqueIdx: uniqueIndex('ai_slop_unique_idx').on(
+    table.userId,
+    table.repoOwner,
+    table.repoName,
+    table.ref,
+    table.version
+  ),
+}));
+
 // 🏟️ DEV ARENA TABLES
 
 // Developer Rankings (ELO system)

@@ -7,6 +7,7 @@ export type RepoTab = {
 export const REPO_TABS: RepoTab[] = [
   { key: 'files', label: 'Files', path: '' },
   { key: 'scorecard', label: 'Scorecard', path: 'scorecard' },
+  { key: 'ai-slop', label: 'AI Slop', path: 'ai-slop' },
   { key: 'diagram', label: 'Diagram', path: 'diagram' },
   { key: 'issues', label: 'Issues', path: 'issues' },
   { key: 'pulls', label: 'Pulls', path: 'pulls' },

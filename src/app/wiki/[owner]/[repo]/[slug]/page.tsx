@@ -171,25 +171,24 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
             <article className="prose prose-neutral dark:prose-invert max-w-none">
               <ReactMarkdown
                 components={{
-                  code({ node, inline, className, children, ...props }: {
-                    node?: unknown;
-                    inline?: boolean;
-                    className?: string;
-                    children?: React.ReactNode;
-                    [key: string]: unknown;
-                  }) {
+                  code(props) {
+                    const { inline, className, children, ...rest } = props as {
+                      inline?: boolean;
+                      className?: string;
+                      children?: React.ReactNode;
+                    };
                     const match = /language-(\w+)/.exec(className || '');
                     return !inline && match ? (
                       <SyntaxHighlighter
                         style={vscDarkPlus}
                         language={match[1]}
                         PreTag="div"
-                        {...props}
+                        {...rest}
                       >
                         {String(children).replace(/\n$/, '')}
                       </SyntaxHighlighter>
                     ) : (
-                      <code className={className} {...props}>
+                      <code className={className} {...rest}>
                         {children}
                       </code>
                     );

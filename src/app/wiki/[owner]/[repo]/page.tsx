@@ -63,7 +63,7 @@ export default async function WikiIndex({ params, searchParams }: WikiIndexProps
             <Book className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
             <h1 className="text-3xl font-bold mb-4">No Wiki Documentation</h1>
             <p className="text-muted-foreground mb-8">
-              This repository doesn't have wiki documentation yet.
+              This repository doesn&apos;t have wiki documentation yet.
             </p>
             <Link
               href={`/${owner}/${repo}`}

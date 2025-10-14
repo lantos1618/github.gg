@@ -39,16 +39,23 @@ export default function AISlopClientView({ user, repo, refName, path }: { user: 
   const [error, setError] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
 
-  const { data: versions, isLoading: versionsLoading } = trpc.aiSlop.getAISlopVersions.useQuery({ user, repo, ref: refName || 'main' });
   const generateAISlopMutation = trpc.aiSlop.generateAISlop.useMutation();
   const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery();
   const utils = trpc.useUtils();
 
+  // Get repo data first to access actualRef
+  const { files, isLoading: filesLoading, totalFiles, actualRef } = useRepoData({ user, repo, ref: refName, path });
+
+  // Use actualRef (after fallback) for all queries
+  const effectiveRef = actualRef || refName || 'main';
+
+  const { data: versions, isLoading: versionsLoading } = trpc.aiSlop.getAISlopVersions.useQuery({ user, repo, ref: effectiveRef });
+
   // Use the public endpoint for cached AI slop analysis (latest or by version)
   const { data: publicAnalysis, isLoading: publicLoading } = trpc.aiSlop.publicGetAISlop.useQuery(
     selectedVersion
-      ? { user, repo, ref: refName || 'main', version: selectedVersion }
-      : { user, repo, ref: refName || 'main' },
+      ? { user, repo, ref: effectiveRef, version: selectedVersion }
+      : { user, repo, ref: effectiveRef },
     { enabled: !!user && !!repo }
   );
 
@@ -56,9 +63,6 @@ export default function AISlopClientView({ user, repo, refName, path }: { user: 
   const analysisDataObj = publicAnalysis?.analysis || null;
   const markdownContent = analysisDataObj?.markdown || analysisData;
   const isPrivateRepo = (publicAnalysis as { error?: string })?.error === 'This repository is private';
-
-  // Get repo data
-  const { files, isLoading: filesLoading, totalFiles } = useRepoData({ user, repo, ref: refName, path });
 
   // Reset state when user/repo changes
   useEffect(() => {
@@ -76,7 +80,7 @@ export default function AISlopClientView({ user, repo, refName, path }: { user: 
       {
         user,
         repo,
-        ref: refName || 'main',
+        ref: effectiveRef,  // Use effectiveRef (after fallback) instead of URL refName
         files: files.map((file: { path: string; content: string; size: number }) => ({
           path: file.path,
           content: file.content,

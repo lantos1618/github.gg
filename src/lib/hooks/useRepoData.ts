@@ -36,7 +36,7 @@ export function useRepoData(overrideParams?: RepoParams) {
   useEffect(() => {
     if (data) {
       const repoFiles = data.files
-        .filter((file): file is { name: string; path: string; content: string; size: number; type: 'file' | 'directory' } => 
+        .filter((file): file is { name: string; path: string; content: string; size: number; type: 'file' | 'directory' } =>
           file.type === 'file' && typeof file.content === 'string'
         )
         .map((file) => ({
@@ -56,6 +56,7 @@ export function useRepoData(overrideParams?: RepoParams) {
     error,
     files: repoData.files,
     totalFiles: repoData.totalFiles,
+    actualRef: data?.ref, // Expose the actual ref used after any fallbacks
   };
 }
 

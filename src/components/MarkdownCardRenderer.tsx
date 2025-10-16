@@ -19,7 +19,7 @@ export function MarkdownCardRenderer({
   title,
   description,
   minHeight = '400px',
-  maxHeight = '600px'
+  maxHeight
 }: MarkdownCardRendererProps) {
   return (
     <Card>
@@ -29,8 +29,8 @@ export function MarkdownCardRenderer({
       </CardHeader>
       <CardContent>
         <div
-          className="markdown-content rounded-md border border-input bg-background p-6 overflow-y-auto"
-          style={{ minHeight, maxHeight }}
+          className="markdown-content rounded-md border border-input bg-background p-6"
+          style={{ minHeight }}
         >
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}

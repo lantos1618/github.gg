@@ -1,21 +1,30 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { StarCount } from './StarCount';
 import { NavbarClient } from './NavbarClient';
 
-export async function NavbarServer() {
+export function NavbarServer() {
+  const pathname = usePathname();
+  const isRepoPage = pathname.match(/^\/[^/]+\/[^/]+/);
+
+  // On repo pages on desktop, position links at sidebar edge (default to expanded width)
+  const navLinksMargin = isRepoPage ? 'lg:ml-64' : '';
+
   return (
-    <nav className={`sticky top-0 z-50 w-full backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 relative`}>
-      <div className="container flex h-14 items-center px-4 sm:px-6">
-        {/* Logo/Brand */}
-        <Link href="/" className="mr-auto flex items-center gap-2">
+    <nav className={`sticky top-0 z-50 w-full backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 relative border-b border-gray-200`}>
+      <div className="relative flex h-14 items-center">
+        {/* Logo/Brand - Always visible */}
+        <Link href="/" className="flex items-center gap-2 flex-shrink-0 px-4 sm:px-6 z-10">
           <span className="font-bold sm:hidden">gh.gg</span>
           <span className="font-bold hidden sm:inline">
             gh.gg
           </span>
         </Link>
 
-        {/* Navigation Links */}
-        <div className="hidden md:flex items-center gap-6 mr-4">
+        {/* Navigation Links - Positioned absolutely at sidebar edge on repo pages */}
+        <div className={`hidden md:flex items-center gap-6 px-4 sm:px-6 transition-all duration-300 ${isRepoPage ? 'lg:absolute' : 'ml-8'} ${navLinksMargin}`}>
           <Link
             href="/users"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
@@ -34,18 +43,6 @@ export async function NavbarServer() {
           >
             🏟️ Dev Arena
           </Link>
-          <Link
-            href="/automations"
-            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
-          >
-            🤖 Automations
-          </Link>
-          <Link
-            href="/pricing"
-            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
-          >
-            💸 Pricing
-          </Link>
           {process.env.NODE_ENV === 'development' && (
             <Link
               href="/dev"
@@ -56,8 +53,8 @@ export async function NavbarServer() {
           )}
         </div>
 
-        {/* Navigation Actions */}
-        <div className="flex items-center gap-4">
+        {/* Navigation Actions - Right side */}
+        <div className="flex items-center gap-4 ml-auto px-4 sm:px-6">
           {/* Star Button */}
           <StarCount owner="lantos1618" repo="github.gg" />
 

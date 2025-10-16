@@ -9,6 +9,11 @@ import Link from 'next/link';
 import { createCaller } from '@/lib/trpc/server';
 import { incrementViewCount } from './actions';
 import { Card, CardContent } from '@/components/ui/card';
+import { DeleteWikiButton } from '@/components/wiki/DeleteWikiButton';
+import { auth } from '@/lib/auth';
+import { createGitHubServiceForUserOperations } from '@/lib/github';
+import { headers } from 'next/headers';
+import { RepoSidebarLayout } from '@/components/layouts/RepoSidebarLayout';
 
 interface WikiPageProps {
   params: Promise<{
@@ -89,80 +94,61 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
     notFound();
   }
 
+  // Check if user has permission to delete wiki
+  let canDeleteWiki = false;
+  try {
+    const headersList = await headers();
+    const session = await auth.api.getSession({ headers: headersList } as Request);
+    if (session?.user) {
+      const githubService = await createGitHubServiceForUserOperations(session);
+      const { data: repoData } = await githubService['octokit'].repos.get({
+        owner,
+        repo,
+      });
+      canDeleteWiki = !!(repoData.permissions?.admin || repoData.permissions?.push);
+    }
+  } catch (error) {
+    console.error('Failed to check repository permissions:', error);
+  }
+
   // Increment view count (server action)
   incrementViewCount({ owner, repo, slug, version: page.version });
 
+  // Map TOC pages to the format expected by the sidebar
+  const wikiPages = toc.pages.map(p => ({ slug: p.slug, title: p.title }));
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
-      {/* Header */}
-      <header className="border-b bg-background/95 backdrop-blur-sm sticky top-0 z-50 shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <Link
-                href={`/${owner}/${repo}`}
-                className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">{owner}/{repo}</span>
-              </Link>
-            </div>
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Eye className="h-4 w-4" />
-                <span className="font-medium">{page.viewCount}</span>
+    <RepoSidebarLayout owner={owner} repo={repo} wikiPages={wikiPages}>
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+        {/* Header */}
+        <header className="border-b bg-background/95 backdrop-blur-sm sticky top-0 z-50 shadow-sm">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <Link
+                  href={`/${owner}/${repo}`}
+                  className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline">{owner}/{repo}</span>
+                </Link>
               </div>
-              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-muted/50">
-                <Clock className="h-3 w-3" />
-                <span className="text-xs font-medium">v{page.version}</span>
+              <div className="flex items-center gap-6 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Eye className="h-4 w-4" />
+                  <span className="font-medium">{page.viewCount}</span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-muted/50">
+                  <Clock className="h-3 w-3" />
+                  <span className="text-xs font-medium">v{page.version}</span>
+                </div>
+                {canDeleteWiki && <DeleteWikiButton owner={owner} repo={repo} />}
               </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="container mx-auto px-4 py-8 lg:py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8 lg:gap-12">
-          {/* Table of Contents Sidebar */}
-          <aside className="hidden lg:block">
-            <div className="sticky top-24 space-y-6">
-              <div className="flex items-center gap-2 mb-4">
-                <GitBranch className="h-5 w-5 text-primary" />
-                <h2 className="font-bold text-sm uppercase tracking-wide">
-                  Documentation
-                </h2>
-              </div>
-              <nav className="space-y-1">
-                {toc.pages.map((tocPage) => (
-                  <Link
-                    key={tocPage.slug}
-                    href={`/wiki/${owner}/${repo}/${tocPage.slug}${version ? `?version=${version}` : ''}`}
-                    className={`block text-sm py-2 px-4 rounded-lg hover:bg-primary/10 transition-all duration-200 ${
-                      tocPage.slug === slug
-                        ? 'bg-primary/10 font-semibold text-primary border-l-2 border-primary'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {tocPage.title}
-                  </Link>
-                ))}
-              </nav>
-
-              {/* Quick Links */}
-              <div className="pt-6 border-t">
-                <Link
-                  href={`https://github.com/${owner}/${repo}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-                >
-                  <GitBranch className="h-4 w-4" />
-                  View on GitHub
-                </Link>
-              </div>
-            </div>
-          </aside>
-
+        <div className="container mx-auto px-4 py-8 lg:py-12">
           {/* Main Content */}
           <main className="max-w-4xl mx-auto w-full">
             {/* Page Header Card */}
@@ -276,6 +262,6 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
           </main>
         </div>
       </div>
-    </div>
+    </RepoSidebarLayout>
   );
 }

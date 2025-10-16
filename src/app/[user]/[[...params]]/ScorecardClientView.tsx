@@ -123,7 +123,7 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
   if (scorecardDataObj) {
     return (
       <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
-        <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
+        <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
           <VersionDropdown
             versions={versions}
             isLoading={versionsLoading}
@@ -217,7 +217,7 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
 
   return (
     <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
-      <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
+      <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
         <VersionDropdown
           versions={versions}
           isLoading={versionsLoading}

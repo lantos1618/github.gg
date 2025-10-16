@@ -175,6 +175,7 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
   
   const responsiveRows = useResponsiveRows();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = useState<number>(600);
 
   // NEW: State for shuffled repos
   const [shuffledRows, setShuffledRows] = useState<RepoData[][] | null>(null);
@@ -242,6 +243,34 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
 
   const isLoading = false;
 
+  // Dynamically compute container height so rows are not clipped
+  useEffect(() => {
+    const GAP_PX = 16; // matches space-y-4
+    const DEFAULT_ROW_HEIGHT = 56; // reasonable average between 40 and 64
+    const MIN_HEIGHT = 520; // keep the hero area at least this tall
+
+    function measureAndSetHeight() {
+      const heights = rowRefs.current
+        .slice(0, shuffledRows ? shuffledRows.length : 0)
+        .map((el) => (el?.offsetHeight ? el.offsetHeight : DEFAULT_ROW_HEIGHT));
+      const rows = heights.length;
+      if (rows === 0) {
+        setContainerHeight(MIN_HEIGHT);
+        return;
+      }
+      const total = heights.reduce((a, b) => a + b, 0) + GAP_PX * Math.max(0, rows - 1);
+      setContainerHeight(Math.max(MIN_HEIGHT, total));
+    }
+
+    // measure after layout
+    const raf = requestAnimationFrame(measureAndSetHeight);
+    window.addEventListener('resize', measureAndSetHeight);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', measureAndSetHeight);
+    };
+  }, [shuffledRows]);
+
   // Memoize row colors - create stable color assignments
   const rowColors = useMemo(() => {
     return Array.from({ length: responsiveRows }, (_, rowIndex) => {
@@ -263,7 +292,7 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
           className
         )}
         aria-hidden="true"
-        style={{ height: '600px' }}
+        style={{ height: `${containerHeight}px` }}
       >
         {/* Overlay hero content in the center for large screens */}
         {typeof window !== 'undefined' && window.innerWidth > 1024 && children && (
@@ -279,7 +308,8 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
               const colors = rowColors[rowIndex] || pastelColors;
               // Top row goes right (reading direction), then alternates
               const direction = rowIndex % 2 === 0 ? 'right' : 'left';
-              const duration = 80 + (rowIndex % 3) * 10; // Slower animation
+              const duration = 80; // keep a consistent speed for all rows
+              const delaySeconds = `-${(rowIndex % 12) * 3}s`; // staggered starting offsets
 
               // Skip empty rows
               if (!row || row.length === 0) return null;
@@ -294,7 +324,9 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
                   )}
                   style={{
                     width: 'fit-content',
+                    willChange: 'transform',
                     animation: `scroll${direction === 'left' ? 'Left' : 'Right'} ${duration}s linear infinite`,
+                    animationDelay: delaySeconds,
                   }}
                 >
                   {/* Duplicate row content 3 times for seamless loop */}

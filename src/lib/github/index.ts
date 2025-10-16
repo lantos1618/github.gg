@@ -142,6 +142,14 @@ export class GitHubService {
     return this.userService.getUserRepositories(username);
   }
 
+  async hasStarredRepo(owner: string, repo: string): Promise<boolean> {
+    if (this.isDevMode()) {
+      // In dev mode, always return true for github.gg repo
+      return owner === 'lantos1618' && repo === 'github.gg';
+    }
+    return this.userService.hasStarredRepo(owner, repo);
+  }
+
   // Cache operations
   clearCache(): void {
     this.repositoryService.clearCache();

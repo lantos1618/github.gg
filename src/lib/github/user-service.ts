@@ -77,4 +77,24 @@ export class UserService {
       throw new Error('Failed to fetch popular repositories.');
     }
   }
+
+  // Check if the authenticated user has starred a repository
+  async hasStarredRepo(owner: string, repo: string): Promise<boolean> {
+    try {
+      await this.octokit.rest.activity.checkRepoIsStarredByAuthenticatedUser({
+        owner,
+        repo,
+      });
+      return true;
+    } catch (error: unknown) {
+      // If the repo is not starred, the API returns a 404
+      const errorObj = error as { status?: number };
+      if (errorObj.status === 404) {
+        return false;
+      }
+      // For other errors, throw them
+      const errorMessage = parseError(error);
+      throw new Error(`Failed to check if repo is starred: ${errorMessage}`);
+    }
+  }
 } 

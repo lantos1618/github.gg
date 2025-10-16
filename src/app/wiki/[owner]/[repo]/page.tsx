@@ -1,8 +1,12 @@
 import { Metadata } from 'next';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { Book, GitBranch, Eye, Calendar } from 'lucide-react';
+import { Book, FileText, ChevronRight } from 'lucide-react';
 import { createCaller } from '@/lib/trpc/server';
+import { WikiGenerationButton } from '@/components/WikiGenerationButton';
+import { DeleteWikiButton } from '@/components/wiki/DeleteWikiButton';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import RepoPageLayout from '@/components/layouts/RepoPageLayout';
 
 interface WikiIndexProps {
   params: Promise<{
@@ -57,30 +61,78 @@ export default async function WikiIndex({ params, searchParams }: WikiIndexProps
 
   if (!toc || toc.pages.length === 0) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-16">
-          <div className="max-w-2xl mx-auto text-center">
-            <Book className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-            <h1 className="text-3xl font-bold mb-4">No Wiki Documentation</h1>
-            <p className="text-muted-foreground mb-8">
-              This repository doesn&apos;t have wiki documentation yet.
-            </p>
-            <Link
-              href={`/${owner}/${repo}`}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-            >
-              <GitBranch className="h-4 w-4" />
-              View Repository
-            </Link>
-          </div>
+      <RepoPageLayout user={owner} repo={repo}>
+        <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Book className="h-6 w-6 text-blue-600" />
+                    Wiki Documentation
+                  </CardTitle>
+                  <CardDescription className="mt-2">
+                    No wiki documentation exists for this repository yet.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8">
+                <WikiGenerationButton owner={owner} repo={repo} />
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </div>
+      </RepoPageLayout>
     );
   }
 
-  // Redirect to the first page (typically "getting-started" or "overview")
-  const firstPage = toc.pages[0];
-  const redirectUrl = `/wiki/${owner}/${repo}/${firstPage.slug}${version ? `?version=${version}` : ''}`;
-
-  redirect(redirectUrl);
+  return (
+    <RepoPageLayout user={owner} repo={repo}>
+      <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Book className="h-6 w-6 text-blue-600" />
+                  Wiki Documentation
+                </CardTitle>
+                <CardDescription className="mt-2">
+                  {toc.pages.length} {toc.pages.length === 1 ? 'page' : 'pages'} available
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <WikiGenerationButton owner={owner} repo={repo} />
+                <DeleteWikiButton owner={owner} repo={repo} />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {toc.pages.map((page) => (
+                <Link
+                  key={page.slug}
+                  href={`/wiki/${owner}/${repo}/${page.slug}${version ? `?version=${version}` : ''}`}
+                  className="flex items-center justify-between p-4 rounded-lg border hover:bg-accent transition-colors group"
+                >
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-5 w-5 text-muted-foreground group-hover:text-foreground" />
+                    <div>
+                      <h3 className="font-medium group-hover:text-primary">{page.title}</h3>
+                      {page.summary && (
+                        <p className="text-sm text-muted-foreground mt-1">{page.summary}</p>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground" />
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </RepoPageLayout>
+  );
 }

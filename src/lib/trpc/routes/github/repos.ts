@@ -19,13 +19,15 @@ export const reposRouter = router({
     }))
     .query(async ({ input }): Promise<RepoSummary[]> => {
       try {
-        // Fetch a random sample of global/public cached repos only
+        // Avoid slow ORDER BY RANDOM(): select a larger deterministic slice, then shuffle in app
+        // Strategy: take top pool by stargazers (fast with index), then shuffle client-side
+        const poolSize = Math.min(400, input.limit * 6);
         const sampledCachedRepos = await db
           .select()
           .from(cachedRepos)
           .where(sql`${cachedRepos.userId} IS NULL`)
-          .orderBy(sql`RANDOM()`)
-          .limit(input.limit * 2); // Fetch double the required limit to ensure a good shuffle pool
+          .orderBy(sql`${cachedRepos.stargazersCount} DESC NULLS LAST`)
+          .limit(poolSize);
 
         // Create a quick lookup map for special repositories.
         const specialReposMap = new Map(
@@ -426,11 +428,27 @@ export const reposRouter = router({
     .query(async ({ ctx }) => {
       try {
         const githubService = await createGitHubServiceForUserOperations(ctx.session);
-        const userRepos = await githubService.getUserRepositories(); 
+        const userRepos = await githubService.getUserRepositories();
         return userRepos.map(repo => `${repo.owner}/${repo.name}`);
       } catch (error) {
         console.error('Failed to get user repo names:', error);
         return [];
+      }
+    }),
+
+  hasStarredRepo: protectedProcedure
+    .input(z.object({
+      owner: z.string(),
+      repo: z.string(),
+    }))
+    .query(async ({ input, ctx }) => {
+      try {
+        const githubService = await createGitHubServiceForUserOperations(ctx.session);
+        const hasStarred = await githubService.hasStarredRepo(input.owner, input.repo);
+        return { hasStarred };
+      } catch (error) {
+        console.error('Failed to check if repo is starred:', error);
+        return { hasStarred: false };
       }
     }),
 }); 

@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 
-const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || '' });
+const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '' });
 
 // Example page types to guide AI planning
 const EXAMPLE_PAGE_TYPES = `
@@ -123,7 +123,7 @@ ${f.content}
 
   // Create cached content using Gemini API
   const cacheResponse = await genAI.caches.create({
-    model: 'gemini-2.0-flash-exp',
+    model: 'gemini-2.5-flash',
     config: {
       systemInstruction: 'You are a documentation generator. This cached content contains a complete codebase for wiki generation.',
       contents: [{
@@ -180,7 +180,7 @@ Return ONLY valid JSON matching this structure:
 }`;
 
   const result = await genAI.models.generateContent({
-    model: 'gemini-2.0-flash-exp',
+    model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
       cachedContent: cacheId,
@@ -256,7 +256,9 @@ async function generateWikiPage(
     .filter(Boolean)
     .join('\n\n---\n\n');
 
-  const prompt = `Generate the "${page.title}" wiki page.
+  const prompt = `SYSTEM INSTRUCTIONS: ${page.systemPrompt}
+
+Generate the "${page.title}" wiki page.
 
 ${dependencyContext ? `You can reference and build upon these already-generated pages:
 ${dependencyContext}
@@ -270,10 +272,9 @@ IMPORTANT: Return ONLY clean markdown. No JSON, no code blocks wrapping the mark
 Start directly with the content.`;
 
   const result = await genAI.models.generateContent({
-    model: 'gemini-2.0-flash-exp',
+    model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
-      systemInstruction: page.systemPrompt,
       cachedContent: cacheId,
     }
   });

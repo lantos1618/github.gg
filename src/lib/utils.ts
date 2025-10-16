@@ -57,7 +57,7 @@ export function parseBranchAndPath(segments: string[], branchNames: string[]): {
  * to parseRepoPathWithBranches instead.
  */
 export function parseRepoPath(params: { user: string; params?: string[] }) {
-  const TAB_PATHS = ["scorecard", "diagram"]; // Add more if needed or import from repoTabs
+  const TAB_PATHS = ["scorecard", "diagram", "ai-slop", "automations", "issues", "pulls", "dependencies", "architecture", "components", "data-flow"];
   const { user, params: rest = [] } = params;
   let repo: string | undefined;
   let ref: string | undefined;
@@ -99,10 +99,10 @@ export function parseRepoPath(params: { user: string; params?: string[] }) {
  * of branch names containing slashes.
  */
 export function parseRepoPathWithBranches(
-  params: { user: string; params?: string[] }, 
+  params: { user: string; params?: string[] },
   branchNames: string[]
 ) {
-  const TAB_PATHS = ["scorecard", "diagram"];
+  const TAB_PATHS = ["scorecard", "diagram", "ai-slop", "automations", "issues", "pulls", "dependencies", "architecture", "components", "data-flow"];
   const { user, params: rest = [] } = params;
   let repo: string | undefined;
   let ref: string | undefined;

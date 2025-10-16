@@ -24,6 +24,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { RepoFile } from '@/types/repo';
+import { useCopyRepoFiles } from '@/lib/hooks/useCopyRepoFiles';
 
 interface FileTreeSidebarProps {
   files: RepoFile[];
@@ -262,6 +263,14 @@ export function FileTreeSidebar({
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [copiedTree, setCopiedTree] = useState(false);
 
+  // Get selected files for copy all
+  const selectedFileObjects = useMemo(() =>
+    files.filter(f => selectedFiles.has(f.path)),
+    [files, selectedFiles]
+  );
+
+  const { copyAllContent, isCopying, copied: copiedAll } = useCopyRepoFiles(selectedFileObjects);
+
   const fileTree = useMemo(() => buildFileTree(files), [files]);
 
   const filteredFiles = useMemo(() => {
@@ -358,6 +367,24 @@ export function FileTreeSidebar({
           </h2>
           <div className="flex items-center gap-2">
             <button
+              onClick={copyAllContent}
+              disabled={isCopying || selectedFiles.size === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Copy all selected files"
+            >
+              {copiedAll ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-green-600" />
+                  <span className="hidden sm:inline">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Copy All</span>
+                </>
+              )}
+            </button>
+            <button
               onClick={handleCopyFileTree}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
               title="Copy file tree"
@@ -370,7 +397,7 @@ export function FileTreeSidebar({
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Copy</span>
+                  <span className="hidden sm:inline">Copy Tree</span>
                 </>
               )}
             </button>

@@ -17,6 +17,7 @@ export const githubRouter = router({
   getReposForScrolling: reposRouter.getReposForScrolling,
   getSponsorRepos: reposRouter.getSponsorRepos,
   getUserRepoNames: reposRouter.getUserRepoNames,
+  hasStarredRepo: reposRouter.hasStarredRepo,
   
   // Cache management
   refreshRepoCache: cacheRouter.refreshRepoCache,

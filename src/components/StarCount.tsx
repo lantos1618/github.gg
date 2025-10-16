@@ -5,6 +5,7 @@ import { Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Spinner } from '@/components/ui/spinner';
 import { trpc } from '@/lib/trpc/client';
+import { useAuth } from '@/lib/auth/factory';
 
 interface StarCountProps {
   owner: string;
@@ -15,6 +16,7 @@ interface StarCountProps {
 export function StarCount({ owner, repo, className = '' }: StarCountProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [burst, setBurst] = useState(false);
+  const { isSignedIn } = useAuth();
 
   const { data: repoInfo, isLoading, error } = trpc.github.getRepoInfo.useQuery(
     { owner, repo },
@@ -23,6 +25,17 @@ export function StarCount({ owner, repo, className = '' }: StarCountProps) {
       refetchOnWindowFocus: false,
     }
   );
+
+  const { data: starredData } = trpc.github.hasStarredRepo.useQuery(
+    { owner, repo },
+    {
+      enabled: isSignedIn,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  const hasStarred = starredData?.hasStarred || false;
 
   const handleClick = () => {
     setBurst(true);
@@ -40,7 +53,7 @@ export function StarCount({ owner, repo, className = '' }: StarCountProps) {
       className={`relative inline-flex items-center gap-2 px-1 sm:px-2 py-1 transition-all duration-300 text-black ${className}`}
       style={{ background: 'none', border: 'none', borderRadius: '9999px', cursor: 'pointer' }}
     >
-      {/* Star Icon with rounded corners, spins and fills gold on hover */}
+      {/* Star Icon with rounded corners, spins and fills gold on hover or when starred */}
       <span className="relative flex items-center justify-center">
         <motion.span
           animate={isHovered ? { rotate: 360 } : { rotate: 0 }}
@@ -49,8 +62,8 @@ export function StarCount({ owner, repo, className = '' }: StarCountProps) {
         >
           <Star
             size={24}
-            stroke={isHovered ? '#f59e0b' : '#111'}
-            fill={isHovered ? '#f59e0b' : 'none'}
+            stroke={isHovered || hasStarred ? '#f59e0b' : '#111'}
+            fill={isHovered || hasStarred ? '#f59e0b' : 'none'}
             strokeWidth={2}
             className="star-svg transition-all duration-300"
           />

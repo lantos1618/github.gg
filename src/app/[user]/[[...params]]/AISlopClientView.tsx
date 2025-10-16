@@ -129,7 +129,7 @@ export default function AISlopClientView({ user, repo, refName, path }: { user: 
   if (analysisDataObj) {
     return (
       <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
-        <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
+        <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
           <VersionDropdown
             versions={versions}
             isLoading={versionsLoading}
@@ -249,7 +249,7 @@ export default function AISlopClientView({ user, repo, refName, path }: { user: 
 
   return (
     <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
-      <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
+      <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
         <VersionDropdown
           versions={versions}
           isLoading={versionsLoading}

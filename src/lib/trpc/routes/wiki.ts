@@ -156,7 +156,7 @@ export const wikiRouter = router({
             feature: 'wiki_generation',
             repoOwner: owner,
             repoName: repo,
-            model: 'gemini-2.0-flash-exp',
+            model: 'gemini-2.5-flash',
             inputTokens: wikiResult.usage.inputTokens,
             outputTokens: wikiResult.usage.outputTokens,
             totalTokens: wikiResult.usage.totalTokens,
@@ -403,6 +403,68 @@ export const wikiRouter = router({
       } catch (error) {
         console.error('Failed to increment view count:', error);
         return { success: false };
+      }
+    }),
+
+  /**
+   * Delete all wiki pages for a repository
+   * Protected: requires authentication and repository write access
+   */
+  deleteRepositoryWiki: protectedProcedure
+    .input(z.object({
+      owner: z.string(),
+      repo: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { owner, repo } = input;
+
+      try {
+        // Check if user has write access to the repository
+        const { createGitHubServiceForUserOperations } = await import('@/lib/github');
+        const githubService = await createGitHubServiceForUserOperations(ctx.session);
+
+        // Get repository details with permissions
+        const { data: repoData } = await githubService['octokit'].repos.get({
+          owner,
+          repo,
+        });
+
+        // Check if user has admin or push (write) permissions
+        const hasAccess = repoData.permissions?.admin || repoData.permissions?.push;
+
+        if (!hasAccess) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'You do not have permission to delete wiki pages for this repository',
+          });
+        }
+
+        // Delete all wiki pages for this repository
+        const deletedPages = await db
+          .delete(repositoryWikiPages)
+          .where(
+            and(
+              eq(repositoryWikiPages.repoOwner, owner),
+              eq(repositoryWikiPages.repoName, repo)
+            )
+          )
+          .returning();
+
+        return {
+          success: true,
+          deletedCount: deletedPages.length,
+        };
+      } catch (error) {
+        console.error('Failed to delete repository wiki:', error);
+
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to delete wiki: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        });
       }
     }),
 });

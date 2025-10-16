@@ -195,7 +195,7 @@ function DiagramClientView({
   if (diagramToShow) {
     return (
       <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
-        <div className="max-w-screen-xl w-full mx-auto px-4 mt-8">
+        <div className="max-w-screen-xl w-full mx-auto px-4 mt-4">
           {/* Header Controls */}
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -263,7 +263,7 @@ function DiagramClientView({
   if (filesLoading || publicLoading || planLoading) {
     return (
       <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
-        <div className="w-full px-4 py-8">
+        <div className="w-full px-4 pt-4 pb-8">
           <div className="flex flex-col items-center gap-4">
             <LoadingWave size="lg" color="#3b82f6" />
             <div className="text-lg text-blue-700 font-medium">Loading repository files...</div>
@@ -277,7 +277,7 @@ function DiagramClientView({
   if (filesError) {
     return (
       <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
-        <div className="w-full px-4 py-8">
+        <div className="w-full px-4 pt-4 pb-8">
           <div className="text-center">
             <h2 className="text-xl font-semibold text-red-600 mb-2">Repository Not Found</h2>
             <p className="text-gray-600">The repository <code className="bg-gray-100 px-2 py-1 rounded">{user}/{repo}</code> could not be found or accessed.</p>
@@ -293,7 +293,7 @@ function DiagramClientView({
 
   return (
     <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
-      <div className="max-w-screen-xl w-full mx-auto px-4 mt-8">
+      <div className="max-w-screen-xl w-full mx-auto px-4 mt-4">
         {/* Header Controls */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
@@ -343,7 +343,7 @@ function DiagramClientView({
         />
         
         {!isPending && !displayDiagramCode && !error && (
-          <div className="text-center mt-8">
+          <div className="text-center mt-4">
             <p className="text-gray-500 mb-4">No diagram generated yet.</p>
             {hasAccess ? (
               repoFiles && repoFiles.length > 0 ? (

@@ -54,7 +54,7 @@ export default function RepoClientView({ user, repo, refName, path }: RepoClient
       files={selectedFiles}
       totalFiles={selectedFiles.length}
     >
-      <div className="max-w-screen-xl w-full mx-auto mt-4 sm:mt-8 px-2 sm:px-4">
+      <div className="max-w-screen-xl w-full mx-auto mt-2 sm:mt-4 px-2 sm:px-4">
         {isLoading ? (
           <div className="p-4 sm:p-8">
             <RepoSkeleton />

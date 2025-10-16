@@ -6,6 +6,11 @@ import PRListClientView from './PRListClientView';
 import PRDetailClientView from './PRDetailClientView';
 import IssueListClientView from './IssueListClientView';
 import IssueDetailClientView from './IssueDetailClientView';
+import DependenciesClientView from './DependenciesClientView';
+import ArchitectureClientView from './ArchitectureClientView';
+import ComponentsClientView from './ComponentsClientView';
+import DataFlowClientView from './DataFlowClientView';
+import AutomationsClientView from './AutomationsClientView';
 import { notFound } from 'next/navigation';
 import { parseRepoPath, parseRepoPathWithBranches } from '@/lib/utils';
 import { createGitHubServiceFromSession } from '@/lib/github';
@@ -97,6 +102,36 @@ export default async function Page({ params }: PageProps) {
   if (tab === 'diagram' || currentPath.endsWith('/diagram')) {
     return (
       <DiagramClientView user={user} repo={repo} refName={ref} path={path} />
+    );
+  }
+
+  if (tab === 'dependencies' || currentPath.endsWith('/dependencies')) {
+    return (
+      <DependenciesClientView user={user} repo={repo} refName={ref} path={path} />
+    );
+  }
+
+  if (tab === 'architecture' || currentPath.endsWith('/architecture')) {
+    return (
+      <ArchitectureClientView user={user} repo={repo} refName={ref} path={path} />
+    );
+  }
+
+  if (tab === 'components' || currentPath.endsWith('/components')) {
+    return (
+      <ComponentsClientView user={user} repo={repo} refName={ref} path={path} />
+    );
+  }
+
+  if (tab === 'data-flow' || currentPath.endsWith('/data-flow')) {
+    return (
+      <DataFlowClientView user={user} repo={repo} refName={ref} path={path} />
+    );
+  }
+
+  if (tab === 'automations' || currentPath.endsWith('/automations')) {
+    return (
+      <AutomationsClientView user={user} repo={repo} refName={ref} path={path} />
     );
   }
 

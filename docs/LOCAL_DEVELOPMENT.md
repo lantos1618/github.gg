@@ -313,23 +313,6 @@ For PostHog analytics:
 
 **Development Behavior**: Without PostHog keys, analytics events are logged to the browser console in development mode for debugging purposes.
 
-### Payment Features
-
-For Stripe payment integration:
-
-1. Set up Stripe account
-2. Get API keys from Stripe Dashboard
-3. Add to `.env.local`:
-   ```
-   STRIPE_SECRET_KEY="sk_test_..."
-   STRIPE_WEBHOOK_SECRET="whsec_..."
-   STRIPE_BYOK_PRICE_ID="price_..."
-   STRIPE_PRO_PRICE_ID="price_..."
-   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_..."
-   ```
-
-**Development Behavior**: Without Stripe keys, payment features return appropriate error messages instead of crashing the app.
-
 ## Contributing
 
 1. Fork the repository

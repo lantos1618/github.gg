@@ -18,8 +18,8 @@ export function VersionDropdown({ versions, isLoading, selectedVersion, onVersio
   if (!versions || versions.length === 0) return null;
   
   return (
-    <div className="mb-4">
-      <label className="mr-2 font-semibold">Version history:</label>
+    <div className="flex items-center gap-2">
+      <label className="font-semibold whitespace-nowrap">Version history:</label>
       <select
         value={selectedVersion ?? versions[0].version}
         onChange={e => onVersionChange(Number(e.target.value))}
@@ -32,8 +32,8 @@ export function VersionDropdown({ versions, isLoading, selectedVersion, onVersio
         ))}
       </select>
       {selectedVersion && (
-        <button 
-          className="ml-2 text-blue-600 underline" 
+        <button
+          className="text-blue-600 underline whitespace-nowrap"
           onClick={() => onVersionChange(null)}
         >
           View Latest

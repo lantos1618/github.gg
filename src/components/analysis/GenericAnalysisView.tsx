@@ -187,15 +187,15 @@ export function GenericAnalysisView<TResponse, TMutation extends { mutate: any; 
     return (
       <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
         <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
-          <VersionDropdown
-            versions={versions}
-            isLoading={versionsLoading}
-            selectedVersion={selectedVersion}
-            onVersionChange={setSelectedVersion}
-          />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <VersionDropdown
+              versions={versions}
+              isLoading={versionsLoading}
+              selectedVersion={selectedVersion}
+              onVersionChange={setSelectedVersion}
+            />
 
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-2">
               {config.showCopyButton && (
                 <Button
                   onClick={() => handleCopyMarkdown(analysisDataObj.markdown)}

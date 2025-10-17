@@ -7,7 +7,7 @@ import { EnhancedCodeViewer } from '@/components/EnhancedCodeViewer';
 import RepoSkeleton from '@/components/RepoSkeleton';
 import { RepoStatus } from '@/components/RepoStatus';
 import { useRepoData } from '@/lib/hooks/useRepoData';
-import { Menu } from 'lucide-react';
+import { FolderTree } from 'lucide-react';
 
 interface RepoClientViewProps {
   user: string;
@@ -67,7 +67,7 @@ export default function RepoClientView({ user, repo, refName, path }: RepoClient
               className="lg:hidden fixed bottom-6 left-6 z-30 p-4 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors"
               title="Open file tree"
             >
-              <Menu className="w-6 h-6" />
+              <FolderTree className="w-6 h-6" />
             </button>
 
             {/* File Tree Sidebar */}

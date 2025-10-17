@@ -2,12 +2,7 @@
 import { trpc } from '@/lib/trpc/client';
 import type { AISlopData } from '@/lib/ai/ai-slop';
 import { GenericAnalysisView, type AnalysisViewConfig, type AnalysisData } from '@/components/analysis/GenericAnalysisView';
-
-// Helper for TRPC error type checking
-interface TRPCError { message: string }
-function isTRPCError(err: unknown): err is TRPCError {
-  return typeof err === 'object' && err !== null && 'message' in err && typeof (err as { message?: unknown }).message === 'string';
-}
+import { isTRPCError } from '@/lib/utils';
 
 interface AISlopResponse {
   analysis: AISlopData;

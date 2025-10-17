@@ -2,12 +2,7 @@
 import { trpc } from '@/lib/trpc/client';
 import type { ScorecardResponse } from '@/lib/types/scorecard';
 import { GenericAnalysisView, type AnalysisViewConfig, type AnalysisData } from '@/components/analysis/GenericAnalysisView';
-
-// Helper for TRPC error type checking
-interface TRPCError { message: string }
-function isTRPCError(err: unknown): err is TRPCError {
-  return typeof err === 'object' && err !== null && 'message' in err && typeof (err as { message?: unknown }).message === 'string';
-}
+import { isTRPCError } from '@/lib/utils';
 
 export default function ScorecardClientView({ user, repo, refName, path }: { user: string; repo: string; refName?: string; path?: string }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -8,11 +8,8 @@ import { CircleDot, ExternalLink, AlertCircle, Clock, MessageSquare, Sparkles, A
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { MarkdownCardRenderer } from '@/components/MarkdownCardRenderer';
+import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer';
 import RepoPageLayout from '@/components/layouts/RepoPageLayout';
 
 interface IssueDetailClientViewProps {
@@ -200,32 +197,8 @@ export default function IssueDetailClientView({ user, repo, number }: IssueDetai
               <CardTitle>Description</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="markdown-content rounded-md border border-input bg-background p-6 overflow-y-auto max-h-[400px]">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    code: ({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'> & { inline?: boolean }) => {
-                      const match = /language-(\w+)/.exec(className || '');
-
-                      return !props.inline && match ? (
-                        <SyntaxHighlighter
-                          language={match[1]}
-                          PreTag="div"
-                          {...props}
-                          style={tomorrow}
-                        >
-                          {String(children).replace(/\n$/, '')}
-                        </SyntaxHighlighter>
-                      ) : (
-                        <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono" {...props}>
-                          {children}
-                        </code>
-                      );
-                    }
-                  }}
-                >
-                  {issue.body}
-                </ReactMarkdown>
+              <div className="rounded-md border border-input bg-background p-6 overflow-y-auto max-h-[400px]">
+                <MarkdownRenderer content={issue.body} />
               </div>
             </CardContent>
           </Card>

@@ -150,3 +150,14 @@ export function parseRepoPathWithBranches(
 
   return { user, repo, ref, path, tab, currentPath };
 }
+
+/**
+ * Type guard for TRPC error objects
+ */
+export interface TRPCError {
+  message: string;
+}
+
+export function isTRPCError(err: unknown): err is TRPCError {
+  return typeof err === 'object' && err !== null && 'message' in err && typeof (err as { message?: unknown }).message === 'string';
+}

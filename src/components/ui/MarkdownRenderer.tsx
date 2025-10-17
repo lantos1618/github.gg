@@ -1,39 +1,42 @@
+'use client';
+
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import rehypePrettyCode from 'rehype-pretty-code';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface MarkdownRendererProps {
   content: string;
   className?: string;
 }
 
-const rehypeOptions = {
-  theme: 'github-dark',
-  keepBackground: false,
-};
-
 export const MarkdownRenderer = ({ content, className = '' }: MarkdownRendererProps) => (
   <div className={`markdown-content ${className}`.trim()}>
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      rehypePlugins={[[rehypePrettyCode, rehypeOptions]]}
       components={{
         code: ({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'> & { inline?: boolean }) => {
-          return props.inline ? (
-            <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono" {...props}>
-              {children}
-            </code>
+          const match = /language-(\w+)/.exec(className || '');
+
+          return !props.inline && match ? (
+            <SyntaxHighlighter
+              language={match[1]}
+              PreTag="div"
+              style={oneDark}
+              customStyle={{
+                margin: '1rem 0',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+              }}
+            >
+              {String(children).replace(/\n$/, '')}
+            </SyntaxHighlighter>
           ) : (
-            <code className={className} {...props}>
+            <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono" {...props}>
               {children}
             </code>
           );
         },
-        pre: ({ children, ...props }: React.ComponentPropsWithoutRef<'pre'>) => (
-          <pre className="overflow-x-auto rounded-md border bg-muted/50 p-4 my-4" {...props}>
-            {children}
-          </pre>
-        ),
       }}
     >
       {content}

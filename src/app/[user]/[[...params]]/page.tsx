@@ -106,6 +106,7 @@ export default async function Page({ params }: PageProps) {
         description="Dependency analysis and visualization coming soon."
         iconName="GitBranch"
         iconColor="text-blue-600"
+        showContributeSection={true}
       />
     );
   }
@@ -121,6 +122,7 @@ export default async function Page({ params }: PageProps) {
         description="Architecture diagrams and analysis coming soon."
         iconName="Box"
         iconColor="text-purple-600"
+        showContributeSection={true}
       />
     );
   }
@@ -136,6 +138,7 @@ export default async function Page({ params }: PageProps) {
         description="Component hierarchy and relationships coming soon."
         iconName="Boxes"
         iconColor="text-green-600"
+        showContributeSection={true}
       />
     );
   }
@@ -151,6 +154,7 @@ export default async function Page({ params }: PageProps) {
         description="Data flow analysis and visualization coming soon."
         iconName="Workflow"
         iconColor="text-orange-600"
+        showContributeSection={true}
       />
     );
   }
@@ -166,6 +170,7 @@ export default async function Page({ params }: PageProps) {
         description="Automation workflows and CI/CD analysis coming soon."
         iconName="Cog"
         iconColor="text-gray-600"
+        showContributeSection={true}
       />
     );
   }

@@ -12,7 +12,6 @@ import { parseRepoPath, parseRepoPathWithBranches } from '@/lib/utils';
 import { createGitHubServiceFromSession } from '@/lib/github';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
-import { GitBranch, Box, Boxes, Workflow, Cog } from 'lucide-react';
 
 interface PageProps {
   params: Promise<{
@@ -50,59 +49,53 @@ export default async function Page({ params }: PageProps) {
   }
 
   // Use enhanced parsing if we have branch names, otherwise fall back to basic parsing
-  const parsed = branchNames.length > 0 
+  const parsed = branchNames.length > 0
     ? parseRepoPathWithBranches(awaitedParams, branchNames)
     : parseRepoPath(awaitedParams);
-    
-  const { ref, path, tab, currentPath } = parsed;
+
+  const { ref, path, tab } = parsed;
 
   // Handle pulls routes
-  if (rest.length >= 2 && rest[1] === 'pulls') {
-    if (rest.length === 2) {
-      // /user/repo/pulls - show all PRs
-      return <PRListClientView user={user} repo={repo} />;
-    } else if (rest.length === 3) {
-      // /user/repo/pulls/123 - show specific PR
-      const prNumber = parseInt(rest[2], 10);
-      if (!isNaN(prNumber)) {
-        return <PRDetailClientView user={user} repo={repo} number={prNumber} />;
-      }
+  if (tab === 'pulls') {
+    // Check if there's a PR number in the path
+    if (path && /^\d+$/.test(path)) {
+      const prNumber = parseInt(path, 10);
+      return <PRDetailClientView user={user} repo={repo} number={prNumber} />;
     }
+    // Otherwise show all PRs
+    return <PRListClientView user={user} repo={repo} />;
   }
 
   // Handle issues routes
-  if (rest.length >= 2 && rest[1] === 'issues') {
-    if (rest.length === 2) {
-      // /user/repo/issues - show all issues
-      return <IssueListClientView user={user} repo={repo} />;
-    } else if (rest.length === 3) {
-      // /user/repo/issues/123 - show specific issue
-      const issueNumber = parseInt(rest[2], 10);
-      if (!isNaN(issueNumber)) {
-        return <IssueDetailClientView user={user} repo={repo} number={issueNumber} />;
-      }
+  if (tab === 'issues') {
+    // Check if there's an issue number in the path
+    if (path && /^\d+$/.test(path)) {
+      const issueNumber = parseInt(path, 10);
+      return <IssueDetailClientView user={user} repo={repo} number={issueNumber} />;
     }
+    // Otherwise show all issues
+    return <IssueListClientView user={user} repo={repo} />;
   }
 
-  if (tab === 'scorecard' || currentPath.endsWith('/scorecard')) {
+  if (tab === 'scorecard') {
     return (
       <ScorecardClientView user={user} repo={repo} refName={ref} path={path} />
     );
   }
 
-  if (tab === 'ai-slop' || currentPath.endsWith('/ai-slop')) {
+  if (tab === 'ai-slop') {
     return (
       <AISlopClientView user={user} repo={repo} refName={ref} path={path} />
     );
   }
 
-  if (tab === 'diagram' || currentPath.endsWith('/diagram')) {
+  if (tab === 'diagram') {
     return (
       <DiagramClientView user={user} repo={repo} refName={ref} path={path} />
     );
   }
 
-  if (tab === 'dependencies' || currentPath.endsWith('/dependencies')) {
+  if (tab === 'dependencies') {
     return (
       <ComingSoon
         user={user}
@@ -111,13 +104,13 @@ export default async function Page({ params }: PageProps) {
         path={path}
         title="Dependencies"
         description="Dependency analysis and visualization coming soon."
-        icon={GitBranch}
+        iconName="GitBranch"
         iconColor="text-blue-600"
       />
     );
   }
 
-  if (tab === 'architecture' || currentPath.endsWith('/architecture')) {
+  if (tab === 'architecture') {
     return (
       <ComingSoon
         user={user}
@@ -126,13 +119,13 @@ export default async function Page({ params }: PageProps) {
         path={path}
         title="Architecture"
         description="Architecture diagrams and analysis coming soon."
-        icon={Box}
+        iconName="Box"
         iconColor="text-purple-600"
       />
     );
   }
 
-  if (tab === 'components' || currentPath.endsWith('/components')) {
+  if (tab === 'components') {
     return (
       <ComingSoon
         user={user}
@@ -141,13 +134,13 @@ export default async function Page({ params }: PageProps) {
         path={path}
         title="Components"
         description="Component hierarchy and relationships coming soon."
-        icon={Boxes}
+        iconName="Boxes"
         iconColor="text-green-600"
       />
     );
   }
 
-  if (tab === 'data-flow' || currentPath.endsWith('/data-flow')) {
+  if (tab === 'data-flow') {
     return (
       <ComingSoon
         user={user}
@@ -156,13 +149,13 @@ export default async function Page({ params }: PageProps) {
         path={path}
         title="Data Flow"
         description="Data flow analysis and visualization coming soon."
-        icon={Workflow}
+        iconName="Workflow"
         iconColor="text-orange-600"
       />
     );
   }
 
-  if (tab === 'automations' || currentPath.endsWith('/automations')) {
+  if (tab === 'automations') {
     return (
       <ComingSoon
         user={user}
@@ -171,7 +164,7 @@ export default async function Page({ params }: PageProps) {
         path={path}
         title="Automations"
         description="Automation workflows and CI/CD analysis coming soon."
-        icon={Cog}
+        iconName="Cog"
         iconColor="text-gray-600"
       />
     );

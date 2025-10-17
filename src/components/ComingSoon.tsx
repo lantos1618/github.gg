@@ -2,7 +2,17 @@
 import RepoPageLayout from "@/components/layouts/RepoPageLayout";
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LucideIcon } from 'lucide-react';
+import { GitBranch, Box, Boxes, Workflow, Cog } from 'lucide-react';
+
+const ICON_MAP = {
+  GitBranch,
+  Box,
+  Boxes,
+  Workflow,
+  Cog,
+} as const;
+
+type IconName = keyof typeof ICON_MAP;
 
 interface ComingSoonProps {
   user: string;
@@ -11,7 +21,7 @@ interface ComingSoonProps {
   path?: string;
   title: string;
   description: string;
-  icon: LucideIcon;
+  iconName: IconName;
   iconColor?: string;
 }
 
@@ -22,10 +32,11 @@ export default function ComingSoon({
   path,
   title,
   description,
-  icon: Icon,
+  iconName,
   iconColor = 'text-gray-600',
 }: ComingSoonProps) {
   const { files, totalFiles } = useRepoData({ user, repo, ref: refName, path });
+  const Icon = ICON_MAP[iconName];
 
   return (
     <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>

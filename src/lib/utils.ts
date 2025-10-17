@@ -67,28 +67,45 @@ export function parseRepoPath(params: { user: string; params?: string[] }) {
   if (rest.length > 0) {
     repo = rest[0];
     if (rest.length > 1) {
-      const lastSegment = rest[rest.length - 1];
-      const isTabPath = TAB_PATHS.includes(lastSegment);
-      if (isTabPath) {
-        tab = lastSegment;
-        // Remove tab from path parsing
-        rest.pop();
-      }
       if (rest[1] === "tree" && rest.length > 2) {
+        // Pattern: /user/repo/tree/branch/...
         // Decode ref (branch) in case it's URL-encoded (e.g., feat%2Fthisthing)
         ref = decodeURIComponent(rest[2]);
         pathParts = rest.slice(3);
-      } else if (rest.length > 1) {
-        ref = decodeURIComponent(rest[1]);
-        pathParts = rest.slice(2);
+      } else {
+        // Pattern: /user/repo/branch/... (no "tree")
+        // Check if rest[1] is a tab - if so, no branch specified
+        if (TAB_PATHS.includes(rest[1])) {
+          // It's a tab, no branch
+          tab = rest[1];
+          pathParts = rest.slice(2);
+        } else {
+          // It's a branch
+          ref = decodeURIComponent(rest[1]);
+          pathParts = rest.slice(2);
+        }
       }
     }
   }
+
+  // Extract tab from pathParts if not already set
+  if (!tab && pathParts.length > 0) {
+    for (let i = 0; i < pathParts.length; i++) {
+      if (TAB_PATHS.includes(pathParts[i])) {
+        tab = pathParts[i];
+        // Everything before tab is path, everything after is also path
+        pathParts = [...pathParts.slice(0, i), ...pathParts.slice(i + 1)];
+        break;
+      }
+    }
+  }
+
   const path = pathParts.length > 0 ? pathParts.join("/") : undefined;
+
   // Build currentPath
   let currentPath = `/${user}`;
   if (repo) currentPath += `/${repo}`;
-  if (ref) currentPath += `/tree/${ref}`;
+  if (ref) currentPath += `/${ref}`;
   if (path) currentPath += `/${path}`;
   if (tab) currentPath += `/${tab}`;
   return { user, repo, ref, path, tab, currentPath };
@@ -112,39 +129,49 @@ export function parseRepoPathWithBranches(
   if (rest.length > 0) {
     repo = rest[0];
     if (rest.length > 1) {
-      const lastSegment = rest[rest.length - 1];
-      const isTabPath = TAB_PATHS.includes(lastSegment);
-      if (isTabPath) {
-        tab = lastSegment;
-        rest.pop();
-      }
-      
       if (rest[1] === "tree" && rest.length > 2) {
+        // Pattern: /user/repo/tree/branch/...
         // Use enhanced parsing for segments after /tree/
         const segmentsAfterTree = rest.slice(2);
         const { branch, path } = parseBranchAndPath(segmentsAfterTree, branchNames);
         ref = branch;
         pathParts = path ? path.split('/') : [];
-      } else if (rest.length > 1) {
-        // Direct branch reference (without /tree/)
-        const segmentsAfterRepo = rest.slice(1);
-        const { branch, path } = parseBranchAndPath(segmentsAfterRepo, branchNames);
-        ref = branch;
-        pathParts = path ? path.split('/') : [];
+      } else {
+        // Pattern: /user/repo/branch/... (no "tree")
+        // Check if rest[1] is a tab - if so, no branch specified
+        if (TAB_PATHS.includes(rest[1])) {
+          // It's a tab, no branch
+          tab = rest[1];
+          pathParts = rest.slice(2);
+        } else {
+          // Use enhanced parsing for segments after repo
+          const segmentsAfterRepo = rest.slice(1);
+          const { branch, path } = parseBranchAndPath(segmentsAfterRepo, branchNames);
+          ref = branch;
+          pathParts = path ? path.split('/') : [];
+        }
       }
     }
   }
-  
+
+  // Extract tab from pathParts if not already set
+  if (!tab && pathParts.length > 0) {
+    for (let i = 0; i < pathParts.length; i++) {
+      if (TAB_PATHS.includes(pathParts[i])) {
+        tab = pathParts[i];
+        // Everything before tab is path, everything after is also path
+        pathParts = [...pathParts.slice(0, i), ...pathParts.slice(i + 1)];
+        break;
+      }
+    }
+  }
+
   const path = pathParts.length > 0 ? pathParts.join("/") : undefined;
-  
-  // Build currentPath with URL-encoded branch name (if it contains slashes)
+
+  // Build currentPath without /tree/ (matching sidebar URL pattern)
   let currentPath = `/${user}`;
   if (repo) currentPath += `/${repo}`;
-  if (ref) {
-    // URL-encode slashes in branch names (e.g., jv/kxoosrpyvqlm -> jv%2Fkxoosrpyvqlm)
-    const encodedRef = ref.includes('/') ? encodeURIComponent(ref) : ref;
-    currentPath += `/tree/${encodedRef}`;
-  }
+  if (ref) currentPath += `/${ref}`;
   if (path) currentPath += `/${path}`;
   if (tab) currentPath += `/${tab}`;
 

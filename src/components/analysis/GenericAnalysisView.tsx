@@ -195,12 +195,6 @@ export function GenericAnalysisView<TResponse, TMutation extends { mutate: any; 
           />
 
           <div className="flex items-center justify-between mb-4">
-            {config.showMetricsBar && config.renderCustomMetrics && (
-              <div className="flex items-center gap-2">
-                {config.renderCustomMetrics(analysisDataObj)}
-              </div>
-            )}
-
             <div className="flex items-center gap-2 ml-auto">
               {config.showCopyButton && (
                 <Button
@@ -225,6 +219,12 @@ export function GenericAnalysisView<TResponse, TMutation extends { mutate: any; 
               )}
             </div>
           </div>
+
+          {config.showMetricsBar && config.renderCustomMetrics && (
+            <div className="mb-4">
+              {config.renderCustomMetrics(analysisDataObj)}
+            </div>
+          )}
 
           {/* Metrics Visualization */}
           {analysisDataObj.metrics && Array.isArray(analysisDataObj.metrics) && (

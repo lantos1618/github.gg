@@ -1,0 +1,362 @@
+"use client";
+import RepoPageLayout from "@/components/layouts/RepoPageLayout";
+import { LoadingWave } from '@/components/LoadingWave';
+import { useEffect, useState, ReactNode } from 'react';
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
+import { useRepoData } from '@/lib/hooks/useRepoData';
+import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
+import { VersionDropdown } from '@/components/VersionDropdown';
+import { Button } from '@/components/ui/button';
+import { RefreshCw, Copy } from 'lucide-react';
+import { toast } from 'sonner';
+import { MarkdownCardRenderer } from '@/components/MarkdownCardRenderer';
+
+// Type for metrics (compatible with both Scorecard and AI Slop)
+interface Metric {
+  metric: string;
+  score: number;
+  reason: string;
+}
+
+// Generic analysis data structure
+export interface AnalysisData {
+  markdown: string;
+  metrics?: Metric[];
+  overallScore?: number;
+  // AI Slop specific fields
+  aiGeneratedPercentage?: number;
+  detectedPatterns?: string[];
+}
+
+// Config for customizing the view
+export interface AnalysisViewConfig<TResponse, TMutation> {
+  // Display configuration
+  title: string;
+  noDataTitle: string;
+  noDataDescription: string;
+  privateRepoMessage: string;
+  generateButtonText: string;
+  generatingButtonText: string;
+  loadingMessage: string;
+  generatingMessage: string;
+
+  // TRPC hooks
+  useVersions: (params: { user: string; repo: string; ref: string }) => {
+    data: Array<{ version: number; updatedAt: string }> | undefined;
+    isLoading: boolean;
+  };
+  usePublicData: (params: { user: string; repo: string; ref: string; version?: number }) => {
+    data: TResponse | undefined;
+    isLoading: boolean;
+  };
+  useGenerate: () => TMutation;
+  usePlan: () => { data: { plan: string } | undefined; isLoading: boolean };
+  useUtils: () => any;
+
+  // Data extractors
+  extractAnalysisData: (response: TResponse | undefined) => AnalysisData | null;
+  extractError: (response: TResponse | undefined) => string | null;
+
+  // Mutation handlers
+  onMutationSuccess: (data: any, setData: (data: string) => void, utils: any) => void;
+  onMutationError: (err: any, setError: (error: string) => void) => void;
+
+  // Optional customizations
+  showCopyButton?: boolean;
+  showMetricsBar?: boolean;
+  renderCustomMetrics?: (data: AnalysisData) => ReactNode;
+  getMetricColor?: (score: number) => string;
+  useEffectiveRef?: boolean; // If true, uses actualRef from useRepoData
+}
+
+interface GenericAnalysisViewProps<TResponse, TMutation> {
+  user: string;
+  repo: string;
+  refName?: string;
+  path?: string;
+  config: AnalysisViewConfig<TResponse, TMutation>;
+}
+
+export function GenericAnalysisView<TResponse, TMutation extends { mutate: any; isPending: boolean }>({
+  user,
+  repo,
+  refName,
+  path,
+  config,
+}: GenericAnalysisViewProps<TResponse, TMutation>) {
+  const [analysisData, setAnalysisData] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
+
+  const generateMutation = config.useGenerate();
+  const { data: currentPlan, isLoading: planLoading } = config.usePlan();
+  const utils = config.useUtils();
+
+  // Get repo data first to access actualRef if needed
+  const { files, isLoading: filesLoading, totalFiles, actualRef } = useRepoData({ user, repo, ref: refName, path });
+
+  // Use actualRef (after fallback) for all queries if configured
+  const effectiveRef = config.useEffectiveRef ? (actualRef || refName || 'main') : (refName || 'main');
+
+  const { data: versions, isLoading: versionsLoading } = config.useVersions({ user, repo, ref: effectiveRef });
+
+  // Use the public endpoint for cached data (latest or by version)
+  const { data: publicData, isLoading: publicLoading } = config.usePublicData(
+    selectedVersion
+      ? { user, repo, ref: effectiveRef, version: selectedVersion }
+      : { user, repo, ref: effectiveRef }
+  );
+
+  // Extract analysis data and metadata
+  const analysisDataObj = config.extractAnalysisData(publicData);
+  const markdownContent = analysisDataObj?.markdown || analysisData;
+  const isPrivateRepo = config.extractError(publicData) === 'This repository is private';
+
+  // Reset state when user/repo changes
+  useEffect(() => {
+    if (user || repo) {
+      setAnalysisData(null);
+      setError(null);
+    }
+  }, [user, repo]);
+
+  // Add regenerate handler
+  const handleRegenerate = () => {
+    setIsLoading(true);
+    setError(null);
+    generateMutation.mutate(
+      {
+        user,
+        repo,
+        ref: effectiveRef,
+        files: files.map((file: { path: string; content: string; size: number }) => ({
+          path: file.path,
+          content: file.content,
+          size: file.size,
+        })),
+      },
+      {
+        onSuccess: (data: any) => {
+          config.onMutationSuccess(data, setAnalysisData, utils);
+          setIsLoading(false);
+        },
+        onError: (err: any) => {
+          config.onMutationError(err, setError);
+          setIsLoading(false);
+        },
+      }
+    );
+  };
+
+  const handleCopyMarkdown = (markdown: string | null | undefined) => {
+    if (!markdown) {
+      toast.error('No markdown to copy');
+      return;
+    }
+    navigator.clipboard.writeText(markdown).then(() => {
+      toast.success('Markdown copied to clipboard');
+    }).catch(() => {
+      toast.error('Failed to copy markdown');
+    });
+  };
+
+  const overallLoading = filesLoading || isLoading;
+  const canAccess = currentPlan && currentPlan.plan !== 'free';
+
+  // If repository is private, show appropriate message
+  if (isPrivateRepo) {
+    return (
+      <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <h2 className="text-xl font-semibold text-gray-600 mb-2">Repository is Private</h2>
+          <p className="text-gray-500">{config.privateRepoMessage}</p>
+        </div>
+      </RepoPageLayout>
+    );
+  }
+
+  // If a cached analysis is available, show it
+  if (analysisDataObj) {
+    return (
+      <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
+        <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
+          <VersionDropdown
+            versions={versions}
+            isLoading={versionsLoading}
+            selectedVersion={selectedVersion}
+            onVersionChange={setSelectedVersion}
+          />
+
+          <div className="flex items-center justify-between mb-4">
+            {config.showMetricsBar && config.renderCustomMetrics && (
+              <div className="flex items-center gap-2">
+                {config.renderCustomMetrics(analysisDataObj)}
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 ml-auto">
+              {config.showCopyButton && (
+                <Button
+                  onClick={() => handleCopyMarkdown(analysisDataObj.markdown)}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  title="Copy Markdown"
+                >
+                  <Copy className="h-4 w-4" />
+                  Copy Markdown
+                </Button>
+              )}
+              {canAccess && (
+                <Button
+                  onClick={handleRegenerate}
+                  disabled={isLoading || generateMutation.isPending}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  {isLoading ? config.generatingButtonText : 'Regenerate'}
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Metrics Visualization */}
+          {analysisDataObj.metrics && Array.isArray(analysisDataObj.metrics) && (
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold mb-2">Metrics Breakdown</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full border rounded-md bg-background">
+                  <thead>
+                    <tr>
+                      <th className="px-4 py-2 text-left">Metric</th>
+                      <th className="px-4 py-2 text-left">Score</th>
+                      <th className="px-4 py-2 text-left">Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analysisDataObj.metrics.map((m, i) => {
+                      const colorClass = config.getMetricColor ? config.getMetricColor(m.score) : 'bg-blue-500';
+                      return (
+                        <tr key={i} className="border-t">
+                          <td className="px-4 py-2 font-medium whitespace-nowrap">{m.metric}</td>
+                          <td className="px-4 py-2">
+                            <div className="flex items-center gap-2">
+                              <span>{m.score}</span>
+                              <div className="w-32 h-2 bg-gray-200 rounded">
+                                <div
+                                  className={`h-2 rounded ${colorClass}`}
+                                  style={{ width: `${Math.max(0, Math.min(100, m.score))}%` }}
+                                />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2 text-sm text-gray-700">{m.reason}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          <MarkdownCardRenderer
+            markdown={analysisDataObj.markdown}
+            title={config.title}
+          />
+        </div>
+      </RepoPageLayout>
+    );
+  }
+
+  // If plan is loading, show spinner
+  if (planLoading || publicLoading) {
+    return (
+      <RepoPageLayout user={user} repo={repo} refName={refName} files={[]} totalFiles={0}>
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <LoadingWave />
+        </div>
+      </RepoPageLayout>
+    );
+  }
+
+  // If user does not have a paid plan, show upgrade
+  if (!canAccess) {
+    return (
+      <RepoPageLayout user={user} repo={repo} refName={refName} files={[]} totalFiles={0}>
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <SubscriptionUpgrade />
+        </div>
+      </RepoPageLayout>
+    );
+  }
+
+  return (
+    <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
+      <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
+        <VersionDropdown
+          versions={versions}
+          isLoading={versionsLoading}
+          selectedVersion={selectedVersion}
+          onVersionChange={setSelectedVersion}
+        />
+
+        {error && (
+          <ErrorDisplay
+            error={error}
+            isPending={generateMutation.isPending}
+            onRetry={handleRegenerate}
+          />
+        )}
+        {overallLoading && (
+          <div className="flex flex-col items-center justify-center min-h-[400px]">
+            <LoadingWave />
+            <p className="mt-4 text-gray-600">
+              {filesLoading ? 'Loading repository files...' : config.loadingMessage}
+            </p>
+            {filesLoading && <p className="text-sm text-gray-500 mt-2">Files: {files.length}</p>}
+            {!filesLoading && isLoading && <p className="text-sm text-gray-500 mt-2">{config.generatingMessage}</p>}
+          </div>
+        )}
+        {markdownContent && (
+          <>
+            {config.showCopyButton && (
+              <div className="flex items-center justify-end mb-3">
+                <Button
+                  onClick={() => handleCopyMarkdown(markdownContent)}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  title="Copy Markdown"
+                >
+                  <Copy className="h-4 w-4" />
+                  Copy Markdown
+                </Button>
+              </div>
+            )}
+            <MarkdownCardRenderer
+              markdown={markdownContent}
+              title={config.title}
+            />
+          </>
+        )}
+        {!markdownContent && !overallLoading && !error && (
+          <div className="flex flex-col items-center justify-center min-h-[400px]">
+            <h2 className="text-xl font-semibold text-gray-600 mb-2">{config.noDataTitle}</h2>
+            <p className="text-gray-500 mb-6 text-center max-w-md">
+              {config.noDataDescription}
+            </p>
+            <Button
+              onClick={handleRegenerate}
+              disabled={isLoading || generateMutation.isPending || filesLoading}
+              className="flex items-center gap-2"
+              size="lg"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              {isLoading ? config.generatingButtonText : config.generateButtonText}
+            </Button>
+            <p className="text-sm text-gray-400 mt-4">Files loaded: {files.length}</p>
+          </div>
+        )}
+      </div>
+    </RepoPageLayout>
+  );
+}

@@ -195,7 +195,7 @@ function DiagramClientView({
   if (diagramToShow) {
     return (
       <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
-        <div className="max-w-screen-xl w-full mx-auto px-4 mt-4">
+        <div className="max-w-screen-xl w-full mx-auto px-4 pt-4">
           {/* Header Controls */}
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -293,7 +293,7 @@ function DiagramClientView({
 
   return (
     <RepoPageLayout user={user} repo={repo} refName={refName} files={repoFiles} totalFiles={totalFiles}>
-      <div className="max-w-screen-xl w-full mx-auto px-4 mt-4">
+      <div className="max-w-screen-xl w-full mx-auto px-4 pt-4">
         {/* Header Controls */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">

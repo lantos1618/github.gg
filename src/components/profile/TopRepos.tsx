@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { ExternalLink, Star } from 'lucide-react';
 import type { ScoredRepo } from '@/lib/types/profile';
 import Link from 'next/link';
@@ -37,6 +38,23 @@ export function TopRepos({ repos }: TopReposProps) {
                           {repo.name}
                         </span>
                       </h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs z-10"
+                        asChild
+                      >
+                        <a
+                          href={repo.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          View Repo
+                        </a>
+                      </Button>
                       <Badge className={`text-xs ${getSignificanceColor(repo.significanceScore)}`}>
                         Significance: {repo.significanceScore}/10
                       </Badge>
@@ -45,16 +63,6 @@ export function TopRepos({ repos }: TopReposProps) {
                       {repo.description || 'No description available'}
                     </p>
                   </div>
-                  {/* External GitHub link positioned in top-right */}
-                  <a
-                    href={repo.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-muted-foreground hover:text-blue-600 transition-colors duration-150 p-1 rounded-sm hover:bg-blue-50 z-10"
-                    title="View on GitHub"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
                 </div>
                 <div className="bg-muted/50 rounded-md p-3">
                   <p className="text-xs text-muted-foreground mb-1">

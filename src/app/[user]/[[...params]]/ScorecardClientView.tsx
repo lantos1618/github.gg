@@ -124,18 +124,14 @@ export default function ScorecardClientView({ user, repo, refName, path }: { use
     return (
       <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
         <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
-          <VersionDropdown
-            versions={versions}
-            isLoading={versionsLoading}
-            selectedVersion={selectedVersion}
-            onVersionChange={setSelectedVersion}
-          />
-          
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              {/* Removed last updated and cached status display */}
-            </div>
-            
+          <div className="flex items-center justify-between mb-4 gap-4">
+            <VersionDropdown
+              versions={versions}
+              isLoading={versionsLoading}
+              selectedVersion={selectedVersion}
+              onVersionChange={setSelectedVersion}
+            />
+
             {canAccess && (
               <Button
                 onClick={handleRegenerate}

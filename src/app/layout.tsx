@@ -63,7 +63,7 @@ export default function RootLayout({
                 DEV
               </div>
             )}
-            <main>{children}</main>
+            <main className="pt-14">{children}</main>
             <Footer />
             <Toaster position="top-right" richColors />
           </TRPCProvider>

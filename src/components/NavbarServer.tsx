@@ -13,7 +13,7 @@ export function NavbarServer() {
   const navLinksMargin = isRepoPage ? 'lg:ml-64' : '';
 
   return (
-    <nav className={`sticky top-0 z-50 w-full backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 relative border-b border-gray-200`}>
+    <nav className={`fixed top-0 z-50 w-full bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/95 transition-all duration-300 border-b border-gray-200 shadow-sm`}>
       <div className="relative flex h-14 items-center">
         {/* Logo/Brand - Always visible */}
         <Link href="/" className="flex items-center gap-2 flex-shrink-0 px-4 sm:px-6 z-10">

@@ -43,7 +43,8 @@ export function HeroSection() {
 
   return (
     <div className="relative bg-white">
-      <ScrollingRepos className="w-full">
+      <div className="mt-8 sm:mt-12">
+        <ScrollingRepos className="w-full">
         <motion.div
           className="relative z-10 max-w-3xl mx-auto text-center bg-gray-50/30 backdrop-blur-xl p-12 rounded-2xl shadow-lg border border-gray-200/50 pointer-events-auto"
           initial="hidden"
@@ -137,7 +138,8 @@ export function HeroSection() {
             </motion.div>
           )}
         </motion.div>
-      </ScrollingRepos>
+        </ScrollingRepos>
+      </div>
     </div>
   );
 } 

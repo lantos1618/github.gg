@@ -2,20 +2,30 @@
 import RepoPageLayout from "@/components/layouts/RepoPageLayout";
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Cog } from 'lucide-react';
+import { LucideIcon } from 'lucide-react';
 
-export default function AutomationsClientView({
-  user,
-  repo,
-  refName,
-  path
-}: {
+interface ComingSoonProps {
   user: string;
   repo: string;
   refName?: string;
   path?: string;
-}) {
-  const { files, isLoading: filesLoading, totalFiles } = useRepoData({ user, repo, ref: refName, path });
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  iconColor?: string;
+}
+
+export default function ComingSoon({
+  user,
+  repo,
+  refName,
+  path,
+  title,
+  description,
+  icon: Icon,
+  iconColor = 'text-gray-600',
+}: ComingSoonProps) {
+  const { files, totalFiles } = useRepoData({ user, repo, ref: refName, path });
 
   return (
     <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
@@ -23,14 +33,12 @@ export default function AutomationsClientView({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Cog className="h-6 w-6 text-orange-600" />
-              Repository Automations
+              <Icon className={`h-6 w-6 ${iconColor}`} />
+              {title}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600">
-              CI/CD workflows, GitHub Actions, and automation analysis coming soon.
-            </p>
+            <p className="text-gray-600">{description}</p>
           </CardContent>
         </Card>
       </div>

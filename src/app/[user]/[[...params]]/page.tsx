@@ -6,16 +6,13 @@ import PRListClientView from './PRListClientView';
 import PRDetailClientView from './PRDetailClientView';
 import IssueListClientView from './IssueListClientView';
 import IssueDetailClientView from './IssueDetailClientView';
-import DependenciesClientView from './DependenciesClientView';
-import ArchitectureClientView from './ArchitectureClientView';
-import ComponentsClientView from './ComponentsClientView';
-import DataFlowClientView from './DataFlowClientView';
-import AutomationsClientView from './AutomationsClientView';
+import ComingSoon from '@/components/ComingSoon';
 import { notFound } from 'next/navigation';
 import { parseRepoPath, parseRepoPathWithBranches } from '@/lib/utils';
 import { createGitHubServiceFromSession } from '@/lib/github';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
+import { GitBranch, Box, Boxes, Workflow, Cog } from 'lucide-react';
 
 interface PageProps {
   params: Promise<{
@@ -107,31 +104,76 @@ export default async function Page({ params }: PageProps) {
 
   if (tab === 'dependencies' || currentPath.endsWith('/dependencies')) {
     return (
-      <DependenciesClientView user={user} repo={repo} refName={ref} path={path} />
+      <ComingSoon
+        user={user}
+        repo={repo}
+        refName={ref}
+        path={path}
+        title="Dependencies"
+        description="Dependency analysis and visualization coming soon."
+        icon={GitBranch}
+        iconColor="text-blue-600"
+      />
     );
   }
 
   if (tab === 'architecture' || currentPath.endsWith('/architecture')) {
     return (
-      <ArchitectureClientView user={user} repo={repo} refName={ref} path={path} />
+      <ComingSoon
+        user={user}
+        repo={repo}
+        refName={ref}
+        path={path}
+        title="Architecture"
+        description="Architecture diagrams and analysis coming soon."
+        icon={Box}
+        iconColor="text-purple-600"
+      />
     );
   }
 
   if (tab === 'components' || currentPath.endsWith('/components')) {
     return (
-      <ComponentsClientView user={user} repo={repo} refName={ref} path={path} />
+      <ComingSoon
+        user={user}
+        repo={repo}
+        refName={ref}
+        path={path}
+        title="Components"
+        description="Component hierarchy and relationships coming soon."
+        icon={Boxes}
+        iconColor="text-green-600"
+      />
     );
   }
 
   if (tab === 'data-flow' || currentPath.endsWith('/data-flow')) {
     return (
-      <DataFlowClientView user={user} repo={repo} refName={ref} path={path} />
+      <ComingSoon
+        user={user}
+        repo={repo}
+        refName={ref}
+        path={path}
+        title="Data Flow"
+        description="Data flow analysis and visualization coming soon."
+        icon={Workflow}
+        iconColor="text-orange-600"
+      />
     );
   }
 
   if (tab === 'automations' || currentPath.endsWith('/automations')) {
     return (
-      <AutomationsClientView user={user} repo={repo} refName={ref} path={path} />
+      <ComingSoon
+        user={user}
+        repo={repo}
+        refName={ref}
+        path={path}
+        title="Automations"
+        description="Automation workflows and CI/CD analysis coming soon."
+        icon={Cog}
+        iconColor="text-gray-600"
+      />
     );
   }
 

@@ -1,14 +1,28 @@
+'use client';
+
 import posthog from 'posthog-js';
+import type { PostHog } from 'posthog-js';
 
 // Check if PostHog is properly configured
 const isPostHogConfigured = () => {
-  return process.env.NEXT_PUBLIC_POSTHOG_KEY && 
+  return process.env.NEXT_PUBLIC_POSTHOG_KEY &&
          process.env.NEXT_PUBLIC_POSTHOG_KEY !== 'undefined' &&
          process.env.NEXT_PUBLIC_POSTHOG_KEY !== '';
 };
 
+// Lazy initialization - only initialize when needed
+let posthogInstance: PostHog | null = null;
+let initAttempted = false;
+
 // Initialize PostHog with development fallbacks
 export const initializePostHog = () => {
+  // Return cached instance if already initialized
+  if (initAttempted) {
+    return posthogInstance;
+  }
+
+  initAttempted = true;
+
   if (!isPostHogConfigured()) {
     console.log('📊 PostHog not configured - running in development mode without analytics');
     return null;
@@ -26,6 +40,7 @@ export const initializePostHog = () => {
         }
       }
     });
+    posthogInstance = posthog;
     return posthog;
   } catch (error) {
     console.error('Failed to initialize PostHog:', error);
@@ -33,40 +48,56 @@ export const initializePostHog = () => {
   }
 };
 
+// Get PostHog instance (lazy init)
+export const getPostHog = () => {
+  // Only initialize on client side
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  if (!posthogInstance && !initAttempted) {
+    initializePostHog();
+  }
+  return posthogInstance;
+};
+
 // Safe PostHog wrapper functions
 export const safePostHog = {
   capture: (event: string, properties?: Record<string, unknown>) => {
-    if (posthog && isPostHogConfigured()) {
-      posthog.capture(event, properties);
+    const ph = getPostHog();
+    if (ph && isPostHogConfigured()) {
+      ph.capture(event, properties);
     } else if (process.env.NODE_ENV === 'development') {
       console.log('📊 [DEV] PostHog Event:', event, properties);
     }
   },
 
   identify: (distinctId: string, properties?: Record<string, unknown>) => {
-    if (posthog && isPostHogConfigured()) {
-      posthog.identify(distinctId, properties);
+    const ph = getPostHog();
+    if (ph && isPostHogConfigured()) {
+      ph.identify(distinctId, properties);
     } else if (process.env.NODE_ENV === 'development') {
       console.log('📊 [DEV] PostHog Identify:', distinctId, properties);
     }
   },
 
   reset: () => {
-    if (posthog && isPostHogConfigured()) {
-      posthog.reset();
+    const ph = getPostHog();
+    if (ph && isPostHogConfigured()) {
+      ph.reset();
     } else if (process.env.NODE_ENV === 'development') {
       console.log('📊 [DEV] PostHog Reset');
     }
   },
 
   isFeatureEnabled: (flag: string) => {
-    if (posthog && isPostHogConfigured()) {
-      return posthog.isFeatureEnabled(flag);
+    const ph = getPostHog();
+    if (ph && isPostHogConfigured()) {
+      return ph.isFeatureEnabled(flag);
     }
-    // In development without PostHog, return false for feature flags
     return false;
   }
 };
 
-// Export the initialized instance
-export const posthogInstance = initializePostHog(); 
+// Export lazy getter for posthog instance
+export { getPostHog as posthogInstance }; 

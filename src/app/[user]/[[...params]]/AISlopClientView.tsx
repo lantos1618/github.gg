@@ -9,7 +9,8 @@ import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
 import type { AISlopData } from '@/lib/ai/ai-slop';
 import { VersionDropdown } from '@/components/VersionDropdown';
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Copy } from 'lucide-react';
+import { toast } from 'sonner';
 import { MarkdownCardRenderer } from '@/components/MarkdownCardRenderer';
 
 // Define a type for TRPC error responses
@@ -113,6 +114,18 @@ export default function AISlopClientView({ user, repo, refName, path }: { user: 
   const overallLoading = filesLoading || isLoading;
   const canAccess = currentPlan && currentPlan.plan !== 'free';
 
+  const handleCopyMarkdown = (markdown: string | null | undefined) => {
+    if (!markdown) {
+      toast.error('No markdown to copy');
+      return;
+    }
+    navigator.clipboard.writeText(markdown).then(() => {
+      toast.success('Markdown copied to clipboard');
+    }).catch(() => {
+      toast.error('Failed to copy markdown');
+    });
+  };
+
   // If repository is private, show appropriate message
   if (isPrivateRepo) {
     return (
@@ -156,16 +169,27 @@ export default function AISlopClientView({ user, repo, refName, path }: { user: 
               </div>
             </div>
 
-            {canAccess && (
+            <div className="flex items-center gap-2">
               <Button
-                onClick={handleRegenerate}
-                disabled={isLoading || generateAISlopMutation.isPending}
+                onClick={() => handleCopyMarkdown(analysisDataObj.markdown)}
+                variant="outline"
                 className="flex items-center gap-2"
+                title="Copy Markdown"
               >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                {isLoading ? 'Analyzing...' : 'Regenerate'}
+                <Copy className="h-4 w-4" />
+                Copy Markdown
               </Button>
-            )}
+              {canAccess && (
+                <Button
+                  onClick={handleRegenerate}
+                  disabled={isLoading || generateAISlopMutation.isPending}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  {isLoading ? 'Analyzing...' : 'Regenerate'}
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Detected Patterns */}
@@ -275,10 +299,23 @@ export default function AISlopClientView({ user, repo, refName, path }: { user: 
           </div>
         )}
         {markdownContent && (
-          <MarkdownCardRenderer
-            markdown={markdownContent}
-            title="AI Slop Detection Report"
-          />
+          <>
+            <div className="flex items-center justify-end mb-3">
+              <Button
+                onClick={() => handleCopyMarkdown(markdownContent)}
+                variant="outline"
+                className="flex items-center gap-2"
+                title="Copy Markdown"
+              >
+                <Copy className="h-4 w-4" />
+                Copy Markdown
+              </Button>
+            </div>
+            <MarkdownCardRenderer
+              markdown={markdownContent}
+              title="AI Slop Detection Report"
+            />
+          </>
         )}
         {!markdownContent && !overallLoading && !error && (
           <div className="flex flex-col items-center justify-center min-h-[400px]">

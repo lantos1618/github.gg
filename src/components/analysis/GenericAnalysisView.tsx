@@ -51,6 +51,7 @@ export interface AnalysisViewConfig<TResponse, TMutation> {
   };
   useGenerate: () => TMutation;
   usePlan: () => { data: { plan: string } | undefined; isLoading: boolean };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   useUtils: () => any;
 
   // Data extractors
@@ -58,7 +59,9 @@ export interface AnalysisViewConfig<TResponse, TMutation> {
   extractError: (response: TResponse | undefined) => string | null;
 
   // Mutation handlers
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onMutationSuccess: (data: any, setData: (data: string) => void, utils: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onMutationError: (err: any, setError: (error: string) => void) => void;
 
   // Optional customizations
@@ -77,6 +80,7 @@ interface GenericAnalysisViewProps<TResponse, TMutation> {
   config: AnalysisViewConfig<TResponse, TMutation>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function GenericAnalysisView<TResponse, TMutation extends { mutate: any; isPending: boolean }>({
   user,
   repo,
@@ -137,10 +141,12 @@ export function GenericAnalysisView<TResponse, TMutation extends { mutate: any; 
         })),
       },
       {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onSuccess: (data: any) => {
           config.onMutationSuccess(data, setAnalysisData, utils);
           setIsLoading(false);
         },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onError: (err: any) => {
           config.onMutationError(err, setError);
           setIsLoading(false);

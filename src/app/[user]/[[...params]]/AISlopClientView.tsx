@@ -17,6 +17,7 @@ interface AISlopResponse {
 }
 
 export default function AISlopClientView({ user, repo, refName, path }: { user: string; repo: string; refName?: string; path?: string }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const config: AnalysisViewConfig<any, any> = {
     // Display configuration
     title: 'Code Quality Report',

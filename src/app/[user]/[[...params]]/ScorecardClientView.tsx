@@ -10,6 +10,7 @@ function isTRPCError(err: unknown): err is TRPCError {
 }
 
 export default function ScorecardClientView({ user, repo, refName, path }: { user: string; repo: string; refName?: string; path?: string }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const config: AnalysisViewConfig<any, any> = {
     // Display configuration
     title: 'Repository Scorecard',

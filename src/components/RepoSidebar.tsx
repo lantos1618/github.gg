@@ -58,15 +58,19 @@ export function RepoSidebar({ owner, repo, wikiPages = [] }: RepoSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Fetch branches
+  // Fetch branches and repo info
   const { data: branches } = trpc.github.getBranches.useQuery({ owner, repo });
+  const { data: repoInfo } = trpc.github.getRepoInfo.useQuery({ owner, repo });
+
+  // Get the actual default branch from repo info, fallback to 'main'
+  const defaultBranch = repoInfo?.defaultBranch || 'main';
 
   // Intelligently detect current branch from URL
   // URL structure: /{owner}/{repo}/{branch?}/{page?}
   const pathParts = pathname.split('/').filter(Boolean);
   const knownPages = ['scorecard', 'ai-slop', 'automations', 'issues', 'pulls', 'diagram', 'dependencies', 'architecture', 'components', 'data-flow'];
 
-  let currentBranch = 'main';
+  let currentBranch = defaultBranch;
   let currentPage = '';
 
   if (pathParts.length > 2) {
@@ -74,7 +78,7 @@ export function RepoSidebar({ owner, repo, wikiPages = [] }: RepoSidebarProps) {
     // Check if third part is a known page or a branch
     if (knownPages.includes(thirdPart)) {
       // It's a page, so we're on default branch
-      currentBranch = 'main';
+      currentBranch = defaultBranch;
       currentPage = thirdPart;
     } else if (branches && branches.includes(thirdPart)) {
       // It's a branch
@@ -87,8 +91,8 @@ export function RepoSidebar({ owner, repo, wikiPages = [] }: RepoSidebarProps) {
     }
   }
 
-  // Base URL includes branch if not on main
-  const baseUrl = currentBranch === 'main' ? `/${owner}/${repo}` : `/${owner}/${repo}/${currentBranch}`;
+  // Base URL includes branch if not on default branch
+  const baseUrl = currentBranch === defaultBranch ? `/${owner}/${repo}` : `/${owner}/${repo}/${currentBranch}`;
 
   const handleBranchChange = (newBranch: string) => {
     // Navigate to the same page but with new branch

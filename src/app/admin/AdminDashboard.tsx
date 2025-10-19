@@ -145,16 +145,53 @@ export default function AdminDashboard() {
       {/* All Users */}
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            All Users ({allUsers?.length || 0})
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              All Users ({allUsers?.length || 0})
+            </CardTitle>
+            {allUsers && allUsers.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Export users as CSV
+                  const headers = ['Name', 'Email', 'Plan', 'Status', 'Joined'];
+                  const rows = allUsers.map(user => [
+                    user.name || 'Unknown',
+                    user.email || '',
+                    user.userSubscriptions?.plan || 'Free',
+                    user.userSubscriptions?.status || 'none',
+                    user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'
+                  ]);
+
+                  const csv = [
+                    headers.join(','),
+                    ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+                  ].join('\n');
+
+                  const blob = new Blob([csv], { type: 'text/csv' });
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `users-${new Date().toISOString().split('T')[0]}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  window.URL.revokeObjectURL(url);
+                  toast.success('User list exported!');
+                }}
+              >
+                Export CSV
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {loadingUsers ? (
             <div className="text-center py-8 text-muted-foreground">Loading users...</div>
           ) : allUsers && allUsers.length > 0 ? (
-            <div className="space-y-3">
+            <div className="max-h-[600px] overflow-y-auto space-y-3 pr-2">
               {allUsers.map((user) => (
                 <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                   <div className="flex items-center gap-3">

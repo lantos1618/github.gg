@@ -17,7 +17,7 @@ import {
   getOrCreateRanking, 
   updateRankings
 } from '@/lib/arena/battle-helpers';
-import { INITIAL_ELO_RATING, BYOK_DAILY_BATTLE_LIMIT, ALL_BATTLE_CRITERIA } from '@/lib/constants/arena';
+import { BYOK_DAILY_BATTLE_LIMIT, ALL_BATTLE_CRITERIA } from '@/lib/constants/arena';
 import { generateDeveloperProfile } from '@/lib/ai/developer-profile';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import type { BattleCriteria } from '@/lib/types/arena';
@@ -99,14 +99,15 @@ async function executeBattleAsync(
       (battle[0].criteria as BattleCriteria[]) || ALL_BATTLE_CRITERIA
     );
 
+    // Ensure both users have rankings (creates if doesn't exist)
     const [challengerRanking, opponentRanking] = await Promise.all([
-      db.select().from(developerRankings).where(eq(developerRankings.userId, battle[0].challengerId)).limit(1),
-      db.select().from(developerRankings).where(eq(developerRankings.userId, battle[0].opponentId)).limit(1)
+      getOrCreateRanking(battle[0].challengerId, battle[0].challengerUsername),
+      getOrCreateRanking(battle[0].opponentId, battle[0].opponentUsername)
     ]);
 
     const challengerWon = battleAnalysis.result.winner === battle[0].challengerUsername;
-    const challengerCurrentRating = challengerRanking[0]?.eloRating || INITIAL_ELO_RATING;
-    const opponentCurrentRating = opponentRanking[0]?.eloRating || INITIAL_ELO_RATING;
+    const challengerCurrentRating = challengerRanking.eloRating;
+    const opponentCurrentRating = opponentRanking.eloRating;
 
     const eloChanges = calculateEloChange(
       challengerCurrentRating,
@@ -117,8 +118,8 @@ async function executeBattleAsync(
     await updateBattleResults(
       battle[0],
       battleAnalysis.result,
-      challengerRanking[0],
-      opponentRanking[0],
+      challengerRanking,
+      opponentRanking,
       {
         challenger: {
           before: challengerCurrentRating,
@@ -136,8 +137,8 @@ async function executeBattleAsync(
 
     await updateUserRankings(
       battle[0],
-      challengerRanking[0],
-      opponentRanking[0],
+      challengerRanking,
+      opponentRanking,
       eloChanges,
       challengerWon
     );
@@ -460,8 +461,8 @@ async function updateBattleResults(
     highlights: string[];
     recommendations: string[];
   },
-  challengerRanking: typeof developerRankings.$inferSelect | undefined,
-  opponentRanking: typeof developerRankings.$inferSelect | undefined,
+  challengerRanking: typeof developerRankings.$inferSelect,
+  opponentRanking: typeof developerRankings.$inferSelect,
   eloChanges: { challenger: { before: number; after: number; change: number }; opponent: { before: number; after: number; change: number } },
   challengerWon: boolean
 ) {
@@ -493,8 +494,8 @@ async function updateBattleResults(
 
 async function updateUserRankings(
   battle: typeof arenaBattles.$inferSelect,
-  challengerRanking: typeof developerRankings.$inferSelect | undefined,
-  opponentRanking: typeof developerRankings.$inferSelect | undefined,
+  challengerRanking: typeof developerRankings.$inferSelect,
+  opponentRanking: typeof developerRankings.$inferSelect,
   eloChanges: { challenger: { change: number; newRating: number }; opponent: { change: number; newRating: number } },
   challengerWon: boolean
 ) {

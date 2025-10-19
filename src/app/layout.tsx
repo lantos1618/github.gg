@@ -7,6 +7,7 @@ import { Footer } from "@/components/Footer";
 import { Toaster } from 'sonner'
 import { PostHogProvider } from './providers'
 import { Analytics } from "@vercel/analytics/next";
+import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -69,6 +70,7 @@ export default function RootLayout({
           </TRPCProvider>
         </PostHogProvider>
         <Analytics />
+        <GoogleAnalytics />
       </body>
     </html>
   );

@@ -410,6 +410,195 @@ export async function sendFeatureRequestEmail(data: {
   }
 }
 
+export async function sendBattleResultsEmail(data: {
+  recipientEmail: string;
+  recipientUsername: string;
+  opponentUsername: string;
+  won: boolean;
+  yourScore: number;
+  opponentScore: number;
+  eloChange: number;
+  newElo: number;
+  reason: string;
+}) {
+  const { recipientEmail, recipientUsername, opponentUsername, won, yourScore, opponentScore, eloChange, newElo, reason } = data;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #1f2937;
+      background: #f3f4f6;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+    }
+    .header {
+      background: linear-gradient(135deg, ${won ? '#10b981 0%, #059669 100%' : '#ef4444 0%, #dc2626 100%'});
+      color: white;
+      padding: 48px 32px;
+      text-align: center;
+    }
+    .header h1 {
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .header p {
+      font-size: 18px;
+      opacity: 0.95;
+    }
+    .content {
+      padding: 32px;
+    }
+    .result-box {
+      background: linear-gradient(135deg, ${won ? '#d1fae5 0%, #a7f3d0 100%' : '#fee2e2 0%, #fecaca 100%'});
+      border: 3px solid ${won ? '#10b981' : '#ef4444'};
+      border-radius: 12px;
+      padding: 28px;
+      text-align: center;
+      margin: 24px 0;
+    }
+    .vs {
+      font-size: 48px;
+      font-weight: 900;
+      color: ${won ? '#065f46' : '#991b1b'};
+      margin: 16px 0;
+    }
+    .username {
+      font-size: 24px;
+      font-weight: 700;
+      color: ${won ? '#065f46' : '#991b1b'};
+      margin: 8px 0;
+    }
+    .score {
+      font-size: 48px;
+      font-weight: 900;
+      color: ${won ? '#059669' : '#dc2626'};
+      margin: 12px 0;
+    }
+    .elo-box {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin: 24px 0;
+      text-align: center;
+    }
+    .elo-change {
+      font-size: 36px;
+      font-weight: 900;
+      color: ${eloChange >= 0 ? '#10b981' : '#ef4444'};
+    }
+    .section {
+      margin: 24px 0;
+      padding: 20px;
+      background: #f9fafb;
+      border-radius: 12px;
+      border-left: 4px solid ${won ? '#10b981' : '#ef4444'};
+    }
+    .button {
+      display: inline-block;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      color: white;
+      padding: 16px 40px;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 18px;
+      box-shadow: 0 4px 6px rgba(99, 102, 241, 0.3);
+      margin-top: 16px;
+    }
+    .footer {
+      text-align: center;
+      color: #9ca3af;
+      font-size: 13px;
+      padding: 24px 32px;
+      border-top: 1px solid #e5e7eb;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>${won ? '🏆 VICTORY!' : '💪 DEFEAT'}</h1>
+      <p>Your battle results are in</p>
+    </div>
+
+    <div class="content">
+      <div class="result-box">
+        <div class="username">${recipientUsername}</div>
+        <div class="score">${yourScore}</div>
+        <div class="vs">VS</div>
+        <div class="score">${opponentScore}</div>
+        <div class="username">${opponentUsername}</div>
+      </div>
+
+      <div class="elo-box">
+        <div style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">ELO CHANGE</div>
+        <div class="elo-change">${eloChange >= 0 ? '+' : ''}${eloChange}</div>
+        <div style="font-size: 18px; color: #374151; margin-top: 8px;">New Rating: <strong>${newElo}</strong></div>
+      </div>
+
+      <div class="section">
+        <div style="font-size: 16px; font-weight: 700; color: #111827; margin-bottom: 12px;">🤖 AI Analysis</div>
+        <p style="color: #374151; font-size: 15px; line-height: 1.7;">${reason}</p>
+      </div>
+
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="https://github.gg/arena" class="button">
+          View Full Battle Details →
+        </a>
+      </div>
+
+      ${!won ? `
+      <div style="background: #fef3c7; border: 2px dashed #f59e0b; border-radius: 12px; padding: 20px; margin: 24px 0; text-align: center;">
+        <strong style="color: #92400e; font-size: 15px;">Ready for a rematch?</strong><br>
+        <span style="color: #78350f; font-size: 14px;">
+          Challenge ${opponentUsername} again or find new opponents on the arena!
+        </span>
+      </div>
+      ` : ''}
+    </div>
+
+    <div class="footer">
+      <p>Battle results from github.gg Arena</p>
+      <p style="margin-top: 8px;">
+        <a href="https://github.gg/arena" style="color: #6366f1;">github.gg</a> - AI-Powered Developer Arena
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  `;
+
+  try {
+    const response = await resend.emails.send({
+      from: 'GitHub.gg Arena <arena@github.gg>',
+      to: recipientEmail,
+      subject: `${won ? '🏆 Victory!' : '💪 Battle Results'} You ${won ? 'defeated' : 'fought'} ${opponentUsername}`,
+      html,
+    });
+
+    console.log('✅ Battle results email sent:', response);
+    return response;
+  } catch (error) {
+    console.error('❌ Failed to send battle results email:', error);
+    throw error;
+  }
+}
+
 export async function sendBattleChallengeEmail(data: {
   recipientEmail: string;
   recipientUsername: string;

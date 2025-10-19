@@ -23,7 +23,7 @@ import { generateDeveloperProfile } from '@/lib/ai/developer-profile';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import type { BattleCriteria } from '@/lib/types/arena';
 import { sql } from 'drizzle-orm';
-import { sendBattleChallengeEmail } from '@/lib/email/resend';
+import { sendBattleChallengeEmail, sendBattleResultsEmail } from '@/lib/email/resend';
 
 // Helper function to check if a profile is stale (older than 24 hours)
 function isProfileStale(updatedAt: Date): boolean {
@@ -151,6 +151,55 @@ async function executeBattleAsync(
       battleAnalysis.usage,
       plan === 'byok'
     );
+
+    // Send battle results emails to both parties
+    try {
+      const [challengerEmail, opponentEmail] = await Promise.all([
+        db.select().from(developerEmails).where(eq(developerEmails.username, battle[0].challengerUsername)).limit(1),
+        db.select().from(developerEmails).where(eq(developerEmails.username, battle[0].opponentUsername)).limit(1),
+      ]);
+
+      const emailPromises = [];
+
+      // Send email to challenger
+      if (challengerEmail[0]?.email) {
+        emailPromises.push(
+          sendBattleResultsEmail({
+            recipientEmail: challengerEmail[0].email,
+            recipientUsername: battle[0].challengerUsername,
+            opponentUsername: battle[0].opponentUsername,
+            won: challengerWon,
+            yourScore: battleAnalysis.result.challengerScore.total,
+            opponentScore: battleAnalysis.result.opponentScore.total,
+            eloChange: eloChanges.challenger.change,
+            newElo: eloChanges.challenger.newRating,
+            reason: battleAnalysis.result.reason,
+          })
+        );
+      }
+
+      // Send email to opponent
+      if (opponentEmail[0]?.email) {
+        emailPromises.push(
+          sendBattleResultsEmail({
+            recipientEmail: opponentEmail[0].email,
+            recipientUsername: battle[0].opponentUsername,
+            opponentUsername: battle[0].challengerUsername,
+            won: !challengerWon,
+            yourScore: battleAnalysis.result.opponentScore.total,
+            opponentScore: battleAnalysis.result.challengerScore.total,
+            eloChange: eloChanges.opponent.change,
+            newElo: eloChanges.opponent.newRating,
+            reason: battleAnalysis.result.reason,
+          })
+        );
+      }
+
+      await Promise.all(emailPromises);
+    } catch (emailError) {
+      // Log but don't fail the battle if email fails
+      console.error('Failed to send battle results emails:', emailError);
+    }
   } catch (error) {
     console.error('Async battle execution failed:', error);
 

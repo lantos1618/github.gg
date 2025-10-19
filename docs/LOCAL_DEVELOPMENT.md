@@ -29,22 +29,16 @@ This will:
 - Start PostgreSQL database
 - Run database migrations
 
-### 2. Development Authentication (Optional)
+### 2. Authentication Setup
 
-The app now supports two authentication modes:
+The app uses a **unified authentication system** powered by `better-auth`:
 
-#### Development Mode (Recommended)
-- Uses simple JWT-based authentication
-- No external API keys required
-- Pre-configured development users
-- Automatically enabled when `NEXT_PUBLIC_USE_DEV_AUTH=true`
+#### Core Authentication (Required for Production)
+- **Primary System**: GitHub OAuth via `better-auth`
+- **Single Source of Truth**: One session, one user identity
+- **Enhanced Features**: Optional GitHub App installation for private repos
 
-#### Production Mode (GitHub OAuth)
-- Uses GitHub OAuth for authentication
-- Requires GitHub OAuth App setup
-- For production deployment
-
-**To use GitHub OAuth in development:**
+**To set up GitHub OAuth:**
 1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
 2. Click "New OAuth App"
 3. Configure:
@@ -56,8 +50,13 @@ The app now supports two authentication modes:
    ```bash
    GITHUB_CLIENT_ID="your-client-id"
    GITHUB_CLIENT_SECRET="your-client-secret"
-   NEXT_PUBLIC_USE_DEV_AUTH="false"
    ```
+
+#### Development Mode (Optional)
+- Set `NEXT_PUBLIC_USE_DEV_AUTH=true` for simplified local testing
+- Uses JWT-based authentication without GitHub OAuth
+- Pre-configured development users
+- **Note**: Only for development, not production
 
 ### 3. Start Development Server
 

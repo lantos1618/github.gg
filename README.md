@@ -39,7 +39,9 @@
 - **Achievements**: Unlock badges and track your progress
 
 #### 🔐 **Enterprise Ready**
-- GitHub OAuth authentication
+- **Unified Authentication System**: Single `better-auth` OAuth with GitHub provider
+- **GitHub App Integration**: Enhanced permissions for private repos and webhooks
+- **Installation Linking**: Seamlessly connect OAuth accounts with GitHub App installations
 - Bring Your Own API Key (BYOK) support
 - Stripe payment integration
 - PostgreSQL database with Drizzle ORM
@@ -108,7 +110,7 @@ Open [http://localhost:3000](http://localhost:3000) 🎉
 | **Language** | [TypeScript](https://www.typescriptlang.org/) |
 | **Runtime** | [Bun](https://bun.sh/) |
 | **Database** | [PostgreSQL](https://www.postgresql.org/) + [Drizzle ORM](https://orm.drizzle.team/) |
-| **Authentication** | [Better Auth](https://www.better-auth.com/) |
+| **Authentication** | [Better Auth](https://www.better-auth.com/) (OAuth) + GitHub App |
 | **API** | [tRPC](https://trpc.io/) |
 | **AI** | [Google Gemini](https://ai.google.dev/) via Vercel AI SDK |
 | **GitHub** | [Octokit](https://octokit.github.io/rest.js/) |
@@ -164,8 +166,8 @@ github.gg/
 │   ├── components/       # React components
 │   ├── lib/
 │   │   ├── ai/          # AI analysis modules
-│   │   ├── auth/        # Authentication logic
-│   │   ├── github/      # GitHub API integration
+│   │   ├── auth/        # Unified auth system (better-auth)
+│   │   ├── github/      # GitHub API & App integration
 │   │   └── trpc/        # tRPC routes and procedures
 │   ├── db/              # Database schema and migrations
 │   └── styles/          # Global styles

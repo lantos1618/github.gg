@@ -503,8 +503,8 @@ async function updateUserRankings(
   const opponentTier = determineTier(eloChanges.opponent.newRating);
 
   await updateRankings(
-    battle.challengerId,
-    battle.opponentId,
+    challengerRanking,
+    opponentRanking,
     challengerWon,
     eloChanges,
     challengerTier,

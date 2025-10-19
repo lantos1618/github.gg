@@ -106,31 +106,13 @@ export async function getOrCreateRanking(userId: string, username: string) {
 }
 
 export async function updateRankings(
-  challengerId: string,
-  opponentId: string,
+  challenger: typeof developerRankings.$inferSelect,
+  opponent: typeof developerRankings.$inferSelect,
   challengerWon: boolean,
   eloChanges: { challenger: { change: number; newRating: number }; opponent: { change: number; newRating: number } },
   challengerTier: string,
   opponentTier: string
 ) {
-  const challengerRanking = await db
-    .select()
-    .from(developerRankings)
-    .where(eq(developerRankings.userId, challengerId))
-    .limit(1);
-
-  const opponentRanking = await db
-    .select()
-    .from(developerRankings)
-    .where(eq(developerRankings.userId, opponentId))
-    .limit(1);
-
-  if (challengerRanking.length === 0 || opponentRanking.length === 0) {
-    throw new Error('Rankings not found');
-  }
-
-  const challenger = challengerRanking[0];
-  const opponent = opponentRanking[0];
 
   const challengerUpdates = {
     eloRating: eloChanges.challenger.newRating,
@@ -155,17 +137,19 @@ export async function updateRankings(
   await db
     .update(developerRankings)
     .set(challengerUpdates)
-    .where(eq(developerRankings.userId, challengerId));
+    .where(eq(developerRankings.username, challenger.username));
 
   await db
     .update(developerRankings)
     .set(opponentUpdates)
-    .where(eq(developerRankings.userId, opponentId));
+    .where(eq(developerRankings.username, opponent.username));
 
-  // Log score history for both users
-  await db.insert(userScoreHistory).values([
-    {
-      userId: challengerId,
+  // Log score history for both users (only if they have userId - registered users)
+  const historyEntries = [];
+
+  if (challenger.userId) {
+    historyEntries.push({
+      userId: challenger.userId,
       username: challenger.username,
       eloRating: eloChanges.challenger.newRating,
       source: 'arena_battle',
@@ -174,9 +158,12 @@ export async function updateRankings(
         won: challengerWon,
         ratingChange: eloChanges.challenger.change,
       },
-    },
-    {
-      userId: opponentId,
+    });
+  }
+
+  if (opponent.userId) {
+    historyEntries.push({
+      userId: opponent.userId,
       username: opponent.username,
       eloRating: eloChanges.opponent.newRating,
       source: 'arena_battle',
@@ -185,8 +172,12 @@ export async function updateRankings(
         won: !challengerWon,
         ratingChange: eloChanges.opponent.change,
       },
-    },
-  ]);
+    });
+  }
+
+  if (historyEntries.length > 0) {
+    await db.insert(userScoreHistory).values(historyEntries);
+  }
 
   return { challenger: challengerUpdates, opponent: opponentUpdates };
 }

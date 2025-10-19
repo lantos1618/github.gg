@@ -227,7 +227,8 @@ export function LeaderboardTable() {
                   return (
                     <div
                       key={entry.username}
-                      className={`p-4 rounded-lg border transition-colors ${
+                      onClick={() => !isCurrentUser && canBattle && handleChallenge(entry.username)}
+                      className={`p-4 rounded-lg border transition-all ${
                         index === 0
                           ? 'bg-yellow-50 border-yellow-200' :
                         index === 1
@@ -235,7 +236,7 @@ export function LeaderboardTable() {
                         index === 2
                           ? 'bg-amber-50 border-amber-200' :
                           'bg-background border-border hover:bg-muted/50'
-                      }`}
+                      } ${!isCurrentUser && canBattle ? 'cursor-pointer hover:shadow-md hover:scale-[1.01]' : ''}`}
                     >
                       <div className="flex items-center justify-between gap-4">
                         {/* Rank and User */}
@@ -293,18 +294,12 @@ export function LeaderboardTable() {
                             <div className="text-xs text-muted-foreground">Record</div>
                           </div>
 
-                          {/* Challenge Button */}
-                          {!isCurrentUser && (
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => handleChallenge(entry.username)}
-                              disabled={!canBattle}
-                              className="min-w-[100px]"
-                            >
-                              <Sword className="h-3 w-3 mr-1" />
-                              Challenge
-                            </Button>
+                          {/* Click to Challenge Indicator */}
+                          {!isCurrentUser && canBattle && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Sword className="h-3 w-3" />
+                              <span>Click to challenge</span>
+                            </div>
                           )}
                         </div>
                       </div>

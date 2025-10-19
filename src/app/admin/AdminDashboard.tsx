@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
-import { DollarSign, Users, RefreshCw, UserCheck, Calendar } from 'lucide-react';
+import { DollarSign, Users, RefreshCw, UserCheck } from 'lucide-react';
 import { formatCost, calculatePerUserCostAndUsage } from '@/lib/utils/cost-calculator';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Image from 'next/image';
+import { SortableTable } from '@/components/ui/sortable-table';
 
 function getCurrentMonthRange() {
   const now = new Date();
@@ -191,43 +192,72 @@ export default function AdminDashboard() {
           {loadingUsers ? (
             <div className="text-center py-8 text-muted-foreground">Loading users...</div>
           ) : allUsers && allUsers.length > 0 ? (
-            <div className="max-h-[600px] overflow-y-auto space-y-3 pr-2">
-              {allUsers.map((user) => (
-                <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    {user.image && (
-                      <Image
-                        src={user.image}
-                        alt={user.name || user.email || 'User'}
-                        className="w-10 h-10 rounded-full"
-                        width={40}
-                        height={40}
-                      />
-                    )}
-                    <div>
-                      <h4 className="font-semibold">{user.name || 'Unknown'}</h4>
-                      <div className="text-sm text-muted-foreground">{user.email}</div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          Joined {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
-                        </div>
+            <SortableTable
+              data={allUsers}
+              columns={[
+                {
+                  key: 'user',
+                  header: 'User',
+                  sortable: true,
+                  render: (user) => (
+                    <div className="flex items-center gap-3">
+                      {user.image && (
+                        <Image
+                          src={user.image}
+                          alt={user.name || user.email || 'User'}
+                          className="w-8 h-8 rounded-full"
+                          width={32}
+                          height={32}
+                        />
+                      )}
+                      <div>
+                        <div className="font-medium">{user.name || 'Unknown'}</div>
+                        <div className="text-sm text-muted-foreground">{user.email}</div>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-medium text-sm">
+                  ),
+                },
+                {
+                  key: 'plan',
+                  header: 'Plan',
+                  sortable: true,
+                  render: (user) => (
+                    <span className="font-medium capitalize">
                       {user.userSubscriptions?.plan || 'Free'}
-                    </div>
-                    {user.userSubscriptions?.status && (
-                      <div className={`text-xs ${user.userSubscriptions.status === 'active' ? 'text-green-600' : 'text-muted-foreground'}`}>
-                        {user.userSubscriptions.status}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+                    </span>
+                  ),
+                },
+                {
+                  key: 'status',
+                  header: 'Status',
+                  sortable: true,
+                  render: (user) => (
+                    <span className={`capitalize ${
+                      user.userSubscriptions?.status === 'active'
+                        ? 'text-green-600 font-medium'
+                        : 'text-muted-foreground'
+                    }`}>
+                      {user.userSubscriptions?.status || 'none'}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'createdAt',
+                  header: 'Joined',
+                  sortable: true,
+                  render: (user) => (
+                    <span className="text-sm">
+                      {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
+                    </span>
+                  ),
+                },
+              ]}
+              rowKey={(user) => user.id}
+              emptyMessage="No users found."
+              maxHeight="600px"
+              defaultSortKey="createdAt"
+              defaultSortDirection="desc"
+            />
           ) : (
             <div className="text-center py-8 text-muted-foreground">No users found.</div>
           )}

@@ -12,7 +12,8 @@ import { TopRepos } from './TopRepos';
 import { TechStack } from './TechStack';
 import { RepoSelector } from './RepoSelector';
 import { trpc } from '@/lib/trpc/client';
-import { RefreshCw, Sword, Mail, FolderGit2 } from 'lucide-react';
+import { RefreshCw, Sword, Mail, FolderGit2, Trophy } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import { developerProfileSchema } from '@/lib/types/profile';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -101,6 +102,12 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
 
   // Fetch score history for this user
   const { data: scoreHistory } = trpc.scoreHistory.getUserScoreHistory.useQuery(
+    { username },
+    { enabled: !!username }
+  );
+
+  // Fetch arena ranking for this user
+  const { data: arenaRanking } = trpc.arena.getRankingByUsername.useQuery(
     { username },
     { enabled: !!username }
   );
@@ -203,14 +210,24 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
                 <AvatarFallback>{username?.[0]?.toUpperCase()}</AvatarFallback>
               </Avatar>
               <div>
-                <a
-                  href={`https://github.com/${username}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-3xl font-bold hover:underline"
-                >
-                  {username}
-                </a>
+                <div className="flex items-center gap-3">
+                  <a
+                    href={`https://github.com/${username}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-3xl font-bold hover:underline"
+                  >
+                    {username}
+                  </a>
+                  {arenaRanking && (
+                    <Badge variant="outline" className="flex items-center gap-1.5 px-3 py-1 text-sm font-semibold">
+                      <Trophy className="h-4 w-4 text-yellow-500" />
+                      {arenaRanking.eloRating} ELO
+                      <span className="text-muted-foreground">·</span>
+                      <span className="text-xs">{arenaRanking.tier}</span>
+                    </Badge>
+                  )}
+                </div>
                 {currentUser?.user ? (
                   emailLoading ? (
                     <Skeleton className="h-5 w-48 mt-1" />

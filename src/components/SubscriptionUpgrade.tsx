@@ -16,9 +16,13 @@ export function SubscriptionUpgrade({ className = "", onUpgrade }: SubscriptionU
   const [selectedPlan, setSelectedPlan] = useState<'pro' | null>(null);
   const createCheckout = trpc.billing.createCheckoutSession.useMutation();
 
+  const handleSignIn = () => {
+    signIn('/pricing');
+  };
+
   const handleUpgrade = async (planType: 'byok' | 'pro') => {
     if (!isSignedIn) {
-      signIn();
+      handleSignIn();
       return;
     }
 
@@ -57,7 +61,7 @@ export function SubscriptionUpgrade({ className = "", onUpgrade }: SubscriptionU
                 handleUpgrade(planType);
               }
             }}
-            onSignIn={signIn}
+            onSignIn={handleSignIn}
             isLoading={createCheckout.isPending && selectedPlan === 'pro'}
             isSignedIn={isSignedIn}
             buttonText="Get Pro"

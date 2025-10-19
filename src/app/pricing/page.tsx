@@ -8,6 +8,10 @@ import { PLANS } from '@/data/plans';
 
 export default function PricingPage() {
   const { isSignedIn, signIn } = useAuth();
+
+  const handleSignIn = () => {
+    signIn('/pricing');
+  };
   const createCheckout = trpc.billing.createCheckoutSession.useMutation({
     onSuccess: (data) => {
       if (data.url) {
@@ -41,7 +45,7 @@ export default function PricingPage() {
             plan={plan}
             currentPlan={currentPlan?.plan}
             onUpgrade={handleUpgrade}
-            onSignIn={signIn}
+            onSignIn={handleSignIn}
             isLoading={planLoading || createCheckout.isPending}
             isSignedIn={isSignedIn}
             buttonText="Get Started"

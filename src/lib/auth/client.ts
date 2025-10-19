@@ -23,10 +23,15 @@ export function useAuth() {
   const router = useRouter();
   const utils = trpc.useUtils();
   
-  const handleSignIn = async () => {
+  const handleSignIn = async (callbackURL?: string) => {
     try {
       // The `prompt: 'select_account'` is configured on the server.
-      await signIn.social({ provider: "github" });
+      // If no callbackURL is provided, use the current page
+      const redirectURL = callbackURL || (typeof window !== 'undefined' ? window.location.pathname : '/');
+      await signIn.social({
+        provider: "github",
+        callbackURL: redirectURL
+      });
     } catch (err) {
       console.error("Sign in failed:", err);
       toast.error("Sign in failed. Please try again.");

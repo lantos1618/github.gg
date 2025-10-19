@@ -26,11 +26,36 @@ export class UserService {
     this.octokit = octokit;
   }
 
-  // Get user repositories with pagination to fetch ALL repositories
-  async getUserRepositories(username?: string): Promise<RepoSummary[]> {
+  // Get user repositories with optional limit for performance
+  async getUserRepositories(username?: string, limit?: number): Promise<RepoSummary[]> {
     try {
-      console.log(`🔍 Fetching repositories for ${username || 'authenticated user'}...`);
-      // Use octokit.paginate with the correct route string for type safety
+      console.log(`🔍 Fetching repositories for ${username || 'authenticated user'}${limit ? ` (limit: ${limit})` : ''}...`);
+
+      // If limit is specified, use single request instead of pagination
+      if (limit) {
+        const response = await this.octokit.request<{ data: RawGitHubRepo[] }>(
+          username ? 'GET /users/{username}/repos' : 'GET /user/repos',
+          username
+            ? { username, per_page: limit, sort: 'updated' as const }
+            : { affiliation: 'owner,collaborator,organization_member', per_page: limit, sort: 'updated' as const }
+        );
+        const repos = response.data;
+        const publicRepos = repos.filter((r) => !r.private);
+        console.log(`✅ Fetched ${publicRepos.length} public repositories`);
+        return publicRepos.map((repo) => ({
+          owner: repo.owner.login,
+          name: repo.name,
+          description: repo.description || undefined,
+          stargazersCount: repo.stargazers_count || 0,
+          forksCount: repo.forks_count || 0,
+          language: repo.language || undefined,
+          topics: repo.topics || undefined,
+          url: repo.html_url,
+          fork: repo.fork,
+        }));
+      }
+
+      // No limit: paginate to fetch ALL repositories (slow, use sparingly)
       const allRepos = await this.octokit.paginate<RawGitHubRepo>(
         username
           ? 'GET /users/{username}/repos'

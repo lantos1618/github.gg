@@ -68,6 +68,8 @@ export const cachedRepos = pgTable('cached_repos', {
   // This new index is the core of the fix.
   // It ensures a repo is unique per user, and allows one global entry where userId is null.
   repoIdentifierIdx: uniqueIndex('repo_identifier_idx').on(table.owner, table.name, table.userId),
+  // Index for fast public repo queries (userId IS NULL ORDER BY stargazers_count DESC)
+  publicReposStarsIdx: index('public_repos_stars_idx').on(table.userId, table.stargazersCount),
 }));
 
 export const trendingRepos = pgTable('trending_repos', {

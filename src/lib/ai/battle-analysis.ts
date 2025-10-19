@@ -17,17 +17,30 @@ export type BattleAnalysisParams = {
   criteria?: BattleCriteria[];
 };
 
+export type ScoreBreakdown = {
+  code_quality?: number;
+  project_complexity?: number;
+  skill_diversity?: number;
+  innovation?: number;
+  documentation?: number;
+  testing?: number;
+  architecture?: number;
+  performance?: number;
+  security?: number;
+  maintainability?: number;
+};
+
 export type BattleAnalysisResult = {
   result: {
     winner: string;
     reason: string;
     challengerScore: {
       total: number;
-      breakdown: Record<string, number>;
+      breakdown: ScoreBreakdown;
     };
     opponentScore: {
       total: number;
-      breakdown: Record<string, number>;
+      breakdown: ScoreBreakdown;
     };
     highlights: string[];
     recommendations: string[];
@@ -39,16 +52,31 @@ export type BattleAnalysisResult = {
   };
 };
 
+// Explicit breakdown schema for Gemini API compatibility
+// Gemini requires explicit properties, not dynamic Record types
+const scoreBreakdownSchema = z.object({
+  code_quality: z.number().optional(),
+  project_complexity: z.number().optional(),
+  skill_diversity: z.number().optional(),
+  innovation: z.number().optional(),
+  documentation: z.number().optional(),
+  testing: z.number().optional(),
+  architecture: z.number().optional(),
+  performance: z.number().optional(),
+  security: z.number().optional(),
+  maintainability: z.number().optional(),
+});
+
 const battleResultSchema = z.object({
   winner: z.string().describe("The GitHub username of the winner."),
   reason: z.string().describe("A detailed, evidence-based reason for the decision, comparing the two profiles based on the battle criteria."),
   challengerScore: z.object({
     total: z.number(),
-    breakdown: z.record(z.string(), z.number()),
+    breakdown: scoreBreakdownSchema,
   }),
   opponentScore: z.object({
     total: z.number(),
-    breakdown: z.record(z.string(), z.number()),
+    breakdown: scoreBreakdownSchema,
   }),
   highlights: z.array(z.string()).describe("Key strengths or notable achievements for both developers observed during the analysis."),
   recommendations: z.array(z.string()).describe("Actionable recommendations for both developers to improve their skills."),

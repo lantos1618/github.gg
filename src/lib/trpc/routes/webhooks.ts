@@ -32,7 +32,7 @@ export const webhooksRouter = router({
         prReviewEnabled: true,
         autoUpdateEnabled: true,
         minScoreThreshold: null,
-        // excludedRepos defaults to [] in SQL, no need to specify
+        excludedRepos: [],
       }).returning();
       prefs = newPrefs;
     }
@@ -84,8 +84,8 @@ export const webhooksRouter = router({
           installationId: userAccount.installationId,
           prReviewEnabled: input.prReviewEnabled ?? true,
           autoUpdateEnabled: input.autoUpdateEnabled ?? true,
-          minScoreThreshold: input.minScoreThreshold ?? null,
-          ...(input.excludedRepos ? { excludedRepos: input.excludedRepos } : {}),
+          minScoreThreshold: input.minScoreThreshold !== undefined ? input.minScoreThreshold : null,
+          excludedRepos: input.excludedRepos ?? [],
         }).returning();
         return created;
       }

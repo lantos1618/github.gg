@@ -183,7 +183,7 @@ export const webhooksRouter = router({
           prReviewEnabled: true,
           autoUpdateEnabled: true,
           minScoreThreshold: null,
-          // excludedRepos defaults to [] in SQL, no need to specify
+          excludedRepos: [],
         }).returning();
         prefs = newPrefs;
       }

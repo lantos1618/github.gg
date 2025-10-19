@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { LoadingWave } from '@/components/LoadingWave';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Search, User, Sparkles, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, User, Sparkles, ArrowUpDown, ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import type { DeveloperProfile } from '@/lib/types/profile';
@@ -27,6 +27,15 @@ export default function UsersPage() {
     limit: 200, // Fetch more for client-side sorting
     offset: 0,
   });
+
+  // Fetch all rankings
+  const { data: leaderboard } = trpc.arena.getLeaderboard.useQuery({
+    limit: 100,
+    offset: 0,
+  });
+
+  // Create a map of username -> ELO rating
+  const eloMap = new Map(leaderboard?.map(entry => [entry.username.toLowerCase(), entry.eloRating]) || []);
 
   // Filter profiles
   const filteredProfiles = profiles?.filter(profile =>
@@ -136,6 +145,12 @@ export default function UsersPage() {
                       <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
                         Top Skills
                       </th>
+                      <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">
+                        <div className="flex items-center justify-center gap-2">
+                          <Trophy className="h-3.5 w-3.5 text-yellow-500" />
+                          ELO
+                        </div>
+                      </th>
                       <th
                         className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                         onClick={() => toggleSort('score')}
@@ -218,6 +233,20 @@ export default function UsersPage() {
                                   </Badge>
                                 )}
                               </div>
+                            </Link>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center hidden xl:table-cell">
+                            <Link href={`/${profile.username}`}>
+                              {eloMap.get(profile.username.toLowerCase()) ? (
+                                <div className="inline-flex items-center gap-1.5">
+                                  <Trophy className="h-4 w-4 text-yellow-500" />
+                                  <span className="text-lg font-bold text-gray-900">
+                                    {eloMap.get(profile.username.toLowerCase())}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 text-sm">—</span>
+                              )}
                             </Link>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center">

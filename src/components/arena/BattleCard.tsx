@@ -17,14 +17,24 @@ export function BattleCard({ battle }: BattleCardProps) {
 
   const isWinner = battle.winnerId === battle.challengerId;
   const opponentUsername = battle.opponentUsername;
+  const isCompleted = battle.status === 'completed' && battle.completedAt;
+  const isPending = battle.status === 'pending' || battle.status === 'in_progress';
+
+  const cardClass = isPending
+    ? 'border-2 border-yellow-200 bg-yellow-50'
+    : isWinner
+    ? 'border-2 border-green-200 bg-green-50'
+    : 'border-2 border-red-200 bg-red-50';
 
   return (
-    <Card className={`border-2 ${isWinner ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+    <Card className={cardClass}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-full ${isWinner ? 'bg-green-100' : 'bg-red-100'}`}>
-              {isWinner ? (
+            <div className={`p-2 rounded-full ${isPending ? 'bg-yellow-100' : isWinner ? 'bg-green-100' : 'bg-red-100'}`}>
+              {isPending ? (
+                <Target className="h-5 w-5 text-yellow-600 animate-pulse" />
+              ) : isWinner ? (
                 <Trophy className="h-5 w-5 text-green-600" />
               ) : (
                 <Sword className="h-5 w-5 text-red-600" />
@@ -35,22 +45,25 @@ export function BattleCard({ battle }: BattleCardProps) {
                 {battle.challengerUsername} vs {opponentUsername}
               </CardTitle>
               <div className="flex items-center gap-2 mt-1">
-                <Badge variant="outline" className="text-xs">
+                <Badge variant={isPending ? "default" : "outline"} className="text-xs">
                   <Target className="h-3 w-3 mr-1" />
-                  Battle
+                  {isPending ? battle.status.toUpperCase() : 'Completed'}
                 </Badge>
                 <span className="text-sm text-muted-foreground">
-                  {new Date(battle.completedAt!).toLocaleDateString()}
+                  {isCompleted
+                    ? new Date(battle.completedAt!).toLocaleDateString()
+                    : new Date(battle.createdAt).toLocaleDateString()
+                  }
                 </span>
               </div>
             </div>
           </div>
           <div className="text-right">
-            <div className={`text-2xl font-bold ${isWinner ? 'text-green-600' : 'text-red-600'}`}>
-              {isWinner ? 'VICTORY' : 'DEFEAT'}
+            <div className={`text-2xl font-bold ${isPending ? 'text-yellow-600' : isWinner ? 'text-green-600' : 'text-red-600'}`}>
+              {isPending ? battle.status.toUpperCase().replace('_', ' ') : isWinner ? 'VICTORY' : 'DEFEAT'}
             </div>
             <div className="text-sm text-muted-foreground">
-              ELO: {battle.eloChange ? (battle.eloChange.challenger.change > 0 ? '+' : '') + battle.eloChange.challenger.change : 'N/A'}
+              ELO: {isCompleted && battle.eloChange ? (battle.eloChange.challenger.change > 0 ? '+' : '') + battle.eloChange.challenger.change : isPending ? 'Calculating...' : '0'}
             </div>
           </div>
         </div>

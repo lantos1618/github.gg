@@ -61,7 +61,7 @@ export const eloChangeSchema = z.object({
 export type EloChange = z.infer<typeof eloChangeSchema>;
 
 // Battle Status
-export const battleStatusSchema = z.enum(['pending', 'completed', 'cancelled']);
+export const battleStatusSchema = z.enum(['pending', 'in_progress', 'completed', 'cancelled', 'failed']);
 
 // AI Analysis
 export const aiAnalysisSchema = z.object({

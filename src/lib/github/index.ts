@@ -115,7 +115,7 @@ export class GitHubService {
   }
 
   // User operations
-  async getUserRepositories(username?: string): Promise<RepoSummary[]> {
+  async getUserRepositories(username?: string, limit?: number): Promise<RepoSummary[]> {
     if (this.isDevMode()) {
       const mockRepos = await devGitHubService.getUserRepos(username || 'dev') as Array<{
         owner?: { login?: string };
@@ -139,7 +139,7 @@ export class GitHubService {
         fork: mockRepo.fork
       }));
     }
-    return this.userService.getUserRepositories(username);
+    return this.userService.getUserRepositories(username, limit);
   }
 
   async hasStarredRepo(owner: string, repo: string): Promise<boolean> {

@@ -33,13 +33,14 @@ export class UserService {
 
       // If limit is specified, use single request instead of pagination
       if (limit) {
-        const response = await this.octokit.request<{ data: RawGitHubRepo[] }>(
-          username ? 'GET /users/{username}/repos' : 'GET /user/repos',
-          username
-            ? { username, per_page: limit, sort: 'updated' as const }
-            : { affiliation: 'owner,collaborator,organization_member', per_page: limit, sort: 'updated' as const }
-        );
-        const repos = response.data;
+        const response = username
+          ? await this.octokit.rest.repos.listForUser({ username, per_page: limit, sort: 'updated' })
+          : await this.octokit.rest.repos.listForAuthenticatedUser({
+              affiliation: 'owner,collaborator,organization_member',
+              per_page: limit,
+              sort: 'updated'
+            });
+        const repos = response.data as RawGitHubRepo[];
         const publicRepos = repos.filter((r) => !r.private);
         console.log(`✅ Fetched ${publicRepos.length} public repositories`);
         return publicRepos.map((repo) => ({

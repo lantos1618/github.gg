@@ -14,10 +14,10 @@ export const githubRouter = router({
   // Repository listings and user repos
   getReposForScrollingCached: reposRouter.getReposForScrollingCached,
   getReposForScrollingWithUser: reposRouter.getReposForScrollingWithUser,
-  getReposForScrolling: reposRouter.getReposForScrolling,
   getSponsorRepos: reposRouter.getSponsorRepos,
   getUserRepoNames: reposRouter.getUserRepoNames,
   hasStarredRepo: reposRouter.hasStarredRepo,
+  getInstallationRepositories: reposRouter.getInstallationRepositories,
   
   // Cache management
   refreshRepoCache: cacheRouter.refreshRepoCache,
@@ -26,7 +26,6 @@ export const githubRouter = router({
   // GitHub App installation
   checkInstallation: installationRouter.checkInstallation,
   canUseApp: installationRouter.canUseApp,
-  getInstallationRepositories: installationRouter.getInstallationRepositories,
   
   // Debug endpoints
   testRepoFetching: debugRouter.testRepoFetching,

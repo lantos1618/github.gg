@@ -167,9 +167,25 @@ export const arenaRouter = router({
   getMyRanking: publicProcedure
     .input(z.object({ userId: z.string().optional(), username: z.string().optional() }))
     .query(async ({ input }) => {
-      // If userId is provided, use it; otherwise, fallback to username
+      // If userId is provided, fetch the actual GitHub username
       if (input.userId) {
-        return await getOrCreateRanking(input.userId, input.username || 'Unknown');
+        const { account } = await import('@/db/schema');
+        const userAccount = await db.query.account.findFirst({
+          where: and(
+            eq(account.userId, input.userId),
+            eq(account.providerId, 'github')
+          ),
+        });
+
+        if (!userAccount) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'GitHub account not linked'
+          });
+        }
+
+        const githubUsername = userAccount.accountId;
+        return await getOrCreateRanking(input.userId, githubUsername);
       } else if (input.username) {
         // Look up by username only (public)
         const existing = await db
@@ -226,18 +242,18 @@ export const arenaRouter = router({
       // Check for active subscription
       const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
       if (!subscription || subscription.status !== 'active') {
-        throw new TRPCError({ 
-          code: 'FORBIDDEN', 
-          message: 'Active subscription required for Dev Arena battles' 
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Active subscription required for Dev Arena battles'
         });
       }
 
       // Get appropriate API key
       const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
       if (!keyInfo) {
-        throw new TRPCError({ 
-          code: 'FORBIDDEN', 
-          message: 'Please add your Gemini API key in settings to use this feature' 
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Please add your Gemini API key in settings to use this feature'
         });
       }
 
@@ -245,7 +261,7 @@ export const arenaRouter = router({
       if (plan === 'byok') {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         const todayBattles = await db
           .select()
           .from(arenaBattles)
@@ -255,23 +271,41 @@ export const arenaRouter = router({
               gte(arenaBattles.createdAt, today)
             )
           );
-        
+
         if (todayBattles.length >= BYOK_DAILY_BATTLE_LIMIT) {
-          throw new TRPCError({ 
-            code: 'FORBIDDEN', 
-            message: `Daily limit of ${BYOK_DAILY_BATTLE_LIMIT} battles reached. Upgrade to Pro for unlimited battles.` 
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: `Daily limit of ${BYOK_DAILY_BATTLE_LIMIT} battles reached. Upgrade to Pro for unlimited battles.`
           });
         }
       }
 
+      // Get challenger's GitHub username from account table
+      const { account } = await import('@/db/schema');
+      const challengerAccount = await db.query.account.findFirst({
+        where: and(
+          eq(account.userId, ctx.user.id),
+          eq(account.providerId, 'github')
+        ),
+      });
+
+      if (!challengerAccount) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'GitHub account not linked. Please connect your GitHub account.'
+        });
+      }
+
+      const challengerUsername = challengerAccount.accountId;
+
       // Check if opponent exists and get their data
       const githubService = await createGitHubServiceForUserOperations(ctx.session);
       const opponentRepos = await githubService.getUserRepositories(opponentUsername);
-      
+
       if (opponentRepos.length === 0) {
-        throw new TRPCError({ 
-          code: 'NOT_FOUND', 
-          message: 'Opponent not found or has no public repositories' 
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Opponent not found or has no public repositories'
         });
       }
 
@@ -285,13 +319,13 @@ export const arenaRouter = router({
       // For non-registered opponents, use a dummy ID
       const opponentId = opponentRanking[0]?.userId || `dummy_${opponentUsername}`;
 
-      // Create battle record
+      // Create battle record with actual GitHub usernames
       const battle = await db
         .insert(arenaBattles)
         .values({
           challengerId: ctx.user.id,
           opponentId,
-          challengerUsername: ctx.user.name || 'Unknown',
+          challengerUsername, // Use GitHub username, not display name
           opponentUsername,
           status: 'pending',
           battleType: 'standard', // Only standard battles supported

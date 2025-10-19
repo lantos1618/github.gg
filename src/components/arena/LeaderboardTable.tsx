@@ -7,28 +7,62 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LoadingWave } from '@/components/LoadingWave';
 import { trpc } from '@/lib/trpc/client';
-import { 
-  BarChart3, 
-  Search, 
-  Trophy, 
-  Medal, 
+import {
+  BarChart3,
+  Search,
+  Trophy,
+  Medal,
   Crown,
-  Users
+  Users,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
+
+type SortField = 'eloRating' | 'winRate' | 'winStreak' | 'totalBattles' | 'wins';
+type SortDirection = 'asc' | 'desc';
 
 export function LeaderboardTable() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTier, setSelectedTier] = useState<string>('all');
   const [limit, setLimit] = useState(50);
+  const [sortField, setSortField] = useState<SortField>('eloRating');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const { data: leaderboard, isLoading } = trpc.arena.getLeaderboard.useQuery({ 
     limit,
     tier: selectedTier === 'all' ? undefined : selectedTier 
   });
 
-  const filteredLeaderboard = leaderboard?.filter(entry =>
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle direction if clicking the same field
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Default to descending for new field
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-4 w-4 text-muted-foreground" />;
+    }
+    return sortDirection === 'asc'
+      ? <ArrowUp className="h-4 w-4" />
+      : <ArrowDown className="h-4 w-4" />;
+  };
+
+  const filteredAndSortedLeaderboard = (leaderboard?.filter(entry =>
     entry.username.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  ) || []).sort((a, b) => {
+    const aValue = a[sortField];
+    const bValue = b[sortField];
+
+    const comparison = aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
 
   const tiers = [
     { value: 'all', label: 'All Tiers' },
@@ -113,7 +147,7 @@ export function LeaderboardTable() {
             <Trophy className="h-5 w-5" />
             <span>Leaderboard</span>
             <Badge variant="outline" className="ml-auto">
-              {filteredLeaderboard.length} developers
+              {filteredAndSortedLeaderboard.length} developers
             </Badge>
           </CardTitle>
         </CardHeader>
@@ -122,9 +156,56 @@ export function LeaderboardTable() {
             <div className="flex items-center justify-center py-12">
               <LoadingWave />
             </div>
-          ) : filteredLeaderboard.length > 0 ? (
-            <div className="space-y-3">
-              {filteredLeaderboard.map((entry, index) => (
+          ) : filteredAndSortedLeaderboard.length > 0 ? (
+            <>
+              {/* Sort Controls */}
+              <div className="flex flex-wrap gap-2 mb-4 pb-3 border-b">
+                <span className="text-sm font-medium text-muted-foreground mr-2">Sort by:</span>
+                <Button
+                  variant={sortField === 'eloRating' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleSort('eloRating')}
+                  className="gap-2"
+                >
+                  ELO {getSortIcon('eloRating')}
+                </Button>
+                <Button
+                  variant={sortField === 'winRate' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleSort('winRate')}
+                  className="gap-2"
+                >
+                  Win Rate {getSortIcon('winRate')}
+                </Button>
+                <Button
+                  variant={sortField === 'winStreak' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleSort('winStreak')}
+                  className="gap-2"
+                >
+                  Streak {getSortIcon('winStreak')}
+                </Button>
+                <Button
+                  variant={sortField === 'totalBattles' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleSort('totalBattles')}
+                  className="gap-2"
+                >
+                  Battles {getSortIcon('totalBattles')}
+                </Button>
+                <Button
+                  variant={sortField === 'wins' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleSort('wins')}
+                  className="gap-2"
+                >
+                  Wins {getSortIcon('wins')}
+                </Button>
+              </div>
+
+              {/* Leaderboard Entries */}
+              <div className="space-y-3">
+                {filteredAndSortedLeaderboard.map((entry, index) => (
                 <div
                   key={entry.username}
                   className={`p-4 rounded-lg border transition-colors ${
@@ -191,7 +272,8 @@ export function LeaderboardTable() {
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
+            </>
           ) : (
             <div className="text-center py-12">
               <div className="flex items-center justify-center gap-3 mb-4">
@@ -207,39 +289,39 @@ export function LeaderboardTable() {
       </Card>
 
       {/* Stats Summary */}
-      {filteredLeaderboard.length > 0 && (
+      {filteredAndSortedLeaderboard.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold text-green-600">
-                {filteredLeaderboard.length}
+                {filteredAndSortedLeaderboard.length}
               </div>
               <div className="text-sm text-muted-foreground">Total Developers</div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold text-blue-600">
-                {Math.round(filteredLeaderboard.reduce((sum, entry) => sum + entry.eloRating, 0) / filteredLeaderboard.length)}
+                {Math.round(filteredAndSortedLeaderboard.reduce((sum, entry) => sum + entry.eloRating, 0) / filteredAndSortedLeaderboard.length)}
               </div>
               <div className="text-sm text-muted-foreground">Avg ELO</div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold text-purple-600">
-                {Math.round(filteredLeaderboard.reduce((sum, entry) => sum + entry.winRate, 0) / filteredLeaderboard.length)}
+                {Math.round(filteredAndSortedLeaderboard.reduce((sum, entry) => sum + entry.winRate, 0) / filteredAndSortedLeaderboard.length)}
               </div>
               <div className="text-sm text-muted-foreground">Avg Win Rate</div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold text-orange-600">
-                {Math.max(...filteredLeaderboard.map(entry => entry.winStreak))}
+                {Math.max(...filteredAndSortedLeaderboard.map(entry => entry.winStreak))}
               </div>
               <div className="text-sm text-muted-foreground">Best Streak</div>
             </CardContent>

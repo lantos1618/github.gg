@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
-import { DollarSign, Users, RefreshCw } from 'lucide-react';
+import { DollarSign, Users, RefreshCw, UserCheck, Calendar } from 'lucide-react';
 import { formatCost, calculatePerUserCostAndUsage } from '@/lib/utils/cost-calculator';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Image from 'next/image';
@@ -102,8 +102,20 @@ export default function AdminDashboard() {
         </Button>
       </div>
 
-      {/* Total Cost & Subscribers */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <UserCheck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{allUsers?.length || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              Registered accounts
+            </p>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Cost (This Month)</CardTitle>
@@ -130,11 +142,66 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Top Users by Cost */}
-      <Card>
+      {/* All Users */}
+      <Card className="mb-8">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
+            All Users ({allUsers?.length || 0})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingUsers ? (
+            <div className="text-center py-8 text-muted-foreground">Loading users...</div>
+          ) : allUsers && allUsers.length > 0 ? (
+            <div className="space-y-3">
+              {allUsers.map((user) => (
+                <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    {user.image && (
+                      <Image
+                        src={user.image}
+                        alt={user.name || user.email || 'User'}
+                        className="w-10 h-10 rounded-full"
+                        width={40}
+                        height={40}
+                      />
+                    )}
+                    <div>
+                      <h4 className="font-semibold">{user.name || 'Unknown'}</h4>
+                      <div className="text-sm text-muted-foreground">{user.email}</div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          Joined {new Date(user.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-medium text-sm">
+                      {user.userSubscriptions?.plan || 'Free'}
+                    </div>
+                    {user.userSubscriptions?.status && (
+                      <div className={`text-xs ${user.userSubscriptions.status === 'active' ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {user.userSubscriptions.status}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">No users found.</div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Top Users by Cost */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
             Top Users by Cost (This Month)
           </CardTitle>
         </CardHeader>
@@ -149,9 +216,9 @@ export default function AdminDashboard() {
                 <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex items-center gap-3">
                     {user.image && (
-                      <Image 
-                        src={user.image} 
-                        alt={user.name || user.email || 'User'} 
+                      <Image
+                        src={user.image}
+                        alt={user.name || user.email || 'User'}
                         className="w-8 h-8 rounded-full"
                         width={32}
                         height={32}

@@ -9,7 +9,13 @@ import * as schema from '@/db/schema';
  * The user's installation status is stored in our database, linked to their account.
  */
 export const auth = betterAuth({
-  trustedOrigins: ["https://github.gg", "https://dev.github.gg"],
+  trustedOrigins: [
+    "https://github.gg",
+    "https://dev.github.gg",
+    "http://dev.github.gg",
+    "http://localhost:3000",
+    "https://www.github.gg"
+  ],
   database: drizzleAdapter(db, {
     schema,
     provider: 'pg',

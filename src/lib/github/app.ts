@@ -107,24 +107,32 @@ export async function getInstallationIdForAccount(accountId: number): Promise<nu
 // Get user details from installation
 export async function getUserFromInstallation(installationId: number) {
   try {
-    const installation = await db.query.githubAppInstallations.findFirst({
-      where: eq(githubAppInstallations.installationId, installationId),
+    // Find the user account that has this installation
+    const userAccount = await db.query.account.findFirst({
+      where: and(
+        eq(account.installationId, installationId),
+        eq(account.providerId, 'github')
+      ),
     });
-    
-    if (!installation) {
+
+    if (!userAccount) {
       return null;
     }
 
-    // Use the stored account details from the database
-    // No need to call GitHub API with installation token
+    // Get installation details for additional user info
+    const installation = await db.query.githubAppInstallations.findFirst({
+      where: eq(githubAppInstallations.installationId, installationId),
+    });
+
+    // Return the actual user ID from the database, not the GitHub account ID
     return {
-      id: installation.accountId.toString(),
-      name: installation.accountName || installation.accountLogin,
+      id: userAccount.userId, // This is the correct user ID that references user.id
+      name: installation?.accountName || installation?.accountLogin || 'Unknown',
       email: undefined, // We don't store email for privacy reasons
-      image: installation.accountAvatarUrl || undefined,
-      login: installation.accountLogin,
+      image: installation?.accountAvatarUrl || undefined,
+      login: installation?.accountLogin || 'unknown',
       installationId,
-      accountType: installation.accountType as 'User' | 'Organization'
+      accountType: installation?.accountType as 'User' | 'Organization' || 'User'
     };
   } catch (error) {
     console.error('Failed to get user from installation:', error);

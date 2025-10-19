@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
-import { 
-  developerRankings, 
-  arenaBattles, 
+import {
+  developerRankings,
+  arenaBattles,
   tokenUsage,
-  developerProfileCache
+  developerProfileCache,
+  developerEmails
 } from '@/db/schema';
 import { eq, and, desc, gte } from 'drizzle-orm';
 import { analyzeBattle, calculateEloChange, determineTier } from '@/lib/ai/battle-analysis';
@@ -13,8 +14,8 @@ import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import type { BetterAuthSession } from '@/lib/github/types';
-import { 
-  getOrCreateRanking, 
+import {
+  getOrCreateRanking,
   updateRankings
 } from '@/lib/arena/battle-helpers';
 import { BYOK_DAILY_BATTLE_LIMIT, ALL_BATTLE_CRITERIA } from '@/lib/constants/arena';
@@ -22,6 +23,7 @@ import { generateDeveloperProfile } from '@/lib/ai/developer-profile';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import type { BattleCriteria } from '@/lib/types/arena';
 import { sql } from 'drizzle-orm';
+import { sendBattleChallengeEmail } from '@/lib/email/resend';
 
 // Helper function to check if a profile is stale (older than 24 hours)
 function isProfileStale(updatedAt: Date): boolean {
@@ -342,6 +344,27 @@ export const arenaRouter = router({
           criteria,
         })
         .returning();
+
+      // Try to send email notification to opponent (non-blocking)
+      try {
+        const opponentEmail = await db
+          .select()
+          .from(developerEmails)
+          .where(eq(developerEmails.username, opponentUsername))
+          .limit(1);
+
+        if (opponentEmail[0]?.email) {
+          await sendBattleChallengeEmail({
+            recipientEmail: opponentEmail[0].email,
+            recipientUsername: opponentUsername,
+            challengerUsername,
+            battleId: battle[0].id,
+          });
+        }
+      } catch (emailError) {
+        // Log but don't fail the battle creation if email fails
+        console.error('Failed to send battle challenge email:', emailError);
+      }
 
       return battle[0];
     }),

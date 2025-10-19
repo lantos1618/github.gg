@@ -41,8 +41,8 @@ export const reposRouter = router({
 
   /**
    * Get user repositories for scrolling - Logged-in users
-   * Fetches user repos directly from GitHub API with limit
-   * FAST: 1 API call with limit (no pagination)
+   * Uses 5-minute cache to avoid slow GitHub API calls
+   * FAST: Returns cached data (instant) or fetches from GitHub (1.8s)
    */
   getReposForScrollingWithUser: protectedProcedure
     .input(z.object({
@@ -50,16 +50,79 @@ export const reposRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       try {
-        const githubService = await createGitHubServiceForUserOperations(ctx.session);
+        const { db } = await import('@/db');
+        const { cachedRepos } = await import('@/db/schema');
+        const { eq, and, sql } = await import('drizzle-orm');
 
-        // Fetch user repos with limit - 1 fast API call
+        const userId = ctx.session?.user?.id;
+        if (!userId) {
+          // No user session, return empty array
+          return [];
+        }
+
+        const cacheThreshold = new Date(Date.now() - 5 * 60 * 1000); // 5 minutes
+
+        // Try cache first (FAST: ~10ms)
+        const cached = await db
+          .select()
+          .from(cachedRepos)
+          .where(and(
+            eq(cachedRepos.userId, userId),
+            sql`${cachedRepos.lastFetched} > ${cacheThreshold}`
+          ))
+          .limit(input.limit);
+
+        if (cached.length > 0) {
+          console.log(`✅ Returned ${cached.length} user repos from cache (instant)`);
+          return cached.map(r => ({
+            owner: r.owner,
+            name: r.name,
+            description: r.description || undefined,
+            stargazersCount: r.stargazersCount,
+            forksCount: r.forksCount,
+            language: r.language || undefined,
+            topics: r.topics || [],
+            url: `https://github.com/${r.owner}/${r.name}`,
+          }));
+        }
+
+        // Cache miss: fetch from GitHub API (SLOW: ~1.8s)
+        console.log(`🐢 Cache miss - fetching user repos from GitHub API...`);
+        const githubService = await createGitHubServiceForUserOperations(ctx.session);
         const userRepos = await githubService.getUserRepositories(undefined, input.limit);
+
+        // Update cache for next time
+        for (const repo of userRepos) {
+          await db
+            .insert(cachedRepos)
+            .values({
+              owner: repo.owner,
+              name: repo.name,
+              description: repo.description,
+              stargazersCount: repo.stargazersCount,
+              forksCount: repo.forksCount,
+              language: repo.language,
+              topics: repo.topics,
+              userId,
+              lastFetched: new Date(),
+            })
+            .onConflictDoUpdate({
+              target: [cachedRepos.owner, cachedRepos.name, cachedRepos.userId],
+              set: {
+                description: repo.description,
+                stargazersCount: repo.stargazersCount,
+                forksCount: repo.forksCount,
+                language: repo.language,
+                topics: repo.topics,
+                lastFetched: new Date(),
+              },
+            });
+        }
 
         return userRepos;
       } catch (error: unknown) {
         const errorMessage = parseError(error);
         console.error('Failed to get user repos:', errorMessage);
-        // Gracefully degrade to empty array
         return [];
       }
     }),

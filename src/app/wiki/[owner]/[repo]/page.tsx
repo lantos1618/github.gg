@@ -1,5 +1,4 @@
 import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Book, FileText, ChevronRight } from 'lucide-react';
 import { createCaller } from '@/lib/trpc/server';

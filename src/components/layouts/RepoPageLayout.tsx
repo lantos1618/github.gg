@@ -18,9 +18,6 @@ interface RepoPageLayoutProps {
 function RepoPageLayoutContent({
   user,
   repo,
-  refName = 'main',
-  files = [],
-  totalFiles = 0,
   children,
 }: RepoPageLayoutProps) {
   const { isExpanded } = useSidebar();

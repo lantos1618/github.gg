@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
-import { createPublicGitHubService, createGitHubServiceForUserOperations } from '@/lib/github';
+import { createPublicGitHubService } from '@/lib/github';
 import { analyzePullRequest } from '@/lib/ai/pr-analysis';
-import { analyzeCommit } from '@/lib/ai/commit-analysis';
 import { analyzeIssue } from '@/lib/ai/issue-analysis';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';

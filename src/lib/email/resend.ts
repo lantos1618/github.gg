@@ -605,7 +605,7 @@ export async function sendBattleChallengeEmail(data: {
   challengerUsername: string;
   battleId: string;
 }) {
-  const { recipientEmail, recipientUsername, challengerUsername, battleId } = data;
+  const { recipientEmail, recipientUsername, challengerUsername } = data;
 
   const html = `
 <!DOCTYPE html>

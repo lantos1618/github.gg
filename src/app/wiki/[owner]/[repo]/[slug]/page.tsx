@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { ArrowLeft, Clock, Eye, GitBranch, BookOpen } from 'lucide-react';
+import { ArrowLeft, Clock, Eye, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import { createCaller } from '@/lib/trpc/server';
 import { incrementViewCount } from './actions';

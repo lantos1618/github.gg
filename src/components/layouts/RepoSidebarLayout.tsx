@@ -4,7 +4,6 @@ import { ReactNode } from 'react';
 import { RepoSidebar } from '@/components/RepoSidebar';
 import { RepoHeader } from '@/components/RepoHeader';
 import { useRouter } from 'next/navigation';
-import { trpc } from '@/lib/trpc/client';
 
 interface WikiPage {
   slug: string;
@@ -29,7 +28,6 @@ export function RepoSidebarLayout({
   wikiPages = [],
 }: RepoSidebarLayoutProps) {
   const router = useRouter();
-  const { data: branches = [] } = trpc.github.getBranches.useQuery({ owner, repo });
 
   const handleBranchChange = (branch: string) => {
     router.push(`/${owner}/${repo}/tree/${branch}`);

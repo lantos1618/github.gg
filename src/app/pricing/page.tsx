@@ -23,7 +23,7 @@ export default function PricingPage() {
     }
   });
 
-  const { data: currentPlan, isLoading: planLoading, error: planError } = trpc.user.getCurrentPlan.useQuery();
+  const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery();
 
   const handleUpgrade = (plan: 'byok' | 'pro') => {
     createCheckout.mutate({ plan });

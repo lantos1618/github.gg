@@ -19,7 +19,6 @@ export function MarkdownCardRenderer({
   title,
   description,
   minHeight = '400px',
-  maxHeight
 }: MarkdownCardRendererProps) {
   return (
     <Card>

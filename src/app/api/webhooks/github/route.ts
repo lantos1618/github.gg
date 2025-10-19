@@ -12,6 +12,18 @@ const webhooks = process.env.GITHUB_WEBHOOK_SECRET
     })
   : null;
 
+// Centralized error logging utility for webhook handlers
+function logWebhookError(context: string, details: Record<string, unknown>, error: unknown) {
+  console.error(`[GitHub Webhook] ERROR: Failed to ${context}`, {
+    ...details,
+    error: error instanceof Error ? {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    } : String(error),
+  });
+}
+
 // Background handler for PR analysis
 async function handlePRAnalysis({
   installationId,
@@ -71,15 +83,7 @@ async function handlePRAnalysis({
       prNumber,
     });
   } catch (error) {
-    console.error('[GitHub Webhook] ERROR: Failed to post review for PR', {
-      repo: repoFullName,
-      prNumber,
-      error: error instanceof Error ? {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-      } : String(error),
-    });
+    logWebhookError('post review for PR', { repo: repoFullName, prNumber }, error);
     throw error;
   }
 }
@@ -135,15 +139,7 @@ async function handleCommitAnalysis({
       commitSha: shortSha,
     });
   } catch (error) {
-    console.error('[GitHub Webhook] ERROR: Failed to analyze commit', {
-      repo: repoFullName,
-      commitSha: shortSha,
-      error: error instanceof Error ? {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-      } : String(error),
-    });
+    logWebhookError('analyze commit', { repo: repoFullName, commitSha: shortSha }, error);
     throw error;
   }
 }
@@ -198,15 +194,7 @@ async function handleIssueAnalysis({
       issueNumber,
     });
   } catch (error) {
-    console.error('[GitHub Webhook] ERROR: Failed to analyze issue', {
-      repo: repoFullName,
-      issueNumber,
-      error: error instanceof Error ? {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-      } : String(error),
-    });
+    logWebhookError('analyze issue', { repo: repoFullName, issueNumber }, error);
     throw error;
   }
 }
@@ -387,15 +375,7 @@ if (webhooks) {
         repo: payload.repository.name,
         commitSha: commit.id,
       }).catch(error => {
-        console.error('[GitHub Webhook] ERROR: Failed to analyze commit', {
-          repo,
-          commitSha: commit.id.slice(0, 7),
-          error: error instanceof Error ? {
-            message: error.message,
-            stack: error.stack,
-            name: error.name,
-          } : String(error),
-        });
+        logWebhookError('analyze commit', { repo, commitSha: commit.id.slice(0, 7) }, error);
       });
     }
   });
@@ -417,15 +397,7 @@ if (webhooks) {
       baseBranch: payload.pull_request.base.ref,
       headBranch: payload.pull_request.head.ref,
     }).catch(error => {
-      console.error('[GitHub Webhook] ERROR: Failed to analyze PR', {
-        repo,
-        prNumber,
-        error: error instanceof Error ? {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        } : String(error),
-      });
+      logWebhookError('analyze PR', { repo, prNumber }, error);
     });
   });
 
@@ -446,15 +418,7 @@ if (webhooks) {
       baseBranch: payload.pull_request.base.ref,
       headBranch: payload.pull_request.head.ref,
     }).catch(error => {
-      console.error('[GitHub Webhook] ERROR: Failed to re-analyze PR', {
-        repo,
-        prNumber,
-        error: error instanceof Error ? {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        } : String(error),
-      });
+      logWebhookError('re-analyze PR', { repo, prNumber }, error);
     });
   });
 
@@ -471,15 +435,7 @@ if (webhooks) {
       repo: payload.repository.name,
       issueNumber,
     }).catch(error => {
-      console.error('[GitHub Webhook] ERROR: Failed to analyze issue', {
-        repo,
-        issueNumber,
-        error: error instanceof Error ? {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        } : String(error),
-      });
+      logWebhookError('analyze issue', { repo, issueNumber }, error);
     });
   });
 }

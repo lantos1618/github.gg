@@ -84,7 +84,6 @@ test("GitHubService fetches files from a branch with slash and subdirectory (cod
   const githubService = GitHubService.createPublic();
   const ref = 'codex/fix-paywall-and-github-repository-issues';
   const path = 'app/search';
-  console.log('DEBUG: ref =', ref, 'path =', path);
   try {
     const result = await githubService.getRepositoryFiles(
       'lantos1618',
@@ -93,7 +92,6 @@ test("GitHubService fetches files from a branch with slash and subdirectory (cod
       1000,
       path
     );
-    console.log('DEBUG: files returned:', result.files.map(f => f.name));
     expect(result.files.length).toBeGreaterThan(0);
     expect(result.files.some(f => f.name === 'page.tsx')).toBe(true);
   } catch (err) {

@@ -159,29 +159,6 @@ export function determineTier(eloRating: number): string {
   return ELO_TIERS.BRONZE.name; // Default fallback
 }
 
-/**
- * Generate battle insights and recommendations
- */
-export function generateBattleInsights(
-  challengerProfile: DeveloperProfile,
-  opponentProfile: DeveloperProfile,
-  winner: string
-): { highlights: string[]; recommendations: string[] } {
-  const highlights = [
-    `${winner} demonstrated exceptional technical skills`,
-    'Strong focus on code quality and maintainability',
-    'Excellent project organization and architecture'
-  ];
-
-  const recommendations = [
-    'Continue improving test coverage',
-    'Focus on performance optimization',
-    'Enhance documentation practices'
-  ];
-
-  return { highlights, recommendations };
-}
-
 export function prepareRepositoriesForAnalysis(repos: Array<{ name: string; description: string | null; language: string | null; stargazers_count: number; forks_count: number; updated_at: string }>) {
   return repos
     .sort((a, b) => b.stargazers_count - a.stargazers_count)

@@ -173,7 +173,7 @@ export default function AdminDashboard() {
                       <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          Joined {new Date(user.createdAt).toLocaleDateString()}
+                          Joined {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
                         </div>
                       </div>
                     </div>

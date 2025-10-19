@@ -1,0 +1,27 @@
+{
+  "functions": {
+    "src/app/api/trpc/**": {
+      "maxDuration": 60
+    },
+    "src/app/api/webhooks/**": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    }
+  ]
+}

@@ -37,45 +37,32 @@ export const wikiRouter = router({
       const githubService = createPublicGitHubService();
 
       try {
-        // Fetch repository information
-        const repoData = await githubService['octokit'].repos.get({
-          owner,
-          repo,
-        });
+        // Fetch all metadata in parallel
+        const [repoData, readmeResult, packageJsonResult] = await Promise.allSettled([
+          githubService['octokit'].repos.get({ owner, repo }),
+          githubService['octokit'].repos.getReadme({ owner, repo }),
+          githubService['octokit'].repos.getContent({ owner, repo, path: 'package.json' }),
+        ]);
 
-        // Fetch repository contents
-        const contents = await githubService['octokit'].repos.getContent({
-          owner,
-          repo,
-          path: '',
-        });
-
-        // Fetch README if exists
-        let readme: string | undefined;
-        try {
-          const readmeData = await githubService['octokit'].repos.getReadme({
-            owner,
-            repo,
-          });
-          readme = Buffer.from(readmeData.data.content, 'base64').toString('utf-8');
-        } catch {
-          // README doesn't exist
+        if (repoData.status === 'rejected') {
+          throw new Error('Failed to fetch repository data');
         }
 
-        // Fetch package.json if exists
+        // Process README
+        let readme: string | undefined;
+        if (readmeResult.status === 'fulfilled') {
+          readme = Buffer.from(readmeResult.value.data.content, 'base64').toString('utf-8');
+        }
+
+        // Process package.json
         let packageJson: Record<string, unknown> | undefined;
-        try {
-          const packageData = await githubService['octokit'].repos.getContent({
-            owner,
-            repo,
-            path: 'package.json',
-          });
-          if ('content' in packageData.data) {
-            const content = Buffer.from(packageData.data.content, 'base64').toString('utf-8');
+        if (packageJsonResult.status === 'fulfilled' && 'content' in packageJsonResult.value.data) {
+          const content = Buffer.from(packageJsonResult.value.data.content, 'base64').toString('utf-8');
+          try {
             packageJson = JSON.parse(content);
+          } catch {
+            // Invalid JSON
           }
-        } catch {
-          // package.json doesn't exist
         }
 
         // Collect source files
@@ -98,38 +85,69 @@ export const wikiRouter = router({
 
             if (!Array.isArray(items.data)) return;
 
+            // Separate files and directories
+            const fileItems: typeof items.data = [];
+            const dirItems: typeof items.data = [];
+
             for (const item of items.data) {
               if (files.length >= maxFiles) break;
 
               if (item.type === 'file') {
-                // Only include source files
                 const ext = item.name.split('.').pop()?.toLowerCase();
                 const sourceExts = ['ts', 'tsx', 'js', 'jsx', 'py', 'java', 'go', 'rs', 'cpp', 'c', 'h'];
 
                 if (ext && sourceExts.includes(ext) && item.size && item.size < 100000) {
-                  try {
-                    const fileData = await githubService['octokit'].repos.getContent({
-                      owner,
-                      repo,
-                      path: item.path,
-                    });
-
-                    if ('content' in fileData.data) {
-                      const content = Buffer.from(fileData.data.content, 'base64').toString('utf-8');
-                      files.push({
-                        path: item.path,
-                        content,
-                        language: ext,
-                        size: item.size,
-                      });
-                    }
-                  } catch (error) {
-                    console.error(`Failed to fetch ${item.path}:`, error);
-                  }
+                  fileItems.push(item);
                 }
               } else if (item.type === 'dir' && !item.path.includes('node_modules') && !item.path.includes('.git')) {
-                await collectFiles(item.path, depth + 1);
+                dirItems.push(item);
               }
+            }
+
+            // Fetch all files in parallel (limit concurrency to 10)
+            const chunkSize = 10;
+            for (let i = 0; i < fileItems.length; i += chunkSize) {
+              if (files.length >= maxFiles) break;
+
+              const chunk = fileItems.slice(i, i + chunkSize);
+              const fileResults = await Promise.allSettled(
+                chunk.map(item =>
+                  githubService['octokit'].repos.getContent({
+                    owner,
+                    repo,
+                    path: item.path,
+                  })
+                )
+              );
+
+              for (let j = 0; j < fileResults.length; j++) {
+                if (files.length >= maxFiles) break;
+
+                const result = fileResults[j];
+                if (result.status === 'fulfilled' && 'content' in result.value.data) {
+                  const item = chunk[j];
+                  const content = Buffer.from(result.value.data.content, 'base64').toString('utf-8');
+                  const ext = item.name.split('.').pop()?.toLowerCase() || '';
+
+                  files.push({
+                    path: item.path,
+                    content,
+                    language: ext,
+                    size: item.size || 0,
+                  });
+                }
+              }
+            }
+
+            // Recursively collect from directories in parallel (limit to 5 at a time)
+            const dirChunkSize = 5;
+            for (let i = 0; i < dirItems.length; i += dirChunkSize) {
+              if (files.length >= maxFiles) break;
+
+              const chunk = dirItems.slice(i, i + dirChunkSize);
+              await Promise.all(
+                chunk.map(item => collectFiles(item.path, depth + 1))
+              );
             }
           } catch (error) {
             console.error(`Failed to collect files from ${path}:`, error);
@@ -142,8 +160,8 @@ export const wikiRouter = router({
         const wikiResult = await generateWikiWithCache({
           owner,
           repo,
-          repoDescription: repoData.data.description || undefined,
-          primaryLanguage: repoData.data.language || undefined,
+          repoDescription: repoData.value.data.description || undefined,
+          primaryLanguage: repoData.value.data.language || undefined,
           files,
           packageJson,
           readme,

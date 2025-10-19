@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LoadingWave } from '@/components/LoadingWave';
 import { trpc } from '@/lib/trpc/client';
+import { useAuth } from '@/lib/auth/client';
 import {
   BarChart3,
   Search,
@@ -16,23 +18,38 @@ import {
   Users,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Sword
 } from 'lucide-react';
 
 type SortField = 'eloRating' | 'winRate' | 'winStreak' | 'totalBattles' | 'wins';
 type SortDirection = 'asc' | 'desc';
 
 export function LeaderboardTable() {
+  const router = useRouter();
+  const { user, isSignedIn } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTier, setSelectedTier] = useState<string>('all');
   const [limit, setLimit] = useState(50);
   const [sortField, setSortField] = useState<SortField>('eloRating');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-  const { data: leaderboard, isLoading } = trpc.arena.getLeaderboard.useQuery({ 
+  const { data: leaderboard, isLoading } = trpc.arena.getLeaderboard.useQuery({
     limit,
-    tier: selectedTier === 'all' ? undefined : selectedTier 
+    tier: selectedTier === 'all' ? undefined : selectedTier
   });
+
+  const { data: currentPlan } = trpc.user.getCurrentPlan.useQuery(undefined, {
+    enabled: isSignedIn
+  });
+
+  const handleChallenge = (username: string) => {
+    // Navigate to Battle tab with pre-filled opponent
+    router.push(`/arena?tab=battle&opponent=${encodeURIComponent(username)}`);
+  };
+
+  const canBattle = isSignedIn && currentPlan && currentPlan.plan !== 'free';
+  const currentUsername = user?.name?.toLowerCase();
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -205,73 +222,95 @@ export function LeaderboardTable() {
 
               {/* Leaderboard Entries */}
               <div className="space-y-3">
-                {filteredAndSortedLeaderboard.map((entry, index) => (
-                <div
-                  key={entry.username}
-                  className={`p-4 rounded-lg border transition-colors ${
-                    index === 0 
-                      ? 'bg-yellow-50 border-yellow-200' :
-                    index === 1 
-                      ? 'bg-gray-50 border-gray-200' :
-                    index === 2 
-                      ? 'bg-amber-50 border-amber-200' :
-                      'bg-background border-border hover:bg-muted/50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    {/* Rank and User */}
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg">
-                          {getRankIcon(entry.rank) || entry.rank}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-lg">{entry.username}</div>
+                {filteredAndSortedLeaderboard.map((entry, index) => {
+                  const isCurrentUser = entry.username.toLowerCase() === currentUsername;
+                  return (
+                    <div
+                      key={entry.username}
+                      className={`p-4 rounded-lg border transition-colors ${
+                        index === 0
+                          ? 'bg-yellow-50 border-yellow-200' :
+                        index === 1
+                          ? 'bg-gray-50 border-gray-200' :
+                        index === 2
+                          ? 'bg-amber-50 border-amber-200' :
+                          'bg-background border-border hover:bg-muted/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        {/* Rank and User */}
+                        <div className="flex items-center gap-4">
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs">
-                              {entry.tier}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {entry.totalBattles} battles
-                            </span>
+                            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg">
+                              {getRankIcon(entry.rank) || entry.rank}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-lg flex items-center gap-2">
+                                {entry.username}
+                                {isCurrentUser && (
+                                  <Badge variant="secondary" className="text-xs">You</Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {entry.tier}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {entry.totalBattles} battles
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
+
+                        {/* Stats */}
+                        <div className="flex items-center gap-6">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-purple-600">
+                              {entry.eloRating}
+                            </div>
+                            <div className="text-xs text-muted-foreground">ELO</div>
+                          </div>
+
+                          <div className="text-center">
+                            <div className="text-lg font-semibold text-green-600">
+                              {entry.winRate.toFixed(1)}%
+                            </div>
+                            <div className="text-xs text-muted-foreground">Win Rate</div>
+                          </div>
+
+                          <div className="text-center">
+                            <div className="text-lg font-semibold text-orange-600">
+                              {entry.winStreak}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Streak</div>
+                          </div>
+
+                          <div className="text-center">
+                            <div className="text-sm font-medium">
+                              {entry.wins}W - {entry.losses}L
+                            </div>
+                            <div className="text-xs text-muted-foreground">Record</div>
+                          </div>
+
+                          {/* Challenge Button */}
+                          {!isCurrentUser && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => handleChallenge(entry.username)}
+                              disabled={!canBattle}
+                              className="min-w-[100px]"
+                            >
+                              <Sword className="h-3 w-3 mr-1" />
+                              Challenge
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
-
-                    {/* Stats */}
-                    <div className="flex items-center gap-6">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-purple-600">
-                          {entry.eloRating}
-                        </div>
-                        <div className="text-xs text-muted-foreground">ELO</div>
-                      </div>
-                      
-                      <div className="text-center">
-                        <div className="text-lg font-semibold text-green-600">
-                          {entry.winRate.toFixed(1)}%
-                        </div>
-                        <div className="text-xs text-muted-foreground">Win Rate</div>
-                      </div>
-
-                      <div className="text-center">
-                        <div className="text-lg font-semibold text-orange-600">
-                          {entry.winStreak}
-                        </div>
-                        <div className="text-xs text-muted-foreground">Streak</div>
-                      </div>
-
-                      <div className="text-center">
-                        <div className="text-sm font-medium">
-                          {entry.wins}W - {entry.losses}L
-                        </div>
-                        <div className="text-xs text-muted-foreground">Record</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
               </div>
             </>
           ) : (

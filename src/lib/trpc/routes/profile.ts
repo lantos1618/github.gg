@@ -35,10 +35,11 @@ export const profileRouter = router({
     .input(z.object({ username: z.string() }))
     .query(async ({ input }) => {
       const { username } = input;
+      const normalizedUsername = username.toLowerCase();
 
       // 1. Check if the user is registered on our platform by username
       const registeredUser = await db.query.user.findFirst({
-        where: eq(user.name, username),
+        where: eq(user.name, normalizedUsername),
       });
       if (registeredUser?.email) {
         return { email: registeredUser.email, source: 'database' };
@@ -46,7 +47,7 @@ export const profileRouter = router({
 
       // 2. Check our cached developer emails table
       const cachedEmail = await db.query.developerEmails.findFirst({
-        where: eq(developerEmails.username, username),
+        where: eq(developerEmails.username, normalizedUsername),
       });
       if (cachedEmail?.email) {
         return { email: cachedEmail.email, source: 'cache' };
@@ -82,12 +83,13 @@ export const profileRouter = router({
     }))
     .query(async ({ input }) => {
       const { username } = input;
-      
+      const normalizedUsername = username.toLowerCase();
+
       // Check for cached profile
       const cached = await db
         .select()
         .from(developerProfileCache)
-        .where(eq(developerProfileCache.username, username))
+        .where(eq(developerProfileCache.username, normalizedUsername))
         .limit(1);
 
       if (cached.length > 0) {
@@ -118,11 +120,13 @@ export const profileRouter = router({
     }))
     .query(async ({ input }): Promise<{ profile: DeveloperProfile | null, cached: boolean, stale: boolean, lastUpdated: Date | null }> => {
       const { username } = input;
+      const normalizedUsername = username.toLowerCase();
+
       // Find the most recent cached profile for this username (latest updatedAt)
       const cached = await db
         .select()
         .from(developerProfileCache)
-        .where(eq(developerProfileCache.username, username))
+        .where(eq(developerProfileCache.username, normalizedUsername))
         .orderBy(desc(developerProfileCache.updatedAt))
         .limit(1);
       if (cached.length > 0) {
@@ -151,6 +155,7 @@ export const profileRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const { username } = input;
+      const normalizedUsername = username.toLowerCase();
       
       // Check for active subscription
       const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
@@ -349,16 +354,16 @@ export const profileRouter = router({
         const maxVersionResult = await db
           .select({ max: sql<number | null>`COALESCE(MAX(version), 0)` })
           .from(developerProfileCache)
-          .where(eq(developerProfileCache.username, username));
+          .where(eq(developerProfileCache.username, normalizedUsername));
         const nextVersion = (maxVersionResult[0]?.max ?? 0) + 1;
-        
+
         console.log(`📝 Saving profile version ${nextVersion} for ${username}`);
-        
+
         // Cache the result with proper versioning
         await db
           .insert(developerProfileCache)
           .values({
-            username,
+            username: normalizedUsername,
             version: nextVersion,
             profileData: result.profile,
             updatedAt: new Date(),
@@ -445,10 +450,11 @@ export const profileRouter = router({
     }))
     .mutation(async ({ input }) => {
       const { username } = input;
+      const normalizedUsername = username.toLowerCase();
 
       await db
         .delete(developerProfileCache)
-        .where(eq(developerProfileCache.username, username));
+        .where(eq(developerProfileCache.username, normalizedUsername));
 
       return { success: true };
     }),
@@ -456,10 +462,11 @@ export const profileRouter = router({
   getProfileVersions: publicProcedure
     .input(z.object({ username: z.string() }))
     .query(async ({ input }) => {
+      const normalizedUsername = input.username.toLowerCase();
       const result = await db
         .select({ version: developerProfileCache.version, updatedAt: developerProfileCache.updatedAt })
         .from(developerProfileCache)
-        .where(eq(developerProfileCache.username, input.username))
+        .where(eq(developerProfileCache.username, normalizedUsername))
         .orderBy(desc(developerProfileCache.version));
       // Return as array for compatibility with existing UI
       return result;
@@ -468,12 +475,13 @@ export const profileRouter = router({
   getProfileByVersion: publicProcedure
     .input(z.object({ username: z.string(), version: z.number() }))
     .query(async ({ input }) => {
+      const normalizedUsername = input.username.toLowerCase();
       const result = await db
         .select()
         .from(developerProfileCache)
         .where(
           and(
-            eq(developerProfileCache.username, input.username),
+            eq(developerProfileCache.username, normalizedUsername),
             eq(developerProfileCache.version, input.version)
           )
         )

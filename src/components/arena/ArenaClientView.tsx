@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,7 +14,16 @@ import { BattleAnalysis } from './BattleAnalysis';
 import { useAuth } from '@/lib/auth/client';
 
 export function ArenaClientView() {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState('leaderboard');
+
+  // Handle tab query parameter
+  useEffect(() => {
+    const tabFromQuery = searchParams.get('tab');
+    if (tabFromQuery && ['leaderboard', 'battle', 'history'].includes(tabFromQuery)) {
+      setActiveTab(tabFromQuery);
+    }
+  }, [searchParams]);
 
   // Auth and plan
   const { user, isSignedIn, isLoading: authLoading } = useAuth();

@@ -4,29 +4,36 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { 
-  Trophy, 
-  Sword, 
-  Target, 
-  Calendar, 
-  MessageSquare, 
-  ChevronDown, 
-  ChevronUp, 
-  Award, 
-  TrendingUp, 
-  Users 
+import {
+  Trophy,
+  Sword,
+  Target,
+  Calendar,
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
+  Award,
+  TrendingUp,
+  Users,
+  RotateCcw
 } from 'lucide-react';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { trpc } from '@/lib/trpc/client';
 import type { AiAnalysis } from '@/lib/types/arena';
 
 export function BattleAnalysis() {
+  const router = useRouter();
   const [expandedBattle, setExpandedBattle] = useState<string | null>(null);
-  
+
   const { data: battleHistory, isLoading } = trpc.arena.getBattleHistory.useQuery({
     limit: 20,
     offset: 0,
   });
+
+  const handleRematch = (opponentUsername: string) => {
+    router.push(`/arena?tab=battle&opponent=${encodeURIComponent(opponentUsername)}`);
+  };
 
   const toggleBattle = (battleId: string) => {
     setExpandedBattle(expandedBattle === battleId ? null : battleId);
@@ -106,17 +113,25 @@ export function BattleAnalysis() {
                       </div>
                     </div>
                     
-                    <div className="text-right">
-                      <Badge 
-                        variant={isWinner ? "default" : "destructive"} 
-                        className="mb-2"
+                    <div className="text-right space-y-2">
+                      <Badge
+                        variant={isWinner ? "default" : "destructive"}
                       >
                         {isWinner ? "VICTORY" : "DEFEAT"}
                       </Badge>
-                      <div className={`flex items-center gap-1 text-sm font-semibold ${getEloChangeColor(eloChange)}`}>
+                      <div className={`flex items-center justify-end gap-1 text-sm font-semibold ${getEloChangeColor(eloChange)}`}>
                         {getEloChangeIcon(eloChange)}
                         ELO: {eloChange > 0 ? '+' : ''}{eloChange}
                       </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRematch(battle.opponentUsername)}
+                        className="w-full"
+                      >
+                        <RotateCcw className="h-3 w-3 mr-1" />
+                        Rematch
+                      </Button>
                     </div>
                   </div>
 

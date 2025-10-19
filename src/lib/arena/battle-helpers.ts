@@ -73,11 +73,14 @@ export async function fetchDeveloperData(username: string): Promise<DeveloperDat
 }
 
 export async function getOrCreateRanking(userId: string, username: string) {
+  // Normalize username to lowercase to prevent case-sensitivity issues
+  const normalizedUsername = username.toLowerCase();
+
   // Check by username first (for non-registered users)
   const existing = await db
     .select()
     .from(developerRankings)
-    .where(eq(developerRankings.username, username))
+    .where(eq(developerRankings.username, normalizedUsername))
     .limit(1);
 
   if (existing.length > 0) {
@@ -91,7 +94,7 @@ export async function getOrCreateRanking(userId: string, username: string) {
     .insert(developerRankings)
     .values({
       userId: isRegisteredUser ? userId : null,
-      username,
+      username: normalizedUsername,
       eloRating: 1200,
       tier: 'Bronze',
       wins: 0,

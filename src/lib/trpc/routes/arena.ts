@@ -50,10 +50,12 @@ async function executeBattleAsync(
 
     // Function to get or generate a developer profile
     const getOrGenerateProfile = async (username: string): Promise<DeveloperProfile> => {
+      const normalizedUsername = username.toLowerCase();
+
       const existing = await db
         .select()
         .from(developerProfileCache)
-        .where(eq(developerProfileCache.username, username))
+        .where(eq(developerProfileCache.username, normalizedUsername))
         .limit(1);
 
       if (existing[0] && !isProfileStale(existing[0].updatedAt)) {
@@ -72,11 +74,11 @@ async function executeBattleAsync(
       const maxVersionResult = await db
         .select({ max: sql<number>`MAX(version)` })
         .from(developerProfileCache)
-        .where(eq(developerProfileCache.username, username));
+        .where(eq(developerProfileCache.username, normalizedUsername));
       const nextVersion = (maxVersionResult[0]?.max || 0) + 1;
 
       await db.insert(developerProfileCache).values({
-        username,
+        username: normalizedUsername,
         version: nextVersion,
         profileData: result.profile,
         updatedAt: new Date()
@@ -239,15 +241,16 @@ export const arenaRouter = router({
         const { Octokit } = await import('@octokit/rest');
         const octokit = new Octokit({ auth: userAccount.accessToken });
         const { data: authenticatedUser } = await octokit.rest.users.getAuthenticated();
-        const githubUsername = authenticatedUser.login;
+        const githubUsername = authenticatedUser.login.toLowerCase();
 
         return await getOrCreateRanking(input.userId, githubUsername);
       } else if (input.username) {
         // Look up by username only (public)
+        const normalizedUsername = input.username.toLowerCase();
         const existing = await db
           .select()
           .from(developerRankings)
-          .where(eq(developerRankings.username, input.username))
+          .where(eq(developerRankings.username, normalizedUsername))
           .limit(1);
         return existing[0] || null;
       } else {
@@ -358,7 +361,10 @@ export const arenaRouter = router({
       const { Octokit } = await import('@octokit/rest');
       const octokit = new Octokit({ auth: userAccount.accessToken });
       const { data: authenticatedUser } = await octokit.rest.users.getAuthenticated();
-      const challengerUsername = authenticatedUser.login;
+      const challengerUsername = authenticatedUser.login.toLowerCase();
+
+      // Normalize opponent username
+      const normalizedOpponentUsername = opponentUsername.toLowerCase();
 
       // Check if opponent exists and get their data
       const opponentRepos = await githubService.getUserRepositories(opponentUsername);
@@ -374,11 +380,11 @@ export const arenaRouter = router({
       const opponentRanking = await db
         .select()
         .from(developerRankings)
-        .where(eq(developerRankings.username, opponentUsername))
+        .where(eq(developerRankings.username, normalizedOpponentUsername))
         .limit(1);
 
       // For non-registered opponents, use a dummy ID
-      const opponentId = opponentRanking[0]?.userId || `dummy_${opponentUsername}`;
+      const opponentId = opponentRanking[0]?.userId || `dummy_${normalizedOpponentUsername}`;
 
       // Create battle record with actual GitHub usernames
       const battle = await db
@@ -387,7 +393,7 @@ export const arenaRouter = router({
           challengerId: ctx.user.id,
           opponentId,
           challengerUsername, // Use GitHub username, not display name
-          opponentUsername,
+          opponentUsername: normalizedOpponentUsername,
           status: 'pending',
           battleType: 'standard', // Only standard battles supported
           criteria,
@@ -399,7 +405,7 @@ export const arenaRouter = router({
         const opponentEmail = await db
           .select()
           .from(developerEmails)
-          .where(eq(developerEmails.username, opponentUsername))
+          .where(eq(developerEmails.username, normalizedOpponentUsername))
           .limit(1);
 
         if (opponentEmail[0]?.email) {
@@ -535,10 +541,11 @@ export const arenaRouter = router({
   getRankingByUsername: publicProcedure
     .input(z.object({ username: z.string().min(1, 'Username is required') }))
     .query(async ({ input }) => {
+      const normalizedUsername = input.username.toLowerCase();
       const ranking = await db
         .select()
         .from(developerRankings)
-        .where(eq(developerRankings.username, input.username))
+        .where(eq(developerRankings.username, normalizedUsername))
         .limit(1);
       return ranking[0] || null;
     }),

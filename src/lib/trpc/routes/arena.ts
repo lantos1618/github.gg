@@ -167,7 +167,7 @@ export const arenaRouter = router({
   getMyRanking: publicProcedure
     .input(z.object({ userId: z.string().optional(), username: z.string().optional() }))
     .query(async ({ input }) => {
-      // If userId is provided, fetch the actual GitHub username
+      // If userId is provided, fetch the actual GitHub username from API
       if (input.userId) {
         const { account } = await import('@/db/schema');
         const userAccount = await db.query.account.findFirst({
@@ -177,14 +177,19 @@ export const arenaRouter = router({
           ),
         });
 
-        if (!userAccount) {
+        if (!userAccount?.accessToken) {
           throw new TRPCError({
             code: 'NOT_FOUND',
             message: 'GitHub account not linked'
           });
         }
 
-        const githubUsername = userAccount.accountId;
+        // Fetch GitHub username from authenticated API call
+        const { Octokit } = await import('@octokit/rest');
+        const octokit = new Octokit({ auth: userAccount.accessToken });
+        const { data: authenticatedUser } = await octokit.rest.users.getAuthenticated();
+        const githubUsername = authenticatedUser.login;
+
         return await getOrCreateRanking(input.userId, githubUsername);
       } else if (input.username) {
         // Look up by username only (public)
@@ -280,26 +285,31 @@ export const arenaRouter = router({
         }
       }
 
-      // Get challenger's GitHub username from account table
+      // Get challenger's GitHub username from authenticated API call
+      const githubService = await createGitHubServiceForUserOperations(ctx.session);
+
+      // Fetch the authenticated user's profile to get their login (username)
       const { account } = await import('@/db/schema');
-      const challengerAccount = await db.query.account.findFirst({
+      const userAccount = await db.query.account.findFirst({
         where: and(
           eq(account.userId, ctx.user.id),
           eq(account.providerId, 'github')
         ),
       });
 
-      if (!challengerAccount) {
+      if (!userAccount?.accessToken) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'GitHub account not linked. Please connect your GitHub account.'
         });
       }
 
-      const challengerUsername = challengerAccount.accountId;
+      const { Octokit } = await import('@octokit/rest');
+      const octokit = new Octokit({ auth: userAccount.accessToken });
+      const { data: authenticatedUser } = await octokit.rest.users.getAuthenticated();
+      const challengerUsername = authenticatedUser.login;
 
       // Check if opponent exists and get their data
-      const githubService = await createGitHubServiceForUserOperations(ctx.session);
       const opponentRepos = await githubService.getUserRepositories(opponentUsername);
 
       if (opponentRepos.length === 0) {

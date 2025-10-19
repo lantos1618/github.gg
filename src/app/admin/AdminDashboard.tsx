@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc/client';
@@ -23,6 +23,8 @@ function getCurrentMonthRange() {
 
 export default function AdminDashboard() {
   const [dateRange] = useState(getCurrentMonthRange());
+  const [userSortKey, setUserSortKey] = useState<string>('createdAt');
+  const [userSortDirection, setUserSortDirection] = useState<'asc' | 'desc' | null>('desc');
 
   // tRPC queries
   const { data: usageStats, refetch: refetchUsage, isLoading: loadingUsage } = trpc.admin.getUsageStats.useQuery({
@@ -93,6 +95,48 @@ export default function AdminDashboard() {
   const loading = loadingUsage || loadingSubs || loadingUsers || loadingDailyStats;
   const noData = !loading && (!usageStats || usageStats.summary.totalTokens === 0);
 
+  // Sort users based on current sort settings
+  const sortedUsers = useMemo(() => {
+    if (!allUsers || !userSortDirection) return allUsers || [];
+
+    const sorted = [...allUsers].sort((a, b) => {
+      let aValue: string | number;
+      let bValue: string | number;
+
+      switch (userSortKey) {
+        case 'user':
+          aValue = (a.name || a.email || '').toLowerCase();
+          bValue = (b.name || b.email || '').toLowerCase();
+          break;
+        case 'plan':
+          aValue = (a.userSubscriptions?.plan || 'free').toLowerCase();
+          bValue = (b.userSubscriptions?.plan || 'free').toLowerCase();
+          break;
+        case 'status':
+          aValue = (a.userSubscriptions?.status || 'none').toLowerCase();
+          bValue = (b.userSubscriptions?.status || 'none').toLowerCase();
+          break;
+        case 'createdAt':
+          aValue = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          bValue = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return userSortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return userSortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
+  }, [allUsers, userSortKey, userSortDirection]);
+
+  const handleUserSort = (key: string, direction: 'asc' | 'desc' | null) => {
+    setUserSortKey(key);
+    setUserSortDirection(direction);
+  };
+
   return (
     <div className="container py-8 max-w-3xl px-4 md:px-8">
       <div className="flex items-center justify-between mb-8">
@@ -151,14 +195,14 @@ export default function AdminDashboard() {
               <Users className="h-5 w-5" />
               All Users ({allUsers?.length || 0})
             </CardTitle>
-            {allUsers && allUsers.length > 0 && (
+            {sortedUsers && sortedUsers.length > 0 && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
                   // Export users as CSV
                   const headers = ['Name', 'Email', 'Plan', 'Status', 'Joined'];
-                  const rows = allUsers.map(user => [
+                  const rows = sortedUsers.map(user => [
                     user.name || 'Unknown',
                     user.email || '',
                     user.userSubscriptions?.plan || 'Free',
@@ -191,9 +235,9 @@ export default function AdminDashboard() {
         <CardContent>
           {loadingUsers ? (
             <div className="text-center py-8 text-muted-foreground">Loading users...</div>
-          ) : allUsers && allUsers.length > 0 ? (
+          ) : sortedUsers && sortedUsers.length > 0 ? (
             <SortableTable
-              data={allUsers}
+              data={sortedUsers}
               columns={[
                 {
                   key: 'user',
@@ -257,6 +301,7 @@ export default function AdminDashboard() {
               maxHeight="600px"
               defaultSortKey="createdAt"
               defaultSortDirection="desc"
+              onSort={handleUserSort}
             />
           ) : (
             <div className="text-center py-8 text-muted-foreground">No users found.</div>

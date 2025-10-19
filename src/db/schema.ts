@@ -282,7 +282,7 @@ export const aiSlopAnalyses = pgTable('ai_slop_analyses', {
 // Developer Rankings (ELO system)
 export const developerRankings = pgTable('developer_rankings', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: text('userId').references(() => user.id, { onDelete: 'cascade' }).notNull(),
+  userId: text('userId').references(() => user.id, { onDelete: 'cascade' }), // Nullable to support non-registered GitHub users
   username: text('username').notNull(),
   eloRating: integer('elo_rating').notNull().default(1200),
   wins: integer('wins').notNull().default(0),
@@ -297,8 +297,8 @@ export const developerRankings = pgTable('developer_rankings', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
-  // Ensure unique ranking per user
-  userRankingIdx: uniqueIndex('user_ranking_idx').on(table.userId),
+  // Ensure unique ranking per username (instead of userId to support non-registered users)
+  usernameRankingIdx: uniqueIndex('username_ranking_idx').on(table.username),
   // Index for global rankings
   eloRatingIdx: index('elo_rating_idx').on(table.eloRating),
 }));

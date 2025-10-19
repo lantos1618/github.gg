@@ -73,20 +73,24 @@ export async function fetchDeveloperData(username: string): Promise<DeveloperDat
 }
 
 export async function getOrCreateRanking(userId: string, username: string) {
+  // Check by username first (for non-registered users)
   const existing = await db
     .select()
     .from(developerRankings)
-    .where(eq(developerRankings.userId, userId))
+    .where(eq(developerRankings.username, username))
     .limit(1);
 
   if (existing.length > 0) {
     return existing[0];
   }
 
+  // Create new ranking - userId is null for non-registered GitHub users (dummy_ prefix)
+  const isRegisteredUser = !userId.startsWith('dummy_');
+
   const [newRanking] = await db
     .insert(developerRankings)
     .values({
-      userId,
+      userId: isRegisteredUser ? userId : null,
       username,
       eloRating: 1200,
       tier: 'Bronze',

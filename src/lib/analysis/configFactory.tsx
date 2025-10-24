@@ -1,6 +1,5 @@
 import { trpc } from '@/lib/trpc/client';
 import type { AnalysisViewConfig, AnalysisData } from '@/components/analysis/GenericAnalysisView';
-import { isTRPCError } from '@/lib/utils';
 
 export type AnalysisType = 'scorecard' | 'ai-slop';
 
@@ -112,28 +111,28 @@ const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisTypeConfig> = {
  * Factory function to create analysis view configs
  * Eliminates duplication between different analysis types (scorecard, ai-slop, etc.)
  */
-export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<AnalysisResponse, ReturnType<typeof trpc.scorecard.generate.useMutation>> {
+export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<AnalysisResponse, ReturnType<typeof trpc.scorecard.generateScorecard.useMutation>> {
   const typeConfig = ANALYSIS_CONFIGS[type];
 
   // Map type to TRPC router endpoints
   const routerMap = {
     'scorecard': {
       useVersions: (params: { user: string; repo: string; ref: string }) =>
-        trpc.scorecard.getVersions.useQuery(params),
+        trpc.scorecard.getScorecardVersions.useQuery(params),
       usePublicData: (params: { user: string; repo: string; ref: string; version?: number }) =>
-        trpc.scorecard.publicGet.useQuery(params, { enabled: !!params.user && !!params.repo }),
-      useGenerate: () => trpc.scorecard.generate.useMutation(),
+        trpc.scorecard.publicGetScorecard.useQuery(params, { enabled: !!params.user && !!params.repo }),
+      useGenerate: () => trpc.scorecard.generateScorecard.useMutation(),
       extractDataField: 'scorecard' as const,
-      invalidateKeys: ['scorecard', 'publicGet', 'getVersions'] as const,
+      invalidateKeys: ['scorecard', 'publicGetScorecard', 'getScorecardVersions'] as const,
     },
     'ai-slop': {
       useVersions: (params: { user: string; repo: string; ref: string }) =>
-        trpc.aiSlop.getVersions.useQuery(params),
+        trpc.aiSlop.getAISlopVersions.useQuery(params),
       usePublicData: (params: { user: string; repo: string; ref: string; version?: number }) =>
-        trpc.aiSlop.publicGet.useQuery(params, { enabled: !!params.user && !!params.repo }),
-      useGenerate: () => trpc.aiSlop.generate.useMutation(),
+        trpc.aiSlop.publicGetAISlop.useQuery(params, { enabled: !!params.user && !!params.repo }),
+      useGenerate: () => trpc.aiSlop.generateAISlop.useMutation(),
       extractDataField: 'analysis' as const,
-      invalidateKeys: ['aiSlop', 'publicGet', 'getVersions'] as const,
+      invalidateKeys: ['aiSlop', 'publicGetAISlop', 'getAISlopVersions'] as const,
     },
   };
 

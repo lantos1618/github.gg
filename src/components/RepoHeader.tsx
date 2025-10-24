@@ -1,6 +1,5 @@
 'use client';
 
-import { LoadingWave, AnimatedTick } from './LoadingWave';
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { trpc } from '@/lib/trpc/client';
@@ -12,7 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Download } from 'lucide-react';
+import { Calendar, Download, Loader2, Check } from 'lucide-react';
 import { WikiGenerationButton } from './WikiGenerationButton';
 
 interface RepoHeaderProps {
@@ -128,8 +127,8 @@ export function RepoHeader({
               <span>
                 {isCopying ? 'Copying...' : copied ? 'Copied!' : 'Copy Code'}
               </span>
-              {isCopying && <LoadingWave size="sm" color="white" />}
-              {copied && <AnimatedTick size="sm" color="#10b981" />}
+              {isCopying && <Loader2 className="h-4 w-4 animate-spin" />}
+              {copied && <Check className="h-4 w-4 text-green-500" />}
             </button>
             <button
               onClick={onDownloadAll}

@@ -5,7 +5,7 @@ import { trpc } from '@/lib/trpc/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { LoadingWave } from '@/components/LoadingWave';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Search, Sparkles, ArrowUpDown, ChevronLeft, ChevronRight, GitFork } from 'lucide-react';
 import Link from 'next/link';
@@ -91,8 +91,10 @@ export default function ReposPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex justify-center items-center py-20">
-            <LoadingWave />
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-24 w-full" />
+            ))}
           </div>
         ) : paginatedRepos.length === 0 ? (
           <Card>

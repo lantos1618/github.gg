@@ -3,7 +3,6 @@
 import { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { LoadingWave } from '@/components/LoadingWave';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
 import { SkillAssessment } from './SkillAssessment';
@@ -190,8 +189,16 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     // Loading state
     if (planLoading || publicLoading) {
       return (
-        <div className="flex flex-col items-center justify-center min-h-[400px]">
-          <LoadingWave />
+        <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+          <div className="space-y-4">
+            <Skeleton className="h-16 w-64" />
+            <Skeleton className="h-6 w-96" />
+          </div>
+          <Skeleton className="h-48 w-full" />
+          <div className="grid grid-cols-2 gap-6">
+            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
         </div>
       );
     }
@@ -373,9 +380,16 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     const isLoading = publicLoading || planLoading;
     if (isLoading && !publicProfile) {
       return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <LoadingWave />
-        <p className="mt-4 text-gray-600">Loading developer profile...</p>
+      <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+        <div className="space-y-4">
+          <Skeleton className="h-16 w-64" />
+          <Skeleton className="h-6 w-96" />
+        </div>
+        <Skeleton className="h-48 w-full" />
+        <div className="grid grid-cols-2 gap-6">
+          <Skeleton className="h-64 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
       </div>
       );
     }

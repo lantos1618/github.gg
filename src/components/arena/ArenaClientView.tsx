@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LoadingWave } from '@/components/LoadingWave';
+import { Skeleton } from '@/components/ui/skeleton';
 import { trpc } from '@/lib/trpc/client';
 import { Trophy, Sword, Crown, History } from 'lucide-react';
 import { LeaderboardTable } from './LeaderboardTable';
@@ -40,8 +40,13 @@ export function ArenaClientView() {
 
   if (authLoading || planLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <LoadingWave />
+      <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+        <div className="text-center space-y-4">
+          <Skeleton className="h-12 w-64 mx-auto" />
+          <Skeleton className="h-6 w-96 mx-auto" />
+        </div>
+        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-96 w-full" />
       </div>
     );
   }

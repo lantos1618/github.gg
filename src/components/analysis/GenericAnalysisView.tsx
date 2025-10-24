@@ -1,6 +1,6 @@
 "use client";
 import RepoPageLayout from "@/components/layouts/RepoPageLayout";
-import { LoadingWave } from '@/components/LoadingWave';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useEffect, useState, ReactNode } from 'react';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 import { useRepoData } from '@/lib/hooks/useRepoData';
@@ -277,8 +277,10 @@ export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
   if (planLoading || publicLoading) {
     return (
       <RepoPageLayout user={user} repo={repo} refName={refName} files={[]} totalFiles={0}>
-        <div className="flex flex-col items-center justify-center min-h-[400px]">
-          <LoadingWave />
+        <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8 space-y-6">
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-64 w-full" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </RepoPageLayout>
     );
@@ -313,13 +315,14 @@ export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
           />
         )}
         {overallLoading && (
-          <div className="flex flex-col items-center justify-center min-h-[400px]">
-            <LoadingWave />
-            <p className="mt-4 text-gray-600">
-              {filesLoading ? 'Loading repository files...' : config.loadingMessage}
-            </p>
-            {filesLoading && <p className="text-sm text-gray-500 mt-2">Files: {files.length}</p>}
-            {!filesLoading && isLoading && <p className="text-sm text-gray-500 mt-2">{config.generatingMessage}</p>}
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-64" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-48 w-full" />
           </div>
         )}
         {markdownContent && (

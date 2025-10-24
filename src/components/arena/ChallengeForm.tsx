@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { LoadingWave } from '@/components/LoadingWave';
+import { Loader2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { 
   Sword, 
@@ -294,8 +294,8 @@ export function ChallengeForm() {
           >
             {isPending ? (
               <>
-                <LoadingWave />
-                <span className="ml-2">Battle in Progress...</span>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <span>Battle in Progress...</span>
               </>
             ) : (
               <>

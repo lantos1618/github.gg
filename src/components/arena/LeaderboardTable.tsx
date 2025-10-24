@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { LoadingWave } from '@/components/LoadingWave';
+import { Skeleton } from '@/components/ui/skeleton';
 import { trpc } from '@/lib/trpc/client';
 import { useAuth } from '@/lib/auth/client';
 import {
@@ -170,8 +170,10 @@ export function LeaderboardTable() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <LoadingWave />
+            <div className="space-y-3">
+              {[...Array(10)].map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full" />
+              ))}
             </div>
           ) : filteredAndSortedLeaderboard.length > 0 ? (
             <>

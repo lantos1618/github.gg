@@ -11,7 +11,7 @@ import {
   DiagramPreview,
   DiagramErrorHandler,
 } from '@/components/diagram';
-import { LoadingWave } from '@/components/LoadingWave';
+import { Skeleton } from '@/components/ui/skeleton';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { trpc } from '@/lib/trpc/client';
 import { VersionDropdown } from '@/components/VersionDropdown';
@@ -179,11 +179,15 @@ function DiagramClientView({
     );
   } else if (filesLoading || publicLoading || planLoading) {
     mainContent = (
-      <div className="w-full px-4 pt-4 pb-8">
-        <div className="flex flex-col items-center gap-4">
-          <LoadingWave size="lg" color="#3b82f6" />
-          <div className="text-lg text-blue-700 font-medium">Loading repository files...</div>
+      <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8 space-y-6">
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-48" />
+          <div className="flex gap-4">
+            <Skeleton className="h-10 w-32" />
+            <Skeleton className="h-10 w-32" />
+          </div>
         </div>
+        <Skeleton className="h-96 w-full" />
       </div>
     );
   } else if (filesError) {
@@ -265,10 +269,9 @@ function DiagramClientView({
         ) : (
           <>
             {isPending && (
-              <div className="my-8 flex flex-col items-center gap-4">
-                <LoadingWave size="lg" color="#3b82f6" />
-                <div className="text-lg text-blue-700 font-medium">Generating {diagramType} diagram...</div>
-                <div className="text-sm text-gray-500">This may take a few moments</div>
+              <div className="my-8 space-y-4">
+                <Skeleton className="h-10 w-64" />
+                <Skeleton className="h-96 w-full" />
               </div>
             )}
 

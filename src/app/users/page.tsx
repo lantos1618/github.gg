@@ -5,7 +5,7 @@ import { trpc } from '@/lib/trpc/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { LoadingWave } from '@/components/LoadingWave';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Search, User, Sparkles, ArrowUpDown, ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
@@ -111,8 +111,10 @@ export default function UsersPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex justify-center items-center py-20">
-            <LoadingWave />
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-24 w-full" />
+            ))}
           </div>
         ) : paginatedProfiles.length === 0 ? (
           <Card>

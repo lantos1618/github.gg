@@ -23,8 +23,10 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Slider } from '@/components/ui/slider';
 import { RepoFile } from '@/types/repo';
 import { useCopyRepoFiles } from '@/lib/hooks/useCopyRepoFiles';
+import { useSelectedFiles } from '@/contexts/SelectedFilesContext';
 
 interface FileTreeSidebarProps {
   files: RepoFile[];
@@ -262,6 +264,7 @@ export function FileTreeSidebar({
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [copiedTree, setCopiedTree] = useState(false);
+  const { maxFileSize, setMaxFileSize } = useSelectedFiles();
 
   // Get selected files for copy all
   const selectedFileObjects = useMemo(() =>
@@ -270,6 +273,11 @@ export function FileTreeSidebar({
   );
 
   const { copyAllContent, isCopying, copied: copiedAll } = useCopyRepoFiles(selectedFileObjects);
+
+  // Count files filtered by size
+  const filesFilteredBySize = useMemo(() => {
+    return files.filter(f => (f.size || 0) > maxFileSize).length;
+  }, [files, maxFileSize]);
 
   const fileTree = useMemo(() => buildFileTree(files), [files]);
 
@@ -369,8 +377,8 @@ export function FileTreeSidebar({
             <button
               onClick={copyAllContent}
               disabled={isCopying || selectedFiles.size === 0}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Copy all selected files"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-300 rounded-md hover:bg-purple-100 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Copy all file contents for AI/LLM"
             >
               {copiedAll ? (
                 <>
@@ -380,14 +388,14 @@ export function FileTreeSidebar({
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Copy All</span>
+                  <span className="hidden sm:inline">Copy for AI</span>
                 </>
               )}
             </button>
             <button
               onClick={handleCopyFileTree}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
-              title="Copy file tree"
+              title="Copy file tree structure"
             >
               {copiedTree ? (
                 <>
@@ -397,7 +405,7 @@ export function FileTreeSidebar({
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Copy Tree</span>
+                  <span className="hidden sm:inline">Tree</span>
                 </>
               )}
             </button>
@@ -424,9 +432,30 @@ export function FileTreeSidebar({
           />
         </div>
 
+        {/* File Size Filter */}
+        <div className="mb-4 p-3 bg-white border border-gray-200 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-medium text-gray-700">Max File Size</label>
+            <span className="text-xs font-mono text-gray-600">{formatFileSize(maxFileSize)}</span>
+          </div>
+          <Slider
+            value={[maxFileSize]}
+            onValueChange={([value]) => setMaxFileSize(value)}
+            min={10240}
+            max={1048576}
+            step={10240}
+            className="w-full"
+          />
+          {filesFilteredBySize > 0 && (
+            <p className="text-xs text-orange-600 mt-2">
+              {filesFilteredBySize} file{filesFilteredBySize > 1 ? 's' : ''} hidden (too large)
+            </p>
+          )}
+        </div>
+
         {/* Stats */}
         <div className="flex items-center justify-between text-sm text-gray-600">
-          <span className="font-medium">{files.length} files</span>
+          <span className="font-medium">{files.length - filesFilteredBySize} files</span>
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
               {selectedFiles.size} selected

@@ -10,6 +10,8 @@ interface SelectedFilesContextValue {
   deselectAll: () => void;
   isFileSelected: (filePath: string) => boolean;
   selectedCount: number;
+  maxFileSize: number;
+  setMaxFileSize: (size: number) => void;
 }
 
 const SelectedFilesContext = createContext<SelectedFilesContextValue | undefined>(undefined);
@@ -21,13 +23,15 @@ interface SelectedFilesProviderProps {
 
 export function SelectedFilesProvider({ children, files = [] }: SelectedFilesProviderProps) {
   const [selectedFilePaths, setSelectedFilePaths] = useState<Set<string>>(new Set());
+  const [maxFileSize, setMaxFileSize] = useState<number>(51200); // 50kb default
 
-  // Auto-select all files when files load
+  // Auto-select files that are within size limit when files load or size changes
   useEffect(() => {
     if (files && files.length > 0) {
-      setSelectedFilePaths(new Set(files.map(f => f.path)));
+      const filteredFiles = files.filter(f => (f.size || 0) <= maxFileSize);
+      setSelectedFilePaths(new Set(filteredFiles.map(f => f.path)));
     }
-  }, [files]);
+  }, [files, maxFileSize]);
 
   const toggleFile = useCallback((filePath: string) => {
     setSelectedFilePaths(prev => {
@@ -60,6 +64,8 @@ export function SelectedFilesProvider({ children, files = [] }: SelectedFilesPro
     deselectAll,
     isFileSelected,
     selectedCount: selectedFilePaths.size,
+    maxFileSize,
+    setMaxFileSize,
   };
 
   return (

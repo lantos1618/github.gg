@@ -1,9 +1,10 @@
 "use client";
 import RepoPageLayout from "@/components/layouts/RepoPageLayout";
 import { Skeleton } from '@/components/ui/skeleton';
-import { useEffect, useState, ReactNode } from 'react';
+import { useEffect, useState, ReactNode, useMemo } from 'react';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 import { useRepoData } from '@/lib/hooks/useRepoData';
+import { useSelectedFiles } from '@/contexts/SelectedFilesContext';
 import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
 import { VersionDropdown } from '@/components/VersionDropdown';
 import { Button } from '@/components/ui/button';
@@ -95,9 +96,15 @@ export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
   const planResult = config.usePlan() as { data: { plan: string } | undefined; isLoading: boolean };
   const { data: currentPlan, isLoading: planLoading } = planResult;
   const utils = config.useUtils();
+  const { selectedFilePaths } = useSelectedFiles();
 
   // Get repo data first to access actualRef if needed
   const { files, isLoading: filesLoading, totalFiles, actualRef } = useRepoData({ user, repo, ref: refName, path });
+
+  // Filter files based on selection from context
+  const selectedFiles = useMemo(() => {
+    return files.filter(f => selectedFilePaths.has(f.path));
+  }, [files, selectedFilePaths]);
 
   // Use actualRef (after fallback) for all queries if configured
   const effectiveRef = config.useEffectiveRef ? (actualRef || refName || 'main') : (refName || 'main');
@@ -135,7 +142,7 @@ export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
         user,
         repo,
         ref: effectiveRef,
-        files: files.map((file: { path: string; content: string; size: number }) => ({
+        files: selectedFiles.map((file: { path: string; content: string; size: number }) => ({
           path: file.path,
           content: file.content,
           size: file.size,
@@ -172,7 +179,7 @@ export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
   // If repository is private, show appropriate message
   if (isPrivateRepo) {
     return (
-      <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
+      <RepoPageLayout user={user} repo={repo} refName={refName} files={selectedFiles} totalFiles={selectedFiles.length}>
         <div className="flex flex-col items-center justify-center min-h-[400px]">
           <h2 className="text-xl font-semibold text-gray-600 mb-2">Repository is Private</h2>
           <p className="text-gray-500">{config.privateRepoMessage}</p>
@@ -184,7 +191,7 @@ export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
   // If a cached analysis is available, show it
   if (analysisDataObj) {
     return (
-      <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
+      <RepoPageLayout user={user} repo={repo} refName={refName} files={selectedFiles} totalFiles={selectedFiles.length}>
         <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <VersionDropdown
@@ -276,7 +283,7 @@ export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
   // If plan is loading, show spinner
   if (planLoading || publicLoading) {
     return (
-      <RepoPageLayout user={user} repo={repo} refName={refName} files={[]} totalFiles={0}>
+      <RepoPageLayout user={user} repo={repo} refName={refName} files={selectedFiles} totalFiles={selectedFiles.length}>
         <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8 space-y-6">
           <Skeleton className="h-10 w-48" />
           <Skeleton className="h-64 w-full" />
@@ -289,7 +296,7 @@ export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
   // If user does not have a paid plan, show upgrade
   if (!canAccess) {
     return (
-      <RepoPageLayout user={user} repo={repo} refName={refName} files={[]} totalFiles={0}>
+      <RepoPageLayout user={user} repo={repo} refName={refName} files={selectedFiles} totalFiles={selectedFiles.length}>
         <div className="flex flex-col items-center justify-center min-h-[400px]">
           <SubscriptionUpgrade />
         </div>
@@ -298,7 +305,7 @@ export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
   }
 
   return (
-    <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
+    <RepoPageLayout user={user} repo={repo} refName={refName} files={selectedFiles} totalFiles={selectedFiles.length}>
       <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
         <VersionDropdown
           versions={versions}
@@ -361,7 +368,7 @@ export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
               {isLoading ? config.generatingButtonText : config.generateButtonText}
             </Button>
-            <p className="text-sm text-gray-400 mt-4">Files loaded: {files.length}</p>
+            <p className="text-sm text-gray-400 mt-4">Files selected: {selectedFiles.length} of {files.length}</p>
           </div>
         )}
       </div>

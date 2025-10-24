@@ -7,6 +7,7 @@ import { EnhancedCodeViewer } from '@/components/EnhancedCodeViewer';
 import RepoSkeleton from '@/components/RepoSkeleton';
 import { RepoStatus } from '@/components/RepoStatus';
 import { useRepoData } from '@/lib/hooks/useRepoData';
+import { useSelectedFiles } from '@/contexts/SelectedFilesContext';
 import { FolderTree } from 'lucide-react';
 
 interface RepoClientViewProps {
@@ -18,33 +19,13 @@ interface RepoClientViewProps {
 
 export default function RepoClientView({ user, repo, refName, path }: RepoClientViewProps) {
   const { files, isLoading, error } = useRepoData({ user, repo, ref: refName, path });
-  const [selectedFilePaths, setSelectedFilePaths] = useState<Set<string>>(new Set());
+  const { selectedFilePaths, toggleFile } = useSelectedFiles();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  // Auto-select all files when files load
-  React.useEffect(() => {
-    if (files && files.length > 0) {
-      setSelectedFilePaths(new Set(files.map(f => f.path)));
-    }
-  }, [files]);
 
   // Get selected file objects
   const selectedFiles = useMemo(() => {
     return files.filter(f => selectedFilePaths.has(f.path));
   }, [files, selectedFilePaths]);
-
-  // Toggle file selection
-  const handleToggleFile = (filePath: string) => {
-    setSelectedFilePaths(prev => {
-      const next = new Set(prev);
-      if (next.has(filePath)) {
-        next.delete(filePath);
-      } else {
-        next.add(filePath);
-      }
-      return next;
-    });
-  };
 
   return (
     <RepoPageLayout
@@ -75,7 +56,7 @@ export default function RepoClientView({ user, repo, refName, path }: RepoClient
               <FileTreeSidebar
                 files={files}
                 selectedFiles={selectedFilePaths}
-                onToggleFile={handleToggleFile}
+                onToggleFile={toggleFile}
                 className="h-full rounded-lg shadow-sm"
               />
             </div>
@@ -85,7 +66,7 @@ export default function RepoClientView({ user, repo, refName, path }: RepoClient
               <FileTreeSidebar
                 files={files}
                 selectedFiles={selectedFilePaths}
-                onToggleFile={handleToggleFile}
+                onToggleFile={toggleFile}
                 className="h-full rounded-lg shadow-sm"
                 isOpen={isSidebarOpen}
                 onToggle={() => setIsSidebarOpen(false)}

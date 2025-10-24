@@ -5,6 +5,7 @@ import { RepoSidebar } from '@/components/RepoSidebar';
 import { trpc } from '@/lib/trpc/client';
 import type { RepoFile } from '@/types/repo';
 import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext';
+import { SelectedFilesProvider } from '@/contexts/SelectedFilesContext';
 
 interface RepoPageLayoutProps {
   user: string;
@@ -18,6 +19,7 @@ interface RepoPageLayoutProps {
 function RepoPageLayoutContent({
   user,
   repo,
+  files,
   children,
 }: RepoPageLayoutProps) {
   const { isExpanded } = useSidebar();
@@ -34,7 +36,9 @@ function RepoPageLayoutContent({
       <RepoSidebar owner={user} repo={repo} wikiPages={wikiPages} />
 
       <div className={`min-h-screen transition-all duration-300 ${isExpanded ? 'lg:ml-64' : 'lg:ml-16'}`}>
-        {children}
+        <SelectedFilesProvider files={files}>
+          {children}
+        </SelectedFilesProvider>
       </div>
     </div>
   );

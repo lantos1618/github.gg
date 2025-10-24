@@ -80,7 +80,8 @@ interface GenericAnalysisViewProps<TResponse, TMutation> {
 // Just use tRPC's actual mutation type
 type TRPCMutation = ReturnType<typeof trpc.scorecard.generateScorecard.useMutation>;
 
-export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
+// Inner component that uses the context
+function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
   user,
   repo,
   refName,
@@ -179,20 +180,17 @@ export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
   // If repository is private, show appropriate message
   if (isPrivateRepo) {
     return (
-      <RepoPageLayout user={user} repo={repo} refName={refName} files={selectedFiles} totalFiles={selectedFiles.length}>
-        <div className="flex flex-col items-center justify-center min-h-[400px]">
-          <h2 className="text-xl font-semibold text-gray-600 mb-2">Repository is Private</h2>
-          <p className="text-gray-500">{config.privateRepoMessage}</p>
-        </div>
-      </RepoPageLayout>
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <h2 className="text-xl font-semibold text-gray-600 mb-2">Repository is Private</h2>
+        <p className="text-gray-500">{config.privateRepoMessage}</p>
+      </div>
     );
   }
 
   // If a cached analysis is available, show it
   if (analysisDataObj) {
     return (
-      <RepoPageLayout user={user} repo={repo} refName={refName} files={selectedFiles} totalFiles={selectedFiles.length}>
-        <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
+      <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <VersionDropdown
               versions={versions}
@@ -276,37 +274,31 @@ export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
             title={config.title}
           />
         </div>
-      </RepoPageLayout>
     );
   }
 
   // If plan is loading, show spinner
   if (planLoading || publicLoading) {
     return (
-      <RepoPageLayout user={user} repo={repo} refName={refName} files={selectedFiles} totalFiles={selectedFiles.length}>
-        <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8 space-y-6">
-          <Skeleton className="h-10 w-48" />
-          <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-64 w-full" />
-        </div>
-      </RepoPageLayout>
+      <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8 space-y-6">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
     );
   }
 
   // If user does not have a paid plan, show upgrade
   if (!canAccess) {
     return (
-      <RepoPageLayout user={user} repo={repo} refName={refName} files={selectedFiles} totalFiles={selectedFiles.length}>
-        <div className="flex flex-col items-center justify-center min-h-[400px]">
-          <SubscriptionUpgrade />
-        </div>
-      </RepoPageLayout>
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <SubscriptionUpgrade />
+      </div>
     );
   }
 
   return (
-    <RepoPageLayout user={user} repo={repo} refName={refName} files={selectedFiles} totalFiles={selectedFiles.length}>
-      <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
+    <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
         <VersionDropdown
           versions={versions}
           isLoading={versionsLoading}
@@ -372,6 +364,30 @@ export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
           </div>
         )}
       </div>
+  );
+}
+
+// Outer wrapper that provides context
+export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>(
+  props: GenericAnalysisViewProps<TResponse, TMutation>
+) {
+  // Fetch files to pass to provider
+  const { files } = useRepoData({
+    user: props.user,
+    repo: props.repo,
+    ref: props.refName,
+    path: props.path
+  });
+
+  return (
+    <RepoPageLayout
+      user={props.user}
+      repo={props.repo}
+      refName={props.refName}
+      files={files}
+      totalFiles={files.length}
+    >
+      <GenericAnalysisViewInner {...props} />
     </RepoPageLayout>
   );
 }

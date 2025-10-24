@@ -8,17 +8,6 @@ import { tokenUsage, repositoryWikiPages } from '@/db/schema';
 import { and, eq, desc } from 'drizzle-orm';
 import crypto from 'crypto';
 
-/**
- * Calculate a hash of file paths and contents to detect changes
- */
-function calculateFileHash(files: Array<{ path: string; content: string }>): string {
-  const content = files
-    .map(f => `${f.path}:${f.content}`)
-    .sort()
-    .join('\n');
-  return crypto.createHash('sha256').update(content).digest('hex');
-}
-
 export const wikiRouter = router({
   /**
    * Generate wiki documentation for a repository
@@ -33,7 +22,7 @@ export const wikiRouter = router({
       tokensPerChunk: z.number().optional().default(800000), // 800k tokens per chunk (1M context window)
     }))
     .mutation(async ({ input, ctx }) => {
-      const { owner, repo, maxFiles, useChunking, tokensPerChunk } = input;
+      const { owner, repo, maxFiles } = input;
       const githubService = createPublicGitHubService();
 
       try {
@@ -184,8 +173,7 @@ export const wikiRouter = router({
           console.error('Failed to log token usage for wiki generation:', dbError);
         }
 
-        // Calculate file hash for cache invalidation
-        const fileHash = calculateFileHash(files.map(f => ({ path: f.path, content: f.content })));
+        // Calculate individual file hashes for cache invalidation
         const fileHashes: Record<string, string> = {};
         files.forEach(f => {
           fileHashes[f.path] = crypto.createHash('sha256').update(f.content).digest('hex');

@@ -8,8 +8,22 @@ import { TRPCError } from '@trpc/server';
 import { createGitHubServiceFromSession } from '@/lib/github';
 import { executeAnalysisWithVersioning } from '@/lib/trpc/helpers/analysis-executor';
 
+/**
+ * AI Slop Detection Router
+ *
+ * NOTE: This router has structural similarity with scorecard.ts. That duplication is intentional!
+ *
+ * Why we don't abstract this further:
+ * - tRPC relies on static type inference - procedures must be explicitly defined
+ * - Dynamic router factories break TypeScript's ability to infer types
+ * - The "duplication" is mostly declarative configuration, not business logic
+ * - The actual business logic IS abstracted in executeAnalysisWithVersioning
+ *
+ * Remember: Some duplication is healthy when it preserves type safety and clarity.
+ * Don't fight the framework - work with tRPC's design, not against it.
+ */
 export const aiSlopRouter = router({
-  generateAISlop: protectedProcedure
+  detectAISlop: protectedProcedure
     .input(z.object({
       user: z.string(),
       repo: z.string(),

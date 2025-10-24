@@ -130,7 +130,7 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<Ana
         trpc.aiSlop.getAISlopVersions.useQuery(params),
       usePublicData: (params: { user: string; repo: string; ref: string; version?: number }) =>
         trpc.aiSlop.publicGetAISlop.useQuery(params, { enabled: !!params.user && !!params.repo }),
-      useGenerate: () => trpc.aiSlop.generateAISlop.useMutation(),
+      useGenerate: () => trpc.aiSlop.detectAISlop.useMutation(),
       extractDataField: 'analysis' as const,
       invalidateKeys: ['aiSlop', 'publicGetAISlop', 'getAISlopVersions'] as const,
     },

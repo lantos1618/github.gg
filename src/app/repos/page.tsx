@@ -21,7 +21,7 @@ export default function ReposPage() {
   const [page, setPage] = useState(0);
   const pageSize = 20;
 
-  const { data: repos, isLoading } = trpc.scorecard.getAllAnalyzedRepos.useQuery({
+  const { data: repos, isLoading } = trpc.scorecard.getAllAnalyzed.useQuery({
     limit: 200, // Fetch more for client-side sorting
     offset: 0,
   });

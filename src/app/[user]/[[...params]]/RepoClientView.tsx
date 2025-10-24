@@ -71,7 +71,7 @@ export default function RepoClientView({ user, repo, refName, path }: RepoClient
             </button>
 
             {/* File Tree Sidebar */}
-            <div className="hidden lg:block lg:w-80 flex-shrink-0">
+            <div className="hidden lg:block lg:w-80 flex-shrink-0 h-full">
               <FileTreeSidebar
                 files={files}
                 selectedFiles={selectedFilePaths}

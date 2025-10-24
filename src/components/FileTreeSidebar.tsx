@@ -352,7 +352,7 @@ export function FileTreeSidebar({
       )}
 
       <aside className={`
-        bg-white border-r border-gray-200 flex flex-col h-full
+        bg-white border-r border-gray-200 flex flex-col h-full max-h-full
         fixed lg:static inset-y-0 left-0 z-50 w-80
         transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
@@ -441,7 +441,7 @@ export function FileTreeSidebar({
       </div>
 
       {/* File List */}
-      <div className="flex-1 overflow-y-auto py-2 bg-gradient-to-b from-white to-gray-50/30" style={{ willChange: 'scroll-position' }}>
+      <div className="flex-1 overflow-y-auto py-2 bg-gradient-to-b from-white to-gray-50/30 min-h-0" style={{ willChange: 'scroll-position' }}>
         {searchTerm ? (
           filteredFiles.length === 0 ? (
             <div className="text-center py-12 text-gray-500">

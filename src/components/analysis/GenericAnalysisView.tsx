@@ -8,9 +8,10 @@ import { useSelectedFiles } from '@/contexts/SelectedFilesContext';
 import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
 import { VersionDropdown } from '@/components/VersionDropdown';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Copy } from 'lucide-react';
+import { RefreshCw, Copy, FolderTree } from 'lucide-react';
 import { toast } from 'sonner';
 import { MarkdownCardRenderer } from '@/components/MarkdownCardRenderer';
+import { FileTreeSidebar } from '@/components/FileTreeSidebar';
 
 import { trpc } from '@/lib/trpc/client';
 
@@ -92,12 +93,13 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const generateMutation = config.useGenerate() as TMutation;
   const planResult = config.usePlan() as { data: { plan: string } | undefined; isLoading: boolean };
   const { data: currentPlan, isLoading: planLoading } = planResult;
   const utils = config.useUtils();
-  const { selectedFilePaths } = useSelectedFiles();
+  const { selectedFilePaths, toggleFile } = useSelectedFiles();
 
   // Get repo data first to access actualRef if needed
   const { files, isLoading: filesLoading, totalFiles, actualRef } = useRepoData({ user, repo, ref: refName, path });
@@ -190,8 +192,42 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
   // If a cached analysis is available, show it
   if (analysisDataObj) {
     return (
-      <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+      <div className="max-w-screen-xl w-full mx-auto px-2 sm:px-4 pt-2 sm:pt-4">
+        <div className="flex gap-2 sm:gap-4 h-full">
+          {/* Mobile toggle button */}
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="lg:hidden fixed bottom-6 left-6 z-30 p-4 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+            title="Open file tree"
+          >
+            <FolderTree className="w-6 h-6" />
+          </button>
+
+          {/* File Tree Sidebar */}
+          <div className="hidden lg:block lg:w-80 flex-shrink-0 h-[calc(100vh-200px)]">
+            <FileTreeSidebar
+              files={files}
+              selectedFiles={selectedFilePaths}
+              onToggleFile={toggleFile}
+              className="h-full rounded-lg shadow-sm"
+            />
+          </div>
+
+          {/* Mobile Sidebar */}
+          <div className="lg:hidden">
+            <FileTreeSidebar
+              files={files}
+              selectedFiles={selectedFilePaths}
+              onToggleFile={toggleFile}
+              className="h-full rounded-lg shadow-sm"
+              isOpen={isSidebarOpen}
+              onToggle={() => setIsSidebarOpen(false)}
+            />
+          </div>
+
+          {/* Main Content */}
+          <div className="flex-1 overflow-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <VersionDropdown
               versions={versions}
               isLoading={versionsLoading}
@@ -273,7 +309,9 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
             markdown={analysisDataObj.markdown}
             title={config.title}
           />
+          </div>
         </div>
+      </div>
     );
   }
 
@@ -298,72 +336,108 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
   }
 
   return (
-    <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
-        <VersionDropdown
-          versions={versions}
-          isLoading={versionsLoading}
-          selectedVersion={selectedVersion}
-          onVersionChange={setSelectedVersion}
-        />
+    <div className="max-w-screen-xl w-full mx-auto px-2 sm:px-4 pt-2 sm:pt-4">
+      <div className="flex gap-2 sm:gap-4 h-full">
+        {/* Mobile toggle button */}
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="lg:hidden fixed bottom-6 left-6 z-30 p-4 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+          title="Open file tree"
+        >
+          <FolderTree className="w-6 h-6" />
+        </button>
 
-        {error && (
-          <ErrorDisplay
-            error={error}
-            isPending={generateMutation.isPending}
-            onRetry={handleRegenerate}
+        {/* File Tree Sidebar */}
+        <div className="hidden lg:block lg:w-80 flex-shrink-0 h-[calc(100vh-200px)]">
+          <FileTreeSidebar
+            files={files}
+            selectedFiles={selectedFilePaths}
+            onToggleFile={toggleFile}
+            className="h-full rounded-lg shadow-sm"
           />
-        )}
-        {overallLoading && (
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Skeleton className="h-6 w-64" />
-              <Skeleton className="h-4 w-48" />
-            </div>
-            <Skeleton className="h-64 w-full" />
-            <Skeleton className="h-64 w-full" />
-            <Skeleton className="h-48 w-full" />
-          </div>
-        )}
-        {markdownContent && (
-          <>
-            {config.showCopyButton && (
-              <div className="flex items-center justify-end mb-3">
-                <Button
-                  onClick={() => handleCopyMarkdown(markdownContent)}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                  title="Copy Markdown"
-                >
-                  <Copy className="h-4 w-4" />
-                  Copy Markdown
-                </Button>
-              </div>
-            )}
-            <MarkdownCardRenderer
-              markdown={markdownContent}
-              title={config.title}
+        </div>
+
+        {/* Mobile Sidebar */}
+        <div className="lg:hidden">
+          <FileTreeSidebar
+            files={files}
+            selectedFiles={selectedFilePaths}
+            onToggleFile={toggleFile}
+            className="h-full rounded-lg shadow-sm"
+            isOpen={isSidebarOpen}
+            onToggle={() => setIsSidebarOpen(false)}
+          />
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 overflow-auto">
+          <VersionDropdown
+            versions={versions}
+            isLoading={versionsLoading}
+            selectedVersion={selectedVersion}
+            onVersionChange={setSelectedVersion}
+          />
+
+          {error && (
+            <ErrorDisplay
+              error={error}
+              isPending={generateMutation.isPending}
+              onRetry={handleRegenerate}
             />
-          </>
-        )}
-        {!markdownContent && !overallLoading && !error && (
-          <div className="flex flex-col items-center justify-center min-h-[400px]">
-            <h2 className="text-xl font-semibold text-gray-600 mb-2">{config.noDataTitle}</h2>
-            <p className="text-gray-500 mb-6 text-center max-w-md">
-              {config.noDataDescription}
-            </p>
-            <Button
-              onClick={handleRegenerate}
-              disabled={isLoading || generateMutation.isPending || filesLoading}
-              className="flex items-center gap-2"
-              size="lg"
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-              {isLoading ? config.generatingButtonText : config.generateButtonText}
-            </Button>
-            <p className="text-sm text-gray-400 mt-4">Files selected: {selectedFiles.length} of {files.length}</p>
-          </div>
-        )}
+          )}
+          {overallLoading && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Skeleton className="h-6 w-64" />
+                <Skeleton className="h-4 w-48" />
+              </div>
+              <Skeleton className="h-64 w-full" />
+              <Skeleton className="h-64 w-full" />
+              <Skeleton className="h-48 w-full" />
+            </div>
+          )}
+          {markdownContent && (
+            <>
+              {config.showCopyButton && (
+                <div className="flex items-center justify-end mb-3">
+                  <Button
+                    onClick={() => handleCopyMarkdown(markdownContent)}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                    title="Copy Markdown"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Copy Markdown
+                  </Button>
+                </div>
+              )}
+              <MarkdownCardRenderer
+                markdown={markdownContent}
+                title={config.title}
+              />
+            </>
+          )}
+          {!markdownContent && !overallLoading && !error && (
+            <div className="flex flex-col items-center justify-center min-h-[400px]">
+              <h2 className="text-xl font-semibold text-gray-600 mb-2">{config.noDataTitle}</h2>
+              <p className="text-gray-500 mb-6 text-center max-w-md">
+                {config.noDataDescription}
+              </p>
+              <Button
+                onClick={handleRegenerate}
+                disabled={isLoading || generateMutation.isPending || filesLoading}
+                className="flex items-center gap-2"
+                size="lg"
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                {isLoading ? config.generatingButtonText : config.generateButtonText}
+              </Button>
+              <p className="text-sm text-gray-400 mt-4">Files selected: {selectedFiles.length} of {files.length}</p>
+            </div>
+          )}
+        </div>
       </div>
+    </div>
   );
 }
 

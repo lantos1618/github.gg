@@ -50,13 +50,15 @@ export async function POST(req: NextRequest) {
           console.log('Stripe subscription object:', JSON.stringify(subscription, null, 2));
 
           // Create or update user subscription
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const currentPeriodEnd = (subscription as any).current_period_end;
           await db.insert(userSubscriptions).values({
             userId,
             stripeCustomerId: subscription.customer as string,
             stripeSubscriptionId: subscription.id,
             plan,
             status: subscription.status,
-            currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+            currentPeriodEnd: new Date(currentPeriodEnd * 1000),
           }).onConflictDoUpdate({
             target: userSubscriptions.userId,
             set: {
@@ -64,7 +66,7 @@ export async function POST(req: NextRequest) {
               stripeSubscriptionId: subscription.id,
               plan,
               status: subscription.status,
-              currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+              currentPeriodEnd: new Date(currentPeriodEnd * 1000),
             }
           });
 
@@ -78,10 +80,12 @@ export async function POST(req: NextRequest) {
 
         console.log('Updating subscription:', subscription.id, 'status:', subscription.status);
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const currentPeriodEnd = (subscription as any).current_period_end;
         await db.update(userSubscriptions)
           .set({
             status: subscription.status,
-            currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+            currentPeriodEnd: new Date(currentPeriodEnd * 1000),
           })
           .where(eq(userSubscriptions.stripeSubscriptionId, subscription.id));
         break;

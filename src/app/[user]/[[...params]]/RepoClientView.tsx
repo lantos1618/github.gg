@@ -17,7 +17,8 @@ interface RepoClientViewProps {
   path?: string;
 }
 
-export default function RepoClientView({ user, repo, refName, path }: RepoClientViewProps) {
+// Inner component that uses the context
+function RepoClientViewInner({ user, repo, refName, path }: RepoClientViewProps) {
   const { files, isLoading, error } = useRepoData({ user, repo, ref: refName, path });
   const { selectedFilePaths, toggleFile } = useSelectedFiles();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -27,20 +28,16 @@ export default function RepoClientView({ user, repo, refName, path }: RepoClient
     return files.filter(f => selectedFilePaths.has(f.path));
   }, [files, selectedFilePaths]);
 
+  if (isLoading) {
+    return (
+      <div className="p-4 sm:p-8">
+        <RepoSkeleton />
+      </div>
+    );
+  }
+
   return (
-    <RepoPageLayout
-      user={user}
-      repo={repo}
-      refName={refName}
-      files={selectedFiles}
-      totalFiles={selectedFiles.length}
-    >
-      <div className="max-w-screen-xl w-full mx-auto px-2 sm:px-4 pt-2 sm:pt-4">
-        {isLoading ? (
-          <div className="p-4 sm:p-8">
-            <RepoSkeleton />
-          </div>
-        ) : (
+    <div className="max-w-screen-xl w-full mx-auto px-2 sm:px-4 pt-2 sm:pt-4">
           <div className="flex gap-2 sm:gap-4 h-[calc(100vh-200px)]">
             {/* Mobile toggle button */}
             <button
@@ -78,9 +75,30 @@ export default function RepoClientView({ user, repo, refName, path }: RepoClient
               <EnhancedCodeViewer files={selectedFiles} />
             </div>
           </div>
-        )}
-        <RepoStatus error={error ? { message: String(error) } : null} />
-      </div>
+      <RepoStatus error={error ? { message: String(error) } : null} />
+    </div>
+  );
+}
+
+// Outer wrapper that provides context
+export default function RepoClientView(props: RepoClientViewProps) {
+  // Fetch files to pass to provider
+  const { files } = useRepoData({
+    user: props.user,
+    repo: props.repo,
+    ref: props.refName,
+    path: props.path
+  });
+
+  return (
+    <RepoPageLayout
+      user={props.user}
+      repo={props.repo}
+      refName={props.refName}
+      files={files}
+      totalFiles={files.length}
+    >
+      <RepoClientViewInner {...props} />
     </RepoPageLayout>
   );
 }

@@ -1,1 +1,1 @@
-ALTER TABLE "developer_profile_cache" ADD CONSTRAINT "developer_profile_cache_username_unique" UNIQUE("username");
+-- Removed redundant unique constraint (handled by username_idx created in 0007)

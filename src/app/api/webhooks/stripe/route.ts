@@ -49,26 +49,6 @@ export async function POST(req: NextRequest) {
           // Log the subscription object for debugging
           console.log('Stripe subscription object:', JSON.stringify(subscription, null, 2));
 
-          // Calculate current_period_end from billing_cycle_anchor and plan interval
-          const billingCycleAnchor = subscription.billing_cycle_anchor;
-          const stripePlan = subscription.items?.data?.[0]?.plan;
-          
-          if (!billingCycleAnchor || !stripePlan) {
-            console.error('Stripe subscription missing billing_cycle_anchor or plan:', { billingCycleAnchor, stripePlan, subscription });
-            break;
-          }
-          
-          // Calculate current_period_end based on plan interval
-          let currentPeriodEnd: number;
-          if (stripePlan.interval === 'month') {
-            currentPeriodEnd = billingCycleAnchor + (30 * 24 * 60 * 60); // 30 days in seconds
-          } else if (stripePlan.interval === 'year') {
-            currentPeriodEnd = billingCycleAnchor + (365 * 24 * 60 * 60); // 365 days in seconds
-          } else {
-            // Default to 30 days for other intervals
-            currentPeriodEnd = billingCycleAnchor + (30 * 24 * 60 * 60);
-          }
-
           // Create or update user subscription
           await db.insert(userSubscriptions).values({
             userId,
@@ -76,7 +56,7 @@ export async function POST(req: NextRequest) {
             stripeSubscriptionId: subscription.id,
             plan,
             status: subscription.status,
-            currentPeriodEnd: new Date(currentPeriodEnd * 1000),
+            currentPeriodEnd: new Date(subscription.current_period_end * 1000),
           }).onConflictDoUpdate({
             target: userSubscriptions.userId,
             set: {
@@ -84,7 +64,7 @@ export async function POST(req: NextRequest) {
               stripeSubscriptionId: subscription.id,
               plan,
               status: subscription.status,
-              currentPeriodEnd: new Date(currentPeriodEnd * 1000),
+              currentPeriodEnd: new Date(subscription.current_period_end * 1000),
             }
           });
 
@@ -95,30 +75,13 @@ export async function POST(req: NextRequest) {
 
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
-        
+
         console.log('Updating subscription:', subscription.id, 'status:', subscription.status);
-        
-        // Calculate current_period_end from billing_cycle_anchor and plan interval
-        const billingCycleAnchor = subscription.billing_cycle_anchor;
-        const stripePlan = subscription.items?.data?.[0]?.plan;
-        
-        let currentPeriodEnd: Date | undefined;
-        if (billingCycleAnchor && stripePlan) {
-          let endTimestamp: number;
-          if (stripePlan.interval === 'month') {
-            endTimestamp = billingCycleAnchor + (30 * 24 * 60 * 60); // 30 days in seconds
-          } else if (stripePlan.interval === 'year') {
-            endTimestamp = billingCycleAnchor + (365 * 24 * 60 * 60); // 365 days in seconds
-          } else {
-            endTimestamp = billingCycleAnchor + (30 * 24 * 60 * 60); // Default to 30 days
-          }
-          currentPeriodEnd = new Date(endTimestamp * 1000);
-        }
-        
+
         await db.update(userSubscriptions)
           .set({
             status: subscription.status,
-            currentPeriodEnd,
+            currentPeriodEnd: new Date(subscription.current_period_end * 1000),
           })
           .where(eq(userSubscriptions.stripeSubscriptionId, subscription.id));
         break;

@@ -50,8 +50,8 @@ export function BattleCard({ battle }: BattleCardProps) {
                   {isPending ? battle.status.toUpperCase() : 'Completed'}
                 </Badge>
                 <span className="text-sm text-muted-foreground">
-                  {isCompleted
-                    ? new Date(battle.completedAt!).toLocaleDateString()
+                  {isCompleted && battle.completedAt
+                    ? new Date(battle.completedAt).toLocaleDateString()
                     : new Date(battle.createdAt).toLocaleDateString()
                   }
                 </span>
@@ -63,7 +63,7 @@ export function BattleCard({ battle }: BattleCardProps) {
               {isPending ? battle.status.toUpperCase().replace('_', ' ') : isWinner ? 'VICTORY' : 'DEFEAT'}
             </div>
             <div className="text-sm text-muted-foreground">
-              ELO: {isCompleted && battle.eloChange ? (battle.eloChange.challenger.change > 0 ? '+' : '') + battle.eloChange.challenger.change : isPending ? 'Calculating...' : '0'}
+              ELO: {isPending ? 'Calculating...' : (isCompleted && battle.eloChange) ? (battle.eloChange.challenger.change > 0 ? '+' : '') + battle.eloChange.challenger.change : 'N/A'}
             </div>
           </div>
         </div>

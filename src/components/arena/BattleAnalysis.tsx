@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Trophy,
   Sword,
@@ -53,10 +54,54 @@ export function BattleAnalysis() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Loading battle history...</p>
+      <div className="space-y-6">
+        {/* Header Skeleton */}
+        <div className="text-center space-y-2">
+          <Skeleton className="h-8 w-64 mx-auto" />
+          <Skeleton className="h-4 w-96 mx-auto" />
+        </div>
+
+        {/* Battle Cards Skeleton */}
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-4">
+                    <Skeleton className="h-12 w-12 rounded-lg" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-5 w-48" />
+                      <div className="flex items-center gap-4">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-20" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Skeleton className="h-6 w-20" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-8 w-28" />
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <Skeleton className="h-4 w-32 mb-2" />
+                  <div className="flex flex-wrap gap-2">
+                    <Skeleton className="h-6 w-24" />
+                    <Skeleton className="h-6 w-20" />
+                    <Skeleton className="h-6 w-28" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <Skeleton className="h-20 rounded-lg" />
+                  <Skeleton className="h-20 rounded-lg" />
+                </div>
+
+                <Skeleton className="h-10 w-full" />
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     );
@@ -103,7 +148,7 @@ export function BattleAnalysis() {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
-                            {new Date(battle.completedAt!).toLocaleDateString()}
+                            {battle.completedAt ? new Date(battle.completedAt).toLocaleDateString() : new Date(battle.createdAt).toLocaleDateString()}
                           </div>
                           <div className="flex items-center gap-1">
                             <Target className="h-3 w-3" />
@@ -121,7 +166,7 @@ export function BattleAnalysis() {
                       </Badge>
                       <div className={`flex items-center justify-end gap-1 text-sm font-semibold ${getEloChangeColor(eloChange)}`}>
                         {getEloChangeIcon(eloChange)}
-                        ELO: {eloChange > 0 ? '+' : ''}{eloChange}
+                        ELO: {eloChange !== 0 ? `${eloChange > 0 ? '+' : ''}${eloChange}` : 'N/A'}
                       </div>
                       <Button
                         variant="outline"

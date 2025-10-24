@@ -12,7 +12,7 @@
 
 # lock files
 package-lock.json
-bun.lock
+bun.lockb
 yarn.lock
 pnpm-lock.yaml
 
@@ -48,4 +48,3 @@ next-env.d.ts
 
 # docker
 docker-compose.override.yml
-example_ui_file_explorer/

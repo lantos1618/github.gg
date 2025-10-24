@@ -166,19 +166,6 @@ function DiagramClientView({
 
   // Show diagram if we have a valid cached diagram OR a newly generated diagram
   const diagramToShow = displayDiagramCode || (validDiagram?.diagramCode || '');
-  
-  // Debug logging
-  console.log('DiagramClientView Debug:', {
-    hasAccess,
-    currentPlan: currentPlan?.plan,
-    isPending,
-    error,
-    displayDiagramCode: !!displayDiagramCode,
-    repoFiles: repoFiles?.length,
-    diagramType,
-    diagramToShow: diagramToShow?.substring(0, 100) + '...',
-    editableCode: editableCode?.substring(0, 100) + '...'
-  });
 
   // If repository is private, show appropriate message
   if (isPrivateRepo) {

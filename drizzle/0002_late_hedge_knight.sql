@@ -29,7 +29,7 @@ CREATE TABLE "arena_battles" (
 --> statement-breakpoint
 CREATE TABLE "developer_rankings" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"userId" text NOT NULL,
+	"userId" text,
 	"username" text NOT NULL,
 	"elo_rating" integer DEFAULT 1200 NOT NULL,
 	"wins" integer DEFAULT 0 NOT NULL,
@@ -89,8 +89,8 @@ ALTER TABLE "tournament_participants" ADD CONSTRAINT "tournament_participants_to
 ALTER TABLE "tournament_participants" ADD CONSTRAINT "tournament_participants_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_achievements" ADD CONSTRAINT "user_achievements_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_achievements" ADD CONSTRAINT "user_achievements_achievement_id_achievements_id_fk" FOREIGN KEY ("achievement_id") REFERENCES "public"."achievements"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE UNIQUE INDEX "battle_history_idx" ON "arena_battles" USING btree ("challenger_id","opponent_id","created_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "user_ranking_idx" ON "developer_rankings" USING btree ("userId");--> statement-breakpoint
-CREATE UNIQUE INDEX "elo_rating_idx" ON "developer_rankings" USING btree ("elo_rating");--> statement-breakpoint
+CREATE INDEX "battle_history_idx" ON "arena_battles" USING btree ("challenger_id","opponent_id","created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "username_ranking_idx" ON "developer_rankings" USING btree ("username");--> statement-breakpoint
+CREATE INDEX "elo_rating_idx" ON "developer_rankings" USING btree ("elo_rating");--> statement-breakpoint
 CREATE UNIQUE INDEX "tournament_participant_idx" ON "tournament_participants" USING btree ("tournament_id","user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "user_achievement_idx" ON "user_achievements" USING btree ("user_id","achievement_id");

@@ -177,6 +177,7 @@ ALTER TABLE "user_subscriptions" ADD CONSTRAINT "user_subscriptions_userId_user_
 ALTER TABLE "verification" ADD CONSTRAINT "verification_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "provider_user_idx" ON "account" USING btree ("providerId","userId");--> statement-breakpoint
 CREATE UNIQUE INDEX "repo_identifier_idx" ON "cached_repos" USING btree ("owner","name","user_id");--> statement-breakpoint
+CREATE INDEX "public_repos_stars_idx" ON "cached_repos" USING btree ("user_id","stargazers_count");--> statement-breakpoint
 CREATE UNIQUE INDEX "username_idx" ON "developer_profile_cache" USING btree ("username");--> statement-breakpoint
 CREATE UNIQUE INDEX "insights_unique_idx" ON "insights_cache" USING btree ("user_id","repo_owner","repo_name","ref");--> statement-breakpoint
 CREATE UNIQUE INDEX "installation_repo_idx" ON "installation_repositories" USING btree ("installation_id","repository_id");--> statement-breakpoint

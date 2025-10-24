@@ -1,1 +1,1 @@
-ALTER TABLE "repository_scorecards" ALTER COLUMN "version" SET DATA TYPE integer;
+-- Note: version column kept as regular integer (not IDENTITY) for application-managed versioning

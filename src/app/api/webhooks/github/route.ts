@@ -24,17 +24,66 @@ function logWebhookError(context: string, details: Record<string, unknown>, erro
   });
 }
 
-// Background handler for PR analysis
-async function handlePRAnalysis({
-  installationId,
-  owner,
-  repo,
-  prNumber,
-  prTitle,
-  prDescription,
-  baseBranch,
-  headBranch,
+/**
+ * Higher-order function to create webhook analysis handlers
+ * Eliminates duplication in PR/commit/issue analysis handlers
+ */
+function createAnalysisHandler<TParams extends { installationId?: number; owner: string; repo: string }>({
+  featureName,
+  resourceType,
+  getResourceId,
+  checkEnabled,
+  performAnalysis,
 }: {
+  featureName: string;
+  resourceType: string;
+  getResourceId: (params: TParams) => string | number;
+  checkEnabled: (installationId: number, owner: string, repo: string) => Promise<boolean>;
+  performAnalysis: (params: TParams & { installationId: number }) => Promise<void>;
+}) {
+  return async (params: TParams) => {
+    const repoFullName = `${params.owner}/${params.repo}`;
+    const resourceId = getResourceId(params);
+
+    if (!params.installationId) {
+      console.error(`[GitHub Webhook] ERROR: No installation ID provided for ${featureName}`, {
+        repo: repoFullName,
+        [resourceType]: resourceId,
+      });
+      return;
+    }
+
+    // Check if feature is enabled for this repo
+    const isEnabled = await checkEnabled(params.installationId, params.owner, params.repo);
+    if (!isEnabled) {
+      console.log(`[GitHub Webhook] ${featureName} not enabled`, {
+        repo: repoFullName,
+        [resourceType]: resourceId,
+      });
+      return;
+    }
+
+    console.log(`[GitHub Webhook] Starting ${featureName}`, {
+      repo: repoFullName,
+      [resourceType]: resourceId,
+      installationId: params.installationId,
+    });
+
+    try {
+      await performAnalysis({ ...params, installationId: params.installationId });
+      console.log(`[GitHub Webhook] SUCCESS: ${featureName} completed`, {
+        repo: repoFullName,
+        [resourceType]: resourceId,
+      });
+    } catch (error) {
+      logWebhookError(featureName, { repo: repoFullName, [resourceType]: resourceId }, error);
+      throw error;
+    }
+  };
+}
+
+// Background handler for PR analysis
+const handlePRAnalysis = createAnalysisHandler<{
   installationId?: number;
   owner: string;
   repo: string;
@@ -43,161 +92,66 @@ async function handlePRAnalysis({
   prDescription: string;
   baseBranch: string;
   headBranch: string;
-}) {
-  const repoFullName = `${owner}/${repo}`;
-
-  if (!installationId) {
-    console.error('[GitHub Webhook] ERROR: No installation ID provided for PR analysis', {
-      repo: repoFullName,
-      prNumber,
-    });
-    return;
-  }
-
-  // Check if PR review is enabled for this repo
-  const isEnabled = await isPRReviewEnabled(installationId, owner, repo);
-  if (!isEnabled) {
-    console.log('[GitHub Webhook] PR review not enabled', { repo: repoFullName, prNumber });
-    return;
-  }
-
-  console.log('[GitHub Webhook] Starting PR analysis', {
-    repo: repoFullName,
-    prNumber,
-    installationId,
-  });
-
-  try {
+}>({
+  featureName: 'PR analysis',
+  resourceType: 'prNumber',
+  getResourceId: (params) => params.prNumber,
+  checkEnabled: isPRReviewEnabled,
+  performAnalysis: async (params) => {
     await postPRReviewComment({
-      installationId,
-      owner,
-      repo,
-      prNumber,
-      prTitle,
-      prDescription,
-      baseBranch,
-      headBranch,
+      installationId: params.installationId,
+      owner: params.owner,
+      repo: params.repo,
+      prNumber: params.prNumber,
+      prTitle: params.prTitle,
+      prDescription: params.prDescription,
+      baseBranch: params.baseBranch,
+      headBranch: params.headBranch,
     });
-    console.log('[GitHub Webhook] SUCCESS: Posted review for PR', {
-      repo: repoFullName,
-      prNumber,
-    });
-  } catch (error) {
-    logWebhookError('post review for PR', { repo: repoFullName, prNumber }, error);
-    throw error;
-  }
-}
+  },
+});
 
 // Background handler for commit analysis
-async function handleCommitAnalysis({
-  installationId,
-  owner,
-  repo,
-  commitSha,
-}: {
+const handleCommitAnalysis = createAnalysisHandler<{
   installationId?: number;
   owner: string;
   repo: string;
   commitSha: string;
-}) {
-  const repoFullName = `${owner}/${repo}`;
-  const shortSha = commitSha.slice(0, 7);
-
-  if (!installationId) {
-    console.error('[GitHub Webhook] ERROR: No installation ID provided for commit analysis', {
-      repo: repoFullName,
-      commitSha: shortSha,
-    });
-    return;
-  }
-
-  // Check if analysis is enabled for this repo
-  const isEnabled = await isAnalysisEnabled(installationId, owner, repo);
-  if (!isEnabled) {
-    console.log('[GitHub Webhook] Commit analysis not enabled', {
-      repo: repoFullName,
-      commitSha: shortSha,
-    });
-    return;
-  }
-
-  console.log('[GitHub Webhook] Starting commit analysis', {
-    repo: repoFullName,
-    commitSha: shortSha,
-    installationId,
-  });
-
-  try {
+}>({
+  featureName: 'commit analysis',
+  resourceType: 'commitSha',
+  getResourceId: (params) => params.commitSha.slice(0, 7),
+  checkEnabled: isAnalysisEnabled,
+  performAnalysis: async (params) => {
     await postCommitAnalysisComment({
-      installationId,
-      owner,
-      repo,
-      commitSha,
+      installationId: params.installationId,
+      owner: params.owner,
+      repo: params.repo,
+      commitSha: params.commitSha,
     });
-    console.log('[GitHub Webhook] SUCCESS: Posted analysis for commit', {
-      repo: repoFullName,
-      commitSha: shortSha,
-    });
-  } catch (error) {
-    logWebhookError('analyze commit', { repo: repoFullName, commitSha: shortSha }, error);
-    throw error;
-  }
-}
+  },
+});
 
 // Background handler for issue analysis
-async function handleIssueAnalysis({
-  installationId,
-  owner,
-  repo,
-  issueNumber,
-}: {
+const handleIssueAnalysis = createAnalysisHandler<{
   installationId?: number;
   owner: string;
   repo: string;
   issueNumber: number;
-}) {
-  const repoFullName = `${owner}/${repo}`;
-
-  if (!installationId) {
-    console.error('[GitHub Webhook] ERROR: No installation ID provided for issue analysis', {
-      repo: repoFullName,
-      issueNumber,
-    });
-    return;
-  }
-
-  // Check if analysis is enabled for this repo
-  const isEnabled = await isAnalysisEnabled(installationId, owner, repo);
-  if (!isEnabled) {
-    console.log('[GitHub Webhook] Issue analysis not enabled', {
-      repo: repoFullName,
-      issueNumber,
-    });
-    return;
-  }
-
-  console.log('[GitHub Webhook] Starting issue analysis', {
-    repo: repoFullName,
-    issueNumber,
-    installationId,
-  });
-
-  try {
+}>({
+  featureName: 'issue analysis',
+  resourceType: 'issueNumber',
+  getResourceId: (params) => params.issueNumber,
+  checkEnabled: isAnalysisEnabled,
+  performAnalysis: async (params) => {
     await postIssueAnalysisComment({
-      installationId,
-      owner,
-      repo,
-      issueNumber,
+      installationId: params.installationId,
+      owner: params.owner,
+      repo: params.repo,
+      issueNumber: params.issueNumber,
     });
-    console.log('[GitHub Webhook] SUCCESS: Posted analysis for issue', {
-      repo: repoFullName,
-      issueNumber,
-    });
-  } catch (error) {
-    logWebhookError('analyze issue', { repo: repoFullName, issueNumber }, error);
-    throw error;
-  }
-}
+  },
+});
 
 // Event Handlers - only register if webhooks is available
 if (webhooks) {

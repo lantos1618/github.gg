@@ -16,7 +16,7 @@ type TRPCQueryResult<TData> = { data: TData | undefined; isLoading: boolean; err
 type TRPCMutation<TInput> = { mutate: (input: TInput) => void; isPending: boolean };
 type TRPCUtils = ReturnType<typeof trpc.useUtils>;
 
-export interface ResourceDetailViewProps<TItem, TAnalysis> {
+export interface ResourceDetailViewProps<TItem, TAnalysis extends { markdown: string }> {
   // Repository info
   user: string;
   repo: string;
@@ -65,7 +65,7 @@ export interface ResourceDetailViewProps<TItem, TAnalysis> {
   renderAdditionalCards?: (item: TItem) => ReactNode;
 }
 
-export function ResourceDetailView<TItem, TAnalysis>({
+export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }>({
   user,
   repo,
   number,

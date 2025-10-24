@@ -1,5 +1,5 @@
-import ScorecardClientView from './ScorecardClientView';
-import AISlopClientView from './AISlopClientView';
+import { GenericAnalysisView } from '@/components/analysis/GenericAnalysisView';
+import { createAnalysisConfig } from '@/lib/analysis/configFactory';
 import RepoClientView from './RepoClientView';
 import DiagramClientView from './DiagramClientView';
 import PRListClientView from './PRListClientView';
@@ -78,15 +78,13 @@ export default async function Page({ params }: PageProps) {
   }
 
   if (tab === 'scorecard') {
-    return (
-      <ScorecardClientView user={user} repo={repo} refName={ref} path={path} />
-    );
+    const config = createAnalysisConfig('scorecard');
+    return <GenericAnalysisView user={user} repo={repo} refName={ref} path={path} config={config} />;
   }
 
   if (tab === 'ai-slop') {
-    return (
-      <AISlopClientView user={user} repo={repo} refName={ref} path={path} />
-    );
+    const config = createAnalysisConfig('ai-slop');
+    return <GenericAnalysisView user={user} repo={repo} refName={ref} path={path} config={config} />;
   }
 
   if (tab === 'diagram') {
@@ -95,81 +93,49 @@ export default async function Page({ params }: PageProps) {
     );
   }
 
-  if (tab === 'dependencies') {
-    return (
-      <ComingSoon
-        user={user}
-        repo={repo}
-        refName={ref}
-        path={path}
-        title="Dependencies"
-        description="Dependency analysis and visualization coming soon."
-        iconName="GitBranch"
-        iconColor="text-blue-600"
-        showContributeSection={true}
-      />
-    );
-  }
+  // Coming Soon features configuration
+  const COMING_SOON_FEATURES = {
+    'dependencies': {
+      title: 'Dependencies',
+      description: 'Dependency analysis and visualization coming soon.',
+      iconName: 'GitBranch' as const,
+      iconColor: 'text-blue-600',
+    },
+    'architecture': {
+      title: 'Architecture',
+      description: 'Architecture diagrams and analysis coming soon.',
+      iconName: 'Box' as const,
+      iconColor: 'text-purple-600',
+    },
+    'components': {
+      title: 'Components',
+      description: 'Component hierarchy and relationships coming soon.',
+      iconName: 'Boxes' as const,
+      iconColor: 'text-green-600',
+    },
+    'data-flow': {
+      title: 'Data Flow',
+      description: 'Data flow analysis and visualization coming soon.',
+      iconName: 'Workflow' as const,
+      iconColor: 'text-orange-600',
+    },
+    'automations': {
+      title: 'Automations',
+      description: 'Automation workflows and CI/CD analysis coming soon.',
+      iconName: 'Cog' as const,
+      iconColor: 'text-gray-600',
+    },
+  } as const;
 
-  if (tab === 'architecture') {
+  const comingSoonConfig = COMING_SOON_FEATURES[tab as keyof typeof COMING_SOON_FEATURES];
+  if (comingSoonConfig) {
     return (
       <ComingSoon
         user={user}
         repo={repo}
         refName={ref}
         path={path}
-        title="Architecture"
-        description="Architecture diagrams and analysis coming soon."
-        iconName="Box"
-        iconColor="text-purple-600"
-        showContributeSection={true}
-      />
-    );
-  }
-
-  if (tab === 'components') {
-    return (
-      <ComingSoon
-        user={user}
-        repo={repo}
-        refName={ref}
-        path={path}
-        title="Components"
-        description="Component hierarchy and relationships coming soon."
-        iconName="Boxes"
-        iconColor="text-green-600"
-        showContributeSection={true}
-      />
-    );
-  }
-
-  if (tab === 'data-flow') {
-    return (
-      <ComingSoon
-        user={user}
-        repo={repo}
-        refName={ref}
-        path={path}
-        title="Data Flow"
-        description="Data flow analysis and visualization coming soon."
-        iconName="Workflow"
-        iconColor="text-orange-600"
-        showContributeSection={true}
-      />
-    );
-  }
-
-  if (tab === 'automations') {
-    return (
-      <ComingSoon
-        user={user}
-        repo={repo}
-        refName={ref}
-        path={path}
-        title="Automations"
-        description="Automation workflows and CI/CD analysis coming soon."
-        iconName="Cog"
-        iconColor="text-gray-600"
+        {...comingSoonConfig}
         showContributeSection={true}
       />
     );

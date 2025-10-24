@@ -152,7 +152,10 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<Ana
 
     // Data extractors
     extractAnalysisData: (response: AnalysisResponse | undefined): AnalysisData | null => {
-      const data = response?.[router.extractDataField];
+      if (!response) return null;
+      const data = type === 'scorecard'
+        ? (response as ScorecardResponse).scorecard
+        : (response as AISlopResponse).analysis;
       if (!data) return null;
 
       return {
@@ -168,8 +171,10 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<Ana
     },
 
     // Mutation handlers
-    onMutationSuccess: (data: Record<string, unknown>, setData: (data: string) => void, utils: TRPCUtils) => {
-      const analysisData = data[router.extractDataField] as AnalysisData;
+    onMutationSuccess: (data: unknown, setData: (data: string) => void, utils: TRPCUtils) => {
+      const analysisData = type === 'scorecard'
+        ? (data as { scorecard: AnalysisData }).scorecard
+        : (data as { analysis: AnalysisData }).analysis;
       setData(analysisData.markdown);
       // Invalidate based on type
       const [router1, endpoint1, endpoint2] = router.invalidateKeys;

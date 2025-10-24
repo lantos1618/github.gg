@@ -45,17 +45,11 @@ export interface AnalysisViewConfig<TResponse, TMutation> {
   loadingMessage: string;
   generatingMessage: string;
 
-  // TRPC hooks
-  useVersions: (params: { user: string; repo: string; ref: string }) => {
-    data: Array<{ version: number; updatedAt: string }> | undefined;
-    isLoading: boolean;
-  };
-  usePublicData: (params: { user: string; repo: string; ref: string; version?: number }) => {
-    data: TResponse | undefined;
-    isLoading: boolean;
-  };
-  useGenerate: () => TMutation;
-  usePlan: () => { data: { plan: string } | undefined; isLoading: boolean };
+  // TRPC hooks - accept full tRPC result types
+  useVersions: (params: { user: string; repo: string; ref: string }) => unknown;
+  usePublicData: (params: { user: string; repo: string; ref: string; version?: number }) => unknown;
+  useGenerate: () => unknown;
+  usePlan: () => unknown;
   useUtils: () => TRPCUtils;
 
   // Data extractors
@@ -97,8 +91,9 @@ export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
   const [error, setError] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
 
-  const generateMutation = config.useGenerate();
-  const { data: currentPlan, isLoading: planLoading } = config.usePlan();
+  const generateMutation = config.useGenerate() as TMutation;
+  const planResult = config.usePlan() as { data: { plan: string } | undefined; isLoading: boolean };
+  const { data: currentPlan, isLoading: planLoading } = planResult;
   const utils = config.useUtils();
 
   // Get repo data first to access actualRef if needed
@@ -107,14 +102,16 @@ export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
   // Use actualRef (after fallback) for all queries if configured
   const effectiveRef = config.useEffectiveRef ? (actualRef || refName || 'main') : (refName || 'main');
 
-  const { data: versions, isLoading: versionsLoading } = config.useVersions({ user, repo, ref: effectiveRef });
+  const versionsResult = config.useVersions({ user, repo, ref: effectiveRef }) as { data: Array<{ version: number; updatedAt: string }> | undefined; isLoading: boolean };
+  const { data: versions, isLoading: versionsLoading } = versionsResult;
 
   // Use the public endpoint for cached data (latest or by version)
-  const { data: publicData, isLoading: publicLoading } = config.usePublicData(
+  const publicResult = config.usePublicData(
     selectedVersion
       ? { user, repo, ref: effectiveRef, version: selectedVersion }
       : { user, repo, ref: effectiveRef }
-  );
+  ) as { data: TResponse | undefined; isLoading: boolean };
+  const { data: publicData, isLoading: publicLoading } = publicResult;
 
   // Extract analysis data and metadata
   const analysisDataObj = config.extractAnalysisData(publicData);
@@ -145,11 +142,11 @@ export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
         })),
       },
       {
-        onSuccess: (data: Record<string, unknown>) => {
+        onSuccess: (data: unknown) => {
           config.onMutationSuccess(data, setAnalysisData, utils);
           setIsLoading(false);
         },
-        onError: (err: Error) => {
+        onError: (err: { message: string }) => {
           config.onMutationError(err, setError);
           setIsLoading(false);
         },

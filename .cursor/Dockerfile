@@ -1,11 +1,7 @@
 # Use Ubuntu as base image
 FROM ubuntu:22.04
 
-# Install Node.js LTS
-RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
-    && apt-get install -y nodejs
-
-# Install Bun LTS
+# Install Bun LTS (includes JavaScript runtime)
 RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:$PATH"
 

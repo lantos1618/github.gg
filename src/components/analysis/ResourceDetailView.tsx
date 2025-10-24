@@ -9,6 +9,12 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { MarkdownCardRenderer } from '@/components/MarkdownCardRenderer';
 import RepoPageLayout from '@/components/layouts/RepoPageLayout';
+import { trpc } from '@/lib/trpc/client';
+
+// Use tRPC's actual types - don't reinvent them
+type TRPCQueryResult<TData> = { data: TData | undefined; isLoading: boolean; error: { message: string } | null };
+type TRPCMutation<TInput> = { mutate: (input: TInput) => void; isPending: boolean };
+type TRPCUtils = ReturnType<typeof trpc.useUtils>;
 
 export interface ResourceDetailViewProps<TItem, TAnalysis> {
   // Repository info
@@ -16,15 +22,29 @@ export interface ResourceDetailViewProps<TItem, TAnalysis> {
   repo: string;
   number: number;
 
-  // TRPC hooks (matches TRPC's actual signature)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  useGetDetails: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  useGetCachedAnalysis: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  useAnalyze: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  utils: any;
+  // TRPC hooks
+  useGetDetails: (input: {
+    owner: string;
+    repo: string;
+    number: number;
+  }) => TRPCQueryResult<TItem>;
+
+  useGetCachedAnalysis: (input: {
+    owner: string;
+    repo: string;
+    number: number;
+  }) => TRPCQueryResult<TAnalysis>;
+
+  useAnalyze: (config: {
+    onSuccess: () => void;
+    onError: (error: { message: string }) => void;
+  }) => TRPCMutation<{
+    owner: string;
+    repo: string;
+    number: number;
+  }>;
+
+  utils: TRPCUtils;
 
   // Display configuration
   resourceType: string; // "pull request" or "issue"
@@ -83,7 +103,7 @@ export function ResourceDetailView<TItem, TAnalysis>({
       toast.success(`${resourceType.charAt(0).toUpperCase() + resourceType.slice(1)} analysis complete!`);
       utils.invalidate();
     },
-    onError: (err: Error) => {
+    onError: (err) => {
       toast.error(`Analysis failed: ${err.message}`);
     },
   });

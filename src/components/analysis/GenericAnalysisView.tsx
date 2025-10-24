@@ -11,6 +11,11 @@ import { RefreshCw, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { MarkdownCardRenderer } from '@/components/MarkdownCardRenderer';
 
+import { trpc } from '@/lib/trpc/client';
+
+// Use tRPC's actual types - don't reinvent the wheel
+type TRPCUtils = ReturnType<typeof trpc.useUtils>;
+
 // Type for metrics (compatible with both Scorecard and AI Slop)
 interface Metric {
   metric: string;
@@ -51,18 +56,15 @@ export interface AnalysisViewConfig<TResponse, TMutation> {
   };
   useGenerate: () => TMutation;
   usePlan: () => { data: { plan: string } | undefined; isLoading: boolean };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  useUtils: () => any;
+  useUtils: () => TRPCUtils;
 
   // Data extractors
   extractAnalysisData: (response: TResponse | undefined) => AnalysisData | null;
   extractError: (response: TResponse | undefined) => string | null;
 
-  // Mutation handlers
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onMutationSuccess: (data: any, setData: (data: string) => void, utils: any) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onMutationError: (err: any, setError: (error: string) => void) => void;
+  // Mutation handlers - use tRPC's actual error type
+  onMutationSuccess: <TData>(data: TData, setData: (data: string) => void, utils: TRPCUtils) => void;
+  onMutationError: (err: { message: string }, setError: (error: string) => void) => void;
 
   // Optional customizations
   showCopyButton?: boolean;
@@ -80,8 +82,10 @@ interface GenericAnalysisViewProps<TResponse, TMutation> {
   config: AnalysisViewConfig<TResponse, TMutation>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function GenericAnalysisView<TResponse, TMutation extends { mutate: any; isPending: boolean }>({
+// Just use tRPC's actual mutation type
+type TRPCMutation = ReturnType<typeof trpc.scorecard.generateScorecard.useMutation>;
+
+export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>({
   user,
   repo,
   refName,
@@ -141,13 +145,11 @@ export function GenericAnalysisView<TResponse, TMutation extends { mutate: any; 
         })),
       },
       {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onSuccess: (data: any) => {
+        onSuccess: (data: Record<string, unknown>) => {
           config.onMutationSuccess(data, setAnalysisData, utils);
           setIsLoading(false);
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onError: (err: any) => {
+        onError: (err: Error) => {
           config.onMutationError(err, setError);
           setIsLoading(false);
         },

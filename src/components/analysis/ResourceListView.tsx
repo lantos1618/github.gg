@@ -7,14 +7,24 @@ import { Search, AlertCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import RepoPageLayout from '@/components/layouts/RepoPageLayout';
 
+// Simple type for the useQuery hook - just what we need
+type UseQueryHook<TItem> = (input: {
+  owner: string;
+  repo: string;
+  state: 'open' | 'closed' | 'all';
+}) => {
+  data: TItem[] | undefined;
+  isLoading: boolean;
+  error: { message: string } | null;
+};
+
 export interface ResourceListViewProps<TItem> {
   // Repository info
   user: string;
   repo: string;
 
-  // TRPC query hook (matches TRPC's actual signature)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  useQuery: any;
+  // TRPC query hook
+  useQuery: UseQueryHook<TItem>;
 
   // Display configuration
   title: string;

@@ -1,14 +1,13 @@
 import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
-import { repositoryScorecards, tokenUsage } from '@/db/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { repositoryScorecards } from '@/db/schema';
+import { eq, and, desc } from 'drizzle-orm';
 import { generateScorecardAnalysis } from '@/lib/ai/scorecard';
-import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
 import { scorecardSchema } from '@/lib/types/scorecard';
-import { isPgErrorWithCode } from '@/lib/db/utils';
 import { createGitHubServiceFromSession } from '@/lib/github';
+import { executeAnalysisWithVersioning } from '@/lib/trpc/helpers/analysis-executor';
 
 export const scorecardRouter = router({
   generateScorecard: protectedProcedure
@@ -23,121 +22,54 @@ export const scorecardRouter = router({
       })),
     }))
     .mutation(async ({ input, ctx }) => {
-      const { repo, files } = input;
-      
-      // Check for active subscription
-      const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
-      if (!subscription || subscription.status !== 'active') {
-        throw new TRPCError({ 
-          code: 'FORBIDDEN', 
-          message: 'Active subscription required for AI features' 
-        });
-      }
-      
-      // Get appropriate API key
-      const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
-      if (!keyInfo) {
-        throw new TRPCError({ 
-          code: 'FORBIDDEN', 
-          message: 'Please add your Gemini API key in settings to use this feature' 
-        });
-      }
-      
       try {
-        // Generate scorecard using the AI service
-        const result = await generateScorecardAnalysis({
-          files,
-          repoName: repo,
-        });
-        
-        // The AI result is already in the structured format we want
-        const scorecardData = scorecardSchema.parse(result.scorecard);
-        
-        // Per-group versioning: get max version for this group, then insert with version = max + 1, retry on conflict
-        let insertedScorecard = null;
-        let attempt = 0;
-        while (!insertedScorecard && attempt < 5) {
-          attempt++;
-          // 1. Get current max version for this group
-          const maxVersionResult = await db
-            .select({ max: sql`MAX(version)` })
-            .from(repositoryScorecards)
-            .where(
-              and(
-                eq(repositoryScorecards.userId, ctx.user.id),
-                eq(repositoryScorecards.repoOwner, input.user),
-                eq(repositoryScorecards.repoName, input.repo),
-                eq(repositoryScorecards.ref, input.ref || 'main')
-              )
-            );
-          const rawMax = maxVersionResult[0]?.max;
-          const maxVersion = typeof rawMax === 'number' ? rawMax : Number(rawMax) || 0;
-          const nextVersion = maxVersion + 1;
-
-          try {
-            // 2. Try insert
-            const [result] = await db
-              .insert(repositoryScorecards)
-              .values({
-                userId: ctx.user.id,
-                repoOwner: input.user,
-                repoName: input.repo,
-                ref: input.ref || 'main',
-                version: nextVersion,
-                overallScore: scorecardData.overallScore,
-                metrics: scorecardData.metrics,
-                markdown: scorecardData.markdown,
-                updatedAt: new Date(),
-              })
-              .onConflictDoNothing()
-              .returning();
-            if (result) {
-              insertedScorecard = result;
-            }
-          } catch (e: unknown) {
-            // If unique constraint violation, retry
-            if (isPgErrorWithCode(e) && e.code === '23505') {
-              // Unique constraint violation, retry
-              continue;
-            }
-            throw e;
-          }
-        }
-        if (!insertedScorecard) {
-          throw new Error('Failed to insert scorecard after multiple attempts');
-        }
-
-        // Log token usage with actual values from AI response
-        await db.insert(tokenUsage).values({
+        const { insertedRecord } = await executeAnalysisWithVersioning({
           userId: ctx.user.id,
           feature: 'scorecard',
           repoOwner: input.user,
           repoName: input.repo,
-          model: 'gemini-2.5-pro', // Default model used
-          inputTokens: result.usage.inputTokens,
-          outputTokens: result.usage.outputTokens,
-          totalTokens: result.usage.totalTokens,
-          isByok: keyInfo.isByok,
-          createdAt: new Date(),
+          table: repositoryScorecards,
+          generateFn: async () => {
+            const result = await generateScorecardAnalysis({
+              files: input.files,
+              repoName: input.repo,
+            });
+            return {
+              data: scorecardSchema.parse(result.scorecard),
+              usage: result.usage,
+            };
+          },
+          versioningConditions: [
+            eq(repositoryScorecards.userId, ctx.user.id),
+            eq(repositoryScorecards.repoOwner, input.user),
+            eq(repositoryScorecards.repoName, input.repo),
+            eq(repositoryScorecards.ref, input.ref || 'main'),
+          ],
+          buildInsertValues: (data, version) => ({
+            userId: ctx.user.id,
+            repoOwner: input.user,
+            repoName: input.repo,
+            ref: input.ref || 'main',
+            version,
+            overallScore: data.overallScore,
+            metrics: data.metrics,
+            markdown: data.markdown,
+            updatedAt: new Date(),
+          }),
         });
 
-        // Return the inserted scorecard
         return {
           scorecard: {
-            metrics: insertedScorecard.metrics,
-            markdown: insertedScorecard.markdown,
-            overallScore: insertedScorecard.overallScore,
+            metrics: insertedRecord.metrics,
+            markdown: insertedRecord.markdown,
+            overallScore: insertedRecord.overallScore,
           },
           cached: false,
           stale: false,
-          lastUpdated: insertedScorecard.updatedAt || new Date(),
+          lastUpdated: insertedRecord.updatedAt || new Date(),
         };
       } catch (error) {
         console.error('🔥 Raw error in scorecard route:', error);
-        console.error('🔥 Error type:', typeof error);
-        console.error('🔥 Error message:', error instanceof Error ? error.message : 'No message');
-        console.error('🔥 Error stack:', error instanceof Error ? error.stack : 'No stack');
-        
         const userFriendlyMessage = error instanceof Error ? error.message : 'Failed to generate repository scorecard';
         throw new Error(userFriendlyMessage);
       }

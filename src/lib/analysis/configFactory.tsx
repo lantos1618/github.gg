@@ -4,6 +4,22 @@ import { isTRPCError } from '@/lib/utils';
 
 export type AnalysisType = 'scorecard' | 'ai-slop';
 
+// Type for TRPC utils
+type TRPCUtils = ReturnType<typeof trpc.useUtils>;
+
+// Response types for different analysis endpoints
+type ScorecardResponse = {
+  scorecard?: AnalysisData;
+  error?: string;
+};
+
+type AISlopResponse = {
+  analysis?: AnalysisData;
+  error?: string;
+};
+
+type AnalysisResponse = ScorecardResponse | AISlopResponse;
+
 interface AnalysisTypeConfig {
   title: string;
   noDataTitle: string;
@@ -96,8 +112,7 @@ const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisTypeConfig> = {
  * Factory function to create analysis view configs
  * Eliminates duplication between different analysis types (scorecard, ai-slop, etc.)
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<any, any> {
+export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<AnalysisResponse, ReturnType<typeof trpc.scorecard.generateScorecard.useMutation>> {
   const typeConfig = ANALYSIS_CONFIGS[type];
 
   // Map type to TRPC router endpoints
@@ -108,8 +123,8 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<any
       usePublicData: (params: { user: string; repo: string; ref: string; version?: number }) =>
         trpc.scorecard.publicGetScorecard.useQuery(params, { enabled: !!params.user && !!params.repo }),
       useGenerate: () => trpc.scorecard.generateScorecard.useMutation(),
-      extractDataField: 'scorecard',
-      invalidateKeys: ['scorecard', 'publicGetScorecard', 'getScorecardVersions'],
+      extractDataField: 'scorecard' as const,
+      invalidateKeys: ['scorecard', 'publicGetScorecard', 'getScorecardVersions'] as const,
     },
     'ai-slop': {
       useVersions: (params: { user: string; repo: string; ref: string }) =>
@@ -117,8 +132,8 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<any
       usePublicData: (params: { user: string; repo: string; ref: string; version?: number }) =>
         trpc.aiSlop.publicGetAISlop.useQuery(params, { enabled: !!params.user && !!params.repo }),
       useGenerate: () => trpc.aiSlop.generateAISlop.useMutation(),
-      extractDataField: 'analysis',
-      invalidateKeys: ['aiSlop', 'publicGetAISlop', 'getAISlopVersions'],
+      extractDataField: 'analysis' as const,
+      invalidateKeys: ['aiSlop', 'publicGetAISlop', 'getAISlopVersions'] as const,
     },
   };
 
@@ -136,10 +151,8 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<any
     useUtils: () => trpc.useUtils(),
 
     // Data extractors
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    extractAnalysisData: (response: any): AnalysisData | null => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const data = (response as any)?.[router.extractDataField];
+    extractAnalysisData: (response: AnalysisResponse | undefined): AnalysisData | null => {
+      const data = response?.[router.extractDataField];
       if (!data) return null;
 
       return {
@@ -150,27 +163,24 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<any
         detectedPatterns: data.detectedPatterns,
       };
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    extractError: (response: any) => {
-      return (response as { error?: string })?.error || null;
+    extractError: (response: AnalysisResponse | undefined) => {
+      return response?.error || null;
     },
 
     // Mutation handlers
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onMutationSuccess: (data: any, setData: (data: string) => void, utils: any) => {
-      setData(data[router.extractDataField].markdown);
+    onMutationSuccess: (data: Record<string, unknown>, setData: (data: string) => void, utils: TRPCUtils) => {
+      const analysisData = data[router.extractDataField] as AnalysisData;
+      setData(analysisData.markdown);
       // Invalidate based on type
       const [router1, endpoint1, endpoint2] = router.invalidateKeys;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (utils as any)[router1][endpoint1].invalidate();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (utils as any)[router1][endpoint2].invalidate();
+      const routerUtils = utils[router1 as keyof typeof utils] as Record<string, { invalidate: () => void }>;
+      routerUtils[endpoint1].invalidate();
+      routerUtils[endpoint2].invalidate();
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onMutationError: (err: any, setError: (error: string) => void) => {
+    onMutationError: (err: { message: string }, setError: (error: string) => void) => {
       if (typeof err === 'string') {
         setError(err);
-      } else if (isTRPCError(err)) {
+      } else if (err.message) {
         setError(err.message);
       } else {
         setError(typeConfig.errorMessage);

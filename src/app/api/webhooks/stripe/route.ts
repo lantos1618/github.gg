@@ -13,6 +13,15 @@ const stripe = process.env.STRIPE_SECRET_KEY
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
+// Helper to safely extract subscription period end
+function getSubscriptionPeriodEnd(subscription: Stripe.Subscription): Date {
+  // Stripe subscriptions have current_period_end as a Unix timestamp
+  const periodEnd = 'current_period_end' in subscription
+    ? (subscription as Stripe.Subscription & { current_period_end: number }).current_period_end
+    : Math.floor(Date.now() / 1000);
+  return new Date(periodEnd * 1000);
+}
+
 export async function POST(req: NextRequest) {
   if (!stripe || !webhookSecret) {
     console.log('Stripe not configured - ignoring webhook');
@@ -50,15 +59,14 @@ export async function POST(req: NextRequest) {
           console.log('Stripe subscription object:', JSON.stringify(subscription, null, 2));
 
           // Create or update user subscription
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const currentPeriodEnd = (subscription as any).current_period_end;
+          const periodEnd = getSubscriptionPeriodEnd(subscription);
           await db.insert(userSubscriptions).values({
             userId,
             stripeCustomerId: subscription.customer as string,
             stripeSubscriptionId: subscription.id,
             plan,
             status: subscription.status,
-            currentPeriodEnd: new Date(currentPeriodEnd * 1000),
+            currentPeriodEnd: periodEnd,
           }).onConflictDoUpdate({
             target: userSubscriptions.userId,
             set: {
@@ -66,7 +74,7 @@ export async function POST(req: NextRequest) {
               stripeSubscriptionId: subscription.id,
               plan,
               status: subscription.status,
-              currentPeriodEnd: new Date(currentPeriodEnd * 1000),
+              currentPeriodEnd: periodEnd,
             }
           });
 
@@ -80,12 +88,10 @@ export async function POST(req: NextRequest) {
 
         console.log('Updating subscription:', subscription.id, 'status:', subscription.status);
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const currentPeriodEnd = (subscription as any).current_period_end;
         await db.update(userSubscriptions)
           .set({
             status: subscription.status,
-            currentPeriodEnd: new Date(currentPeriodEnd * 1000),
+            currentPeriodEnd: getSubscriptionPeriodEnd(subscription),
           })
           .where(eq(userSubscriptions.stripeSubscriptionId, subscription.id));
         break;

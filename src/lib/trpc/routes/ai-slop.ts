@@ -1,13 +1,12 @@
 import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
-import { aiSlopAnalyses, tokenUsage } from '@/db/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { aiSlopAnalyses } from '@/db/schema';
+import { eq, and, desc } from 'drizzle-orm';
 import { generateAISlopAnalysis, aiSlopSchema } from '@/lib/ai/ai-slop';
-import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
-import { isPgErrorWithCode } from '@/lib/db/utils';
 import { createGitHubServiceFromSession } from '@/lib/github';
+import { executeAnalysisWithVersioning } from '@/lib/trpc/helpers/analysis-executor';
 
 export const aiSlopRouter = router({
   generateAISlop: protectedProcedure
@@ -22,125 +21,58 @@ export const aiSlopRouter = router({
       })),
     }))
     .mutation(async ({ input, ctx }) => {
-      const { repo, files } = input;
-
-      // Check for active subscription
-      const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
-      if (!subscription || subscription.status !== 'active') {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'Active subscription required for AI features'
-        });
-      }
-
-      // Get appropriate API key
-      const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
-      if (!keyInfo) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'Please add your Gemini API key in settings to use this feature'
-        });
-      }
-
       try {
-        // Generate AI slop analysis using the AI service
-        const result = await generateAISlopAnalysis({
-          files,
-          repoName: repo,
-        });
-
-        // Parse and validate the AI result
-        const analysisData = aiSlopSchema.parse(result.analysis);
-
-        // Per-group versioning: get max version for this group, then insert with version = max + 1, retry on conflict
-        let insertedAnalysis = null;
-        let attempt = 0;
-        while (!insertedAnalysis && attempt < 5) {
-          attempt++;
-          // 1. Get current max version for this group
-          const maxVersionResult = await db
-            .select({ max: sql`MAX(version)` })
-            .from(aiSlopAnalyses)
-            .where(
-              and(
-                eq(aiSlopAnalyses.userId, ctx.user.id),
-                eq(aiSlopAnalyses.repoOwner, input.user),
-                eq(aiSlopAnalyses.repoName, input.repo),
-                eq(aiSlopAnalyses.ref, input.ref || 'main')
-              )
-            );
-          const rawMax = maxVersionResult[0]?.max;
-          const maxVersion = typeof rawMax === 'number' ? rawMax : Number(rawMax) || 0;
-          const nextVersion = maxVersion + 1;
-
-          try {
-            // 2. Try insert
-            const [result] = await db
-              .insert(aiSlopAnalyses)
-              .values({
-                userId: ctx.user.id,
-                repoOwner: input.user,
-                repoName: input.repo,
-                ref: input.ref || 'main',
-                version: nextVersion,
-                overallScore: analysisData.overallScore,
-                aiGeneratedPercentage: analysisData.aiGeneratedPercentage,
-                detectedPatterns: analysisData.detectedPatterns,
-                metrics: analysisData.metrics,
-                markdown: analysisData.markdown,
-                updatedAt: new Date(),
-              })
-              .onConflictDoNothing()
-              .returning();
-            if (result) {
-              insertedAnalysis = result;
-            }
-          } catch (e: unknown) {
-            // If unique constraint violation, retry
-            if (isPgErrorWithCode(e) && e.code === '23505') {
-              // Unique constraint violation, retry
-              continue;
-            }
-            throw e;
-          }
-        }
-        if (!insertedAnalysis) {
-          throw new Error('Failed to insert AI slop analysis after multiple attempts');
-        }
-
-        // Log token usage with actual values from AI response
-        await db.insert(tokenUsage).values({
+        const { insertedRecord } = await executeAnalysisWithVersioning({
           userId: ctx.user.id,
           feature: 'ai-slop',
           repoOwner: input.user,
           repoName: input.repo,
-          model: 'gemini-2.5-pro',
-          inputTokens: result.usage.inputTokens,
-          outputTokens: result.usage.outputTokens,
-          totalTokens: result.usage.totalTokens,
-          isByok: keyInfo.isByok,
-          createdAt: new Date(),
+          table: aiSlopAnalyses,
+          generateFn: async () => {
+            const result = await generateAISlopAnalysis({
+              files: input.files,
+              repoName: input.repo,
+            });
+            return {
+              data: aiSlopSchema.parse(result.analysis),
+              usage: result.usage,
+            };
+          },
+          versioningConditions: [
+            eq(aiSlopAnalyses.userId, ctx.user.id),
+            eq(aiSlopAnalyses.repoOwner, input.user),
+            eq(aiSlopAnalyses.repoName, input.repo),
+            eq(aiSlopAnalyses.ref, input.ref || 'main'),
+          ],
+          buildInsertValues: (data, version) => ({
+            userId: ctx.user.id,
+            repoOwner: input.user,
+            repoName: input.repo,
+            ref: input.ref || 'main',
+            version,
+            overallScore: data.overallScore,
+            aiGeneratedPercentage: data.aiGeneratedPercentage,
+            detectedPatterns: data.detectedPatterns,
+            metrics: data.metrics,
+            markdown: data.markdown,
+            updatedAt: new Date(),
+          }),
         });
 
-        // Return the inserted analysis
         return {
           analysis: {
-            metrics: insertedAnalysis.metrics,
-            markdown: insertedAnalysis.markdown,
-            overallScore: insertedAnalysis.overallScore,
-            aiGeneratedPercentage: insertedAnalysis.aiGeneratedPercentage,
-            detectedPatterns: insertedAnalysis.detectedPatterns,
+            metrics: insertedRecord.metrics,
+            markdown: insertedRecord.markdown,
+            overallScore: insertedRecord.overallScore,
+            aiGeneratedPercentage: insertedRecord.aiGeneratedPercentage,
+            detectedPatterns: insertedRecord.detectedPatterns,
           },
           cached: false,
           stale: false,
-          lastUpdated: insertedAnalysis.updatedAt || new Date(),
+          lastUpdated: insertedRecord.updatedAt || new Date(),
         };
       } catch (error) {
         console.error('🔥 Raw error in AI slop route:', error);
-        console.error('🔥 Error type:', typeof error);
-        console.error('🔥 Error message:', error instanceof Error ? error.message : 'No message');
-        console.error('🔥 Error stack:', error instanceof Error ? error.stack : 'No stack');
-
         const userFriendlyMessage = error instanceof Error ? error.message : 'Failed to generate AI slop analysis';
         throw new Error(userFriendlyMessage);
       }

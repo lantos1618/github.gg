@@ -178,57 +178,18 @@ github.gg/
 
 ### Available Scripts
 
+See [`package.json`](./package.json) for all available scripts. Common commands:
+
 ```bash
-# Development
 bun dev                  # Start development server
-bun build               # Build for production
-bun start               # Start production server
-
-# Database
 bun run db:start        # Start PostgreSQL with Docker
-bun run db:stop         # Stop PostgreSQL
-bun run db:reset        # Reset database (⚠️ destructive)
 bun run db:studio       # Open Drizzle Studio
-bun run db:generate     # Generate new migration
-bun run db:push         # Apply migrations
-
-# Testing
-bun test                # Run all tests
-bun test:watch          # Run tests in watch mode
-
-# Code Quality
-bun run lint            # Run ESLint
-bun run typecheck       # Run TypeScript type checking
+bun test                # Run tests
 ```
 
 ### Environment Variables
 
-Create a `.env.local` file with the following variables:
-
-```env
-# Database
-DATABASE_URL=postgresql://github_gg_user:github_gg_password@localhost:5432/github_gg
-
-# Authentication
-BETTER_AUTH_SECRET=your-secret-key-here
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-
-# GitHub OAuth
-GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_SECRET=your_github_client_secret
-
-# Optional: Enhanced Features
-GITHUB_PUBLIC_API_KEY=ghp_your_github_token        # Better rate limits
-GEMINI_API_KEY=your_gemini_api_key                 # AI analysis
-
-# Optional: Payment Features
-STRIPE_SECRET_KEY=sk_test_your_stripe_key
-STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_key
-
-# Optional: Email
-RESEND_API_KEY=re_your_resend_api_key
-```
+See [`.env.example`](./.env.example) for all configuration options. The setup script automatically creates `.env.local` with development defaults.
 
 ---
 

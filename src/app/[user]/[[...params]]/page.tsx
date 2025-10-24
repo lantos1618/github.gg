@@ -1,5 +1,4 @@
-import ScorecardClientView from './ScorecardClientView';
-import AISlopClientView from './AISlopClientView';
+import AnalysisClientView from './AnalysisClientView';
 import RepoClientView from './RepoClientView';
 import DiagramClientView from './DiagramClientView';
 import PRListClientView from './PRListClientView';
@@ -8,7 +7,7 @@ import IssueListClientView from './IssueListClientView';
 import IssueDetailClientView from './IssueDetailClientView';
 import ComingSoon from '@/components/ComingSoon';
 import { notFound } from 'next/navigation';
-import { parseRepoPath, parseRepoPathWithBranches } from '@/lib/utils';
+import { parseRepoPath } from '@/lib/utils';
 import { createGitHubServiceFromSession } from '@/lib/github';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
@@ -48,10 +47,8 @@ export default async function Page({ params }: PageProps) {
     // Fall back to basic parsing
   }
 
-  // Use enhanced parsing if we have branch names, otherwise fall back to basic parsing
-  const parsed = branchNames.length > 0
-    ? parseRepoPathWithBranches(awaitedParams, branchNames)
-    : parseRepoPath(awaitedParams);
+  // Use parseRepoPath with branch names for enhanced parsing (if available)
+  const parsed = parseRepoPath(awaitedParams, branchNames);
 
   const { ref, path, tab } = parsed;
 
@@ -77,12 +74,8 @@ export default async function Page({ params }: PageProps) {
     return <IssueListClientView user={user} repo={repo} />;
   }
 
-  if (tab === 'scorecard') {
-    return <ScorecardClientView user={user} repo={repo} refName={ref} path={path} />;
-  }
-
-  if (tab === 'ai-slop') {
-    return <AISlopClientView user={user} repo={repo} refName={ref} path={path} />;
+  if (tab === 'scorecard' || tab === 'ai-slop') {
+    return <AnalysisClientView user={user} repo={repo} refName={ref} path={path} analysisType={tab} />;
   }
 
   if (tab === 'diagram') {

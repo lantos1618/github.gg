@@ -1,5 +1,5 @@
-import { GenericAnalysisView } from '@/components/analysis/GenericAnalysisView';
-import { createAnalysisConfig } from '@/lib/analysis/configFactory';
+import ScorecardClientView from './ScorecardClientView';
+import AISlopClientView from './AISlopClientView';
 import RepoClientView from './RepoClientView';
 import DiagramClientView from './DiagramClientView';
 import PRListClientView from './PRListClientView';
@@ -78,13 +78,11 @@ export default async function Page({ params }: PageProps) {
   }
 
   if (tab === 'scorecard') {
-    const config = createAnalysisConfig('scorecard');
-    return <GenericAnalysisView user={user} repo={repo} refName={ref} path={path} config={config} />;
+    return <ScorecardClientView user={user} repo={repo} refName={ref} path={path} />;
   }
 
   if (tab === 'ai-slop') {
-    const config = createAnalysisConfig('ai-slop');
-    return <GenericAnalysisView user={user} repo={repo} refName={ref} path={path} config={config} />;
+    return <AISlopClientView user={user} repo={repo} refName={ref} path={path} />;
   }
 
   if (tab === 'diagram') {

@@ -17,9 +17,14 @@ interface RepoClientViewProps {
   path?: string;
 }
 
+interface RepoClientViewInnerProps extends RepoClientViewProps {
+  files: any[];
+  isLoading: boolean;
+  error: unknown;
+}
+
 // Inner component that uses the context
-function RepoClientViewInner({ user, repo, refName, path }: RepoClientViewProps) {
-  const { files, isLoading, error } = useRepoData({ user, repo, ref: refName, path });
+function RepoClientViewInner({ user, repo, refName, path, files, isLoading, error }: RepoClientViewInnerProps) {
   const { selectedFilePaths, toggleFile } = useSelectedFiles();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -82,8 +87,8 @@ function RepoClientViewInner({ user, repo, refName, path }: RepoClientViewProps)
 
 // Outer wrapper that provides context
 export default function RepoClientView(props: RepoClientViewProps) {
-  // Fetch files to pass to provider
-  const { files } = useRepoData({
+  // Fetch files once at the top level
+  const { files, isLoading, error } = useRepoData({
     user: props.user,
     repo: props.repo,
     ref: props.refName,
@@ -98,7 +103,12 @@ export default function RepoClientView(props: RepoClientViewProps) {
       files={files}
       totalFiles={files.length}
     >
-      <RepoClientViewInner {...props} />
+      <RepoClientViewInner
+        {...props}
+        files={files}
+        isLoading={isLoading}
+        error={error}
+      />
     </RepoPageLayout>
   );
 }

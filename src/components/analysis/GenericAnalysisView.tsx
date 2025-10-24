@@ -78,6 +78,13 @@ interface GenericAnalysisViewProps<TResponse, TMutation> {
   config: AnalysisViewConfig<TResponse, TMutation>;
 }
 
+interface GenericAnalysisViewInnerProps<TResponse, TMutation> extends GenericAnalysisViewProps<TResponse, TMutation> {
+  files: any[];
+  filesLoading: boolean;
+  actualRef: string | undefined;
+  totalFiles: number;
+}
+
 // Just use tRPC's actual mutation type
 type TRPCMutation = ReturnType<typeof trpc.scorecard.generateScorecard.useMutation>;
 
@@ -88,7 +95,11 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
   refName,
   path,
   config,
-}: GenericAnalysisViewProps<TResponse, TMutation>) {
+  files,
+  filesLoading,
+  actualRef,
+  totalFiles,
+}: GenericAnalysisViewInnerProps<TResponse, TMutation>) {
   const [analysisData, setAnalysisData] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,9 +111,6 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
   const { data: currentPlan, isLoading: planLoading } = planResult;
   const utils = config.useUtils();
   const { selectedFilePaths, toggleFile } = useSelectedFiles();
-
-  // Get repo data first to access actualRef if needed
-  const { files, isLoading: filesLoading, totalFiles, actualRef } = useRepoData({ user, repo, ref: refName, path });
 
   // Filter files based on selection from context
   const selectedFiles = useMemo(() => {
@@ -445,8 +453,8 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
 export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>(
   props: GenericAnalysisViewProps<TResponse, TMutation>
 ) {
-  // Fetch files to pass to provider
-  const { files } = useRepoData({
+  // Fetch files once at the top level
+  const { files, isLoading: filesLoading, totalFiles, actualRef } = useRepoData({
     user: props.user,
     repo: props.repo,
     ref: props.refName,
@@ -461,7 +469,13 @@ export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>(
       files={files}
       totalFiles={files.length}
     >
-      <GenericAnalysisViewInner {...props} />
+      <GenericAnalysisViewInner
+        {...props}
+        files={files}
+        filesLoading={filesLoading}
+        actualRef={actualRef}
+        totalFiles={totalFiles}
+      />
     </RepoPageLayout>
   );
 }

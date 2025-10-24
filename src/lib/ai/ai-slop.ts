@@ -89,7 +89,16 @@ Analyze this codebase for CODE QUALITY ISSUES, focusing on patterns that reduce 
 - Tests that duplicate what the type system already guarantees
 - Test files with 100% coverage but 0% confidence in the code
 
-**7. INCONSISTENT FILE STRUCTURE**
+**7. LOOSE TYPESCRIPT TYPES (any/unknown abuse)**
+- Using 'any' type to bypass TypeScript (defeats the purpose of TypeScript)
+- Excessive use of 'unknown' when specific types could be defined
+- Type assertions without proper validation (value as SomeType)
+- Function parameters or return types left as 'any'
+- Props interfaces with 'any' fields instead of proper types
+- Record<string, any> when structure is known
+- Casting to 'any' to silence compiler errors instead of fixing the issue
+
+**8. INCONSISTENT FILE STRUCTURE**
 - Files placed outside the established directory structure (e.g., ./page when it should be in src/components/page)
 - Mixing concerns - components in utils/, utils in components/
 - Duplicate files in multiple locations with slight variations
@@ -139,6 +148,7 @@ Your response must be a valid JSON object with this exact structure:
   - **Performative Abstractions**: Wrapper functions that just forward arguments
   - **Valueless Boilerplate**: Generic try-catch blocks that only log errors
   - **Bad Naming**: Generic names like 'handleData', 'processResult' obscure intent
+  - **Loose Types**: Excessive use of 'any' and 'unknown' bypassing TypeScript type safety
   - **Useless Tests**: Test files that achieve 80% coverage but only verify mocks work
   - **File Structure Chaos**: Components leaked outside src/ directory, breaking project organization
 
@@ -220,7 +230,45 @@ Your response must be a valid JSON object with this exact structure:
   \`\`\`
   **Why:** Original test gives false confidence. New test validates real business logic.
 
-  #### 3. Fix File Structure Violation
+  #### 3. Replace 'any' with Proper Types in src/lib/api/types.ts
+  **File:** src/lib/api/types.ts:23-28
+  **Issue:** Using 'any' defeats TypeScript's type safety
+
+  **Before:**
+  \`\`\`typescript
+  interface ApiResponse {
+    data: any;  // ❌ No type safety
+    error: any; // ❌ Could be anything
+  }
+
+  function processResponse(response: any): any {
+    return response.data;
+  }
+  \`\`\`
+
+  **After:**
+  \`\`\`typescript
+  interface ApiResponse<T> {
+    data: T;
+    error: ApiError | null;
+  }
+
+  interface ApiError {
+    message: string;
+    code: string;
+    details?: Record<string, string>;
+  }
+
+  function processResponse<T>(response: ApiResponse<T>): T {
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
+    return response.data;
+  }
+  \`\`\`
+  **Why:** Proper types catch bugs at compile time, provide autocomplete, and document expected data structure.
+
+  #### 4. Fix File Structure Violation
   **Issue:** Component placed outside src/ directory
 
   **Before:**
@@ -239,10 +287,11 @@ Your response must be a valid JSON object with this exact structure:
   1. **Consolidate Duplicated Logic**: Extract repeated patterns into shared utilities
   2. **Question Every Abstraction**: Does this wrapper/helper actually add value?
   3. **Use Domain Language**: Replace generic names with terms from your business domain
-  4. **Fix File Structure**: Move misplaced files back into proper directories (all components in src/components/)
-  5. **Rewrite Useless Tests**: Replace mock-only tests with real business logic validation
-  6. **Simplify Error Handling**: Only add try-catch where you actually handle errors
-  7. **Remove Obvious Comments**: Code should be self-documenting; comments should explain 'why', not 'what'",
+  4. **Enforce Type Safety**: Replace 'any' and excessive 'unknown' with specific types
+  5. **Fix File Structure**: Move misplaced files back into proper directories (all components in src/components/)
+  6. **Rewrite Useless Tests**: Replace mock-only tests with real business logic validation
+  7. **Simplify Error Handling**: Only add try-catch where you actually handle errors
+  8. **Remove Obvious Comments**: Code should be self-documenting; comments should explain 'why', not 'what'",
   "overallScore": 65,
   "aiGeneratedPercentage": 45,
   "detectedPatterns": [
@@ -250,6 +299,8 @@ Your response must be a valid JSON object with this exact structure:
     "Wrapper functions that add no value",
     "Generic naming (handleX, processY, dataObject)",
     "Performative abstractions that obscure simple operations",
+    "Excessive use of 'any' and 'unknown' types defeating TypeScript",
+    "Type assertions without validation (value as Type)",
     "Test files with high coverage but no real validation",
     "Files placed outside src/ directory breaking project structure"
   ]

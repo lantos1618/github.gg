@@ -43,14 +43,6 @@ export function NavbarServer() {
           >
             🏟️ Dev Arena
           </Link>
-          {process.env.NODE_ENV === 'development' && (
-            <Link
-              href="/dev"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
-            >
-              🔧 Dev Tools
-            </Link>
-          )}
         </div>
 
         {/* Navigation Actions - Right side */}

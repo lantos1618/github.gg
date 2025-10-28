@@ -83,3 +83,18 @@ export const CACHED_REPOS: CachedRepo[] = [
   { owner: 'wasp-lang', name: 'wasp', special: true},
   { owner: 'twentyhq', name: 'twenty', special: true},
 ]; 
+
+/**
+ * Get the base URL for the application
+ * Uses NEXT_PUBLIC_APP_URL from environment, falls back to window.location.origin in browser
+ */
+export function getBaseUrl(): string {
+  // Client-side: use window.location.origin for dynamic domain support
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  // Server-side: use environment variable
+  return process.env.NEXT_PUBLIC_APP_URL || 'https://github.gg';
+}
+
+export const GITHUB_APP_NAME = 'gh-gg';

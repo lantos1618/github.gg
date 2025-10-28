@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { WikiGenerationButton } from '@/components/WikiGenerationButton';
+import { getBaseUrl } from '@/lib/constants';
 
 interface WikiPage {
   slug: string;
@@ -66,7 +67,8 @@ export function WikiIndexMenu({ owner, repo, pages, canEdit }: WikiIndexMenuProp
   };
 
   const handleCopyAllForChatGPT = async () => {
-    const wikiUrl = `https://github.gg/wiki/${owner}/${repo}`;
+    const baseUrl = getBaseUrl();
+    const wikiUrl = `${baseUrl}/wiki/${owner}/${repo}`;
     const pageList = pages.map(page => `- ${page.title} (${page.slug})`).join('\n');
 
     const formatted = `Wiki Index:\n\n${pageList}`;
@@ -79,7 +81,8 @@ export function WikiIndexMenu({ owner, repo, pages, canEdit }: WikiIndexMenuProp
   };
 
   const handleCopyAllForClaude = async () => {
-    const wikiUrl = `https://github.gg/wiki/${owner}/${repo}`;
+    const baseUrl = getBaseUrl();
+    const wikiUrl = `${baseUrl}/wiki/${owner}/${repo}`;
     const pageList = pages.map(page => `- ${page.title} (${page.slug})`).join('\n');
 
     const formatted = `Wiki Index:\n\n${pageList}`;

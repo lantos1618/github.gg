@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { getBaseUrl } from '@/lib/constants';
 
 interface WikiPageMenuProps {
   owner: string;
@@ -62,7 +63,8 @@ export function WikiPageMenu({ owner, repo, slug, pageTitle, pageContent }: Wiki
     navigator.clipboard.writeText(formatted);
 
     const CHAR_LIMIT = 400;
-    const pageUrl = `https://github.gg/wiki/${owner}/${repo}/${slug}`;
+    const baseUrl = getBaseUrl();
+    const pageUrl = `${baseUrl}/wiki/${owner}/${repo}/${slug}`;
 
     const prompt = pageContent.length > CHAR_LIMIT
       ? `Please visit this URL and read the wiki page: ${pageUrl}`
@@ -78,7 +80,8 @@ export function WikiPageMenu({ owner, repo, slug, pageTitle, pageContent }: Wiki
     navigator.clipboard.writeText(formatted);
 
     const CHAR_LIMIT = 400;
-    const pageUrl = `https://github.gg/wiki/${owner}/${repo}/${slug}`;
+    const baseUrl = getBaseUrl();
+    const pageUrl = `${baseUrl}/wiki/${owner}/${repo}/${slug}`;
 
     const prompt = pageContent.length > CHAR_LIMIT
       ? `Please visit this URL and read the wiki page: ${pageUrl}`

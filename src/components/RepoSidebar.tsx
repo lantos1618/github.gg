@@ -441,55 +441,47 @@ export function RepoSidebar({ owner, repo, wikiPages = [] }: RepoSidebarProps) {
             </ul>
 
             {/* Wiki Subsection */}
-            <div className="mt-3">
-              {isExpanded ? (
-                <div className="flex items-center gap-1">
-                  <Link
-                    href={`/wiki/${owner}/${repo}`}
-                    className={cn(
-                      'flex-1 flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group',
-                      isWikiActive
-                        ? 'bg-blue-600 text-white font-medium shadow-sm'
-                        : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
-                    )}
-                  >
-                    <BookOpen className={cn('h-5 w-5 flex-shrink-0', isWikiActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
-                    <span className="text-sm flex-1 text-left">Wiki</span>
-                  </Link>
-                  {wikiPages.length > 0 && (
-                    <button
-                      onClick={() => setIsWikiExpanded(!isWikiExpanded)}
-                      className={cn(
-                        'p-2 rounded-lg transition-all duration-200 hover:bg-gray-100',
-                        isWikiActive ? 'text-white' : 'text-gray-500'
-                      )}
-                    >
-                      {isWikiExpanded ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                    </button>
-                  )}
-                </div>
-              ) : (
+            <div className="mt-3" suppressHydrationWarning>
+              <div className="flex items-center gap-1">
                 <Link
                   href={`/wiki/${owner}/${repo}`}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group',
+                    'flex-1 flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group',
                     isWikiActive
                       ? 'bg-blue-600 text-white font-medium shadow-sm'
                       : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
                   )}
-                  title="Wiki"
                 >
                   <BookOpen className={cn('h-5 w-5 flex-shrink-0', isWikiActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
+                  <span className={cn('text-sm flex-1 text-left', !isExpanded && 'hidden')}>Wiki</span>
                 </Link>
-              )}
+                {wikiPages.length > 0 && isExpanded && (
+                  <button
+                    onClick={() => setIsWikiExpanded(!isWikiExpanded)}
+                    className={cn(
+                      'p-2 rounded-lg transition-all duration-200 hover:bg-gray-100',
+                      isWikiActive ? 'text-white' : 'text-gray-500'
+                    )}
+                    aria-label={isWikiExpanded ? 'Collapse wiki pages' : 'Expand wiki pages'}
+                  >
+                    {isWikiExpanded ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </button>
+                )}
+              </div>
 
-              {/* Wiki Pages */}
-              {isExpanded && isWikiExpanded && wikiPages.length > 0 && (
-                <ul className="mt-1 ml-4 space-y-1 border-l-2 border-gray-200 pl-3">
+              {/* Wiki Pages - Always render for SSR, control visibility with CSS */}
+              {wikiPages.length > 0 && (
+                <ul
+                  className={cn(
+                    'mt-1 ml-4 space-y-1 border-l-2 border-gray-200 pl-3 transition-all duration-200',
+                    !isExpanded || !isWikiExpanded ? 'hidden' : 'block'
+                  )}
+                  suppressHydrationWarning
+                >
                   {wikiPages.map((page) => {
                     const wikiPagePath = `/wiki/${owner}/${repo}/${page.slug}`;
                     const wikiActive = pathname === wikiPagePath;

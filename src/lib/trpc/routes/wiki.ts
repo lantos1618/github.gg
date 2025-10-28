@@ -413,6 +413,286 @@ export const wikiRouter = router({
     }),
 
   /**
+   * Delete a single wiki page
+   * Protected: requires authentication and repository write access
+   */
+  deleteWikiPage: protectedProcedure
+    .input(z.object({
+      owner: z.string(),
+      repo: z.string(),
+      slug: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { owner, repo, slug } = input;
+
+      try {
+        // Check if user has write access to the repository
+        const { createGitHubServiceForUserOperations } = await import('@/lib/github');
+        const githubService = await createGitHubServiceForUserOperations(ctx.session);
+
+        // Get repository details with permissions
+        const { data: repoData } = await githubService['octokit'].repos.get({
+          owner,
+          repo,
+        });
+
+        // Check if user has admin or push (write) permissions
+        const hasAccess = repoData.permissions?.admin || repoData.permissions?.push;
+
+        if (!hasAccess) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'You do not have permission to delete wiki pages for this repository',
+          });
+        }
+
+        // Delete only the specific page (latest version)
+        const latestPage = await db
+          .select({ id: repositoryWikiPages.id, version: repositoryWikiPages.version })
+          .from(repositoryWikiPages)
+          .where(
+            and(
+              eq(repositoryWikiPages.repoOwner, owner),
+              eq(repositoryWikiPages.repoName, repo),
+              eq(repositoryWikiPages.slug, slug)
+            )
+          )
+          .orderBy(desc(repositoryWikiPages.version))
+          .limit(1);
+
+        if (latestPage.length === 0) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Wiki page not found',
+          });
+        }
+
+        await db
+          .delete(repositoryWikiPages)
+          .where(eq(repositoryWikiPages.id, latestPage[0].id));
+
+        return {
+          success: true,
+        };
+      } catch (error) {
+        console.error('Failed to delete wiki page:', error);
+
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to delete wiki page: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        });
+      }
+    }),
+
+  /**
+   * Update/edit a wiki page
+   * Protected: requires authentication and repository write access
+   */
+  updateWikiPage: protectedProcedure
+    .input(z.object({
+      owner: z.string(),
+      repo: z.string(),
+      slug: z.string(),
+      title: z.string(),
+      content: z.string(),
+      summary: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { owner, repo, slug, title, content, summary } = input;
+
+      try {
+        // Check if user has write access to the repository
+        const { createGitHubServiceForUserOperations } = await import('@/lib/github');
+        const githubService = await createGitHubServiceForUserOperations(ctx.session);
+
+        // Get repository details with permissions
+        const { data: repoData } = await githubService['octokit'].repos.get({
+          owner,
+          repo,
+        });
+
+        // Check if user has admin or push (write) permissions
+        const hasAccess = repoData.permissions?.admin || repoData.permissions?.push;
+
+        if (!hasAccess) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'You do not have permission to edit wiki pages for this repository',
+          });
+        }
+
+        // Get the latest version of the page
+        const latestPage = await db
+          .select()
+          .from(repositoryWikiPages)
+          .where(
+            and(
+              eq(repositoryWikiPages.repoOwner, owner),
+              eq(repositoryWikiPages.repoName, repo),
+              eq(repositoryWikiPages.slug, slug)
+            )
+          )
+          .orderBy(desc(repositoryWikiPages.version))
+          .limit(1);
+
+        if (latestPage.length === 0) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Wiki page not found',
+          });
+        }
+
+        // Update the page
+        const updatedPage = await db
+          .update(repositoryWikiPages)
+          .set({
+            title,
+            content,
+            summary,
+            updatedAt: new Date(),
+          })
+          .where(eq(repositoryWikiPages.id, latestPage[0].id))
+          .returning();
+
+        return {
+          success: true,
+          page: updatedPage[0],
+        };
+      } catch (error) {
+        console.error('Failed to update wiki page:', error);
+
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to update wiki page: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        });
+      }
+    }),
+
+  /**
+   * Create a new wiki page
+   * Protected: requires authentication and repository write access
+   */
+  createWikiPage: protectedProcedure
+    .input(z.object({
+      owner: z.string(),
+      repo: z.string(),
+      slug: z.string(),
+      title: z.string(),
+      content: z.string(),
+      summary: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { owner, repo, slug, title, content, summary } = input;
+
+      try {
+        // Check if user has write access to the repository
+        const { createGitHubServiceForUserOperations } = await import('@/lib/github');
+        const githubService = await createGitHubServiceForUserOperations(ctx.session);
+
+        // Get repository details with permissions
+        const { data: repoData } = await githubService['octokit'].repos.get({
+          owner,
+          repo,
+        });
+
+        // Check if user has admin or push (write) permissions
+        const hasAccess = repoData.permissions?.admin || repoData.permissions?.push;
+
+        if (!hasAccess) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'You do not have permission to create wiki pages for this repository',
+          });
+        }
+
+        // Get the latest version for this repository
+        const latestPage = await db
+          .select({ version: repositoryWikiPages.version })
+          .from(repositoryWikiPages)
+          .where(
+            and(
+              eq(repositoryWikiPages.repoOwner, owner),
+              eq(repositoryWikiPages.repoName, repo)
+            )
+          )
+          .orderBy(desc(repositoryWikiPages.version))
+          .limit(1);
+
+        const version = latestPage.length > 0 ? latestPage[0].version : 1;
+
+        // Check if page with this slug already exists
+        const existingPage = await db
+          .select()
+          .from(repositoryWikiPages)
+          .where(
+            and(
+              eq(repositoryWikiPages.repoOwner, owner),
+              eq(repositoryWikiPages.repoName, repo),
+              eq(repositoryWikiPages.slug, slug),
+              eq(repositoryWikiPages.version, version)
+            )
+          )
+          .limit(1);
+
+        if (existingPage.length > 0) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'A page with this slug already exists',
+          });
+        }
+
+        // Create the new page
+        const newPage = await db
+          .insert(repositoryWikiPages)
+          .values({
+            repoOwner: owner,
+            repoName: repo,
+            slug,
+            title,
+            content,
+            summary,
+            version,
+            fileHashes: {},
+            metadata: {
+              order: 999,
+              keywords: [owner, repo, 'documentation', 'wiki'],
+              category: 'documentation',
+              systemPrompt: '',
+              dependsOn: [],
+              priority: 1,
+            },
+            isPublic: true,
+            viewCount: 0,
+          })
+          .returning();
+
+        return {
+          success: true,
+          page: newPage[0],
+        };
+      } catch (error) {
+        console.error('Failed to create wiki page:', error);
+
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to create wiki page: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        });
+      }
+    }),
+
+  /**
    * Delete all wiki pages for a repository
    * Protected: requires authentication and repository write access
    */

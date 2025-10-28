@@ -281,7 +281,8 @@ function topologicalSort(pages: WikiPage[]): WikiPage[] {
 async function generateWikiPage(
   cacheId: string,
   page: WikiPage,
-  generatedPages: Map<string, GeneratedPage>
+  generatedPages: Map<string, GeneratedPage>,
+  allPlannedPages: WikiPage[]
 ): Promise<GeneratedPage> {
   const dependencyContext = page.dependsOn
     .map(slug => {
@@ -292,9 +293,22 @@ async function generateWikiPage(
     .filter(Boolean)
     .join('\n\n---\n\n');
 
+  // Create a list of all planned pages for cross-referencing
+  const pageDirectory = allPlannedPages
+    .map(p => `- [${p.title}](${p.url}) - ${p.slug}`)
+    .join('\n');
+
   const prompt = `SYSTEM INSTRUCTIONS: ${page.systemPrompt}
 
 Generate the "${page.title}" wiki page.
+
+## Available Wiki Pages for Cross-Referencing
+You can link to these pages in your content using markdown links:
+${pageDirectory}
+
+Example: [See the API Reference](${allPlannedPages.find(p => p.slug.includes('api'))?.url || '/wiki/api-reference'})
+
+When mentioning topics covered by other pages, ALWAYS add a link to that page.
 
 ${dependencyContext ? `You can reference and build upon these already-generated pages:
 ${dependencyContext}
@@ -374,7 +388,7 @@ export async function generateWikiWithCacheStreaming(
       });
 
       try {
-        const generated = await generateWikiPage(cacheId, page, generatedPages);
+        const generated = await generateWikiPage(cacheId, page, generatedPages, sortedPages);
         generatedPages.set(page.slug, generated);
 
         totalInputTokens += 500;

@@ -15,29 +15,30 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
-interface DeleteWikiButtonProps {
+interface DeletePageButtonProps {
   owner: string;
   repo: string;
+  slug: string;
 }
 
-export function DeleteWikiButton({ owner, repo }: DeleteWikiButtonProps) {
+export function DeletePageButton({ owner, repo, slug }: DeletePageButtonProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
 
-  const deleteWiki = trpc.wiki.deleteRepositoryWiki.useMutation({
+  const deletePage = trpc.wiki.deleteWikiPage.useMutation({
     onSuccess: () => {
-      // Redirect to repository page after successful deletion
-      router.push(`/${owner}/${repo}`);
+      // Redirect to wiki index after successful deletion
+      router.push(`/wiki/${owner}/${repo}`);
       router.refresh();
     },
     onError: (error) => {
-      console.error('Failed to delete wiki:', error);
-      alert(`Failed to delete wiki: ${error.message}`);
+      console.error('Failed to delete page:', error);
+      alert(`Failed to delete page: ${error.message}`);
     },
   });
 
   const handleDelete = () => {
-    deleteWiki.mutate({ owner, repo });
+    deletePage.mutate({ owner, repo, slug });
     setIsOpen(false);
   };
 
@@ -53,10 +54,9 @@ export function DeleteWikiButton({ owner, repo }: DeleteWikiButtonProps) {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete Repository Wiki?</DialogTitle>
+          <DialogTitle>Delete This Page?</DialogTitle>
           <DialogDescription>
-            This will permanently delete all wiki documentation for {owner}/{repo}.
-            This action cannot be undone.
+            This will permanently delete this wiki page. This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="gap-2">
@@ -69,9 +69,9 @@ export function DeleteWikiButton({ owner, repo }: DeleteWikiButtonProps) {
           <Button
             variant="default"
             onClick={handleDelete}
-            disabled={deleteWiki.isPending}
+            disabled={deletePage.isPending}
           >
-            {deleteWiki.isPending ? 'Deleting...' : 'Delete All'}
+            {deletePage.isPending ? 'Deleting...' : 'Delete Page'}
           </Button>
         </DialogFooter>
       </DialogContent>

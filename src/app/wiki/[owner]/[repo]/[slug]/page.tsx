@@ -1,15 +1,16 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Clock, Eye } from 'lucide-react';
+import { ArrowLeft, Clock, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { createCaller } from '@/lib/trpc/server';
 import { incrementViewCount } from './actions';
-import { DeleteWikiButton } from '@/components/wiki/DeleteWikiButton';
+import { WikiPageMenu } from '@/components/wiki/WikiPageMenu';
 import { auth } from '@/lib/auth';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import { headers } from 'next/headers';
 import { RepoSidebarLayout } from '@/components/layouts/RepoSidebarLayout';
-import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer';
+import { MilkdownViewer } from '@/components/ui/MilkdownViewer';
+import { TableOfContents } from '@/components/ui/TableOfContents';
 
 interface WikiPageProps {
   params: Promise<{
@@ -90,8 +91,8 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
     notFound();
   }
 
-  // Check if user has permission to delete wiki
-  let canDeleteWiki = false;
+  // Check if user has permission to edit/delete wiki pages
+  let canEditWiki = false;
   try {
     const headersList = await headers();
     const session = await auth.api.getSession({ headers: headersList } as Request);
@@ -101,7 +102,7 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
         owner,
         repo,
       });
-      canDeleteWiki = !!(repoData.permissions?.admin || repoData.permissions?.push);
+      canEditWiki = !!(repoData.permissions?.admin || repoData.permissions?.push);
     }
   } catch (error) {
     console.error('Failed to check repository permissions:', error);
@@ -113,81 +114,127 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
   // Map TOC pages to the format expected by the sidebar
   const wikiPages = toc.pages.map(p => ({ slug: p.slug, title: p.title }));
 
+  // Find current page index and get previous/next pages
+  const currentIndex = toc.pages.findIndex(p => p.slug === slug);
+  const previousPage = currentIndex > 0 ? toc.pages[currentIndex - 1] : null;
+  const nextPage = currentIndex < toc.pages.length - 1 ? toc.pages[currentIndex + 1] : null;
+
   return (
     <RepoSidebarLayout owner={owner} repo={repo} wikiPages={wikiPages}>
-      <div className="min-h-screen bg-background">
-        {/* Content container that respects sidebar */}
-        <div className="max-w-5xl mx-auto px-6 py-8">
-          {/* Breadcrumb & Meta Header */}
-          <div className="mb-8 pb-6 border-b border-border">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <Link
-                href={`/wiki/${owner}/${repo}`}
-                className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Back to wiki</span>
-              </Link>
+      <div className="max-w-screen-xl w-full mx-auto px-2 sm:px-4 pt-2 sm:pt-4">
+        <div className="flex gap-2 sm:gap-4 h-full">
+          {/* Main content container */}
+          <div className="flex-1 overflow-auto">
+            <div className="px-4 py-6">
+              {/* Breadcrumb & Meta Header */}
+              <div className="mb-8 pb-6 border-b border-gray-200 dark:border-gray-800">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <Link
+                    href={`/wiki/${owner}/${repo}`}
+                    className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>Back to wiki</span>
+                  </Link>
 
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1.5">
-                  <Eye className="h-4 w-4" />
-                  <span>{page.viewCount} views</span>
+                  <div className="flex items-center gap-2">
+                    {canEditWiki && (
+                      <WikiPageMenu
+                        owner={owner}
+                        repo={repo}
+                        slug={slug}
+                        pageTitle={page.title}
+                        pageContent={page.content}
+                      />
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted">
-                  <Clock className="h-3 w-3" />
-                  <span className="text-xs">v{page.version}</span>
-                </div>
-                {canDeleteWiki && <DeleteWikiButton owner={owner} repo={repo} />}
               </div>
+
+              {/* Page Title & Metadata */}
+              <div className="mb-8">
+                <h1 className="text-4xl font-bold tracking-tight mb-4">
+                  {page.title}
+                </h1>
+
+                {page.summary && (
+                  <p className="text-lg text-muted-foreground leading-relaxed mb-4">
+                    {page.summary}
+                  </p>
+                )}
+
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-4 w-4" />
+                    <span>
+                      Updated {new Date(page.updatedAt).toLocaleDateString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Eye className="h-4 w-4" />
+                    <span>{page.viewCount} views</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-4 w-4" />
+                    <span>v{page.version}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Markdown Content */}
+              <MilkdownViewer content={page.content} />
+
+              {/* Next/Previous Navigation */}
+              {(previousPage || nextPage) && (
+                <nav className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-800">
+                  <div className="flex items-center justify-between gap-4">
+                    {previousPage ? (
+                      <Link
+                        href={`/wiki/${owner}/${repo}/${previousPage.slug}${version ? `?version=${version}` : ''}`}
+                        className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-accent transition-colors group flex-1 max-w-sm"
+                      >
+                        <ChevronLeft className="h-5 w-5 text-muted-foreground group-hover:text-foreground shrink-0" />
+                        <div className="text-left">
+                          <div className="text-xs text-muted-foreground mb-1">Previous</div>
+                          <div className="font-medium text-sm group-hover:text-primary line-clamp-1">
+                            {previousPage.title}
+                          </div>
+                        </div>
+                      </Link>
+                    ) : (
+                      <div className="flex-1" />
+                    )}
+
+                    {nextPage ? (
+                      <Link
+                        href={`/wiki/${owner}/${repo}/${nextPage.slug}${version ? `?version=${version}` : ''}`}
+                        className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-accent transition-colors group flex-1 max-w-sm ml-auto"
+                      >
+                        <div className="text-right">
+                          <div className="text-xs text-muted-foreground mb-1">Next</div>
+                          <div className="font-medium text-sm group-hover:text-primary line-clamp-1">
+                            {nextPage.title}
+                          </div>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground shrink-0" />
+                      </Link>
+                    ) : (
+                      <div className="flex-1" />
+                    )}
+                  </div>
+                </nav>
+              )}
             </div>
           </div>
 
-          {/* Page Title */}
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold tracking-tight mb-3">
-              {page.title}
-            </h1>
-            {page.summary && (
-              <p className="text-lg text-muted-foreground leading-relaxed">
-                {page.summary}
-              </p>
-            )}
-            <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>
-                Updated {new Date(page.updatedAt).toLocaleDateString('en-US', {
-                  month: 'long',
-                  day: 'numeric',
-                  year: 'numeric'
-                })}
-              </span>
-            </div>
+          {/* Table of Contents - Right Sidebar */}
+          <div className="hidden xl:block xl:w-64 flex-shrink-0">
+            <TableOfContents content={page.content} />
           </div>
-
-          {/* Markdown Content */}
-          <MarkdownRenderer content={page.content} />
-
-          {/* Footer */}
-          <footer className="mt-16 pt-8 border-t border-border">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-              <p>
-                Auto-generated by{' '}
-                <Link href="/" className="font-semibold text-foreground hover:text-primary transition-colors">
-                  gh.gg
-                </Link>
-              </p>
-              <Link
-                href={`https://github.com/${owner}/${repo}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 hover:text-foreground transition-colors font-medium"
-              >
-                View on GitHub
-                <ArrowLeft className="h-4 w-4 rotate-180" />
-              </Link>
-            </div>
-          </footer>
         </div>
       </div>
     </RepoSidebarLayout>

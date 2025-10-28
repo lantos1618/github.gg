@@ -3,9 +3,12 @@ import Link from 'next/link';
 import { Book, FileText, ChevronRight } from 'lucide-react';
 import { createCaller } from '@/lib/trpc/server';
 import { WikiGenerationButton } from '@/components/WikiGenerationButton';
-import { DeleteWikiButton } from '@/components/wiki/DeleteWikiButton';
+import { WikiIndexMenu } from '@/components/wiki/WikiIndexMenu';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import RepoPageLayout from '@/components/layouts/RepoPageLayout';
+import { auth } from '@/lib/auth';
+import { createGitHubServiceForUserOperations } from '@/lib/github';
+import { headers } from 'next/headers';
 
 interface WikiIndexProps {
   params: Promise<{
@@ -58,6 +61,23 @@ export default async function WikiIndex({ params, searchParams }: WikiIndexProps
     version: version ? parseInt(version) : undefined,
   });
 
+  // Check if user has permission to edit/delete wiki
+  let canEditWiki = false;
+  try {
+    const headersList = await headers();
+    const session = await auth.api.getSession({ headers: headersList } as Request);
+    if (session?.user) {
+      const githubService = await createGitHubServiceForUserOperations(session);
+      const { data: repoData } = await githubService['octokit'].repos.get({
+        owner,
+        repo,
+      });
+      canEditWiki = !!(repoData.permissions?.admin || repoData.permissions?.push);
+    }
+  } catch (error) {
+    console.error('Failed to check repository permissions:', error);
+  }
+
   if (!toc || toc.pages.length === 0) {
     return (
       <RepoPageLayout user={owner} repo={repo}>
@@ -68,7 +88,7 @@ export default async function WikiIndex({ params, searchParams }: WikiIndexProps
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <Book className="h-6 w-6 text-blue-600" />
-                    Wiki Documentation
+                    {repo} Wiki Documentation
                   </CardTitle>
                   <CardDescription className="mt-2">
                     No wiki documentation exists for this repository yet.
@@ -96,16 +116,18 @@ export default async function WikiIndex({ params, searchParams }: WikiIndexProps
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Book className="h-6 w-6 text-blue-600" />
-                  Wiki Documentation
+                  {repo} Wiki Documentation
                 </CardTitle>
                 <CardDescription className="mt-2">
                   {toc.pages.length} {toc.pages.length === 1 ? 'page' : 'pages'} available
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-2">
-                <WikiGenerationButton owner={owner} repo={repo} hideViewButton />
-                <DeleteWikiButton owner={owner} repo={repo} />
-              </div>
+              <WikiIndexMenu
+                owner={owner}
+                repo={repo}
+                pages={toc.pages}
+                canEdit={canEditWiki}
+              />
             </div>
           </CardHeader>
           <CardContent>

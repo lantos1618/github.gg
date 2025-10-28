@@ -23,20 +23,20 @@ const CodeBlock = ({ lang, code }: { lang: string; code: string }) => {
 };
 
 export const MarkdownRenderer = ({ content, className = '' }: MarkdownRendererProps) => (
-  <div className={`prose prose-slate dark:prose-invert max-w-none
-    prose-headings:scroll-mt-20 prose-headings:font-bold prose-headings:tracking-tight
+  <div className={`prose prose-neutral dark:prose-invert max-w-none
+    prose-headings:scroll-mt-20 prose-headings:font-bold prose-headings:tracking-tight prose-headings:text-foreground
     prose-h1:text-4xl prose-h1:mb-6 prose-h1:mt-8
     prose-h2:text-3xl prose-h2:mt-12 prose-h2:mb-6 prose-h2:pb-3 prose-h2:border-b prose-h2:border-border
     prose-h3:text-2xl prose-h3:mt-8 prose-h3:mb-4
     prose-h4:text-xl prose-h4:mt-6 prose-h4:mb-3
-    prose-p:leading-7 prose-p:text-[15px] prose-p:mb-4
+    prose-p:leading-7 prose-p:text-[15px] prose-p:mb-4 prose-p:text-foreground/90
     prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline prose-a:font-medium hover:prose-a:underline prose-a:transition-all
     prose-strong:text-foreground prose-strong:font-semibold
-    prose-code:text-pink-600 dark:prose-code:text-pink-400 prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:font-mono prose-code:text-[13px] prose-code:before:content-none prose-code:after:content-none prose-code:font-medium
+    prose-code:text-foreground prose-code:bg-black/5 dark:prose-code:bg-white/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:font-mono prose-code:text-[13px] prose-code:before:content-none prose-code:after:content-none prose-code:font-medium prose-code:border prose-code:border-black/10 dark:prose-code:border-white/10
     prose-pre:bg-transparent prose-pre:p-0 prose-pre:my-6 prose-pre:overflow-hidden
-    prose-ul:my-6 prose-ul:list-disc prose-ul:pl-6 prose-li:my-2 prose-li:text-[15px]
+    prose-ul:my-6 prose-ul:list-disc prose-ul:pl-6 prose-li:my-2 prose-li:text-[15px] prose-li:text-foreground/90
     prose-ol:my-6 prose-ol:list-decimal prose-ol:pl-6
-    prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:bg-blue-50 dark:prose-blockquote:bg-blue-950/20 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:my-6 prose-blockquote:not-italic
+    prose-blockquote:border-l-4 prose-blockquote:border-foreground/20 prose-blockquote:bg-muted/50 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:my-6 prose-blockquote:not-italic prose-blockquote:text-foreground/80
     prose-img:rounded-xl prose-img:shadow-xl prose-img:my-8 prose-img:border prose-img:border-border
     prose-table:border prose-table:border-border prose-table:my-6 prose-table:w-full
     prose-thead:bg-muted prose-thead:border-b prose-thead:border-border
@@ -48,6 +48,50 @@ export const MarkdownRenderer = ({ content, className = '' }: MarkdownRendererPr
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
+        h1(props) {
+          const { children } = props;
+          const text = String(children);
+          const id = text
+            .toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-')
+            .trim();
+          return <h1 id={id}>{children}</h1>;
+        },
+        h2(props) {
+          const { children } = props;
+          const text = String(children);
+          const id = text
+            .toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-')
+            .trim();
+          return <h2 id={id}>{children}</h2>;
+        },
+        h3(props) {
+          const { children } = props;
+          const text = String(children);
+          const id = text
+            .toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-')
+            .trim();
+          return <h3 id={id}>{children}</h3>;
+        },
+        h4(props) {
+          const { children } = props;
+          const text = String(children);
+          const id = text
+            .toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-')
+            .trim();
+          return <h4 id={id}>{children}</h4>;
+        },
         code(props) {
           const { className, children, node, ...rest } = props;
           const match = /language-(\w+)/.exec(className || '');

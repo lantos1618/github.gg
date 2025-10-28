@@ -1,5 +1,11 @@
 {
   "functions": {
+    "src/app/api/wiki/generate/**": {
+      "maxDuration": 300
+    },
+    "src/app/api/arena/battle/**": {
+      "maxDuration": 300
+    },
     "src/app/api/trpc/**": {
       "maxDuration": 60
     },

@@ -4,6 +4,7 @@ import { ReactNode } from 'react';
 import { RepoSidebar } from '@/components/RepoSidebar';
 import { RepoHeader } from '@/components/RepoHeader';
 import { useRouter } from 'next/navigation';
+import { SidebarProvider } from '@/contexts/SidebarContext';
 
 interface WikiPage {
   slug: string;
@@ -34,31 +35,33 @@ export function RepoSidebarLayout({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Optional Header */}
-      {showHeader && (
-        <RepoHeader
-          user={owner}
-          repo={repo}
-          refName={refName}
-          onBranchChange={handleBranchChange}
-          onCopyAll={() => {}}
-          onDownloadAll={() => {}}
-          isCopying={false}
-          copied={false}
-          fileCount={0}
-        />
-      )}
+    <SidebarProvider>
+      <div className="min-h-screen bg-gray-50">
+        {/* Optional Header */}
+        {showHeader && (
+          <RepoHeader
+            user={owner}
+            repo={repo}
+            refName={refName}
+            onBranchChange={handleBranchChange}
+            onCopyAll={() => {}}
+            onDownloadAll={() => {}}
+            isCopying={false}
+            copied={false}
+            fileCount={0}
+          />
+        )}
 
-      {/* Main Layout with Sidebar */}
-      <div className="flex">
-        <RepoSidebar owner={owner} repo={repo} wikiPages={wikiPages} />
+        {/* Main Layout with Sidebar */}
+        <div className="flex">
+          <RepoSidebar owner={owner} repo={repo} wikiPages={wikiPages} />
 
-        {/* Main Content */}
-        <main className="flex-1 min-h-screen">
-          {children}
-        </main>
+          {/* Main Content */}
+          <main className="flex-1 min-h-screen">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </SidebarProvider>
   );
 }

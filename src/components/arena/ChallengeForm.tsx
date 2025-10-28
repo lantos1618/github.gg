@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { Loader2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
-import { 
-  Sword, 
-  User, 
+import {
+  Sword,
+  User,
   Sparkles,
   Trophy,
   X,
@@ -96,27 +97,16 @@ export function ChallengeForm() {
   const [opponentUsername, setOpponentUsername] = useState('');
   const [selectedCriteria, setSelectedCriteria] = useState<BattleCriteria[]>([...DEFAULT_BATTLE_CRITERIA]);
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
-  const [activeBattleId, setActiveBattleId] = useState<string | null>(null);
+  const [isBattling, setIsBattling] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState('');
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   const challengeMutation = trpc.arena.challengeDeveloper.useMutation();
-  const executeMutation = trpc.arena.executeBattle.useMutation();
   const { data: currentUser } = trpc.me.useQuery(undefined, {
     refetchOnWindowFocus: false,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
-
-  const { data: battleStatus } = trpc.arena.checkBattleStatus.useQuery(
-    { battleId: activeBattleId! },
-    {
-      enabled: !!activeBattleId,
-      refetchInterval: (query) => {
-        const data = query.state.data;
-        if (!data) return 2000;
-        if (data.status === 'in_progress' || data.status === 'pending') return 2000;
-        return false;
-      },
-    }
-  );
 
   useEffect(() => {
     const opponentFromQuery = searchParams.get('opponent');
@@ -124,37 +114,6 @@ export function ChallengeForm() {
       setOpponentUsername(opponentFromQuery);
     }
   }, [searchParams]);
-
-  useEffect(() => {
-    if (battleStatus && battleStatus.status === 'completed') {
-      setBattleResult({
-        battle: {
-          id: battleStatus.id,
-          scores: battleStatus.scores,
-        },
-        analysis: battleStatus.aiAnalysis && typeof battleStatus.aiAnalysis === 'object' ? {
-          winner: (battleStatus.aiAnalysis as Record<string, unknown>).winner as string,
-          reason: (battleStatus.aiAnalysis as Record<string, unknown>).reason as string,
-          highlights: (battleStatus.aiAnalysis as Record<string, unknown>).highlights as string[],
-          recommendations: (battleStatus.aiAnalysis as Record<string, unknown>).recommendations as string[],
-        } : undefined,
-        eloChange: battleStatus.eloChange ? {
-          challenger: {
-            change: battleStatus.eloChange.challenger.change,
-            newRating: battleStatus.eloChange.challenger.after,
-          },
-          opponent: {
-            change: battleStatus.eloChange.opponent.change,
-            newRating: battleStatus.eloChange.opponent.after,
-          },
-        } : undefined,
-      });
-      setActiveBattleId(null);
-    } else if (battleStatus && battleStatus.status === 'failed') {
-      setBattleResult({ error: 'Battle failed. Please try again.' });
-      setActiveBattleId(null);
-    }
-  }, [battleStatus]);
 
   const handleChallenge = async () => {
     if (!opponentUsername.trim()) return;
@@ -167,6 +126,9 @@ export function ChallengeForm() {
 
     try {
       setBattleResult(null);
+      setIsBattling(true);
+      setProgress(0);
+      setStatusMessage('Creating battle challenge...');
 
       // Create challenge
       const battle = await challengeMutation.mutateAsync({
@@ -174,21 +136,64 @@ export function ChallengeForm() {
         criteria: selectedCriteria,
       });
 
-      // Execute battle immediately (async)
-      await executeMutation.mutateAsync({
-        battleId: battle.id,
+      // Connect to SSE endpoint for real-time progress
+      const eventSource = new EventSource(`/api/arena/battle?battleId=${battle.id}`);
+      eventSourceRef.current = eventSource;
+
+      eventSource.addEventListener('progress', (event) => {
+        const data = JSON.parse(event.data);
+        setProgress(data.progress || 0);
+        setStatusMessage(data.message || '');
       });
 
-      // Start polling for status
-      setActiveBattleId(battle.id);
+      eventSource.addEventListener('complete', (event) => {
+        const data = JSON.parse(event.data);
+        setProgress(100);
+        setIsBattling(false);
+        eventSource.close();
 
-      // Reset form
-      setOpponentUsername('');
-      setSelectedCriteria([...DEFAULT_BATTLE_CRITERIA]);
+        setBattleResult({
+          battle: {
+            id: battle.id,
+            scores: {
+              challenger: data.result.challengerScore,
+              opponent: data.result.opponentScore,
+            },
+          },
+          analysis: {
+            winner: data.result.winner,
+            reason: data.result.reason,
+            highlights: data.result.highlights,
+            recommendations: data.result.recommendations,
+          },
+          eloChange: data.result.eloChange,
+        });
+
+        // Reset form
+        setOpponentUsername('');
+        setSelectedCriteria([...DEFAULT_BATTLE_CRITERIA]);
+      });
+
+      eventSource.addEventListener('error', (event) => {
+        const messageEvent = event as MessageEvent;
+        const data = messageEvent.data ? JSON.parse(messageEvent.data) : {};
+        setIsBattling(false);
+        eventSource.close();
+
+        setBattleResult({ error: data.message || 'Battle failed. Please try again.' });
+      });
+
+      eventSource.onerror = () => {
+        setIsBattling(false);
+        eventSource.close();
+
+        setBattleResult({ error: 'Connection error. Please try again.' });
+      };
+
     } catch (error) {
       console.error('Battle failed:', error);
       setBattleResult({ error: error instanceof Error ? error.message : 'Unknown error' });
-      setActiveBattleId(null);
+      setIsBattling(false);
     }
   };
 
@@ -201,7 +206,7 @@ export function ChallengeForm() {
   };
 
   const isFormValid = opponentUsername.trim() && selectedCriteria.length > 0 && currentUser?.user?.name !== opponentUsername.trim();
-  const isPending = challengeMutation.isPending || executeMutation.isPending || !!activeBattleId;
+  const isPending = challengeMutation.isPending || isBattling;
 
   return (
     <>
@@ -304,6 +309,14 @@ export function ChallengeForm() {
               </>
             )}
           </Button>
+
+          {/* Progress Indicator */}
+          {isBattling && (
+            <div className="space-y-2 pt-4">
+              <Progress value={progress} className="h-2" />
+              <p className="text-xs text-muted-foreground text-center">{statusMessage}</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

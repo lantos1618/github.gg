@@ -4,8 +4,8 @@ import { createPublicGitHubService } from '@/lib/github';
 import { generateWikiWithCache } from '@/lib/ai/wiki-generator';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
-import { tokenUsage, repositoryWikiPages } from '@/db/schema';
-import { and, eq, desc } from 'drizzle-orm';
+import { tokenUsage, repositoryWikiPages, wikiPageViewers } from '@/db/schema';
+import { and, eq, desc, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 
 export const wikiRouter = router({
@@ -360,8 +360,8 @@ export const wikiRouter = router({
     }),
 
   /**
-   * Increment view count for a wiki page
-   * Public: no authentication required
+   * Increment view count for a wiki page and track viewer
+   * Public: no authentication required (tracks logged-in users when available)
    */
   incrementViewCount: publicProcedure
     .input(z.object({
@@ -369,9 +369,11 @@ export const wikiRouter = router({
       repo: z.string(),
       slug: z.string(),
       version: z.number().optional(),
+      userId: z.string().optional(),
+      username: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
-      const { owner, repo, slug, version } = input;
+      const { owner, repo, slug, version, userId, username } = input;
 
       try {
         const conditions = [
@@ -386,7 +388,7 @@ export const wikiRouter = router({
 
         // Get the page first to increment the correct version
         const query = db
-          .select({ id: repositoryWikiPages.id, viewCount: repositoryWikiPages.viewCount })
+          .select({ id: repositoryWikiPages.id, viewCount: repositoryWikiPages.viewCount, version: repositoryWikiPages.version })
           .from(repositoryWikiPages)
           .where(and(...conditions));
 
@@ -398,6 +400,9 @@ export const wikiRouter = router({
           return { success: false };
         }
 
+        const pageVersion = result[0].version;
+
+        // Increment page view count
         await db
           .update(repositoryWikiPages)
           .set({
@@ -405,10 +410,121 @@ export const wikiRouter = router({
           })
           .where(eq(repositoryWikiPages.id, result[0].id));
 
+        // Track individual viewer if logged in
+        if (userId && username) {
+          const viewerConditions = [
+            eq(wikiPageViewers.repoOwner, owner),
+            eq(wikiPageViewers.repoName, repo),
+            eq(wikiPageViewers.slug, slug),
+            eq(wikiPageViewers.version, pageVersion),
+            eq(wikiPageViewers.userId, userId),
+          ];
+
+          // Check if viewer already viewed this page
+          const existingViewer = await db
+            .select()
+            .from(wikiPageViewers)
+            .where(and(...viewerConditions))
+            .limit(1);
+
+          if (existingViewer.length > 0) {
+            // Update last viewed time and increment view count
+            await db
+              .update(wikiPageViewers)
+              .set({
+                lastViewedAt: new Date(),
+                viewCount: sql`${wikiPageViewers.viewCount} + 1`,
+              })
+              .where(eq(wikiPageViewers.id, existingViewer[0].id));
+          } else {
+            // Insert new viewer record
+            await db.insert(wikiPageViewers).values({
+              repoOwner: owner,
+              repoName: repo,
+              slug,
+              version: pageVersion,
+              userId,
+              username,
+              viewedAt: new Date(),
+              lastViewedAt: new Date(),
+              viewCount: 1,
+            });
+          }
+        }
+
         return { success: true };
       } catch (error) {
         console.error('Failed to increment view count:', error);
         return { success: false };
+      }
+    }),
+
+  /**
+   * Get viewers for a wiki page
+   * Public: no authentication required
+   */
+  getWikiPageViewers: publicProcedure
+    .input(z.object({
+      owner: z.string(),
+      repo: z.string(),
+      slug: z.string(),
+      version: z.number().optional(),
+    }))
+    .query(async ({ input }) => {
+      const { owner, repo, slug, version } = input;
+
+      try {
+        // If no version specified, get the latest version first
+        let targetVersion = version;
+        if (targetVersion === undefined) {
+          const latestPage = await db
+            .select({ version: repositoryWikiPages.version })
+            .from(repositoryWikiPages)
+            .where(
+              and(
+                eq(repositoryWikiPages.repoOwner, owner),
+                eq(repositoryWikiPages.repoName, repo),
+                eq(repositoryWikiPages.slug, slug)
+              )
+            )
+            .orderBy(desc(repositoryWikiPages.version))
+            .limit(1);
+
+          if (latestPage.length === 0) {
+            return { viewers: [], totalViews: 0 };
+          }
+
+          targetVersion = latestPage[0].version;
+        }
+
+        const viewers = await db
+          .select({
+            userId: wikiPageViewers.userId,
+            username: wikiPageViewers.username,
+            viewedAt: wikiPageViewers.viewedAt,
+            lastViewedAt: wikiPageViewers.lastViewedAt,
+            viewCount: wikiPageViewers.viewCount,
+          })
+          .from(wikiPageViewers)
+          .where(
+            and(
+              eq(wikiPageViewers.repoOwner, owner),
+              eq(wikiPageViewers.repoName, repo),
+              eq(wikiPageViewers.slug, slug),
+              eq(wikiPageViewers.version, targetVersion)
+            )
+          )
+          .orderBy(desc(wikiPageViewers.lastViewedAt));
+
+        const totalViews = viewers.reduce((sum, viewer) => sum + viewer.viewCount, 0);
+
+        return {
+          viewers,
+          totalViews,
+        };
+      } catch (error) {
+        console.error('Failed to fetch wiki page viewers:', error);
+        return { viewers: [], totalViews: 0 };
       }
     }),
 

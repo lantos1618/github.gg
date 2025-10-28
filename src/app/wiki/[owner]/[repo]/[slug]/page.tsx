@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { createCaller } from '@/lib/trpc/server';
 import { incrementViewCount } from './actions';
 import { WikiPageMenu } from '@/components/wiki/WikiPageMenu';
+import { WikiPageViewers } from '@/components/wiki/WikiPageViewers';
 import { auth } from '@/lib/auth';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import { headers } from 'next/headers';
@@ -162,7 +163,7 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
                   </p>
                 )}
 
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                   <div className="flex items-center gap-1.5">
                     <Clock className="h-4 w-4" />
                     <span>
@@ -181,6 +182,7 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
                     <Clock className="h-4 w-4" />
                     <span>v{page.version}</span>
                   </div>
+                  <WikiPageViewers owner={owner} repo={repo} slug={slug} version={page.version} />
                 </div>
               </div>
 

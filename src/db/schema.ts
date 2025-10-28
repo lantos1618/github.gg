@@ -547,4 +547,29 @@ export const repositoryWikiPages = pgTable('repository_wiki_pages', {
   publicPagesIdx: index('public_pages_idx').on(table.isPublic, table.repoOwner, table.repoName),
 }));
 
+// Wiki Page Viewers - track who views wiki pages
+export const wikiPageViewers = pgTable('wiki_page_viewers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  repoOwner: text('repo_owner').notNull(),
+  repoName: text('repo_name').notNull(),
+  slug: text('slug').notNull(),
+  version: integer('version').notNull(),
+  userId: text('userId').references(() => user.id, { onDelete: 'cascade' }), // Nullable for anonymous viewers
+  username: text('username'), // Cache username for display
+  viewedAt: timestamp('viewed_at').notNull().defaultNow(),
+  lastViewedAt: timestamp('last_viewed_at').notNull().defaultNow(),
+  viewCount: integer('view_count').notNull().default(1), // Track multiple views by same user
+}, (table) => ({
+  // Ensure unique viewer per page version and user
+  wikiPageViewerUniqueIdx: uniqueIndex('wiki_page_viewer_unique_idx').on(
+    table.repoOwner,
+    table.repoName,
+    table.slug,
+    table.version,
+    table.userId
+  ),
+  // Index for querying viewers by page
+  wikiPageViewersIdx: index('wiki_page_viewers_idx').on(table.repoOwner, table.repoName, table.slug, table.version),
+}));
+
 // Do NOT import or export relations here. Only table definitions. 

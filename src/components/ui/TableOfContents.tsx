@@ -2,23 +2,33 @@
 
 import { useEffect, useState, ReactNode } from 'react';
 
-interface Heading {
+export interface Heading {
   id: string;
   text: string;
   level: number;
 }
 
 interface TableOfContentsProps {
-  content: string;
+  // Accept either pre-parsed headings (SSR) or content to parse (legacy)
+  headings?: Heading[];
+  content?: string;
   actions?: ReactNode;
 }
 
-export function TableOfContents({ content, actions }: TableOfContentsProps) {
-  const [headings, setHeadings] = useState<Heading[]>([]);
+export function TableOfContents({ headings: initialHeadings, content, actions }: TableOfContentsProps) {
+  const [headings, setHeadings] = useState<Heading[]>(initialHeadings || []);
   const [activeId, setActiveId] = useState<string>('');
 
   useEffect(() => {
-    // Extract headings from markdown content
+    // If headings were provided (SSR), use them
+    if (initialHeadings) {
+      setHeadings(initialHeadings);
+      return;
+    }
+
+    // Otherwise, extract from content (legacy support)
+    if (!content) return;
+
     const headingRegex = /^(#{1,4})\s+(.+)$/gm;
     const extractedHeadings: Heading[] = [];
     let match;
@@ -38,7 +48,7 @@ export function TableOfContents({ content, actions }: TableOfContentsProps) {
     }
 
     setHeadings(extractedHeadings);
-  }, [content]);
+  }, [initialHeadings, content]);
 
   useEffect(() => {
     if (headings.length === 0) return;

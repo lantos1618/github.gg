@@ -9,8 +9,9 @@ import { auth } from '@/lib/auth';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import { headers } from 'next/headers';
 import { RepoSidebarLayout } from '@/components/layouts/RepoSidebarLayout';
-import { MilkdownViewer } from '@/components/ui/MilkdownViewer';
+import { MarkdownViewer } from '@/components/ui/MarkdownViewer';
 import { TableOfContents } from '@/components/ui/TableOfContents';
+import { renderMarkdownToHtml } from '@/lib/markdown';
 
 interface WikiPageProps {
   params: Promise<{
@@ -111,6 +112,9 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
   // Increment view count (server action)
   incrementViewCount({ owner, repo, slug, version: page.version });
 
+  // Render markdown to HTML on server with syntax highlighting
+  const { html, headings } = await renderMarkdownToHtml(page.content);
+
   // Map TOC pages to the format expected by the sidebar
   const wikiPages = toc.pages.map(p => ({ slug: p.slug, title: p.title }));
 
@@ -185,8 +189,8 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
                 </div>
               </div>
 
-              {/* Markdown Content */}
-              <MilkdownViewer content={page.content} />
+              {/* Markdown Content - Server-side rendered */}
+              <MarkdownViewer html={html} />
 
               {/* Next/Previous Navigation */}
               {(previousPage || nextPage) && (
@@ -231,9 +235,9 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
             </div>
           </div>
 
-          {/* Table of Contents - Right Sidebar */}
+          {/* Table of Contents - Right Sidebar with pre-parsed headings */}
           <div className="hidden xl:block xl:w-64 flex-shrink-0">
-            <TableOfContents content={page.content} />
+            <TableOfContents headings={headings} />
           </div>
         </div>
       </div>

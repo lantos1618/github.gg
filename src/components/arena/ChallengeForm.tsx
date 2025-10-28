@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import type { BattleCriteria } from '@/lib/types/arena';
 import { DEFAULT_BATTLE_CRITERIA } from '@/lib/constants/arena';
+import { sanitizeText, sanitizeArray } from '@/lib/utils/sanitize';
 
 const CRITERIA_LABELS: Record<BattleCriteria, { label: string; description: string }> = {
   code_quality: { 
@@ -141,46 +142,64 @@ export function ChallengeForm() {
       eventSourceRef.current = eventSource;
 
       eventSource.addEventListener('progress', (event) => {
-        const data = JSON.parse(event.data);
-        setProgress(data.progress || 0);
-        setStatusMessage(data.message || '');
+        try {
+          const data = JSON.parse(event.data);
+          setProgress(data.progress || 0);
+          setStatusMessage(sanitizeText(data.message));
+        } catch (error) {
+          console.error('Failed to parse progress event:', error);
+        }
       });
 
       eventSource.addEventListener('complete', (event) => {
-        const data = JSON.parse(event.data);
-        setProgress(100);
-        setIsBattling(false);
-        eventSource.close();
+        try {
+          const data = JSON.parse(event.data);
+          setProgress(100);
+          setIsBattling(false);
+          eventSource.close();
 
-        setBattleResult({
-          battle: {
-            id: battle.id,
-            scores: {
-              challenger: data.result.challengerScore,
-              opponent: data.result.opponentScore,
+          setBattleResult({
+            battle: {
+              id: battle.id,
+              scores: {
+                challenger: data.result?.challengerScore,
+                opponent: data.result?.opponentScore,
+              },
             },
-          },
-          analysis: {
-            winner: data.result.winner,
-            reason: data.result.reason,
-            highlights: data.result.highlights,
-            recommendations: data.result.recommendations,
-          },
-          eloChange: data.result.eloChange,
-        });
+            analysis: {
+              winner: sanitizeText(data.result?.winner) || 'Unknown',
+              reason: sanitizeText(data.result?.reason) || '',
+              highlights: sanitizeArray(data.result?.highlights),
+              recommendations: sanitizeArray(data.result?.recommendations),
+            },
+            eloChange: data.result?.eloChange,
+          });
 
-        // Reset form
-        setOpponentUsername('');
-        setSelectedCriteria([...DEFAULT_BATTLE_CRITERIA]);
+          // Reset form
+          setOpponentUsername('');
+          setSelectedCriteria([...DEFAULT_BATTLE_CRITERIA]);
+        } catch (error) {
+          console.error('Failed to parse battle complete event:', error);
+          setIsBattling(false);
+          eventSource.close();
+          setBattleResult({ error: 'Battle completed but failed to parse results' });
+        }
       });
 
       eventSource.addEventListener('error', (event) => {
-        const messageEvent = event as MessageEvent;
-        const data = messageEvent.data ? JSON.parse(messageEvent.data) : {};
-        setIsBattling(false);
-        eventSource.close();
+        try {
+          const messageEvent = event as MessageEvent;
+          const data = messageEvent.data ? JSON.parse(messageEvent.data) : {};
+          setIsBattling(false);
+          eventSource.close();
 
-        setBattleResult({ error: data.message || 'Battle failed. Please try again.' });
+          setBattleResult({ error: sanitizeText(data.message) || 'Battle failed. Please try again.' });
+        } catch (error) {
+          console.error('Failed to parse error event:', error);
+          setIsBattling(false);
+          eventSource.close();
+          setBattleResult({ error: 'An error occurred during the battle' });
+        }
       });
 
       eventSource.onerror = () => {

@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
+import { sanitizeText } from '@/lib/utils/sanitize';
 
 interface WikiGenerationButtonProps {
   owner: string;
@@ -39,33 +40,52 @@ export function WikiGenerationButton({ owner, repo }: WikiGenerationButtonProps)
     eventSourceRef.current = eventSource;
 
     eventSource.addEventListener('progress', (event) => {
-      const data = JSON.parse(event.data);
-      setProgress(data.progress || 0);
-      setStatusMessage(data.message || '');
+      try {
+        const data = JSON.parse(event.data);
+        setProgress(data.progress || 0);
+        setStatusMessage(sanitizeText(data.message));
+      } catch (error) {
+        console.error('Failed to parse progress event:', error);
+      }
     });
 
     eventSource.addEventListener('complete', (event) => {
-      const data = JSON.parse(event.data);
-      setProgress(100);
-      setIsGenerating(false);
-      eventSource.close();
+      try {
+        const data = JSON.parse(event.data);
+        setProgress(100);
+        setIsGenerating(false);
+        eventSource.close();
 
-      toast.success(`Wiki generated successfully! Version ${data.version}`, {
-        description: `Created ${data.pages.length} pages using ${data.usage.totalTokens} tokens`,
-      });
+        toast.success(`Wiki generated successfully! Version ${data.version}`, {
+          description: `Created ${data.pages?.length || 0} pages using ${data.usage?.totalTokens || 0} tokens`,
+        });
 
-      router.push(`/wiki/${owner}/${repo}`);
+        router.push(`/wiki/${owner}/${repo}`);
+      } catch (error) {
+        console.error('Failed to parse complete event:', error);
+        setIsGenerating(false);
+        eventSource.close();
+        toast.error('Wiki generation completed but failed to parse results');
+      }
     });
 
     eventSource.addEventListener('error', (event) => {
-      const messageEvent = event as MessageEvent;
-      const data = messageEvent.data ? JSON.parse(messageEvent.data) : {};
-      setIsGenerating(false);
-      eventSource.close();
+      try {
+        const messageEvent = event as MessageEvent;
+        const data = messageEvent.data ? JSON.parse(messageEvent.data) : {};
+        setIsGenerating(false);
+        eventSource.close();
 
-      toast.error('Failed to generate wiki', {
-        description: data.message || 'An unknown error occurred',
-      });
+        toast.error('Failed to generate wiki', {
+          description: sanitizeText(data.message) || 'An unknown error occurred',
+        });
+      } catch (error) {
+        setIsGenerating(false);
+        eventSource.close();
+        toast.error('Failed to generate wiki', {
+          description: 'An error occurred during generation',
+        });
+      }
     });
 
     eventSource.onerror = () => {

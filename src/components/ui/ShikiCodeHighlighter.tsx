@@ -38,6 +38,13 @@ async function getHighlighter() {
   return highlighter;
 }
 
+// Helper function to escape HTML
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 // Helper function to highlight code with Shiki
 async function highlightCodeWithShiki(code: string, lang: string): Promise<string> {
   try {
@@ -68,8 +75,9 @@ async function highlightCodeWithShiki(code: string, lang: string): Promise<strin
     });
   } catch (error) {
     console.error('Shiki highlighting error:', error);
-    // Fallback to plain code block
-    return `<pre><code class="language-${lang}">${code}</code></pre>`;
+    // Fallback to plain code block with escaped HTML
+    const escapedCode = escapeHtml(code);
+    return `<pre><code class="language-${lang}">${escapedCode}</code></pre>`;
   }
 }
 
@@ -87,7 +95,18 @@ export function ShikiCodeHighlighter({ code, language, className = '' }: ShikiCo
 
     highlightCodeWithShiki(code, language).then((html) => {
       if (ref.current) {
-        ref.current.innerHTML = html;
+        try {
+          ref.current.innerHTML = html;
+        } catch (error) {
+          console.error('Failed to set innerHTML:', error);
+          // Fallback: show plain code
+          ref.current.textContent = code;
+        }
+      }
+    }).catch((error) => {
+      console.error('Failed to highlight code:', error);
+      if (ref.current) {
+        ref.current.textContent = code;
       }
     });
   }, [code, language]);
@@ -127,10 +146,15 @@ export function useShikiHighlighting(containerRef: React.RefObject<HTMLElement |
         // Create a wrapper div
         const wrapper = document.createElement('div');
         wrapper.className = 'shiki-wrapper rounded-xl overflow-hidden border border-border my-6';
-        wrapper.innerHTML = html;
 
-        // Replace the pre element with the wrapper
-        pre.replaceWith(wrapper);
+        try {
+          wrapper.innerHTML = html;
+          // Replace the pre element with the wrapper
+          pre.replaceWith(wrapper);
+        } catch (innerError) {
+          console.error('Failed to set innerHTML for code block:', innerError);
+          // Keep the original pre element if innerHTML fails
+        }
       } catch (error) {
         console.error('Failed to highlight code block:', error);
       }

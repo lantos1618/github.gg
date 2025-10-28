@@ -70,13 +70,23 @@ export function RepoSidebar({ owner, repo, wikiPages = [] }: RepoSidebarProps) {
   const params = { user: owner, params: pathParts.slice(1) }; // Skip owner, keep rest
   const parsed = parseRepoPath(params, branches || []);
 
-  const currentBranch = parsed.ref || defaultBranch;
+  // Check if we're on a wiki page
+  const isOnWikiPage = pathname.startsWith(`/wiki/${owner}/${repo}`);
+
+  // Only use parsed.ref if we're NOT on a wiki page (wikis don't have branches in URL)
+  const currentBranch = isOnWikiPage ? defaultBranch : (parsed.ref || defaultBranch);
   const currentPage = parsed.tab || '';
 
   // Base URL includes branch if not on default branch
   const baseUrl = currentBranch === defaultBranch ? `/${owner}/${repo}` : `/${owner}/${repo}/${currentBranch}`;
 
   const handleBranchChange = (newBranch: string) => {
+    // If on wiki, stay on wiki (wikis don't support branches yet)
+    if (isOnWikiPage) {
+      router.push(`/wiki/${owner}/${repo}`);
+      return;
+    }
+
     // Navigate to the same page but with new branch
     if (currentPage) {
       router.push(`/${owner}/${repo}/${newBranch}/${currentPage}`);

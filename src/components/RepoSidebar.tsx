@@ -65,34 +65,49 @@ export function RepoSidebar({ owner, repo, wikiPages = [] }: RepoSidebarProps) {
   // Get the actual default branch from repo info, fallback to 'main'
   const defaultBranch = repoInfo?.defaultBranch || 'main';
 
-  // Use parseRepoPath to correctly parse the URL
-  const pathParts = pathname.split('/').filter(Boolean);
-  const params = { user: owner, params: pathParts.slice(1) }; // Skip owner, keep rest
-  const parsed = parseRepoPath(params, branches || []);
-
-  // Check if we're on a wiki page
+  // Check if we're on a wiki page (wiki has different URL structure)
   const isOnWikiPage = pathname.startsWith(`/wiki/${owner}/${repo}`);
 
-  // Only use parsed.ref if we're NOT on a wiki page (wikis don't have branches in URL)
-  const currentBranch = isOnWikiPage ? defaultBranch : (parsed.ref || defaultBranch);
-  const currentPage = parsed.tab || '';
+  // Parse the URL differently based on whether we're on wiki or regular route
+  let currentBranch: string;
+  let currentTab: string | undefined;
+  let baseUrl: string;
 
-  // Base URL includes branch if not on default branch
-  const baseUrl = currentBranch === defaultBranch ? `/${owner}/${repo}` : `/${owner}/${repo}/${currentBranch}`;
+  if (isOnWikiPage) {
+    // Wiki pages don't have branches in their URLs - always use default branch
+    currentBranch = defaultBranch;
+    currentTab = undefined;
+    baseUrl = `/${owner}/${repo}`;
+  } else {
+    // Regular route - parse the pathname to extract branch and tab
+    const pathParts = pathname.split('/').filter(Boolean);
+    const params = { user: owner, params: pathParts.slice(1) }; // Skip owner, keep rest
+    const parsed = parseRepoPath(params, branches || []);
+
+    currentBranch = parsed.ref || defaultBranch;
+    currentTab = parsed.tab;
+
+    // Build base URL with /tree/ prefix for non-default branches
+    baseUrl = currentBranch === defaultBranch
+      ? `/${owner}/${repo}`
+      : `/${owner}/${repo}/tree/${currentBranch}`;
+  }
 
   const handleBranchChange = (newBranch: string) => {
-    // If on wiki, stay on wiki (wikis don't support branches yet)
-    if (isOnWikiPage) {
-      router.push(`/wiki/${owner}/${repo}`);
-      return;
+    // Build the target URL based on the new branch
+    let targetUrl: string;
+
+    if (newBranch === defaultBranch) {
+      // Switching to default branch - no /tree/ prefix needed
+      targetUrl = currentTab ? `/${owner}/${repo}/${currentTab}` : `/${owner}/${repo}`;
+    } else {
+      // Switching to non-default branch - use /tree/ prefix
+      targetUrl = currentTab
+        ? `/${owner}/${repo}/tree/${newBranch}/${currentTab}`
+        : `/${owner}/${repo}/tree/${newBranch}`;
     }
 
-    // Navigate to the same page but with new branch
-    if (currentPage) {
-      router.push(`/${owner}/${repo}/${newBranch}/${currentPage}`);
-    } else {
-      router.push(`/${owner}/${repo}/${newBranch}`);
-    }
+    router.push(targetUrl);
   };
 
   const intelligenceSection: NavSection = {

@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import type { DeveloperProfile } from '@/lib/types/profile';
 
-type SortField = 'date' | 'score' | 'username';
+type SortField = 'date' | 'score' | 'username' | 'elo';
 type SortOrder = 'asc' | 'desc';
 
 export default function UsersPage() {
@@ -61,6 +61,10 @@ export default function UsersPage() {
       comparison = bScore - aScore;
     } else if (sortField === 'username') {
       comparison = a.username.localeCompare(b.username);
+    } else if (sortField === 'elo') {
+      const aElo = eloMap.get(a.username.toLowerCase()) || 0;
+      const bElo = eloMap.get(b.username.toLowerCase()) || 0;
+      comparison = bElo - aElo;
     }
 
     return sortOrder === 'asc' ? -comparison : comparison;
@@ -147,10 +151,14 @@ export default function UsersPage() {
                       <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
                         Top Skills
                       </th>
-                      <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">
+                      <th
+                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell cursor-pointer hover:bg-gray-100"
+                        onClick={() => toggleSort('elo')}
+                      >
                         <div className="flex items-center justify-center gap-2">
                           <Trophy className="h-3.5 w-3.5 text-yellow-500" />
                           ELO
+                          {sortField === 'elo' && <ArrowUpDown className="h-3 w-3" />}
                         </div>
                       </th>
                       <th

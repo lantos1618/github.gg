@@ -1,13 +1,10 @@
 'use client';
 
 import { trpc } from '@/lib/trpc/client';
-import { Eye, Users } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Eye, Users, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { formatDistanceToNow } from 'date-fns';
 
 interface WikiPageViewersProps {
   owner: string;
@@ -17,62 +14,120 @@ interface WikiPageViewersProps {
 }
 
 export function WikiPageViewers({ owner, repo, slug, version }: WikiPageViewersProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const { data } = trpc.wiki.getWikiPageViewers.useQuery({ owner, repo, slug, version });
+
+  // Lock body scroll when panel is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
 
   if (!data || data.viewers.length === 0) {
     return null;
   }
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-accent/50 transition-colors cursor-help">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">{data.viewers.length}</span>
-            <span className="text-xs text-muted-foreground">
-              {data.viewers.length === 1 ? 'viewer' : 'viewers'}
-            </span>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="max-w-sm p-4">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 pb-2 border-b border-border">
-              <Eye className="h-4 w-4 text-muted-foreground" />
-              <span className="font-semibold text-sm">Recent Viewers</span>
+    <>
+      <button
+        onClick={() => setIsOpen(true)}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-accent transition-colors cursor-pointer"
+      >
+        <Users className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-medium">{data.viewers.length}</span>
+        <span className="text-xs text-muted-foreground">
+          {data.viewers.length === 1 ? 'viewer' : 'viewers'}
+        </span>
+      </button>
+
+      {/* Overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 transition-opacity"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* Slide-in Panel */}
+      <div
+        className={`fixed top-0 right-0 h-full w-full sm:w-96 bg-background border-l border-border shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
+          isOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-border">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Eye className="h-5 w-5 text-muted-foreground" />
+                <h2 className="text-lg font-semibold text-foreground">Page Viewers</h2>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {data.viewers.length} {data.viewers.length === 1 ? 'user' : 'users'} · {data.totalViews} total views
+              </p>
             </div>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {data.viewers.slice(0, 10).map((viewer) => (
-                <div
-                  key={viewer.userId}
-                  className="flex items-center justify-between gap-4 text-xs"
-                >
-                  <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                    <span className="font-medium truncate">{viewer.username}</span>
-                    <span className="text-muted-foreground">
-                      {viewer.viewCount} {viewer.viewCount === 1 ? 'view' : 'views'}
-                    </span>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="p-2 hover:bg-accent rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="space-y-4">
+              {data.viewers.map((viewer) => {
+                const lastViewedDate = new Date(viewer.lastViewedAt);
+                const isRecent = Date.now() - lastViewedDate.getTime() < 5 * 60 * 1000; // Within 5 minutes
+
+                return (
+                  <div
+                    key={viewer.userId}
+                    className="flex items-start gap-3 p-3 rounded-lg hover:bg-accent/50 transition-colors"
+                  >
+                    <Avatar className="h-12 w-12 flex-shrink-0">
+                      <AvatarImage
+                        src={`https://avatars.githubusercontent.com/${viewer.username}`}
+                        alt={viewer.username || 'User'}
+                      />
+                      <AvatarFallback>{viewer.username?.[0]?.toUpperCase()}</AvatarFallback>
+                    </Avatar>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <a
+                          href={`/${viewer.username}`}
+                          className="font-semibold text-foreground hover:text-primary truncate"
+                          onClick={() => setIsOpen(false)}
+                        >
+                          {viewer.username}
+                        </a>
+                        {isRecent && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium flex-shrink-0">
+                            <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground space-y-0.5">
+                        <div>{viewer.viewCount} {viewer.viewCount === 1 ? 'view' : 'views'}</div>
+                        <div>Last viewed {formatDistanceToNow(lastViewedDate, { addSuffix: true })}</div>
+                      </div>
+                    </div>
                   </div>
-                  <span className="text-muted-foreground whitespace-nowrap text-[10px]">
-                    {new Date(viewer.lastViewedAt).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                    })}
-                  </span>
-                </div>
-              ))}
-              {data.viewers.length > 10 && (
-                <div className="text-xs text-muted-foreground pt-2 border-t border-border">
-                  +{data.viewers.length - 10} more
-                </div>
-              )}
-            </div>
-            <div className="pt-2 border-t border-border text-xs text-muted-foreground">
-              Total views by logged-in users: {data.totalViews}
+                );
+              })}
             </div>
           </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+        </div>
+      </div>
+    </>
   );
 }

@@ -103,7 +103,7 @@ export default async function WikiIndex({ params, searchParams }: WikiIndexProps
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
-                <WikiGenerationButton owner={owner} repo={repo} />
+                <WikiGenerationButton owner={owner} repo={repo} hideViewButton />
                 <DeleteWikiButton owner={owner} repo={repo} />
               </div>
             </div>

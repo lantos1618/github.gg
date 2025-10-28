@@ -19,9 +19,10 @@ import { sanitizeText } from '@/lib/utils/sanitize';
 interface WikiGenerationButtonProps {
   owner: string;
   repo: string;
+  hideViewButton?: boolean;
 }
 
-export function WikiGenerationButton({ owner, repo }: WikiGenerationButtonProps) {
+export function WikiGenerationButton({ owner, repo, hideViewButton = false }: WikiGenerationButtonProps) {
   const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -60,7 +61,14 @@ export function WikiGenerationButton({ owner, repo }: WikiGenerationButtonProps)
           description: `Created ${data.pages?.length || 0} pages using ${data.usage?.totalTokens || 0} tokens`,
         });
 
-        router.push(`/wiki/${owner}/${repo}`);
+        // Refresh the page to show new wiki content
+        if (hideViewButton) {
+          // Already on wiki page, just refresh
+          router.refresh();
+        } else {
+          // Navigate to wiki page
+          router.push(`/wiki/${owner}/${repo}`);
+        }
       } catch (error) {
         console.error('Failed to parse complete event:', error);
         setIsGenerating(false);
@@ -141,15 +149,17 @@ export function WikiGenerationButton({ owner, repo }: WikiGenerationButtonProps)
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button
-          onClick={() => router.push(`/wiki/${owner}/${repo}`)}
-          size="sm"
-          variant="ghost"
-          className="gap-2"
-        >
-          <ExternalLink className="h-4 w-4" />
-          View Wiki
-        </Button>
+        {!hideViewButton && (
+          <Button
+            onClick={() => router.push(`/wiki/${owner}/${repo}`)}
+            size="sm"
+            variant="ghost"
+            className="gap-2"
+          >
+            <ExternalLink className="h-4 w-4" />
+            View Wiki
+          </Button>
+        )}
       </div>
       {isGenerating && (
         <div className="space-y-2">

@@ -47,10 +47,8 @@ export function DeleteWikiButton({ owner, repo }: DeleteWikiButtonProps) {
         <Button
           variant="destructive"
           size="sm"
-          className="flex items-center gap-2"
         >
           <Trash2 className="h-4 w-4" />
-          <span className="hidden sm:inline">Delete Wiki</span>
         </Button>
       </DialogTrigger>
       <DialogContent>

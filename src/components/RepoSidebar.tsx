@@ -22,7 +22,7 @@ import {
   FolderGit2,
   Github,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, parseRepoPath } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { trpc } from '@/lib/trpc/client';
 
@@ -65,31 +65,13 @@ export function RepoSidebar({ owner, repo, wikiPages = [] }: RepoSidebarProps) {
   // Get the actual default branch from repo info, fallback to 'main'
   const defaultBranch = repoInfo?.defaultBranch || 'main';
 
-  // Intelligently detect current branch from URL
-  // URL structure: /{owner}/{repo}/{branch?}/{page?}
+  // Use parseRepoPath to correctly parse the URL
   const pathParts = pathname.split('/').filter(Boolean);
-  const knownPages = ['scorecard', 'ai-slop', 'automations', 'issues', 'pulls', 'diagram', 'dependencies', 'architecture', 'components', 'data-flow'];
+  const params = { user: owner, params: pathParts.slice(1) }; // Skip owner, keep rest
+  const parsed = parseRepoPath(params, branches || []);
 
-  let currentBranch = defaultBranch;
-  let currentPage = '';
-
-  if (pathParts.length > 2) {
-    const thirdPart = pathParts[2];
-    // Check if third part is a known page or a branch
-    if (knownPages.includes(thirdPart)) {
-      // It's a page, so we're on default branch
-      currentBranch = defaultBranch;
-      currentPage = thirdPart;
-    } else if (branches && branches.includes(thirdPart)) {
-      // It's a branch
-      currentBranch = thirdPart;
-      currentPage = pathParts[3] || '';
-    } else {
-      // Unknown - could be a branch we haven't loaded yet, assume it's a branch
-      currentBranch = thirdPart;
-      currentPage = pathParts[3] || '';
-    }
-  }
+  const currentBranch = parsed.ref || defaultBranch;
+  const currentPage = parsed.tab || '';
 
   // Base URL includes branch if not on default branch
   const baseUrl = currentBranch === defaultBranch ? `/${owner}/${repo}` : `/${owner}/${repo}/${currentBranch}`;

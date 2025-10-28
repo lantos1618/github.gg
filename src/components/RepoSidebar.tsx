@@ -94,7 +94,29 @@ export function RepoSidebar({ owner, repo, wikiPages = [] }: RepoSidebarProps) {
   }
 
   const handleBranchChange = (newBranch: string) => {
-    // Build the target URL based on the new branch
+    // If on wiki page, extract the slug and try to navigate to same page
+    if (isOnWikiPage) {
+      const wikiSlugMatch = pathname.match(/^\/wiki\/[^/]+\/[^/]+\/(.+)$/);
+      const slug = wikiSlugMatch ? wikiSlugMatch[1] : '';
+
+      // Navigate to the same wiki slug (wikis don't actually have branches, but we switch to file browser)
+      // If there was a slug, try to preserve it by going to that path in the file browser
+      if (slug) {
+        const targetUrl = newBranch === defaultBranch
+          ? `/${owner}/${repo}/${slug}`
+          : `/${owner}/${repo}/tree/${newBranch}/${slug}`;
+        router.push(targetUrl);
+      } else {
+        // Just wiki index, go to repo root
+        const targetUrl = newBranch === defaultBranch
+          ? `/${owner}/${repo}`
+          : `/${owner}/${repo}/tree/${newBranch}`;
+        router.push(targetUrl);
+      }
+      return;
+    }
+
+    // Build the target URL based on the new branch for regular routes
     let targetUrl: string;
 
     if (newBranch === defaultBranch) {

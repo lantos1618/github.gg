@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Clock, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { createCaller } from '@/lib/trpc/server';
 import { incrementViewCount } from './actions';
@@ -174,15 +174,11 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
                       })}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <Eye className="h-4 w-4" />
-                    <span>{page.viewCount} views</span>
-                  </div>
+                  <WikiPageViewers owner={owner} repo={repo} slug={slug} version={page.version} totalViewCount={page.viewCount} />
                   <div className="flex items-center gap-1.5">
                     <Clock className="h-4 w-4" />
                     <span>v{page.version}</span>
                   </div>
-                  <WikiPageViewers owner={owner} repo={repo} slug={slug} version={page.version} />
                 </div>
               </div>
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { trpc } from '@/lib/trpc/client';
-import { Eye, Users, X } from 'lucide-react';
+import { Eye, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
@@ -11,9 +11,10 @@ interface WikiPageViewersProps {
   repo: string;
   slug: string;
   version?: number;
+  totalViewCount: number;
 }
 
-export function WikiPageViewers({ owner, repo, slug, version }: WikiPageViewersProps) {
+export function WikiPageViewers({ owner, repo, slug, version, totalViewCount }: WikiPageViewersProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { data } = trpc.wiki.getWikiPageViewers.useQuery({ owner, repo, slug, version });
 
@@ -29,21 +30,23 @@ export function WikiPageViewers({ owner, repo, slug, version }: WikiPageViewersP
     };
   }, [isOpen]);
 
-  if (!data || data.viewers.length === 0) {
-    return null;
-  }
+  // Check if anyone is actively viewing (within 5 minutes)
+  const hasActiveViewers = data?.viewers.some(viewer => {
+    const lastViewedDate = new Date(viewer.lastViewedAt);
+    return Date.now() - lastViewedDate.getTime() < 5 * 60 * 1000;
+  }) || false;
 
   return (
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-accent transition-colors cursor-pointer"
+        className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer relative"
       >
-        <Users className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-medium">{data.viewers.length}</span>
-        <span className="text-xs text-muted-foreground">
-          {data.viewers.length === 1 ? 'viewer' : 'viewers'}
-        </span>
+        <Eye className="h-4 w-4" />
+        <span>{totalViewCount} views</span>
+        {hasActiveViewers && (
+          <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 animate-pulse border border-background" />
+        )}
       </button>
 
       {/* Overlay */}
@@ -69,7 +72,7 @@ export function WikiPageViewers({ owner, repo, slug, version }: WikiPageViewersP
                 <h2 className="text-lg font-semibold text-foreground">Page Viewers</h2>
               </div>
               <p className="text-sm text-muted-foreground">
-                {data.viewers.length} {data.viewers.length === 1 ? 'user' : 'users'} · {data.totalViews} total views
+                {data?.viewers.length || 0} {data?.viewers.length === 1 ? 'user' : 'users'} · {data?.totalViews || 0} total views
               </p>
             </div>
             <button
@@ -83,7 +86,7 @@ export function WikiPageViewers({ owner, repo, slug, version }: WikiPageViewersP
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6">
             <div className="space-y-4">
-              {data.viewers.map((viewer) => {
+              {data?.viewers.map((viewer) => {
                 const lastViewedDate = new Date(viewer.lastViewedAt);
                 const isRecent = Date.now() - lastViewedDate.getTime() < 5 * 60 * 1000; // Within 5 minutes
 

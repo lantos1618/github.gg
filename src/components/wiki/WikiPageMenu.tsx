@@ -7,7 +7,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -61,7 +60,14 @@ export function WikiPageMenu({ owner, repo, slug, pageTitle, pageContent }: Wiki
   const handleCopyForChatGPT = () => {
     const formatted = `# ${pageTitle}\n\n${pageContent}`;
     navigator.clipboard.writeText(formatted);
-    const prompt = `Read the following wiki page so I can ask questions about it:\n\n${formatted}`;
+
+    const CHAR_LIMIT = 400;
+    const pageUrl = `https://github.gg/wiki/${owner}/${repo}/${slug}`;
+
+    const prompt = pageContent.length > CHAR_LIMIT
+      ? `Please visit this URL and read the wiki page: ${pageUrl}`
+      : `Read the following wiki page so I can ask questions about it:\n\n${formatted}`;
+
     const encodedPrompt = encodeURIComponent(prompt);
     toast.success('Opening ChatGPT...');
     window.open(`https://chatgpt.com/?hints=search&q=${encodedPrompt}`, '_blank');
@@ -69,7 +75,16 @@ export function WikiPageMenu({ owner, repo, slug, pageTitle, pageContent }: Wiki
 
   const handleCopyForClaude = () => {
     const formatted = `# ${pageTitle}\n\n${pageContent}`;
-    const encodedContent = encodeURIComponent(formatted);
+    navigator.clipboard.writeText(formatted);
+
+    const CHAR_LIMIT = 400;
+    const pageUrl = `https://github.gg/wiki/${owner}/${repo}/${slug}`;
+
+    const prompt = pageContent.length > CHAR_LIMIT
+      ? `Please visit this URL and read the wiki page: ${pageUrl}`
+      : formatted;
+
+    const encodedContent = encodeURIComponent(prompt);
     const claudeUrl = `https://claude.ai/new?q=${encodedContent}`;
     toast.success('Opening Claude with page content...');
     window.open(claudeUrl, '_blank');

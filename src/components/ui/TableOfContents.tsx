@@ -132,7 +132,7 @@ export function TableOfContents({ content, actions }: TableOfContentsProps) {
                   }}
                   className={`block py-1.5 transition-all hover:text-foreground cursor-pointer ${
                     isActive
-                      ? 'text-foreground underline border-l-2 border-primary pl-3 -ml-3'
+                      ? 'text-foreground underline border-l-2 border-black dark:border-white pl-3 -ml-3'
                       : 'text-muted-foreground border-l-2 border-transparent pl-3 -ml-3 hover:border-l-2 hover:border-muted hover:pl-3'
                   }`}
                 >

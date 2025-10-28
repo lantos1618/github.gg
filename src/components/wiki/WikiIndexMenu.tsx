@@ -66,19 +66,27 @@ export function WikiIndexMenu({ owner, repo, pages, canEdit }: WikiIndexMenuProp
   };
 
   const handleCopyAllForChatGPT = async () => {
-    // Fetch all pages content and format
-    const formatted = pages.map(page => `# ${page.title}\n\n[Content from /wiki/${owner}/${repo}/${page.slug}]`).join('\n\n---\n\n');
+    const wikiUrl = `https://github.gg/wiki/${owner}/${repo}`;
+    const pageList = pages.map(page => `- ${page.title} (${page.slug})`).join('\n');
+
+    const formatted = `Wiki Index:\n\n${pageList}`;
     navigator.clipboard.writeText(formatted);
-    const prompt = `Read the following wiki documentation so I can ask questions about it:\n\n${formatted}`;
+
+    const prompt = `Please visit this wiki and read through the pages: ${wikiUrl}\n\nPages available:\n${pageList}`;
     const encodedPrompt = encodeURIComponent(prompt);
     toast.success('Opening ChatGPT...');
     window.open(`https://chatgpt.com/?hints=search&q=${encodedPrompt}`, '_blank');
   };
 
   const handleCopyAllForClaude = async () => {
-    // Fetch all pages content and format
-    const formatted = pages.map(page => `# ${page.title}\n\n[Content from /wiki/${owner}/${repo}/${page.slug}]`).join('\n\n---\n\n');
-    const encodedContent = encodeURIComponent(formatted);
+    const wikiUrl = `https://github.gg/wiki/${owner}/${repo}`;
+    const pageList = pages.map(page => `- ${page.title} (${page.slug})`).join('\n');
+
+    const formatted = `Wiki Index:\n\n${pageList}`;
+    navigator.clipboard.writeText(formatted);
+
+    const prompt = `Please visit this wiki and read through the pages: ${wikiUrl}\n\nPages available:\n${pageList}`;
+    const encodedContent = encodeURIComponent(prompt);
     const claudeUrl = `https://claude.ai/new?q=${encodedContent}`;
     toast.success('Opening Claude with all pages...');
     window.open(claudeUrl, '_blank');

@@ -125,11 +125,10 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
 
   return (
     <RepoSidebarLayout owner={owner} repo={repo} wikiPages={wikiPages}>
-      <div className="max-w-screen-xl w-full mx-auto px-2 sm:px-4 pt-2 sm:pt-4">
-        <div className="flex gap-2 sm:gap-4 h-full">
+      <div className="min-h-screen">
+        <div className="flex max-w-[1600px] mx-auto">
           {/* Main content container */}
-          <div className="flex-1 overflow-auto">
-            <div className="px-4 py-6">
+          <div className="flex-1 min-w-0 px-4 sm:px-6 lg:px-8 py-6">
               {/* Breadcrumb & Meta Header */}
               <div className="mb-8 pb-6 border-b border-gray-200 dark:border-gray-800">
                 <div className="flex items-center justify-between flex-wrap gap-4">
@@ -189,56 +188,55 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
                 </div>
               </div>
 
-              {/* Markdown Content - Server-side rendered */}
-              <MarkdownViewer html={html} />
+            {/* Markdown Content - Server-side rendered */}
+            <MarkdownViewer html={html} />
 
-              {/* Next/Previous Navigation */}
-              {(previousPage || nextPage) && (
-                <nav className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-800">
-                  <div className="flex items-center justify-between gap-4">
-                    {previousPage ? (
-                      <Link
-                        href={`/wiki/${owner}/${repo}/${previousPage.slug}${version ? `?version=${version}` : ''}`}
-                        className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-accent transition-colors group flex-1 max-w-sm"
-                      >
-                        <ChevronLeft className="h-5 w-5 text-muted-foreground group-hover:text-foreground shrink-0" />
-                        <div className="text-left">
-                          <div className="text-xs text-muted-foreground mb-1">Previous</div>
-                          <div className="font-medium text-sm group-hover:text-primary line-clamp-1">
-                            {previousPage.title}
-                          </div>
+            {/* Next/Previous Navigation */}
+            {(previousPage || nextPage) && (
+              <nav className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-800">
+                <div className="flex items-center justify-between gap-4">
+                  {previousPage ? (
+                    <Link
+                      href={`/wiki/${owner}/${repo}/${previousPage.slug}${version ? `?version=${version}` : ''}`}
+                      className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-accent transition-colors group flex-1 max-w-sm"
+                    >
+                      <ChevronLeft className="h-5 w-5 text-muted-foreground group-hover:text-foreground shrink-0" />
+                      <div className="text-left">
+                        <div className="text-xs text-muted-foreground mb-1">Previous</div>
+                        <div className="font-medium text-sm group-hover:text-primary line-clamp-1">
+                          {previousPage.title}
                         </div>
-                      </Link>
-                    ) : (
-                      <div className="flex-1" />
-                    )}
+                      </div>
+                    </Link>
+                  ) : (
+                    <div className="flex-1" />
+                  )}
 
-                    {nextPage ? (
-                      <Link
-                        href={`/wiki/${owner}/${repo}/${nextPage.slug}${version ? `?version=${version}` : ''}`}
-                        className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-accent transition-colors group flex-1 max-w-sm ml-auto"
-                      >
-                        <div className="text-right">
-                          <div className="text-xs text-muted-foreground mb-1">Next</div>
-                          <div className="font-medium text-sm group-hover:text-primary line-clamp-1">
-                            {nextPage.title}
-                          </div>
+                  {nextPage ? (
+                    <Link
+                      href={`/wiki/${owner}/${repo}/${nextPage.slug}${version ? `?version=${version}` : ''}`}
+                      className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-accent transition-colors group flex-1 max-w-sm ml-auto"
+                    >
+                      <div className="text-right">
+                        <div className="text-xs text-muted-foreground mb-1">Next</div>
+                        <div className="font-medium text-sm group-hover:text-primary line-clamp-1">
+                          {nextPage.title}
                         </div>
-                        <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground shrink-0" />
-                      </Link>
-                    ) : (
-                      <div className="flex-1" />
-                    )}
-                  </div>
-                </nav>
-              )}
-            </div>
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground shrink-0" />
+                    </Link>
+                  ) : (
+                    <div className="flex-1" />
+                  )}
+                </div>
+              </nav>
+            )}
           </div>
 
           {/* Table of Contents - Right Sidebar with pre-parsed headings */}
-          <div className="hidden xl:block xl:w-64 flex-shrink-0">
+          <aside className="hidden xl:block xl:w-64 flex-shrink-0 py-6 pr-4">
             <TableOfContents headings={headings} />
-          </div>
+          </aside>
         </div>
       </div>
     </RepoSidebarLayout>

@@ -112,18 +112,18 @@ export function TableOfContents({ headings: initialHeadings, content, actions }:
 
   return (
     <nav className="sticky top-20 w-full h-fit max-h-[calc(100vh-6rem)] overflow-y-auto">
-      <div className="px-4 py-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-foreground">On this page</h2>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">On this page</h2>
           {actions && <div>{actions}</div>}
         </div>
-        <ul className="space-y-2 text-sm">
+        <ul className="space-y-1.5 text-sm border-l-2 border-gray-200 dark:border-gray-700">
           {headings.map((heading) => {
             const isActive = activeId === heading.id;
-            const paddingLeft = (heading.level - 1) * 12;
+            const paddingLeft = (heading.level - 1) * 12 + 12; // Base 12px + level offset
 
             return (
-              <li key={heading.id} style={{ paddingLeft: `${paddingLeft}px` }}>
+              <li key={heading.id}>
                 <a
                   href={`#${heading.id}`}
                   onClick={(e) => {
@@ -140,10 +140,11 @@ export function TableOfContents({ headings: initialHeadings, content, actions }:
                       });
                     }
                   }}
-                  className={`block py-1.5 transition-all hover:text-foreground cursor-pointer ${
+                  style={{ paddingLeft: `${paddingLeft}px` }}
+                  className={`block py-1.5 transition-all cursor-pointer hover:text-foreground relative ${
                     isActive
-                      ? 'text-foreground underline border-l-2 border-black dark:border-white pl-3 -ml-3'
-                      : 'text-muted-foreground border-l-2 border-transparent pl-3 -ml-3 hover:border-l-2 hover:border-muted hover:pl-3'
+                      ? 'text-foreground font-medium before:absolute before:left-0 before:top-0 before:bottom-0 before:w-0.5 before:bg-blue-600'
+                      : 'text-muted-foreground'
                   }`}
                 >
                   {heading.text}

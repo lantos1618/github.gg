@@ -222,6 +222,7 @@ const FileItem = memo(function FileItem({ file, fileIndex, copiedFile, onCopy, o
 
 export function EnhancedCodeViewer({ files }: EnhancedCodeViewerProps) {
   const [copiedFile, setCopiedFile] = useState<string | null>(null);
+  const [copiedAll, setCopiedAll] = useState(false);
 
   const handleCopyFile = async (filePath: string, content: string) => {
     try {
@@ -245,6 +246,20 @@ export function EnhancedCodeViewer({ files }: EnhancedCodeViewerProps) {
     URL.revokeObjectURL(url);
   };
 
+  const handleCopyAllForAI = async () => {
+    try {
+      const allContent = files.map(file =>
+        `// File: ${file.path}\n${file.content || ''}`
+      ).join('\n\n');
+
+      await navigator.clipboard.writeText(allContent);
+      setCopiedAll(true);
+      setTimeout(() => setCopiedAll(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy all files:', err);
+    }
+  };
+
   if (!files || files.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
@@ -259,9 +274,36 @@ export function EnhancedCodeViewer({ files }: EnhancedCodeViewerProps) {
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-      {/* Scrollable Files */}
-      <div className="overflow-y-auto max-h-[calc(100vh-200px)]" style={{ willChange: 'scroll-position' }}>
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden relative">
+      {/* Sticky Header with Copy for AI */}
+      <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-700">
+            {files.length} {files.length === 1 ? 'file' : 'files'} selected
+          </span>
+        </div>
+        <button
+          onClick={handleCopyAllForAI}
+          disabled={files.length === 0}
+          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-300 rounded-md hover:bg-purple-100 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Copy all file contents for AI/LLM"
+        >
+          {copiedAll ? (
+            <>
+              <Check className="w-4 h-4 text-green-600" />
+              <span>Copied!</span>
+            </>
+          ) : (
+            <>
+              <Copy className="w-4 h-4" />
+              <span>Copy for AI</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Files */}
+      <div>
         {files.map((file, fileIndex) => (
           <FileItem
             key={file.path}

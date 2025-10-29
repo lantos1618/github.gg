@@ -518,7 +518,30 @@ export const profileRouter = router({
         }
       }
 
-      return Array.from(latestProfiles.values()).sort((a, b) =>
+      const profilesArray = Array.from(latestProfiles.values());
+
+      // Get token usage for each profile
+      const tokenUsageByUsername = await db
+        .select({
+          repoOwner: tokenUsage.repoOwner,
+          totalTokens: sql<number>`SUM(${tokenUsage.totalTokens})`,
+        })
+        .from(tokenUsage)
+        .where(eq(tokenUsage.feature, 'profile'))
+        .groupBy(tokenUsage.repoOwner);
+
+      // Create a map of username -> total tokens
+      const tokenMap = new Map(
+        tokenUsageByUsername.map(t => [t.repoOwner?.toLowerCase(), Number(t.totalTokens)])
+      );
+
+      // Add token usage to profiles
+      const profilesWithTokens = profilesArray.map(profile => ({
+        ...profile,
+        totalTokens: tokenMap.get(profile.username) || 0,
+      }));
+
+      return profilesWithTokens.sort((a, b) =>
         b.updatedAt.getTime() - a.updatedAt.getTime()
       );
     }),

@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import type { DeveloperProfile } from '@/lib/types/profile';
 
-type SortField = 'date' | 'score' | 'username' | 'elo';
+type SortField = 'date' | 'score' | 'username' | 'elo' | 'tokens';
 type SortOrder = 'asc' | 'desc';
 
 export default function UsersPage() {
@@ -65,6 +65,10 @@ export default function UsersPage() {
       const aElo = eloMap.get(a.username.toLowerCase()) || 0;
       const bElo = eloMap.get(b.username.toLowerCase()) || 0;
       comparison = bElo - aElo;
+    } else if (sortField === 'tokens') {
+      const aTokens = (a as any).totalTokens || 0;
+      const bTokens = (b as any).totalTokens || 0;
+      comparison = bTokens - aTokens;
     }
 
     return sortOrder === 'asc' ? -comparison : comparison;
@@ -171,6 +175,16 @@ export default function UsersPage() {
                         </div>
                       </th>
                       <th
+                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell cursor-pointer hover:bg-gray-100"
+                        onClick={() => toggleSort('tokens')}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="text-base">🔥</span>
+                          Tokens Burnt
+                          {sortField === 'tokens' && <ArrowUpDown className="h-3 w-3" />}
+                        </div>
+                      </th>
+                      <th
                         className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell cursor-pointer hover:bg-gray-100"
                         onClick={() => toggleSort('date')}
                       >
@@ -270,6 +284,20 @@ export default function UsersPage() {
                                 </div>
                               ) : (
                                 <span className="text-gray-400">N/A</span>
+                              )}
+                            </Link>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center hidden lg:table-cell">
+                            <Link href={`/${profile.username}`}>
+                              {(profile as any).totalTokens ? (
+                                <div className="inline-flex flex-col items-center">
+                                  <span className="text-lg font-semibold text-purple-700">
+                                    {((profile as any).totalTokens).toLocaleString()}
+                                  </span>
+                                  <span className="text-xs text-gray-500">tokens</span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 text-sm">—</span>
                               )}
                             </Link>
                           </td>

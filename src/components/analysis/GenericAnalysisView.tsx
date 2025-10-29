@@ -51,6 +51,7 @@ export interface AnalysisViewConfig<TResponse, TMutation> {
   useVersions: (params: { user: string; repo: string; ref: string }) => unknown;
   usePublicData: (params: { user: string; repo: string; ref: string; version?: number }) => unknown;
   useGenerate: () => unknown;
+  useGenerateSubscription: (input: any, options: any) => void;
   usePlan: () => unknown;
   useUtils: () => TRPCUtils;
 
@@ -105,8 +106,10 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
   const [error, setError] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [isFileExplorerOpen, setIsFileExplorerOpen] = useState(false);
+  const [shouldAnalyze, setShouldAnalyze] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState('');
 
-  const generateMutation = config.useGenerate() as TMutation;
   const planResult = config.usePlan() as { data: { plan: string } | undefined; isLoading: boolean };
   const { data: currentPlan, isLoading: planLoading } = planResult;
   const utils = config.useUtils();
@@ -144,32 +147,55 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
     }
   }, [user, repo]);
 
+  // Use subscription from config
+  const subscriptionConfig = config.useGenerate() as {
+    input: any;
+    enabled: boolean;
+    onData: (event: any) => void;
+  };
+
+  // Subscription for analysis
+  config.useGenerateSubscription(
+    {
+      user,
+      repo,
+      ref: effectiveRef,
+      files: selectedFiles.map((file: { path: string; content: string; size: number }) => ({
+        path: file.path,
+        content: file.content,
+        size: file.size,
+      })),
+    },
+    {
+      enabled: shouldAnalyze,
+      onData: (event: any) => {
+        if (event.type === 'progress') {
+          setProgress(event.progress);
+          setProgressMessage(event.message);
+          setIsLoading(true);
+        } else if (event.type === 'complete') {
+          config.onMutationSuccess(event.data, setAnalysisData, utils);
+          setShouldAnalyze(false);
+          setIsLoading(false);
+          setProgress(0);
+          setProgressMessage('');
+        } else if (event.type === 'error') {
+          config.onMutationError({ message: event.message }, setError);
+          setShouldAnalyze(false);
+          setIsLoading(false);
+          setProgress(0);
+          setProgressMessage('');
+        }
+      },
+    }
+  );
+
   // Add regenerate handler
   const handleRegenerate = () => {
-    setIsLoading(true);
     setError(null);
-    generateMutation.mutate(
-      {
-        user,
-        repo,
-        ref: effectiveRef,
-        files: selectedFiles.map((file: { path: string; content: string; size: number }) => ({
-          path: file.path,
-          content: file.content,
-          size: file.size,
-        })),
-      },
-      {
-        onSuccess: (data: unknown) => {
-          config.onMutationSuccess(data, setAnalysisData, utils);
-          setIsLoading(false);
-        },
-        onError: (err: { message: string }) => {
-          config.onMutationError(err, setError);
-          setIsLoading(false);
-        },
-      }
-    );
+    setProgress(0);
+    setProgressMessage('');
+    setShouldAnalyze(true);
   };
 
   const handleCopyMarkdown = (markdown: string | null | undefined) => {
@@ -240,11 +266,11 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
               {canAccess && (
                 <Button
                   onClick={handleRegenerate}
-                  disabled={isLoading || generateMutation.isPending}
+                  disabled={shouldAnalyze}
                   className="flex items-center gap-2"
                 >
-                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                  {isLoading ? config.generatingButtonText : 'Regenerate'}
+                  <RefreshCw className={`h-4 w-4 ${shouldAnalyze ? 'animate-spin' : ''}`} />
+                  {shouldAnalyze ? config.generatingButtonText : 'Regenerate'}
                 </Button>
               )}
             </div>
@@ -363,9 +389,23 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
           {error && (
             <ErrorDisplay
               error={error}
-              isPending={generateMutation.isPending}
+              isPending={shouldAnalyze}
               onRetry={handleRegenerate}
             />
+          )}
+          {progressMessage && (
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-blue-900">{progressMessage}</span>
+                <span className="text-sm text-blue-700">{progress}%</span>
+              </div>
+              <div className="w-full h-2 bg-blue-200 rounded">
+                <div
+                  className="h-2 bg-blue-600 rounded transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
           )}
           {overallLoading && (
             <div className="space-y-6">
@@ -407,12 +447,12 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
               </p>
               <Button
                 onClick={handleRegenerate}
-                disabled={isLoading || generateMutation.isPending || filesLoading}
+                disabled={shouldAnalyze || filesLoading}
                 className="flex items-center gap-2"
                 size="lg"
               >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                {isLoading ? config.generatingButtonText : config.generateButtonText}
+                <RefreshCw className={`h-4 w-4 ${shouldAnalyze ? 'animate-spin' : ''}`} />
+                {shouldAnalyze ? config.generatingButtonText : config.generateButtonText}
               </Button>
               <p className="text-sm text-gray-400 mt-4">Files selected: {selectedFiles.length} of {files.length}</p>
             </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +44,15 @@ export interface ResourceDetailViewProps<TItem, TAnalysis extends { markdown: st
     number: number;
   }>;
 
+  useAnalyzeSubscription: (input: {
+    owner: string;
+    repo: string;
+    number: number;
+  }, options: {
+    enabled: boolean;
+    onData: (event: any) => void;
+  }) => void;
+
   utils: TRPCUtils;
 
   // Display configuration
@@ -72,6 +81,7 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
   useGetDetails,
   useGetCachedAnalysis,
   useAnalyze,
+  useAnalyzeSubscription,
   utils,
   resourceType,
   resourceTypePlural,
@@ -86,6 +96,10 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
   renderDetailsCard,
   renderAdditionalCards,
 }: ResourceDetailViewProps<TItem, TAnalysis>) {
+  const [shouldAnalyze, setShouldAnalyze] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState('');
+
   const { data: item, isLoading, error } = useGetDetails({
     owner: user,
     repo,
@@ -98,22 +112,39 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
     number,
   });
 
-  const analyzeMutation = useAnalyze({
-    onSuccess: () => {
-      toast.success(`${resourceType.charAt(0).toUpperCase() + resourceType.slice(1)} analysis complete!`);
-      utils.invalidate();
-    },
-    onError: (err) => {
-      toast.error(`Analysis failed: ${err.message}`);
-    },
-  });
-
-  const handleAnalyze = () => {
-    analyzeMutation.mutate({
+  // Use subscription for analysis
+  useAnalyzeSubscription(
+    {
       owner: user,
       repo,
       number,
-    });
+    },
+    {
+      enabled: shouldAnalyze,
+      onData: (event) => {
+        if (event.type === 'progress') {
+          setProgress(event.progress);
+          setProgressMessage(event.message);
+        } else if (event.type === 'complete') {
+          toast.success(`${resourceType.charAt(0).toUpperCase() + resourceType.slice(1)} analysis complete!`);
+          utils.invalidate();
+          setShouldAnalyze(false);
+          setProgress(0);
+          setProgressMessage('');
+        } else if (event.type === 'error') {
+          toast.error(`Analysis failed: ${event.message}`);
+          setShouldAnalyze(false);
+          setProgress(0);
+          setProgressMessage('');
+        }
+      },
+    }
+  );
+
+  const handleAnalyze = () => {
+    setProgress(0);
+    setProgressMessage('');
+    setShouldAnalyze(true);
   };
 
   if (error) {
@@ -182,11 +213,11 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
             <div className="flex gap-2">
               <Button
                 onClick={handleAnalyze}
-                disabled={analyzeMutation.isPending}
+                disabled={shouldAnalyze}
                 className="gap-2"
               >
                 <Sparkles className="h-4 w-4" />
-                {analyzeButtonText(analyzeMutation.isPending, !!cachedAnalysis)}
+                {analyzeButtonText(shouldAnalyze, !!cachedAnalysis)}
               </Button>
               <Button variant="outline" asChild>
                 <a
@@ -204,6 +235,26 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
         </div>
 
         <div className="grid gap-6">
+          {/* Progress Bar */}
+          {progressMessage && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-blue-900">{progressMessage}</span>
+                    <span className="text-sm text-blue-700">{progress}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-blue-200 rounded">
+                    <div
+                      className="h-2 bg-blue-600 rounded transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Details Card */}
           {renderDetailsCard(item)}
 

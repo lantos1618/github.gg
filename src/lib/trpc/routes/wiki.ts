@@ -4,9 +4,21 @@ import { createPublicGitHubService } from '@/lib/github';
 import { generateWikiWithCache } from '@/lib/ai/wiki-generator';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
-import { tokenUsage, repositoryWikiPages, wikiPageViewers } from '@/db/schema';
-import { and, eq, desc, sql } from 'drizzle-orm';
+import { tokenUsage } from '@/db/schema';
 import crypto from 'crypto';
+import { collectRepositoryFiles } from '@/lib/wiki/file-collector';
+import {
+  insertWikiPages,
+  getWikiPage,
+  getWikiTableOfContents,
+  incrementViewCount,
+  getWikiPageViewers,
+  deleteWikiPage,
+  deleteRepositoryWiki,
+  updateWikiPage,
+  createWikiPage,
+} from '@/lib/wiki/repository';
+import { checkRepositoryWriteAccess } from '@/lib/wiki/permissions';
 
 export const wikiRouter = router({
   /**
@@ -19,7 +31,7 @@ export const wikiRouter = router({
       repo: z.string(),
       maxFiles: z.number().optional().default(200),
       useChunking: z.boolean().optional().default(false),
-      tokensPerChunk: z.number().optional().default(800000), // 800k tokens per chunk (1M context window)
+      tokensPerChunk: z.number().optional().default(800000),
     }))
     .mutation(async ({ input, ctx }) => {
       const { owner, repo, maxFiles } = input;
@@ -54,96 +66,8 @@ export const wikiRouter = router({
           }
         }
 
-        // Collect source files
-        const files: Array<{
-          path: string;
-          content: string;
-          language: string;
-          size: number;
-        }> = [];
-
-        async function collectFiles(path: string, depth = 0): Promise<void> {
-          if (depth > 3 || files.length >= maxFiles) return;
-
-          try {
-            const items = await githubService['octokit'].repos.getContent({
-              owner,
-              repo,
-              path,
-            });
-
-            if (!Array.isArray(items.data)) return;
-
-            // Separate files and directories
-            const fileItems: typeof items.data = [];
-            const dirItems: typeof items.data = [];
-
-            for (const item of items.data) {
-              if (files.length >= maxFiles) break;
-
-              if (item.type === 'file') {
-                const ext = item.name.split('.').pop()?.toLowerCase();
-                const sourceExts = ['ts', 'tsx', 'js', 'jsx', 'py', 'java', 'go', 'rs', 'cpp', 'c', 'h'];
-
-                if (ext && sourceExts.includes(ext) && item.size && item.size < 100000) {
-                  fileItems.push(item);
-                }
-              } else if (item.type === 'dir' && !item.path.includes('node_modules') && !item.path.includes('.git')) {
-                dirItems.push(item);
-              }
-            }
-
-            // Fetch all files in parallel (limit concurrency to 10)
-            const chunkSize = 10;
-            for (let i = 0; i < fileItems.length; i += chunkSize) {
-              if (files.length >= maxFiles) break;
-
-              const chunk = fileItems.slice(i, i + chunkSize);
-              const fileResults = await Promise.allSettled(
-                chunk.map(item =>
-                  githubService['octokit'].repos.getContent({
-                    owner,
-                    repo,
-                    path: item.path,
-                  })
-                )
-              );
-
-              for (let j = 0; j < fileResults.length; j++) {
-                if (files.length >= maxFiles) break;
-
-                const result = fileResults[j];
-                if (result.status === 'fulfilled' && 'content' in result.value.data) {
-                  const item = chunk[j];
-                  const content = Buffer.from(result.value.data.content, 'base64').toString('utf-8');
-                  const ext = item.name.split('.').pop()?.toLowerCase() || '';
-
-                  files.push({
-                    path: item.path,
-                    content,
-                    language: ext,
-                    size: item.size || 0,
-                  });
-                }
-              }
-            }
-
-            // Recursively collect from directories in parallel (limit to 5 at a time)
-            const dirChunkSize = 5;
-            for (let i = 0; i < dirItems.length; i += dirChunkSize) {
-              if (files.length >= maxFiles) break;
-
-              const chunk = dirItems.slice(i, i + dirChunkSize);
-              await Promise.all(
-                chunk.map(item => collectFiles(item.path, depth + 1))
-              );
-            }
-          } catch (error) {
-            console.error(`Failed to collect files from ${path}:`, error);
-          }
-        }
-
-        await collectFiles('');
+        // Collect source files using dedicated module
+        const files = await collectRepositoryFiles(owner, repo, maxFiles);
 
         // Generate wiki using Gemini context caching
         const wikiResult = await generateWikiWithCache({
@@ -179,52 +103,13 @@ export const wikiRouter = router({
           fileHashes[f.path] = crypto.createHash('sha256').update(f.content).digest('hex');
         });
 
-        // Check if we need to create new versions
-        const existingPages = await db
-          .select()
-          .from(repositoryWikiPages)
-          .where(
-            and(
-              eq(repositoryWikiPages.repoOwner, owner),
-              eq(repositoryWikiPages.repoName, repo)
-            )
-          )
-          .orderBy(desc(repositoryWikiPages.version));
-
-        const latestVersion = existingPages.length > 0 ? existingPages[0].version : 0;
-        const nextVersion = latestVersion + 1;
-
-        // Insert all pages with the new version
-        const insertedPages = await Promise.all(
-          wikiResult.pages.map((page, index) =>
-            db.insert(repositoryWikiPages).values({
-              repoOwner: owner,
-              repoName: repo,
-              slug: page.slug,
-              title: page.title,
-              content: page.content,
-              summary: page.summary,
-              version: nextVersion,
-              fileHashes,
-              metadata: {
-                order: index,
-                keywords: [owner, repo, 'documentation', 'wiki'],
-                category: 'documentation',
-                // Store AI-generated metadata for regeneration
-                systemPrompt: '', // Will be populated in future enhancement
-                dependsOn: [],
-                priority: 10 - index, // Higher priority for earlier pages
-              },
-              isPublic: true,
-              viewCount: 0,
-            }).returning()
-          )
-        );
+        // Insert pages using repository module
+        const result = await insertWikiPages(owner, repo, wikiResult.pages, fileHashes);
 
         return {
           success: true,
-          version: nextVersion,
-          pages: insertedPages.map(p => p[0]),
+          version: result.version,
+          pages: result.pages,
           usage: wikiResult.usage,
         };
       } catch (error) {
@@ -251,31 +136,7 @@ export const wikiRouter = router({
       const { owner, repo, slug, version } = input;
 
       try {
-        const conditions = [
-          eq(repositoryWikiPages.repoOwner, owner),
-          eq(repositoryWikiPages.repoName, repo),
-          eq(repositoryWikiPages.slug, slug),
-          eq(repositoryWikiPages.isPublic, true),
-        ];
-
-        if (version !== undefined) {
-          conditions.push(eq(repositoryWikiPages.version, version));
-        }
-
-        const query = db
-          .select()
-          .from(repositoryWikiPages)
-          .where(and(...conditions));
-
-        const result = version === undefined
-          ? await query.orderBy(desc(repositoryWikiPages.version)).limit(1)
-          : await query;
-
-        if (result.length === 0) {
-          return null;
-        }
-
-        return result[0];
+        return await getWikiPage(owner, repo, slug, version);
       } catch (error) {
         console.error('Failed to fetch wiki page:', error);
         return null;
@@ -296,63 +157,7 @@ export const wikiRouter = router({
       const { owner, repo, version } = input;
 
       try {
-        const conditions = [
-          eq(repositoryWikiPages.repoOwner, owner),
-          eq(repositoryWikiPages.repoName, repo),
-          eq(repositoryWikiPages.isPublic, true),
-        ];
-
-        if (version !== undefined) {
-          conditions.push(eq(repositoryWikiPages.version, version));
-        }
-
-        // Get latest version if not specified
-        let targetVersion = version;
-        if (targetVersion === undefined) {
-          const latestPage = await db
-            .select({ version: repositoryWikiPages.version })
-            .from(repositoryWikiPages)
-            .where(
-              and(
-                eq(repositoryWikiPages.repoOwner, owner),
-                eq(repositoryWikiPages.repoName, repo),
-                eq(repositoryWikiPages.isPublic, true)
-              )
-            )
-            .orderBy(desc(repositoryWikiPages.version))
-            .limit(1);
-
-          if (latestPage.length === 0) {
-            return { pages: [], version: 0 };
-          }
-
-          targetVersion = latestPage[0].version;
-          conditions.push(eq(repositoryWikiPages.version, targetVersion));
-        }
-
-        const pages = await db
-          .select({
-            slug: repositoryWikiPages.slug,
-            title: repositoryWikiPages.title,
-            summary: repositoryWikiPages.summary,
-            viewCount: repositoryWikiPages.viewCount,
-            metadata: repositoryWikiPages.metadata,
-            updatedAt: repositoryWikiPages.updatedAt,
-          })
-          .from(repositoryWikiPages)
-          .where(and(...conditions));
-
-        // Sort by metadata.order if available
-        const sortedPages = pages.sort((a, b) => {
-          const aOrder = (a.metadata as { order?: number })?.order ?? 999;
-          const bOrder = (b.metadata as { order?: number })?.order ?? 999;
-          return aOrder - bOrder;
-        });
-
-        return {
-          pages: sortedPages,
-          version: targetVersion,
-        };
+        return await getWikiTableOfContents(owner, repo, version);
       } catch (error) {
         console.error('Failed to fetch wiki table of contents:', error);
         return { pages: [], version: 0 };
@@ -376,83 +181,8 @@ export const wikiRouter = router({
       const { owner, repo, slug, version, userId, username } = input;
 
       try {
-        const conditions = [
-          eq(repositoryWikiPages.repoOwner, owner),
-          eq(repositoryWikiPages.repoName, repo),
-          eq(repositoryWikiPages.slug, slug),
-        ];
-
-        if (version !== undefined) {
-          conditions.push(eq(repositoryWikiPages.version, version));
-        }
-
-        // Get the page first to increment the correct version
-        const query = db
-          .select({ id: repositoryWikiPages.id, viewCount: repositoryWikiPages.viewCount, version: repositoryWikiPages.version })
-          .from(repositoryWikiPages)
-          .where(and(...conditions));
-
-        const result = version === undefined
-          ? await query.orderBy(desc(repositoryWikiPages.version)).limit(1)
-          : await query;
-
-        if (result.length === 0) {
-          return { success: false };
-        }
-
-        const pageVersion = result[0].version;
-
-        // Increment page view count
-        await db
-          .update(repositoryWikiPages)
-          .set({
-            viewCount: result[0].viewCount + 1,
-          })
-          .where(eq(repositoryWikiPages.id, result[0].id));
-
-        // Track individual viewer if logged in
-        if (userId && username) {
-          const viewerConditions = [
-            eq(wikiPageViewers.repoOwner, owner),
-            eq(wikiPageViewers.repoName, repo),
-            eq(wikiPageViewers.slug, slug),
-            eq(wikiPageViewers.version, pageVersion),
-            eq(wikiPageViewers.userId, userId),
-          ];
-
-          // Check if viewer already viewed this page
-          const existingViewer = await db
-            .select()
-            .from(wikiPageViewers)
-            .where(and(...viewerConditions))
-            .limit(1);
-
-          if (existingViewer.length > 0) {
-            // Update last viewed time and increment view count
-            await db
-              .update(wikiPageViewers)
-              .set({
-                lastViewedAt: new Date(),
-                viewCount: sql`${wikiPageViewers.viewCount} + 1`,
-              })
-              .where(eq(wikiPageViewers.id, existingViewer[0].id));
-          } else {
-            // Insert new viewer record
-            await db.insert(wikiPageViewers).values({
-              repoOwner: owner,
-              repoName: repo,
-              slug,
-              version: pageVersion,
-              userId,
-              username,
-              viewedAt: new Date(),
-              lastViewedAt: new Date(),
-              viewCount: 1,
-            });
-          }
-        }
-
-        return { success: true };
+        const success = await incrementViewCount(owner, repo, slug, version, userId, username);
+        return { success };
       } catch (error) {
         console.error('Failed to increment view count:', error);
         return { success: false };
@@ -474,54 +204,7 @@ export const wikiRouter = router({
       const { owner, repo, slug, version } = input;
 
       try {
-        // If no version specified, get the latest version first
-        let targetVersion = version;
-        if (targetVersion === undefined) {
-          const latestPage = await db
-            .select({ version: repositoryWikiPages.version })
-            .from(repositoryWikiPages)
-            .where(
-              and(
-                eq(repositoryWikiPages.repoOwner, owner),
-                eq(repositoryWikiPages.repoName, repo),
-                eq(repositoryWikiPages.slug, slug)
-              )
-            )
-            .orderBy(desc(repositoryWikiPages.version))
-            .limit(1);
-
-          if (latestPage.length === 0) {
-            return { viewers: [], totalViews: 0 };
-          }
-
-          targetVersion = latestPage[0].version;
-        }
-
-        const viewers = await db
-          .select({
-            userId: wikiPageViewers.userId,
-            username: wikiPageViewers.username,
-            viewedAt: wikiPageViewers.viewedAt,
-            lastViewedAt: wikiPageViewers.lastViewedAt,
-            viewCount: wikiPageViewers.viewCount,
-          })
-          .from(wikiPageViewers)
-          .where(
-            and(
-              eq(wikiPageViewers.repoOwner, owner),
-              eq(wikiPageViewers.repoName, repo),
-              eq(wikiPageViewers.slug, slug),
-              eq(wikiPageViewers.version, targetVersion)
-            )
-          )
-          .orderBy(desc(wikiPageViewers.lastViewedAt));
-
-        const totalViews = viewers.reduce((sum, viewer) => sum + viewer.viewCount, 0);
-
-        return {
-          viewers,
-          totalViews,
-        };
+        return await getWikiPageViewers(owner, repo, slug, version);
       } catch (error) {
         console.error('Failed to fetch wiki page viewers:', error);
         return { viewers: [], totalViews: 0 };
@@ -542,18 +225,7 @@ export const wikiRouter = router({
       const { owner, repo, slug } = input;
 
       try {
-        // Check if user has write access to the repository
-        const { createGitHubServiceForUserOperations } = await import('@/lib/github');
-        const githubService = await createGitHubServiceForUserOperations(ctx.session);
-
-        // Get repository details with permissions
-        const { data: repoData } = await githubService['octokit'].repos.get({
-          owner,
-          repo,
-        });
-
-        // Check if user has admin or push (write) permissions
-        const hasAccess = repoData.permissions?.admin || repoData.permissions?.push;
+        const hasAccess = await checkRepositoryWriteAccess(ctx.session, owner, repo);
 
         if (!hasAccess) {
           throw new TRPCError({
@@ -562,37 +234,17 @@ export const wikiRouter = router({
           });
         }
 
-        // Delete only the specific page (latest version)
-        const latestPage = await db
-          .select({ id: repositoryWikiPages.id, version: repositoryWikiPages.version })
-          .from(repositoryWikiPages)
-          .where(
-            and(
-              eq(repositoryWikiPages.repoOwner, owner),
-              eq(repositoryWikiPages.repoName, repo),
-              eq(repositoryWikiPages.slug, slug)
-            )
-          )
-          .orderBy(desc(repositoryWikiPages.version))
-          .limit(1);
+        const success = await deleteWikiPage(owner, repo, slug);
 
-        if (latestPage.length === 0) {
+        if (!success) {
           throw new TRPCError({
             code: 'NOT_FOUND',
             message: 'Wiki page not found',
           });
         }
 
-        await db
-          .delete(repositoryWikiPages)
-          .where(eq(repositoryWikiPages.id, latestPage[0].id));
-
-        return {
-          success: true,
-        };
+        return { success: true };
       } catch (error) {
-        console.error('Failed to delete wiki page:', error);
-
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -621,18 +273,7 @@ export const wikiRouter = router({
       const { owner, repo, slug, title, content, summary } = input;
 
       try {
-        // Check if user has write access to the repository
-        const { createGitHubServiceForUserOperations } = await import('@/lib/github');
-        const githubService = await createGitHubServiceForUserOperations(ctx.session);
-
-        // Get repository details with permissions
-        const { data: repoData } = await githubService['octokit'].repos.get({
-          owner,
-          repo,
-        });
-
-        // Check if user has admin or push (write) permissions
-        const hasAccess = repoData.permissions?.admin || repoData.permissions?.push;
+        const hasAccess = await checkRepositoryWriteAccess(ctx.session, owner, repo);
 
         if (!hasAccess) {
           throw new TRPCError({
@@ -641,46 +282,20 @@ export const wikiRouter = router({
           });
         }
 
-        // Get the latest version of the page
-        const latestPage = await db
-          .select()
-          .from(repositoryWikiPages)
-          .where(
-            and(
-              eq(repositoryWikiPages.repoOwner, owner),
-              eq(repositoryWikiPages.repoName, repo),
-              eq(repositoryWikiPages.slug, slug)
-            )
-          )
-          .orderBy(desc(repositoryWikiPages.version))
-          .limit(1);
+        const page = await updateWikiPage(owner, repo, slug, { title, content, summary });
 
-        if (latestPage.length === 0) {
+        if (!page) {
           throw new TRPCError({
             code: 'NOT_FOUND',
             message: 'Wiki page not found',
           });
         }
 
-        // Update the page
-        const updatedPage = await db
-          .update(repositoryWikiPages)
-          .set({
-            title,
-            content,
-            summary,
-            updatedAt: new Date(),
-          })
-          .where(eq(repositoryWikiPages.id, latestPage[0].id))
-          .returning();
-
         return {
           success: true,
-          page: updatedPage[0],
+          page,
         };
       } catch (error) {
-        console.error('Failed to update wiki page:', error);
-
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -709,18 +324,7 @@ export const wikiRouter = router({
       const { owner, repo, slug, title, content, summary } = input;
 
       try {
-        // Check if user has write access to the repository
-        const { createGitHubServiceForUserOperations } = await import('@/lib/github');
-        const githubService = await createGitHubServiceForUserOperations(ctx.session);
-
-        // Get repository details with permissions
-        const { data: repoData } = await githubService['octokit'].repos.get({
-          owner,
-          repo,
-        });
-
-        // Check if user has admin or push (write) permissions
-        const hasAccess = repoData.permissions?.admin || repoData.permissions?.push;
+        const hasAccess = await checkRepositoryWriteAccess(ctx.session, owner, repo);
 
         if (!hasAccess) {
           throw new TRPCError({
@@ -729,74 +333,20 @@ export const wikiRouter = router({
           });
         }
 
-        // Get the latest version for this repository
-        const latestPage = await db
-          .select({ version: repositoryWikiPages.version })
-          .from(repositoryWikiPages)
-          .where(
-            and(
-              eq(repositoryWikiPages.repoOwner, owner),
-              eq(repositoryWikiPages.repoName, repo)
-            )
-          )
-          .orderBy(desc(repositoryWikiPages.version))
-          .limit(1);
+        const page = await createWikiPage(owner, repo, { slug, title, content, summary });
 
-        const version = latestPage.length > 0 ? latestPage[0].version : 1;
-
-        // Check if page with this slug already exists
-        const existingPage = await db
-          .select()
-          .from(repositoryWikiPages)
-          .where(
-            and(
-              eq(repositoryWikiPages.repoOwner, owner),
-              eq(repositoryWikiPages.repoName, repo),
-              eq(repositoryWikiPages.slug, slug),
-              eq(repositoryWikiPages.version, version)
-            )
-          )
-          .limit(1);
-
-        if (existingPage.length > 0) {
+        if (!page) {
           throw new TRPCError({
             code: 'CONFLICT',
             message: 'A page with this slug already exists',
           });
         }
 
-        // Create the new page
-        const newPage = await db
-          .insert(repositoryWikiPages)
-          .values({
-            repoOwner: owner,
-            repoName: repo,
-            slug,
-            title,
-            content,
-            summary,
-            version,
-            fileHashes: {},
-            metadata: {
-              order: 999,
-              keywords: [owner, repo, 'documentation', 'wiki'],
-              category: 'documentation',
-              systemPrompt: '',
-              dependsOn: [],
-              priority: 1,
-            },
-            isPublic: true,
-            viewCount: 0,
-          })
-          .returning();
-
         return {
           success: true,
-          page: newPage[0],
+          page,
         };
       } catch (error) {
-        console.error('Failed to create wiki page:', error);
-
         if (error instanceof TRPCError) {
           throw error;
         }
@@ -821,18 +371,7 @@ export const wikiRouter = router({
       const { owner, repo } = input;
 
       try {
-        // Check if user has write access to the repository
-        const { createGitHubServiceForUserOperations } = await import('@/lib/github');
-        const githubService = await createGitHubServiceForUserOperations(ctx.session);
-
-        // Get repository details with permissions
-        const { data: repoData } = await githubService['octokit'].repos.get({
-          owner,
-          repo,
-        });
-
-        // Check if user has admin or push (write) permissions
-        const hasAccess = repoData.permissions?.admin || repoData.permissions?.push;
+        const hasAccess = await checkRepositoryWriteAccess(ctx.session, owner, repo);
 
         if (!hasAccess) {
           throw new TRPCError({
@@ -841,24 +380,13 @@ export const wikiRouter = router({
           });
         }
 
-        // Delete all wiki pages for this repository
-        const deletedPages = await db
-          .delete(repositoryWikiPages)
-          .where(
-            and(
-              eq(repositoryWikiPages.repoOwner, owner),
-              eq(repositoryWikiPages.repoName, repo)
-            )
-          )
-          .returning();
+        const deletedCount = await deleteRepositoryWiki(owner, repo);
 
         return {
           success: true,
-          deletedCount: deletedPages.length,
+          deletedCount,
         };
       } catch (error) {
-        console.error('Failed to delete repository wiki:', error);
-
         if (error instanceof TRPCError) {
           throw error;
         }

@@ -337,40 +337,22 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
 
   return (
     <div className="max-w-screen-xl w-full mx-auto px-2 sm:px-4 pt-2 sm:pt-4">
-      <div className="flex gap-2 sm:gap-4 h-full">
-        {/* Mobile toggle button */}
-        <button
-          onClick={() => setIsSidebarOpen(true)}
-          className="lg:hidden fixed bottom-6 left-6 z-30 p-4 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors"
-          title="Open file tree"
-        >
-          <FolderTree className="w-6 h-6" />
-        </button>
+      {/* File Explorer Tab Button */}
+      <button
+        onClick={() => setIsFileExplorerOpen(true)}
+        className="fixed right-0 top-20 z-30 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-l-lg shadow-lg transition-all duration-200 flex items-center gap-2 border border-r-0 border-blue-700"
+        style={{
+          writingMode: 'vertical-rl',
+          textOrientation: 'mixed',
+        }}
+        title="Open File Explorer"
+      >
+        <span className="text-sm font-medium tracking-wider">FILES</span>
+        <FolderTree className="h-4 w-4" />
+      </button>
 
-        {/* File Tree Sidebar */}
-        <div className="hidden lg:block lg:w-80 flex-shrink-0">
-          <FileTreeSidebar
-            files={files}
-            selectedFiles={selectedFilePaths}
-            onToggleFile={toggleFile}
-            className="h-full rounded-lg shadow-sm"
-          />
-        </div>
-
-        {/* Mobile Sidebar */}
-        <div className="lg:hidden">
-          <FileTreeSidebar
-            files={files}
-            selectedFiles={selectedFilePaths}
-            onToggleFile={toggleFile}
-            className="h-full rounded-lg shadow-sm"
-            isOpen={isSidebarOpen}
-            onToggle={() => setIsSidebarOpen(false)}
-          />
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1">
+      {/* Main Content */}
+      <div>
           <VersionDropdown
             versions={versions}
             isLoading={versionsLoading}
@@ -436,6 +418,17 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
             </div>
           )}
         </div>
+
+        {/* File Explorer Drawer */}
+        <FileExplorerDrawer
+          owner={user}
+          repo={repo}
+          files={files}
+          selectedFiles={selectedFilePaths}
+          onToggleFile={toggleFile}
+          isOpen={isFileExplorerOpen}
+          onClose={() => setIsFileExplorerOpen(false)}
+        />
       </div>
     </div>
   );

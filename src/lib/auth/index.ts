@@ -34,6 +34,11 @@ export const auth = betterAuth({
           access_type: 'offline',
         },
       },
+      mapProfileToUser: (profile: { login?: string }) => {
+        return {
+          githubUsername: profile.login?.toLowerCase(),
+        };
+      },
     }
   },
   session: {

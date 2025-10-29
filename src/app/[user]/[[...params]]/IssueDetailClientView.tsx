@@ -44,7 +44,6 @@ export default function IssueDetailClientView({ user, repo, number }: IssueDetai
       number={number}
       useGetDetails={trpc.githubAnalysis.getIssueDetails.useQuery}
       useGetCachedAnalysis={trpc.githubAnalysis.getCachedIssueAnalysis.useQuery}
-      useAnalyze={trpc.githubAnalysis.analyzeIssueEndpoint.useMutation}
       useAnalyzeSubscription={trpc.githubAnalysis.analyzeIssueEndpoint.useSubscription}
       utils={utils}
       resourceType="issue"

@@ -111,7 +111,7 @@ const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisTypeConfig> = {
  * Factory function to create analysis view configs
  * Eliminates duplication between different analysis types (scorecard, ai-slop, etc.)
  */
-export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<AnalysisResponse, ReturnType<typeof trpc.scorecard.generateScorecard.useMutation>> {
+export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<AnalysisResponse> {
   const typeConfig = ANALYSIS_CONFIGS[type];
 
   // Map type to TRPC router endpoints
@@ -121,7 +121,6 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<Ana
         trpc.scorecard.getScorecardVersions.useQuery(params),
       usePublicData: (params: { user: string; repo: string; ref: string; version?: number }) =>
         trpc.scorecard.publicGetScorecard.useQuery(params, { enabled: !!params.user && !!params.repo }),
-      useGenerate: () => trpc.scorecard.generateScorecard.useMutation(),
       useGenerateSubscription: (input: any, options: any) =>
         trpc.scorecard.generateScorecard.useSubscription(input, options),
       extractDataField: 'scorecard' as const,
@@ -132,7 +131,6 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<Ana
         trpc.aiSlop.getAISlopVersions.useQuery(params),
       usePublicData: (params: { user: string; repo: string; ref: string; version?: number }) =>
         trpc.aiSlop.publicGetAISlop.useQuery(params, { enabled: !!params.user && !!params.repo }),
-      useGenerate: () => trpc.aiSlop.detectAISlop.useMutation(),
       useGenerateSubscription: (input: any, options: any) =>
         trpc.aiSlop.detectAISlop.useSubscription(input, options),
       extractDataField: 'analysis' as const,
@@ -149,7 +147,6 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<Ana
     // TRPC hooks
     useVersions: router.useVersions,
     usePublicData: router.usePublicData,
-    useGenerate: router.useGenerate,
     useGenerateSubscription: router.useGenerateSubscription,
     usePlan: () => trpc.user.getCurrentPlan.useQuery(),
     useUtils: () => trpc.useUtils(),

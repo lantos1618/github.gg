@@ -51,7 +51,6 @@ export default function PRDetailClientView({ user, repo, number }: PRDetailClien
       number={number}
       useGetDetails={trpc.githubAnalysis.getPRDetails.useQuery}
       useGetCachedAnalysis={trpc.githubAnalysis.getCachedPRAnalysis.useQuery}
-      useAnalyze={trpc.githubAnalysis.analyzePR.useMutation}
       useAnalyzeSubscription={trpc.githubAnalysis.analyzePR.useSubscription}
       utils={utils}
       resourceType="pull request"

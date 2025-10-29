@@ -36,7 +36,7 @@ export interface AnalysisData {
 }
 
 // Config for customizing the view
-export interface AnalysisViewConfig<TResponse, TMutation> {
+export interface AnalysisViewConfig<TResponse> {
   // Display configuration
   title: string;
   noDataTitle: string;
@@ -50,7 +50,6 @@ export interface AnalysisViewConfig<TResponse, TMutation> {
   // TRPC hooks - accept full tRPC result types
   useVersions: (params: { user: string; repo: string; ref: string }) => unknown;
   usePublicData: (params: { user: string; repo: string; ref: string; version?: number }) => unknown;
-  useGenerate: () => unknown;
   useGenerateSubscription: (input: any, options: any) => void;
   usePlan: () => unknown;
   useUtils: () => TRPCUtils;
@@ -71,26 +70,23 @@ export interface AnalysisViewConfig<TResponse, TMutation> {
   useEffectiveRef?: boolean; // If true, uses actualRef from useRepoData
 }
 
-interface GenericAnalysisViewProps<TResponse, TMutation> {
+interface GenericAnalysisViewProps<TResponse> {
   user: string;
   repo: string;
   refName?: string;
   path?: string;
-  config: AnalysisViewConfig<TResponse, TMutation>;
+  config: AnalysisViewConfig<TResponse>;
 }
 
-interface GenericAnalysisViewInnerProps<TResponse, TMutation> extends GenericAnalysisViewProps<TResponse, TMutation> {
+interface GenericAnalysisViewInnerProps<TResponse> extends GenericAnalysisViewProps<TResponse> {
   files: any[];
   filesLoading: boolean;
   actualRef: string | undefined;
   totalFiles: number;
 }
 
-// Just use tRPC's actual mutation type
-type TRPCMutation = ReturnType<typeof trpc.scorecard.generateScorecard.useMutation>;
-
 // Inner component that uses the context
-function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
+function GenericAnalysisViewInner<TResponse>({
   user,
   repo,
   refName,
@@ -100,7 +96,7 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
   filesLoading,
   actualRef,
   totalFiles,
-}: GenericAnalysisViewInnerProps<TResponse, TMutation>) {
+}: GenericAnalysisViewInnerProps<TResponse>) {
   const [analysisData, setAnalysisData] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -146,13 +142,6 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
       setError(null);
     }
   }, [user, repo]);
-
-  // Use subscription from config
-  const subscriptionConfig = config.useGenerate() as {
-    input: any;
-    enabled: boolean;
-    onData: (event: any) => void;
-  };
 
   // Subscription for analysis
   config.useGenerateSubscription(
@@ -474,8 +463,8 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
 }
 
 // Outer wrapper that provides context
-export function GenericAnalysisView<TResponse, TMutation extends TRPCMutation>(
-  props: GenericAnalysisViewProps<TResponse, TMutation>
+export function GenericAnalysisView<TResponse>(
+  props: GenericAnalysisViewProps<TResponse>
 ) {
   // Fetch files once at the top level
   const { files, isLoading: filesLoading, totalFiles, actualRef } = useRepoData({

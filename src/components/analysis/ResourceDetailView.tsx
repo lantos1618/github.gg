@@ -13,7 +13,6 @@ import { trpc } from '@/lib/trpc/client';
 
 // Use tRPC's actual types - don't reinvent them
 type TRPCQueryResult<TData> = { data: TData | undefined; isLoading: boolean; error: { message: string } | null };
-type TRPCMutation<TInput> = { mutate: (input: TInput) => void; isPending: boolean };
 type TRPCUtils = ReturnType<typeof trpc.useUtils>;
 
 export interface ResourceDetailViewProps<TItem, TAnalysis extends { markdown: string }> {
@@ -34,15 +33,6 @@ export interface ResourceDetailViewProps<TItem, TAnalysis extends { markdown: st
     repo: string;
     number: number;
   }) => TRPCQueryResult<TAnalysis>;
-
-  useAnalyze: (config: {
-    onSuccess: () => void;
-    onError: (error: { message: string }) => void;
-  }) => TRPCMutation<{
-    owner: string;
-    repo: string;
-    number: number;
-  }>;
 
   useAnalyzeSubscription: (input: {
     owner: string;
@@ -80,7 +70,6 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
   number,
   useGetDetails,
   useGetCachedAnalysis,
-  useAnalyze,
   useAnalyzeSubscription,
   utils,
   resourceType,

@@ -29,6 +29,10 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [showRepoSelector, setShowRepoSelector] = useState(false);
+  const [shouldGenerate, setShouldGenerate] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState('');
+  const [generateInput, setGenerateInput] = useState<{ username: string; includeCodeAnalysis?: boolean; selectedRepos?: string[] } | null>(null);
 
   const router = useRouter();
   const utils = trpc.useUtils();
@@ -41,21 +45,36 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     ? trpc.profile.getProfileByVersion.useQuery({ username, version: selectedVersion }, { enabled: !!username && selectedVersion !== null })
     : trpc.profile.publicGetProfile.useQuery({ username }, { enabled: !!username });
 
-  // Generate profile mutation
-  const generateProfileMutation = trpc.profile.generateProfileMutation.useMutation({
-    onSuccess: () => {
-      setIsGenerating(false);
-      // Invalidate queries to refresh the data
-      utils.profile.publicGetProfile.invalidate({ username });
-      utils.profile.getProfileVersions.invalidate({ username });
-      toast.success('Profile refreshed successfully!');
-    },
-    onError: (error) => {
-      setIsGenerating(false);
-      console.error('Profile generation error:', error);
-      toast.error(error.message || 'Failed to generate profile');
+  // Generate profile subscription
+  trpc.profile.generateProfileMutation.useSubscription(
+    generateInput || { username, includeCodeAnalysis: false },
+    {
+      enabled: shouldGenerate && !!generateInput,
+      onData: (event: any) => {
+        if (event.type === 'progress') {
+          setProgress(event.progress || 0);
+          setProgressMessage(event.message || '');
+          setIsGenerating(true);
+        } else if (event.type === 'complete') {
+          setIsGenerating(false);
+          setShouldGenerate(false);
+          setProgress(0);
+          setProgressMessage('');
+          // Invalidate queries to refresh the data
+          utils.profile.publicGetProfile.invalidate({ username });
+          utils.profile.getProfileVersions.invalidate({ username });
+          toast.success('Profile refreshed successfully!');
+        } else if (event.type === 'error') {
+          setIsGenerating(false);
+          setShouldGenerate(false);
+          setProgress(0);
+          setProgressMessage('');
+          console.error('Profile generation error:', event.message);
+          toast.error(event.message || 'Failed to generate profile');
+        }
+      },
     }
-  });
+  );
 
   // Check user plan and current user
   const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery(undefined, {
@@ -113,22 +132,19 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
 
   // Handle profile generation
   const handleGenerateProfile = useCallback(() => {
-    setIsGenerating(true);
-    generateProfileMutation.mutate({
-      username,
-      includeCodeAnalysis: true
-    });
-  }, [generateProfileMutation, username]);
+    setProgress(0);
+    setProgressMessage('');
+    setGenerateInput({ username, includeCodeAnalysis: true });
+    setShouldGenerate(true);
+  }, [username]);
 
   // Handle profile generation with selected repos
   const handleGenerateWithSelectedRepos = useCallback((selectedRepoNames: string[]) => {
-    setIsGenerating(true);
-    generateProfileMutation.mutate({
-      username,
-      includeCodeAnalysis: true,
-      selectedRepos: selectedRepoNames,
-    });
-  }, [generateProfileMutation, username]);
+    setProgress(0);
+    setProgressMessage('');
+    setGenerateInput({ username, includeCodeAnalysis: true, selectedRepos: selectedRepoNames });
+    setShouldGenerate(true);
+  }, [username]);
 
   const handleChallenge = useCallback(() => {
     // Prevent self-challenge (case-insensitive)
@@ -285,7 +301,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
                       setShowRepoSelector(true);
                       console.log('🎭 showRepoSelector set to true');
                     }}
-                    disabled={isGenerating || generateProfileMutation.isPending || reposLoading}
+                    disabled={isGenerating || shouldGenerate || reposLoading}
                     className="flex items-center gap-2 px-6 py-3 text-base font-medium"
                     size="lg"
                     variant="outline"
@@ -296,17 +312,36 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
                 )}
                 <Button
                   onClick={handleGenerateProfile}
-                  disabled={isGenerating || generateProfileMutation.isPending}
+                  disabled={isGenerating || shouldGenerate}
                   className="flex items-center gap-2 px-6 py-3 text-base font-medium bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
                   size="lg"
                 >
-                  <RefreshCw className={`h-5 w-5 ${isGenerating ? 'animate-spin' : ''}`} />
-                  {isGenerating ? 'Generating...' : (isOwnProfile ? 'Quick Refresh' : 'Refresh Profile')}
+                  <RefreshCw className={`h-5 w-5 ${isGenerating || shouldGenerate ? 'animate-spin' : ''}`} />
+                  {isGenerating || shouldGenerate ? 'Generating...' : (isOwnProfile ? 'Quick Refresh' : 'Refresh Profile')}
                 </Button>
               </>
             )}
           </div>
         </div>
+        {/* Progress Bar */}
+        {progressMessage && (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-blue-900">{progressMessage}</span>
+                  <span className="text-sm text-blue-700">{progress}%</span>
+                </div>
+                <div className="w-full h-2 bg-blue-200 rounded">
+                  <div
+                    className="h-2 bg-blue-600 rounded transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         {/* Profile Content */}
         <div className="space-y-8">
           {/* Summary */}
@@ -362,19 +397,6 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
       );
     }
 
-    // Error state
-    const error = typeof generateProfileMutation.error?.message === 'string' ? generateProfileMutation.error.message : null;
-    if (error) {
-      return (
-      <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-        <ErrorDisplay
-          error={error ?? null}
-          isPending={generateProfileMutation.isPending}
-          onRetry={handleGenerateProfile}
-        />
-      </div>
-      );
-    }
 
     // Loading state (after mutation)
     const isLoading = publicLoading || planLoading;
@@ -417,12 +439,12 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
           {currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro') ? (
             <Button
               onClick={handleGenerateProfile}
-              disabled={isGenerating || generateProfileMutation.isPending}
+              disabled={isGenerating || shouldGenerate}
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
               size="lg"
             >
-              <RefreshCw className={`h-5 w-5 ${isGenerating ? 'animate-spin' : ''}`} />
-              {isGenerating ? 'Generating...' : 'Generate Profile'}
+              <RefreshCw className={`h-5 w-5 ${isGenerating || shouldGenerate ? 'animate-spin' : ''}`} />
+              {isGenerating || shouldGenerate ? 'Generating...' : 'Generate Profile'}
             </Button>
           ) : null}
         </div>

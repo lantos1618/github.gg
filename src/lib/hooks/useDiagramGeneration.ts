@@ -29,6 +29,9 @@ export function useDiagramGeneration({
   const [manualRetryKey, setManualRetryKey] = useState(0);
   const [previousDiagramCode, setPreviousDiagramCode] = useState<string>('');
   const [lastError, setLastError] = useState<string>('');
+  const [shouldGenerate, setShouldGenerate] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const [generateInput, setGenerateInput] = useState<any>(null);
 
   // Use ref to track hasAccess without causing re-renders
   const hasAccessRef = useRef(hasAccess);
@@ -36,26 +39,38 @@ export function useDiagramGeneration({
 
   const utils = trpc.useUtils();
 
-  const generateDiagramMutation = trpc.diagram.generateDiagram.useMutation({
-    onSuccess: (data) => {
-      setDiagramCode(data.diagramCode);
-      setError(null);
-      setLastError('');
-      setLastInput({
-        diagramType,
-        filesHash: `${user}/${repo}/${refName}/${path}/${diagramType}`
-      });
-      
-      // Invalidate queries to refresh version list and cached diagrams
-      utils.diagram.getDiagramVersions.invalidate({ user, repo, ref: refName || 'main', diagramType });
-      utils.diagram.publicGetDiagram.invalidate({ user, repo, ref: refName || 'main', diagramType });
-    },
-    onError: (err) => {
-      const errorMessage = err.message || 'Failed to generate diagram';
-      setError(errorMessage);
-      setLastError(errorMessage);
+  // Generate diagram subscription
+  trpc.diagram.generateDiagram.useSubscription(
+    generateInput || { owner: user, repo, ref: refName || 'main', path, diagramType, options },
+    {
+      enabled: shouldGenerate && !!generateInput,
+      onData: (event: any) => {
+        if (event.type === 'progress') {
+          setIsPending(true);
+        } else if (event.type === 'complete') {
+          setDiagramCode(event.data.diagramCode);
+          setError(null);
+          setLastError('');
+          setIsPending(false);
+          setShouldGenerate(false);
+          setLastInput({
+            diagramType,
+            filesHash: `${user}/${repo}/${refName}/${path}/${diagramType}`
+          });
+
+          // Invalidate queries to refresh version list and cached diagrams
+          utils.diagram.getDiagramVersions.invalidate({ user, repo, ref: refName || 'main', diagramType });
+          utils.diagram.publicGetDiagram.invalidate({ user, repo, ref: refName || 'main', diagramType });
+        } else if (event.type === 'error') {
+          const errorMessage = event.message || 'Failed to generate diagram';
+          setError(errorMessage);
+          setLastError(errorMessage);
+          setIsPending(false);
+          setShouldGenerate(false);
+        }
+      },
     }
-  });
+  );
 
   // Auto-generate when input changes
   useEffect(() => {
@@ -72,7 +87,7 @@ export function useDiagramGeneration({
     const inputChanged = !lastInput || lastInput.filesHash !== currentInputHash;
 
     // Prevent re-triggering if a request is already pending
-    if (!inputChanged || generateDiagramMutation.isPending) return;
+    if (!inputChanged || isPending) return;
 
     setError(null);
     setLastError('');
@@ -82,8 +97,8 @@ export function useDiagramGeneration({
     setDiagramCode('');
     setLastInput({ diagramType, filesHash: currentInputHash });
 
-    generateDiagramMutation.mutate({
-      owner: user, // Pass owner
+    setGenerateInput({
+      owner: user,
       repo,
       ref: refName || 'main',
       path,
@@ -95,7 +110,8 @@ export function useDiagramGeneration({
         isRetry: true,
       }),
     });
-  }, [user, repo, refName, path, diagramType, options, lastInput, generateDiagramMutation, diagramCode, previousDiagramCode, lastError, manualRetryKey]);
+    setShouldGenerate(true);
+  }, [user, repo, refName, path, diagramType, options, lastInput, isPending, diagramCode, previousDiagramCode, lastError, manualRetryKey]);
 
   const handleRetry = () => {
     setError(null);
@@ -106,13 +122,13 @@ export function useDiagramGeneration({
   const handleRetryWithContext = (renderError?: string) => {
     setError(null);
     setLastInput(null); // Reset lastInput to ensure mutation triggers
-    
+
     // Use render error if provided, otherwise use generation error
     const errorToSend = renderError || lastError;
-    
+
     // Pass the previous diagram code and error to the backend for fixing
-    generateDiagramMutation.mutate({
-      owner: user, // Pass owner
+    setGenerateInput({
+      owner: user,
       repo,
       ref: refName || 'main',
       path,
@@ -122,12 +138,13 @@ export function useDiagramGeneration({
       lastError: errorToSend,
       isRetry: true,
     });
+    setShouldGenerate(true);
   };
 
   return {
     diagramCode,
     error,
-    isPending: generateDiagramMutation.isPending,
+    isPending,
     previousDiagramCode,
     handleRetry,
     handleRetryWithContext,

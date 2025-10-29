@@ -55,7 +55,11 @@ function RepoSidebarLayoutInner({
 
       {/* Main Layout with Sidebar */}
       <div className="flex">
-        <RepoSidebar owner={owner} repo={repo} wikiPages={wikiPages} />
+        <RepoSidebar
+          owner={owner}
+          repo={repo}
+          wikiPages={wikiPages}
+        />
 
         {/* Main Content */}
         <main className={`flex-1 min-h-screen transition-all duration-300 ${isExpanded ? 'lg:ml-64' : 'lg:ml-16'}`}>

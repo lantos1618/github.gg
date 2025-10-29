@@ -14,6 +14,11 @@ interface RepoPageLayoutProps {
   files?: RepoFile[];
   totalFiles?: number;
   children: ReactNode;
+  onToggleFileExplorer?: () => void;
+  fileExplorerState?: {
+    isFileExplorerOpen: boolean;
+    setIsFileExplorerOpen: (open: boolean) => void;
+  };
 }
 
 function RepoPageLayoutContent({
@@ -33,7 +38,11 @@ function RepoPageLayoutContent({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <RepoSidebar owner={user} repo={repo} wikiPages={wikiPages} />
+      <RepoSidebar
+        owner={user}
+        repo={repo}
+        wikiPages={wikiPages}
+      />
 
       <div className={`min-h-screen transition-all duration-300 ${isExpanded ? 'lg:ml-64' : 'lg:ml-16'}`}>
         <SelectedFilesProvider files={files}>

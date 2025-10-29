@@ -250,26 +250,6 @@ export function RepoSidebar({ owner, repo, wikiPages = [] }: RepoSidebarProps) {
             </ul>
           </div>
 
-          {/* Branch Selector */}
-          {isExpanded && branches && branches.length > 0 && (
-            <div className="px-3 mb-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">
-                Branch
-              </label>
-              <select
-                value={currentBranch}
-                onChange={(e) => handleBranchChange(e.target.value)}
-                className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-md bg-white text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-              >
-                {branches.map((branch) => (
-                  <option key={branch} value={branch}>
-                    {branch}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
           {/* Separator */}
           <div className="border-t border-gray-200" />
 

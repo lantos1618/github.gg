@@ -44,15 +44,32 @@ function MilkdownViewerInner({ content }: MilkdownViewerProps) {
       const headings = containerRef.current?.querySelectorAll('h1, h2, h3, h4, h5, h6');
       if (!headings || headings.length === 0) return false;
 
+      // Track used IDs to handle duplicates
+      const usedIds = new Map<string, number>();
+
       headings.forEach((heading) => {
         const text = heading.textContent || '';
-        const id = text
+        let baseId = text
           .toLowerCase()
           .replace(/[^a-z0-9\s-]/g, '')
           .replace(/\s+/g, '-')
           .replace(/-+/g, '-')
           .trim();
-        heading.id = id;
+
+        // Handle empty or invalid IDs
+        if (!baseId) {
+          baseId = 'heading';
+        }
+
+        // Handle duplicates by appending a number
+        let finalId = baseId;
+        const count = usedIds.get(baseId) || 0;
+        if (count > 0) {
+          finalId = `${baseId}-${count + 1}`;
+        }
+        usedIds.set(baseId, count + 1);
+
+        heading.id = finalId;
         // Make headings scrollable targets
         heading.setAttribute('data-heading', 'true');
       });

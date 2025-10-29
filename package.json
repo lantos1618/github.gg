@@ -81,6 +81,7 @@
     "postgres": "^3.4.7",
     "posthog-js": "^1.275.1",
     "posthog-node": "^5.9.5",
+    "prismjs": "^1.30.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",

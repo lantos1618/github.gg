@@ -8,9 +8,10 @@ import { nord } from '@milkdown/theme-nord';
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { history } from '@milkdown/plugin-history';
-import { useShikiHighlighting } from './ShikiCodeHighlighter';
+import { prism } from '@milkdown/plugin-prism';
 
 import '@milkdown/theme-nord/style.css';
+import 'prismjs/themes/prism-tomorrow.css';
 
 interface MilkdownEditorProps {
   content: string;
@@ -21,8 +22,6 @@ interface MilkdownEditorProps {
 function MilkdownEditorInner({ content, onChange, placeholder }: MilkdownEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Apply Shiki highlighting to code blocks
-  useShikiHighlighting(containerRef);
   const editorInfo = useEditor((root) =>
     Editor.make()
       .config((ctx) => {
@@ -35,6 +34,7 @@ function MilkdownEditorInner({ content, onChange, placeholder }: MilkdownEditorP
       .config(nord)
       .use(commonmark)
       .use(gfm)
+      .use(prism)
       .use(history)
       .use(listener)
   );

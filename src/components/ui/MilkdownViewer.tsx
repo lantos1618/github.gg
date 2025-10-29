@@ -6,9 +6,10 @@ import { commonmark } from '@milkdown/preset-commonmark';
 import { gfm } from '@milkdown/preset-gfm';
 import { nord } from '@milkdown/theme-nord';
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
-import { useShikiHighlighting } from './ShikiCodeHighlighter';
+import { prism } from '@milkdown/plugin-prism';
 
 import '@milkdown/theme-nord/style.css';
+import 'prismjs/themes/prism-tomorrow.css';
 
 interface MilkdownViewerProps {
   content: string;
@@ -18,8 +19,6 @@ interface MilkdownViewerProps {
 function MilkdownViewerInner({ content }: MilkdownViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Apply Shiki highlighting to code blocks
-  useShikiHighlighting(containerRef);
   useEditor((root) =>
     Editor.make()
       .config((ctx) => {
@@ -33,6 +32,7 @@ function MilkdownViewerInner({ content }: MilkdownViewerProps) {
       .config(nord)
       .use(commonmark)
       .use(gfm)
+      .use(prism)
   );
 
   // Add IDs to headings after Milkdown renders

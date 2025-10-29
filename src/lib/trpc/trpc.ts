@@ -29,7 +29,18 @@ export async function createContext(req: Request) {
 
 export type Context = Awaited<ReturnType<typeof createContextInner>> & { req: Request };
 
-const t = initTRPC.context<Context>().create();
+const t = initTRPC.context<Context>().create({
+  sse: {
+    maxDurationMs: 300_000, // 5 minutes
+    ping: {
+      enabled: true,
+      intervalMs: 10_000, // Ping every 10 seconds
+    },
+    client: {
+      reconnectAfterInactivityMs: 30_000, // Reconnect after 30s of inactivity
+    },
+  },
+});
 
 export const router = t.router;
 export const publicProcedure = t.procedure;

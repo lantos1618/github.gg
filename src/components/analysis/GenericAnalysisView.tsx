@@ -419,17 +419,16 @@ function GenericAnalysisViewInner<TResponse, TMutation extends TRPCMutation>({
           )}
         </div>
 
-        {/* File Explorer Drawer */}
-        <FileExplorerDrawer
-          owner={user}
-          repo={repo}
-          files={files}
-          selectedFiles={selectedFilePaths}
-          onToggleFile={toggleFile}
-          isOpen={isFileExplorerOpen}
-          onClose={() => setIsFileExplorerOpen(false)}
-        />
-      </div>
+      {/* File Explorer Drawer */}
+      <FileExplorerDrawer
+        owner={user}
+        repo={repo}
+        files={files}
+        selectedFiles={selectedFilePaths}
+        onToggleFile={toggleFile}
+        isOpen={isFileExplorerOpen}
+        onClose={() => setIsFileExplorerOpen(false)}
+      />
     </div>
   );
 }

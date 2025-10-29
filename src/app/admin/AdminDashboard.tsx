@@ -325,7 +325,11 @@ export default function AdminDashboard() {
           ) : (
             <div className="space-y-4">
               {topUsers.slice(0, 10).map((user) => (
-                <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <a
+                  key={user.id}
+                  href={user.name ? `/${user.name}` : '#'}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                >
                   <div className="flex items-center gap-3">
                     {user.image && (
                       <Image
@@ -350,7 +354,7 @@ export default function AdminDashboard() {
                       {user.plan || 'Free'} plan
                     </div>
                   </div>
-                </div>
+                </a>
               ))}
             </div>
           )}

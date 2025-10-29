@@ -3,6 +3,9 @@
 import { createCaller } from '@/lib/trpc/server';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
+import { db } from '@/db';
+import { account } from '@/db/schema';
+import { and, eq } from 'drizzle-orm';
 
 export async function incrementViewCount({
   owner,
@@ -25,7 +28,21 @@ export async function incrementViewCount({
       const session = await auth.api.getSession({ headers: headersList } as Request);
       if (session?.user) {
         userId = session.user.id;
-        username = session.user.name;
+
+        // Get GitHub username from account
+        const userAccount = await db.query.account.findFirst({
+          where: and(
+            eq(account.userId, session.user.id),
+            eq(account.providerId, 'github')
+          ),
+        });
+
+        if (userAccount?.accessToken) {
+          const { Octokit } = await import('@octokit/rest');
+          const octokit = new Octokit({ auth: userAccount.accessToken });
+          const { data: authenticatedUser } = await octokit.rest.users.getAuthenticated();
+          username = authenticatedUser.login.toLowerCase();
+        }
       }
     } catch {
       // User not logged in, continue without tracking

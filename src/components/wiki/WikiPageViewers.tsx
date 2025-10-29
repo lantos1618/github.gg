@@ -44,9 +44,6 @@ export function WikiPageViewers({ owner, repo, slug, version, totalViewCount }: 
       >
         <Eye className="h-4 w-4" />
         <span>{totalViewCount} views</span>
-        {hasActiveViewers && (
-          <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 animate-pulse border border-background" />
-        )}
       </button>
 
       {/* Overlay */}

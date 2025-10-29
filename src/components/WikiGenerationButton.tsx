@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Book, Loader2, ExternalLink, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
 import { sanitizeText } from '@/lib/utils/sanitize';
+import { trpc } from '@/lib/trpc/client';
 
 interface WikiGenerationButtonProps {
   owner: string;
@@ -27,7 +28,44 @@ export function WikiGenerationButton({ owner, repo, hideViewButton = false }: Wi
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const [shouldGenerate, setShouldGenerate] = useState(false);
+  const [generationConfig, setGenerationConfig] = useState<{ owner: string; repo: string; maxFiles: number; useChunking: boolean } | null>(null);
+
+  // Use tRPC subscription for wiki generation
+  trpc.wiki.generateWikiPages.useSubscription(
+    generationConfig || { owner, repo, maxFiles: 200, useChunking: false },
+    {
+      enabled: shouldGenerate && !!generationConfig,
+      onData: (event: any) => {
+        if (event.type === 'progress') {
+          setProgress(event.progress || 0);
+          setStatusMessage(sanitizeText(event.message || ''));
+        } else if (event.type === 'complete') {
+          setProgress(100);
+          setIsGenerating(false);
+          setShouldGenerate(false);
+
+          toast.success(`Wiki generated successfully! Version ${event.data.version}`, {
+            description: `Created ${event.data.pages?.length || 0} pages using ${event.data.usage?.totalTokens || 0} tokens`,
+          });
+
+          // Refresh the page to show new wiki content
+          if (hideViewButton) {
+            router.refresh();
+          } else {
+            router.push(`/wiki/${owner}/${repo}`);
+          }
+        } else if (event.type === 'error') {
+          setIsGenerating(false);
+          setShouldGenerate(false);
+
+          toast.error('Failed to generate wiki', {
+            description: sanitizeText(event.message) || 'An unknown error occurred',
+          });
+        }
+      },
+    }
+  );
 
   const handleGenerate = async (chunking: boolean) => {
     setIsGenerating(true);
@@ -35,75 +73,13 @@ export function WikiGenerationButton({ owner, repo, hideViewButton = false }: Wi
     setStatusMessage('Starting wiki generation...');
 
     const maxFiles = chunking ? 500 : 200;
-    const url = `/api/wiki/generate?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}&maxFiles=${maxFiles}`;
-
-    const eventSource = new EventSource(url);
-    eventSourceRef.current = eventSource;
-
-    eventSource.addEventListener('progress', (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        setProgress(data.progress || 0);
-        setStatusMessage(sanitizeText(data.message));
-      } catch (error) {
-        console.error('Failed to parse progress event:', error);
-      }
+    setGenerationConfig({
+      owner,
+      repo,
+      maxFiles,
+      useChunking: chunking,
     });
-
-    eventSource.addEventListener('complete', (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        setProgress(100);
-        setIsGenerating(false);
-        eventSource.close();
-
-        toast.success(`Wiki generated successfully! Version ${data.version}`, {
-          description: `Created ${data.pages?.length || 0} pages using ${data.usage?.totalTokens || 0} tokens`,
-        });
-
-        // Refresh the page to show new wiki content
-        if (hideViewButton) {
-          // Already on wiki page, just refresh
-          router.refresh();
-        } else {
-          // Navigate to wiki page
-          router.push(`/wiki/${owner}/${repo}`);
-        }
-      } catch (error) {
-        console.error('Failed to parse complete event:', error);
-        setIsGenerating(false);
-        eventSource.close();
-        toast.error('Wiki generation completed but failed to parse results');
-      }
-    });
-
-    eventSource.addEventListener('error', (event) => {
-      try {
-        const messageEvent = event as MessageEvent;
-        const data = messageEvent.data ? JSON.parse(messageEvent.data) : {};
-        setIsGenerating(false);
-        eventSource.close();
-
-        toast.error('Failed to generate wiki', {
-          description: sanitizeText(data.message) || 'An unknown error occurred',
-        });
-      } catch (error) {
-        setIsGenerating(false);
-        eventSource.close();
-        toast.error('Failed to generate wiki', {
-          description: 'An error occurred during generation',
-        });
-      }
-    });
-
-    eventSource.onerror = () => {
-      setIsGenerating(false);
-      eventSource.close();
-
-      toast.error('Connection error', {
-        description: 'Lost connection to the server',
-      });
-    };
+    setShouldGenerate(true);
   };
 
   return (

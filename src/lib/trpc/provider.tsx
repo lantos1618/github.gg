@@ -23,6 +23,9 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
           condition: (op) => op.type === 'subscription',
           true: httpSubscriptionLink({
             url: '/api/trpc',
+            eventSourceOptions: {
+              withCredentials: true,
+            },
           }),
           false: httpBatchLink({
             url: '/api/trpc',

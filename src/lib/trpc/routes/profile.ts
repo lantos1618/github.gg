@@ -153,53 +153,60 @@ export const profileRouter = router({
       includeCodeAnalysis: z.boolean().optional().default(false),
       selectedRepos: z.array(z.string()).optional(), // User-selected repo names
     }))
-    .mutation(async ({ input, ctx }) => {
-      const { username } = input;
-      const normalizedUsername = username.toLowerCase();
-      
-      // Check for active subscription
-      const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
-      if (!subscription || subscription.status !== 'active') {
-        throw new TRPCError({ 
-          code: 'FORBIDDEN', 
-          message: 'Active subscription required for AI features' 
-        });
-      }
-      
-      // Get appropriate API key
-      const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
-      if (!keyInfo) {
-        throw new TRPCError({ 
-          code: 'FORBIDDEN', 
-          message: 'Please add your Gemini API key in settings to use this feature' 
-        });
-      }
+    .subscription(async function* ({ input, ctx }) {
+      try {
+        yield { type: 'progress', progress: 0, message: 'Starting profile generation...' };
 
-      // Check generation limits for BYOK users
-      if (plan === 'byok') {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const todayUsage = await db
-          .select()
-          .from(tokenUsage)
-          .where(
-            and(
-              eq(tokenUsage.userId, ctx.user.id),
-              eq(tokenUsage.feature, 'profile'),
-              gte(tokenUsage.createdAt, today)
-            )
-          );
-        
-        if (todayUsage.length >= 5) {
-          throw new TRPCError({ 
-            code: 'FORBIDDEN', 
-            message: 'Daily limit of 5 profile generations reached. Upgrade to Pro for unlimited generations.' 
+        const { username } = input;
+        const normalizedUsername = username.toLowerCase();
+
+        // Check for active subscription
+        const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
+        if (!subscription || subscription.status !== 'active') {
+          yield { type: 'error', message: 'Active subscription required for AI features' };
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Active subscription required for AI features'
           });
         }
-      }
-      
-      try {
+
+        // Get appropriate API key
+        const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
+        if (!keyInfo) {
+          yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Please add your Gemini API key in settings to use this feature'
+          });
+        }
+
+        // Check generation limits for BYOK users
+        if (plan === 'byok') {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          const todayUsage = await db
+            .select()
+            .from(tokenUsage)
+            .where(
+              and(
+                eq(tokenUsage.userId, ctx.user.id),
+                eq(tokenUsage.feature, 'profile'),
+                gte(tokenUsage.createdAt, today)
+              )
+            );
+
+          if (todayUsage.length >= 5) {
+            yield { type: 'error', message: 'Daily limit of 5 profile generations reached. Upgrade to Pro for unlimited generations.' };
+            throw new TRPCError({
+              code: 'FORBIDDEN',
+              message: 'Daily limit of 5 profile generations reached. Upgrade to Pro for unlimited generations.'
+            });
+          }
+        }
+
+        yield { type: 'progress', progress: 10, message: `Fetching repositories for ${username}...` };
+
         // Fetch user repositories
         const githubService = await createGitHubServiceForUserOperations(ctx.session);
         const repos = await githubService.getUserRepositories(username);
@@ -254,23 +261,23 @@ export const profileRouter = router({
         if (input.includeCodeAnalysis && smartSortedRepos.length > 0) {
           const topRepos = smartSortedRepos.slice(0, 5); // Analyze top 5 repos
           console.log(`📁 Fetching files for ${topRepos.length} repositories in parallel...`);
-          
+
           const fileFetchPromises = topRepos.map(async (repo) => {
             try {
               // Fetch key files from the repository
               const files = await githubService.getRepositoryFiles(username, repo.name, 'main');
-              
+
               // Filter for important files (source code, configs, docs)
-              const importantFiles = files.files.filter((file: { path: string; size: number }) => 
+              const importantFiles = files.files.filter((file: { path: string; size: number }) =>
                 !file.path.includes('node_modules') &&
                 !file.path.includes('.git') &&
                 !file.path.includes('dist') &&
                 !file.path.includes('build') &&
                 !file.path.includes('.next') &&
                 file.size < 100000 && // Skip very large files
-                (file.path.endsWith('.ts') || 
-                 file.path.endsWith('.tsx') || 
-                 file.path.endsWith('.js') || 
+                (file.path.endsWith('.ts') ||
+                 file.path.endsWith('.tsx') ||
+                 file.path.endsWith('.js') ||
                  file.path.endsWith('.jsx') ||
                  file.path.endsWith('.py') ||
                  file.path.endsWith('.java') ||
@@ -291,18 +298,18 @@ export const profileRouter = router({
                       repo: repo.name,
                       path: file.path,
                     });
-                    
+
                     if (Array.isArray(response.data)) {
                       return null; // Directory, skip
                     }
-                    
+
                     // Check if it's a file with content
                     if (response.data.type === 'file' && 'content' in response.data) {
                       const fileData = response.data as { content: string };
                       const content = Buffer.from(fileData.content, 'base64').toString('utf-8');
                       return { path: file.path, content };
                     }
-                    
+
                     return null; // Not a file or no content
                   } catch (error) {
                     console.warn(`Failed to fetch ${file.path}:`, error);
@@ -312,7 +319,7 @@ export const profileRouter = router({
               );
 
               const validFiles = fileContents.filter(Boolean) as Array<{ path: string; content: string }>;
-              
+
               if (validFiles.length > 0) {
                 return {
                   repoName: repo.name,
@@ -328,7 +335,7 @@ export const profileRouter = router({
               return null;
             }
           });
-          
+
           // Wait for all file fetching to complete
           const fileResults = await Promise.all(fileFetchPromises);
           fileResults.forEach(result => {
@@ -339,7 +346,7 @@ export const profileRouter = router({
         }
 
         console.log(`🎯 Generating profile for ${username} with ${repoFiles.length} analyzed repos`);
-        
+
         // Generate developer profile with optional code analysis
         const result = await generateDeveloperProfile({
           username,
@@ -347,9 +354,11 @@ export const profileRouter = router({
           repoFiles: input.includeCodeAnalysis ? repoFiles : undefined,
           userId: ctx.user.id
         });
-        
+
         console.log(`✅ Profile generated successfully for ${username}`);
-        
+
+        yield { type: 'progress', progress: 80, message: 'Profile generated, saving results...' };
+
         // Get next version number
         const maxVersionResult = await db
           .select({ max: sql<number | null>`COALESCE(MAX(version), 0)` })
@@ -368,7 +377,7 @@ export const profileRouter = router({
             profileData: result.profile,
             updatedAt: new Date(),
           });
-        
+
         // Log token usage
         await db.insert(tokenUsage).values({
           userId: ctx.user.id,
@@ -428,18 +437,23 @@ export const profileRouter = router({
         } catch (e) {
           console.error('❌ Failed to extract/send developer email:', e);
         }
-        
-        return {
-          profile: result.profile,
-          cached: false,
-          stale: false,
-          lastUpdated: new Date(),
+
+        yield {
+          type: 'complete',
+          data: {
+            profile: result.profile,
+            cached: false,
+            stale: false,
+            lastUpdated: new Date(),
+          },
         };
       } catch (error) {
         console.error('Error generating developer profile:', error);
-        throw new TRPCError({ 
-          code: 'INTERNAL_SERVER_ERROR', 
-          message: 'Failed to generate developer profile' 
+        const userFriendlyMessage = error instanceof Error ? error.message : 'Failed to generate developer profile';
+        yield { type: 'error', message: userFriendlyMessage };
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: userFriendlyMessage
         });
       }
     }),

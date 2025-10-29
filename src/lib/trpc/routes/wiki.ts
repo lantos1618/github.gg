@@ -33,12 +33,15 @@ export const wikiRouter = router({
       useChunking: z.boolean().optional().default(false),
       tokensPerChunk: z.number().optional().default(800000),
     }))
-    .mutation(async ({ input, ctx }) => {
+    .subscription(async function* ({ input, ctx }) {
       const { owner, repo, maxFiles } = input;
       const githubService = createPublicGitHubService();
 
       try {
+        yield { type: 'progress', progress: 0, message: 'Starting wiki generation...' };
+
         // Fetch all metadata in parallel
+        yield { type: 'progress', progress: 10, message: 'Fetching repository metadata...' };
         const [repoData, readmeResult, packageJsonResult] = await Promise.allSettled([
           githubService['octokit'].repos.get({ owner, repo }),
           githubService['octokit'].repos.getReadme({ owner, repo }),
@@ -67,9 +70,11 @@ export const wikiRouter = router({
         }
 
         // Collect source files using dedicated module
+        yield { type: 'progress', progress: 20, message: `Collecting up to ${maxFiles} source files...` };
         const files = await collectRepositoryFiles(owner, repo, maxFiles);
 
         // Generate wiki using Gemini context caching
+        yield { type: 'progress', progress: 40, message: `Generating wiki for ${files.length} files...` };
         const wikiResult = await generateWikiWithCache({
           owner,
           repo,
@@ -79,6 +84,8 @@ export const wikiRouter = router({
           packageJson,
           readme,
         });
+
+        yield { type: 'progress', progress: 70, message: 'Saving wiki pages...' };
 
         // Log token usage
         try {
@@ -106,17 +113,24 @@ export const wikiRouter = router({
         // Insert pages using repository module
         const result = await insertWikiPages(owner, repo, wikiResult.pages, fileHashes);
 
-        return {
-          success: true,
-          version: result.version,
-          pages: result.pages,
-          usage: wikiResult.usage,
+        yield { type: 'progress', progress: 90, message: 'Wiki generation complete!' };
+
+        yield {
+          type: 'complete',
+          data: {
+            success: true,
+            version: result.version,
+            pages: result.pages,
+            usage: wikiResult.usage,
+          },
         };
       } catch (error) {
         console.error('Wiki generation error:', error);
+        const userFriendlyMessage = error instanceof Error ? error.message : 'Failed to generate wiki';
+        yield { type: 'error', message: userFriendlyMessage };
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to generate wiki: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          message: `Failed to generate wiki: ${userFriendlyMessage}`,
         });
       }
     }),

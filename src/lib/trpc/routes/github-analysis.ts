@@ -116,11 +116,18 @@ export const githubAnalysisRouter = router({
       repo: z.string(),
       number: z.number(),
     }))
-    .mutation(async ({ input, ctx }) => {
+    .subscription(async function* ({ input, ctx }) {
       const { owner, repo, number } = input;
       const githubService = createPublicGitHubService();
 
       try {
+        // Yield initial progress
+        yield {
+          type: 'progress' as const,
+          progress: 0,
+          message: 'Starting PR analysis...',
+        };
+
         const [pr, files] = await Promise.all([
           githubService['octokit'].pulls.get({
             owner,
@@ -134,6 +141,13 @@ export const githubAnalysisRouter = router({
             per_page: 30,
           }),
         ]);
+
+        // Yield progress after fetching PR data
+        yield {
+          type: 'progress' as const,
+          progress: 10,
+          message: 'Fetched PR data, analyzing...',
+        };
 
         const analysisResult = await analyzePullRequest({
           prTitle: pr.data.title,
@@ -149,6 +163,13 @@ export const githubAnalysisRouter = router({
           baseBranch: pr.data.base.ref,
           headBranch: pr.data.head.ref,
         });
+
+        // Yield progress after analysis
+        yield {
+          type: 'progress' as const,
+          progress: 80,
+          message: 'Analysis complete, saving results...',
+        };
 
         // Log token usage
         try {
@@ -210,13 +231,22 @@ export const githubAnalysisRouter = router({
           // Don't fail the entire request if caching fails
         }
 
-        return {
+        // Yield complete result
+        yield {
+          type: 'complete' as const,
           analysis: analysisResult.analysis,
           markdown: analysisResult.markdown,
           version: nextVersion,
         };
       } catch (error) {
         console.error('PR analysis error:', error);
+
+        // Yield error before throwing
+        yield {
+          type: 'error' as const,
+          message: `Failed to analyze PR: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        };
+
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to analyze PR: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -311,11 +341,14 @@ export const githubAnalysisRouter = router({
       repo: z.string(),
       number: z.number(),
     }))
-    .mutation(async ({ input, ctx }) => {
+    .subscription(async function* ({ input, ctx }) {
       const { owner, repo, number } = input;
       const githubService = createPublicGitHubService();
 
       try {
+        // Yield initial progress
+        yield { type: 'progress' as const, progress: 0 };
+
         const [issue, repoData] = await Promise.all([
           githubService['octokit'].issues.get({
             owner,
@@ -327,6 +360,9 @@ export const githubAnalysisRouter = router({
             repo,
           }),
         ]);
+
+        // Yield progress after fetching data
+        yield { type: 'progress' as const, progress: 10 };
 
         const analysisResult = await analyzeIssue({
           issueTitle: issue.data.title,
@@ -340,6 +376,9 @@ export const githubAnalysisRouter = router({
           repoName: `${owner}/${repo}`,
           repoDescription: repoData.data.description || undefined,
         });
+
+        // Yield progress after analysis
+        yield { type: 'progress' as const, progress: 80 };
 
         // Log token usage
         try {
@@ -401,13 +440,22 @@ export const githubAnalysisRouter = router({
           // Don't fail the entire request if caching fails
         }
 
-        return {
+        // Yield complete result
+        yield {
+          type: 'complete' as const,
           analysis: analysisResult.analysis,
           markdown: analysisResult.markdown,
           version: nextVersion,
         };
       } catch (error) {
         console.error('Issue analysis error:', error);
+
+        // Yield error before throwing
+        yield {
+          type: 'error' as const,
+          message: `Failed to analyze issue: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        };
+
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to analyze issue: ${error instanceof Error ? error.message : 'Unknown error'}`,

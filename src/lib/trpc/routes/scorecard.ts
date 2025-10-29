@@ -21,8 +21,12 @@ export const scorecardRouter = router({
         size: z.number().optional(),
       })),
     }))
-    .mutation(async ({ input, ctx }) => {
+    .subscription(async function* ({ input, ctx }) {
       try {
+        yield { type: 'progress', progress: 0, message: 'Starting scorecard analysis...' };
+
+        yield { type: 'progress', progress: 10, message: `Analyzing ${input.files.length} files...` };
+
         const { insertedRecord } = await executeAnalysisWithVersioning({
           userId: ctx.user.id,
           feature: 'scorecard',
@@ -58,20 +62,26 @@ export const scorecardRouter = router({
           }),
         });
 
-        return {
-          scorecard: {
-            metrics: insertedRecord.metrics,
-            markdown: insertedRecord.markdown,
-            overallScore: insertedRecord.overallScore,
+        yield { type: 'progress', progress: 80, message: 'Analysis complete, saving results...' };
+
+        yield {
+          type: 'complete',
+          data: {
+            scorecard: {
+              metrics: insertedRecord.metrics,
+              markdown: insertedRecord.markdown,
+              overallScore: insertedRecord.overallScore,
+            },
+            cached: false,
+            stale: false,
+            lastUpdated: insertedRecord.updatedAt || new Date(),
           },
-          cached: false,
-          stale: false,
-          lastUpdated: insertedRecord.updatedAt || new Date(),
         };
       } catch (error) {
         console.error('🔥 Raw error in scorecard route:', error);
         const userFriendlyMessage = error instanceof Error ? error.message : 'Failed to generate repository scorecard';
-        throw new Error(userFriendlyMessage);
+        yield { type: 'error', message: userFriendlyMessage };
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: userFriendlyMessage });
       }
     }),
 

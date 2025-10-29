@@ -183,48 +183,54 @@ export const diagramRouter = router({
 
   generateDiagram: protectedProcedure
     .input(diagramInputSchemaServer)
-    .mutation(async ({ input, ctx }) => {
-      const { owner, repo, ref, diagramType, options, previousResult, lastError, isRetry } = input;
-      
-      // 1. Check user plan and get API key
-      const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
-      
-      // Check for active subscription
-      if (!subscription || subscription.status !== 'active') {
-        throw new TRPCError({ 
-          code: 'FORBIDDEN', 
-          message: 'Active subscription required for AI features' 
-        });
-      }
-      
-      // 2. Get appropriate API key
-      const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
-      if (!keyInfo) {
-        throw new TRPCError({ 
-          code: 'FORBIDDEN', 
-          message: 'Please add your Gemini API key in settings to use this feature' 
-        });
-      }
-      
-      // NEW: Fetch files on the server-side
-      const githubService = await createGitHubServiceFromSession(ctx.session);
-      const { files: repoFiles } = await githubService.getRepositoryFiles(
-        owner,
-        repo,
-        ref,
-        500 // Limit to 500 files to prevent abuse on the backend
-      );
-
-      // Filter files to only include those with content and map to expected format
-      const files = repoFiles
-        .filter(file => file.content && file.type === 'file')
-        .map(file => ({
-          path: file.path,
-          content: file.content!,
-          size: file.size,
-        }));
-
+    .subscription(async function* ({ input, ctx }) {
       try {
+        const { owner, repo, ref, diagramType, options, previousResult, lastError, isRetry } = input;
+
+        yield { type: 'progress', progress: 0, message: 'Starting diagram generation...' };
+
+        // 1. Check user plan and get API key
+        const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
+
+        // Check for active subscription
+        if (!subscription || subscription.status !== 'active') {
+          yield { type: 'error', message: 'Active subscription required for AI features' };
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Active subscription required for AI features'
+          });
+        }
+
+        // 2. Get appropriate API key
+        const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
+        if (!keyInfo) {
+          yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Please add your Gemini API key in settings to use this feature'
+          });
+        }
+
+        yield { type: 'progress', progress: 10, message: 'Fetching repository files...' };
+
+        // NEW: Fetch files on the server-side
+        const githubService = await createGitHubServiceFromSession(ctx.session);
+        const { files: repoFiles } = await githubService.getRepositoryFiles(
+          owner,
+          repo,
+          ref,
+          500 // Limit to 500 files to prevent abuse on the backend
+        );
+
+        // Filter files to only include those with content and map to expected format
+        const files = repoFiles
+          .filter(file => file.content && file.type === 'file')
+          .map(file => ({
+            path: file.path,
+            content: file.content!,
+            size: file.size,
+          }));
+
         const result = await generateRepoDiagramVercel({
           files,
           repoName: repo,
@@ -234,7 +240,9 @@ export const diagramRouter = router({
           lastError,
           isRetry,
         });
-        
+
+        yield { type: 'progress', progress: 80, message: 'Diagram generated, saving results...' };
+
         // 3. Save diagram to database
         const maxVersionResult = await db
           .select({ max: sql<number>`MAX(${repositoryDiagrams.version})` })
@@ -250,7 +258,7 @@ export const diagramRouter = router({
           );
         const maxVersion = maxVersionResult[0]?.max ?? 0;
         const nextVersion = maxVersion + 1;
-        
+
         console.log('🔥 Version calculation:', {
           userId: ctx.user.id,
           repoOwner: owner,
@@ -260,7 +268,7 @@ export const diagramRouter = router({
           maxVersion,
           nextVersion
         });
-        
+
         await db
           .insert(repositoryDiagrams)
           .values({
@@ -291,7 +299,7 @@ export const diagramRouter = router({
               updatedAt: new Date(),
             }
           });
-        
+
         // 4. Log token usage with actual values from AI response
         await db.insert(tokenUsage).values({
           userId: ctx.user.id,
@@ -304,23 +312,27 @@ export const diagramRouter = router({
           totalTokens: result.usage.totalTokens,
           isByok: keyInfo.isByok,
         });
-        
-        return {
-          diagramCode: result.diagramCode,
-          format: 'mermaid',
-          diagramType,
-          cached: false,
-          stale: false,
-          lastUpdated: new Date(),
+
+        yield {
+          type: 'complete',
+          data: {
+            diagramCode: result.diagramCode,
+            format: 'mermaid',
+            diagramType,
+            cached: false,
+            stale: false,
+            lastUpdated: new Date(),
+          },
         };
       } catch (error) {
         console.error('🔥 Raw error in diagram route:', error);
         console.error('🔥 Error type:', typeof error);
         console.error('🔥 Error message:', error instanceof Error ? error.message : 'No message');
         console.error('🔥 Error stack:', error instanceof Error ? error.stack : 'No stack');
-        
+
         const userFriendlyMessage = parseGeminiError(error);
-        throw new Error(userFriendlyMessage);
+        yield { type: 'error', message: userFriendlyMessage };
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: userFriendlyMessage });
       }
     }),
 

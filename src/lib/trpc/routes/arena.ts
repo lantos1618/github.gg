@@ -1,226 +1,22 @@
 import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
-import {
-  developerRankings,
-  arenaBattles,
-  tokenUsage,
-  developerProfileCache,
-  developerEmails
-} from '@/db/schema';
+import { developerRankings, arenaBattles, developerEmails } from '@/db/schema';
 import { eq, and, desc, gte } from 'drizzle-orm';
-import { analyzeBattle, calculateEloChange, determineTier } from '@/lib/ai/battle-analysis';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
-import type { BetterAuthSession } from '@/lib/github/types';
-import {
-  getOrCreateRanking,
-  updateRankings
-} from '@/lib/arena/battle-helpers';
+import { getOrCreateRanking } from '@/lib/arena/battle-helpers';
 import { BYOK_DAILY_BATTLE_LIMIT, ALL_BATTLE_CRITERIA } from '@/lib/constants/arena';
-import { generateDeveloperProfile } from '@/lib/ai/developer-profile';
-import type { DeveloperProfile } from '@/lib/types/profile';
-import type { BattleCriteria } from '@/lib/types/arena';
-import { sql } from 'drizzle-orm';
-import { sendBattleChallengeEmail, sendBattleResultsEmail } from '@/lib/email/resend';
-
-// Helper function to check if a profile is stale (older than 24 hours)
-function isProfileStale(updatedAt: Date): boolean {
-  return new Date().getTime() - updatedAt.getTime() > 24 * 60 * 60 * 1000; // 24 hours
-}
-
-// Async battle execution function
-async function executeBattleAsync(
-  battleId: string,
-  userId: string,
-  session: BetterAuthSession | null,
-  plan: 'byok' | 'pro'
-) {
-  try {
-    const battle = await db
-      .select()
-      .from(arenaBattles)
-      .where(eq(arenaBattles.id, battleId))
-      .limit(1);
-
-    if (!battle[0]) throw new Error('Battle not found');
-
-    const githubService = await createGitHubServiceForUserOperations(session);
-
-    // Function to get or generate a developer profile
-    const getOrGenerateProfile = async (username: string): Promise<DeveloperProfile> => {
-      const normalizedUsername = username.toLowerCase();
-
-      const existing = await db
-        .select()
-        .from(developerProfileCache)
-        .where(eq(developerProfileCache.username, normalizedUsername))
-        .limit(1);
-
-      if (existing[0] && !isProfileStale(existing[0].updatedAt)) {
-        return existing[0].profileData as DeveloperProfile;
-      }
-
-      const repos = await githubService.getUserRepositories(username);
-      if (repos.length === 0) throw new Error(`${username} has no public repositories.`);
-
-      const result = await generateDeveloperProfile({
-        username,
-        repos,
-        userId
-      });
-
-      const maxVersionResult = await db
-        .select({ max: sql<number>`MAX(version)` })
-        .from(developerProfileCache)
-        .where(eq(developerProfileCache.username, normalizedUsername));
-      const nextVersion = (maxVersionResult[0]?.max || 0) + 1;
-
-      await db.insert(developerProfileCache).values({
-        username: normalizedUsername,
-        version: nextVersion,
-        profileData: result.profile,
-        updatedAt: new Date()
-      }).onConflictDoUpdate({
-        target: [developerProfileCache.username, developerProfileCache.version],
-        set: { profileData: result.profile, updatedAt: new Date() }
-      });
-
-      return result.profile;
-    };
-
-    const [challengerProfile, opponentProfile] = await Promise.all([
-      getOrGenerateProfile(battle[0].challengerUsername),
-      getOrGenerateProfile(battle[0].opponentUsername),
-    ]);
-
-    const battleAnalysis = await analyzeBattle(
-      challengerProfile,
-      opponentProfile,
-      battle[0].challengerUsername,
-      battle[0].opponentUsername,
-      (battle[0].criteria as BattleCriteria[]) || ALL_BATTLE_CRITERIA
-    );
-
-    // Ensure both users have rankings (creates if doesn't exist)
-    const [challengerRanking, opponentRanking] = await Promise.all([
-      getOrCreateRanking(battle[0].challengerId, battle[0].challengerUsername),
-      getOrCreateRanking(battle[0].opponentId, battle[0].opponentUsername)
-    ]);
-
-    const challengerWon = battleAnalysis.result.winner === battle[0].challengerUsername;
-    const challengerCurrentRating = challengerRanking.eloRating;
-    const opponentCurrentRating = opponentRanking.eloRating;
-
-    const eloChanges = calculateEloChange(
-      challengerCurrentRating,
-      opponentCurrentRating,
-      challengerWon
-    );
-
-    await updateBattleResults(
-      battle[0],
-      battleAnalysis.result,
-      challengerRanking,
-      opponentRanking,
-      {
-        challenger: {
-          before: challengerCurrentRating,
-          after: eloChanges.challenger.newRating,
-          change: eloChanges.challenger.change,
-        },
-        opponent: {
-          before: opponentCurrentRating,
-          after: eloChanges.opponent.newRating,
-          change: eloChanges.opponent.change,
-        },
-      },
-      challengerWon
-    );
-
-    await updateUserRankings(
-      battle[0],
-      challengerRanking,
-      opponentRanking,
-      eloChanges,
-      challengerWon
-    );
-
-    await logTokenUsage(
-      userId,
-      battle[0].challengerUsername,
-      battleAnalysis.usage,
-      plan === 'byok'
-    );
-
-    // Send battle results emails to both parties
-    try {
-      const [challengerEmail, opponentEmail] = await Promise.all([
-        db.select().from(developerEmails).where(eq(developerEmails.username, battle[0].challengerUsername)).limit(1),
-        db.select().from(developerEmails).where(eq(developerEmails.username, battle[0].opponentUsername)).limit(1),
-      ]);
-
-      const emailPromises = [];
-
-      // Send email to challenger
-      if (challengerEmail[0]?.email) {
-        emailPromises.push(
-          sendBattleResultsEmail({
-            recipientEmail: challengerEmail[0].email,
-            recipientUsername: battle[0].challengerUsername,
-            opponentUsername: battle[0].opponentUsername,
-            won: challengerWon,
-            yourScore: battleAnalysis.result.challengerScore.total,
-            opponentScore: battleAnalysis.result.opponentScore.total,
-            eloChange: eloChanges.challenger.change,
-            newElo: eloChanges.challenger.newRating,
-            reason: battleAnalysis.result.reason,
-          })
-        );
-      }
-
-      // Send email to opponent
-      if (opponentEmail[0]?.email) {
-        emailPromises.push(
-          sendBattleResultsEmail({
-            recipientEmail: opponentEmail[0].email,
-            recipientUsername: battle[0].opponentUsername,
-            opponentUsername: battle[0].challengerUsername,
-            won: !challengerWon,
-            yourScore: battleAnalysis.result.opponentScore.total,
-            opponentScore: battleAnalysis.result.challengerScore.total,
-            eloChange: eloChanges.opponent.change,
-            newElo: eloChanges.opponent.newRating,
-            reason: battleAnalysis.result.reason,
-          })
-        );
-      }
-
-      await Promise.all(emailPromises);
-    } catch (emailError) {
-      // Log but don't fail the battle if email fails
-      console.error('Failed to send battle results emails:', emailError);
-    }
-  } catch (error) {
-    console.error('Async battle execution failed:', error);
-
-    await db
-      .update(arenaBattles)
-      .set({
-        status: 'failed',
-        completedAt: new Date(),
-      })
-      .where(eq(arenaBattles.id, battleId));
-  }
-}
+import { validateBattle } from '@/lib/arena/repository';
+import { executeBattleAsync } from '@/lib/arena/battle-executor';
+import { sendBattleChallengeNotification } from '@/lib/arena/notifications';
 
 export const arenaRouter = router({
-  // Get user's ranking (now public, but requires userId or username)
+  // Get user's ranking (public, requires userId or username)
   getMyRanking: publicProcedure
     .input(z.object({ userId: z.string().optional(), username: z.string().optional() }))
     .query(async ({ input }) => {
-      // If userId is provided, fetch the actual GitHub username from API
       if (input.userId) {
         const { account } = await import('@/db/schema');
         const userAccount = await db.query.account.findFirst({
@@ -237,7 +33,6 @@ export const arenaRouter = router({
           });
         }
 
-        // Fetch GitHub username from authenticated API call
         const { Octokit } = await import('@octokit/rest');
         const octokit = new Octokit({ auth: userAccount.accessToken });
         const { data: authenticatedUser } = await octokit.rest.users.getAuthenticated();
@@ -245,7 +40,6 @@ export const arenaRouter = router({
 
         return await getOrCreateRanking(input.userId, githubUsername);
       } else if (input.username) {
-        // Look up by username only (public)
         const normalizedUsername = input.username.toLowerCase();
         const existing = await db
           .select()
@@ -274,7 +68,7 @@ export const arenaRouter = router({
         .orderBy(desc(developerRankings.eloRating))
         .limit(limit)
         .offset(offset);
-      // Calculate win rates and add rank
+
       const leaderboard = rankings.map((ranking, index) => ({
         rank: offset + index + 1,
         username: ranking.username,
@@ -286,6 +80,7 @@ export const arenaRouter = router({
         totalBattles: ranking.totalBattles,
         winStreak: ranking.winStreak,
       }));
+
       return leaderboard;
     }),
 
@@ -339,10 +134,9 @@ export const arenaRouter = router({
         }
       }
 
-      // Get challenger's GitHub username from authenticated API call
+      // Get challenger's GitHub username
       const githubService = await createGitHubServiceForUserOperations(ctx.session);
 
-      // Fetch the authenticated user's profile to get their login (username)
       const { account } = await import('@/db/schema');
       const userAccount = await db.query.account.findFirst({
         where: and(
@@ -363,12 +157,10 @@ export const arenaRouter = router({
       const { data: authenticatedUser } = await octokit.rest.users.getAuthenticated();
       const challengerUsername = authenticatedUser.login.toLowerCase();
 
-      // Normalize opponent username
       const normalizedOpponentUsername = opponentUsername.toLowerCase();
 
-      // Check if opponent exists and get their data
+      // Verify opponent exists
       const opponentRepos = await githubService.getUserRepositories(opponentUsername);
-
       if (opponentRepos.length === 0) {
         throw new TRPCError({
           code: 'NOT_FOUND',
@@ -376,50 +168,35 @@ export const arenaRouter = router({
         });
       }
 
-      // Check if opponent is a registered user
+      // Check if opponent is registered
       const opponentRanking = await db
         .select()
         .from(developerRankings)
         .where(eq(developerRankings.username, normalizedOpponentUsername))
         .limit(1);
 
-      // For non-registered opponents, use a dummy ID
       const opponentId = opponentRanking[0]?.userId || `dummy_${normalizedOpponentUsername}`;
 
-      // Create battle record with actual GitHub usernames
+      // Create battle record
       const battle = await db
         .insert(arenaBattles)
         .values({
           challengerId: ctx.user.id,
           opponentId,
-          challengerUsername, // Use GitHub username, not display name
+          challengerUsername,
           opponentUsername: normalizedOpponentUsername,
           status: 'pending',
-          battleType: 'standard', // Only standard battles supported
+          battleType: 'standard',
           criteria,
         })
         .returning();
 
-      // Try to send email notification to opponent (non-blocking)
-      try {
-        const opponentEmail = await db
-          .select()
-          .from(developerEmails)
-          .where(eq(developerEmails.username, normalizedOpponentUsername))
-          .limit(1);
-
-        if (opponentEmail[0]?.email) {
-          await sendBattleChallengeEmail({
-            recipientEmail: opponentEmail[0].email,
-            recipientUsername: opponentUsername,
-            challengerUsername,
-            battleId: battle[0].id,
-          });
-        }
-      } catch (emailError) {
-        // Log but don't fail the battle creation if email fails
-        console.error('Failed to send battle challenge email:', emailError);
-      }
+      // Send challenge notification (non-blocking)
+      await sendBattleChallengeNotification(
+        opponentUsername,
+        challengerUsername,
+        battle[0].id
+      );
 
       return battle[0];
     }),
@@ -449,12 +226,11 @@ export const arenaRouter = router({
           .set({ status: 'in_progress' })
           .where(eq(arenaBattles.id, battleId));
 
-        // Start async execution without awaiting (fire and forget)
+        // Start async execution (fire and forget)
         executeBattleAsync(battleId, ctx.user.id, ctx.session, plan as 'byok' | 'pro').catch(error => {
           console.error('Async battle execution failed:', error);
         });
 
-        // Return immediately with in_progress status
         return {
           battleId: battle.id,
           status: 'in_progress',
@@ -516,7 +292,6 @@ export const arenaRouter = router({
       };
     }),
 
-
   // Get battle history (protected)
   getBattleHistory: protectedProcedure
     .input(z.object({
@@ -550,107 +325,3 @@ export const arenaRouter = router({
       return ranking[0] || null;
     }),
 });
-
-async function validateBattle(battleId: string, userId: string) {
-  const battle = await db
-    .select()
-    .from(arenaBattles)
-    .where(
-      and(
-        eq(arenaBattles.id, battleId),
-        eq(arenaBattles.challengerId, userId),
-        eq(arenaBattles.status, 'pending')
-      )
-    )
-    .limit(1);
-
-  if (battle.length === 0) {
-    throw new TRPCError({ 
-      code: 'NOT_FOUND', 
-      message: 'Battle not found or already completed' 
-    });
-  }
-
-  return battle[0];
-}
-
-async function updateBattleResults(
-  battle: typeof arenaBattles.$inferSelect,
-  battleAnalysis: {
-    winner: string;
-    reason: string;
-    challengerScore: { total: number; breakdown: Record<string, number> };
-    opponentScore: { total: number; breakdown: Record<string, number> };
-    highlights: string[];
-    recommendations: string[];
-  },
-  challengerRanking: typeof developerRankings.$inferSelect,
-  opponentRanking: typeof developerRankings.$inferSelect,
-  eloChanges: { challenger: { before: number; after: number; change: number }; opponent: { before: number; after: number; change: number } },
-  challengerWon: boolean
-) {
-  const winnerId = challengerWon ? battle.challengerId : battle.opponentId;
-
-  const updatedBattle = await db
-    .update(arenaBattles)
-    .set({
-      status: 'completed',
-      winnerId,
-      scores: {
-        challenger: battleAnalysis.challengerScore,
-        opponent: battleAnalysis.opponentScore,
-      },
-      aiAnalysis: {
-        winner: battleAnalysis.winner,
-        reason: battleAnalysis.reason,
-        highlights: battleAnalysis.highlights,
-        recommendations: battleAnalysis.recommendations,
-      },
-      eloChange: eloChanges,
-      completedAt: new Date(),
-    })
-    .where(eq(arenaBattles.id, battle.id))
-    .returning();
-
-  return updatedBattle[0];
-}
-
-async function updateUserRankings(
-  battle: typeof arenaBattles.$inferSelect,
-  challengerRanking: typeof developerRankings.$inferSelect,
-  opponentRanking: typeof developerRankings.$inferSelect,
-  eloChanges: { challenger: { change: number; newRating: number }; opponent: { change: number; newRating: number } },
-  challengerWon: boolean
-) {
-  const challengerTier = determineTier(eloChanges.challenger.newRating);
-  const opponentTier = determineTier(eloChanges.opponent.newRating);
-
-  await updateRankings(
-    challengerRanking,
-    opponentRanking,
-    challengerWon,
-    eloChanges,
-    challengerTier,
-    opponentTier
-  );
-}
-
-async function logTokenUsage(
-  userId: string,
-  username: string,
-  usage: { inputTokens: number; outputTokens: number; totalTokens: number },
-  isByok: boolean
-) {
-  await db.insert(tokenUsage).values({
-    userId,
-    feature: 'arena_battle',
-    repoOwner: username,
-    repoName: null,
-    model: 'gemini-2.5-pro',
-    inputTokens: usage.inputTokens,
-    outputTokens: usage.outputTokens,
-    totalTokens: usage.totalTokens,
-    isByok,
-    createdAt: new Date(),
-  });
-} 

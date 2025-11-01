@@ -209,17 +209,23 @@ function topologicalSort(pages: WikiPage[]): WikiPage[] {
   const temp = new Set<string>();
 
   const pageMap = new Map(pages.map(p => [p.slug, p]));
+  const brokenDeps = new Set<string>();
 
-  function visit(slug: string) {
+  function visit(slug: string, path: string[] = []) {
     if (temp.has(slug)) {
-      throw new Error(`Circular dependency detected: ${slug}`);
+      // Circular dependency detected - break it by ignoring this dependency
+      console.warn(`⚠️  Circular dependency detected: ${[...path, slug].join(' → ')}`);
+      brokenDeps.add(slug);
+      return;
     }
     if (visited.has(slug)) return;
 
     temp.add(slug);
     const page = pageMap.get(slug);
     if (page) {
-      page.dependsOn.forEach(dep => visit(dep));
+      // Filter out dependencies that would create cycles
+      const validDeps = page.dependsOn.filter(dep => !brokenDeps.has(dep));
+      validDeps.forEach(dep => visit(dep, [...path, slug]));
       visited.add(slug);
       sorted.push(page);
     }
@@ -234,6 +240,10 @@ function topologicalSort(pages: WikiPage[]): WikiPage[] {
       visit(page.slug);
     }
   });
+
+  if (brokenDeps.size > 0) {
+    console.warn(`🔧 Broke ${brokenDeps.size} circular dependencies:`, Array.from(brokenDeps));
+  }
 
   return sorted;
 }

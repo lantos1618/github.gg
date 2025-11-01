@@ -11,7 +11,7 @@ export interface Plan {
   description: string;
   features: string[];
   icon: LucideIcon;
-  planType: 'free' | 'byok' | 'pro' | null;
+  planType: 'free' | 'pro' | null;
   isPopular?: boolean;
 }
 

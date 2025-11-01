@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useMemo } from 'react';
 import type { RepoFile } from '@/types/repo';
 
 interface SelectedFilesContextValue {
@@ -57,7 +57,7 @@ export function SelectedFilesProvider({ children, files = [] }: SelectedFilesPro
     return selectedFilePaths.has(filePath);
   }, [selectedFilePaths]);
 
-  const value: SelectedFilesContextValue = {
+  const value: SelectedFilesContextValue = useMemo(() => ({
     selectedFilePaths,
     toggleFile,
     selectAll,
@@ -66,7 +66,7 @@ export function SelectedFilesProvider({ children, files = [] }: SelectedFilesPro
     selectedCount: selectedFilePaths.size,
     maxFileSize,
     setMaxFileSize,
-  };
+  }), [selectedFilePaths, toggleFile, selectAll, deselectAll, isFileSelected, maxFileSize, setMaxFileSize]);
 
   return (
     <SelectedFilesContext.Provider value={value}>

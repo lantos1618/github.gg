@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useState } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -22,7 +22,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { WikiGenerationButton } from '@/components/WikiGenerationButton';
 import { getBaseUrl } from '@/lib/constants';
 
 interface WikiPage {
@@ -41,7 +40,6 @@ interface WikiIndexMenuProps {
 export function WikiIndexMenu({ owner, repo, pages, canEdit }: WikiIndexMenuProps) {
   const router = useRouter();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
 
   const deleteWiki = trpc.wiki.deleteRepositoryWiki.useMutation({
     onSuccess: () => {
@@ -99,6 +97,87 @@ export function WikiIndexMenu({ owner, repo, pages, canEdit }: WikiIndexMenuProp
     router.push(`/wiki/${owner}/${repo}/new`);
   };
 
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [shouldGenerate, setShouldGenerate] = useState(false);
+  const [generationConfig, setGenerationConfig] = useState<{ owner: string; repo: string; maxFiles: number; useChunking: boolean } | null>(null);
+  const toastIdRef = useRef<string | number | null>(null);
+  const routerForGen = useRouter();
+
+  // Memoize the subscription input to prevent recreating on every render
+  const subscriptionInput = useMemo(() => {
+    return generationConfig || { owner, repo, maxFiles: 200, useChunking: false };
+  }, [generationConfig, owner, repo]);
+
+  // Memoize the subscription data handler to prevent recreating on every render
+  const handleGenerationData = useCallback((event: any) => {
+    if (event.type === 'progress') {
+      const progress = event.progress || 0;
+      const message = event.message || '';
+
+      // Update or create toast with progress
+      if (toastIdRef.current) {
+        toast.loading(`${message} (${progress}%)`, { id: toastIdRef.current });
+      } else {
+        const id = toast.loading(`${message} (${progress}%)`);
+        toastIdRef.current = id;
+      }
+    } else if (event.type === 'complete') {
+      setIsGenerating(false);
+      setShouldGenerate(false);
+
+      // Replace loading toast with success
+      if (toastIdRef.current) {
+        toast.success(`Wiki generated successfully! Version ${event.data.version}`, {
+          id: toastIdRef.current,
+          description: `Created ${event.data.pages?.length || 0} pages using ${event.data.usage?.totalTokens || 0} tokens`,
+        });
+        toastIdRef.current = null;
+      } else {
+        toast.success(`Wiki generated successfully! Version ${event.data.version}`, {
+          description: `Created ${event.data.pages?.length || 0} pages using ${event.data.usage?.totalTokens || 0} tokens`,
+        });
+      }
+      routerForGen.refresh();
+    } else if (event.type === 'error') {
+      setIsGenerating(false);
+      setShouldGenerate(false);
+
+      // Replace loading toast with error
+      if (toastIdRef.current) {
+        toast.error('Failed to generate wiki', {
+          id: toastIdRef.current,
+          description: event.message || 'An unknown error occurred',
+        });
+        toastIdRef.current = null;
+      } else {
+        toast.error('Failed to generate wiki', {
+          description: event.message || 'An unknown error occurred',
+        });
+      }
+    }
+  }, [routerForGen]);
+
+  // Use tRPC subscription for wiki generation inline
+  trpc.wiki.generateWikiPages.useSubscription(
+    subscriptionInput,
+    {
+      enabled: shouldGenerate && !!generationConfig,
+      onData: handleGenerationData,
+    }
+  );
+
+  const handleGenerate = (chunking: boolean) => {
+    setIsGenerating(true);
+    const maxFiles = chunking ? 500 : 200;
+    setGenerationConfig({
+      owner,
+      repo,
+      maxFiles,
+      useChunking: chunking,
+    });
+    setShouldGenerate(true);
+  };
+
   return (
     <>
       <div className="flex items-center gap-2">
@@ -140,13 +219,26 @@ export function WikiIndexMenu({ owner, repo, pages, canEdit }: WikiIndexMenuProp
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem onClick={() => setIsGenerateDialogOpen(true)}>
+            <DropdownMenuLabel>Generate Wiki Docs</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => handleGenerate(false)} disabled={isGenerating}>
               <Book className="h-4 w-4 mr-2" />
-              Generate Wiki Docs
+              <div className="flex flex-col">
+                <span>Standard (up to 200 files)</span>
+                <span className="text-xs text-muted-foreground">1M token context, single pass</span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleGenerate(true)} disabled={isGenerating}>
+              <Book className="h-4 w-4 mr-2" />
+              <div className="flex flex-col">
+                <span>Massive Repos (500+ files)</span>
+                <span className="text-xs text-muted-foreground">Multi-pass chunking</span>
+              </div>
             </DropdownMenuItem>
 
             {canEdit && (
               <>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleNewPage}>
                   <Plus className="h-4 w-4 mr-2" />
                   New Page
@@ -166,26 +258,6 @@ export function WikiIndexMenu({ owner, repo, pages, canEdit }: WikiIndexMenuProp
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-
-      {/* Generate Wiki Dialog */}
-      <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Generate Wiki Documentation</DialogTitle>
-            <DialogDescription>
-              Choose a generation mode for your repository wiki.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <WikiGenerationButton owner={owner} repo={repo} hideViewButton />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsGenerateDialogOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Delete Wiki Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

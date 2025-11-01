@@ -1,34 +1,17 @@
-'use client';
-
-import { trpc } from '@/lib/trpc/client';
-import { toast } from 'sonner';
-import { useAuth } from '@/lib/auth/client';
-import { PricingCard } from '@/components/PricingCard';
+import { PricingCardServer } from '@/components/PricingCardServer';
 import { PLANS } from '@/data/plans';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Pricing - gh.gg',
+  description: 'Choose the perfect plan for your GitHub workflow. From free public repos to unlimited private repositories with AI-powered features.',
+  openGraph: {
+    title: 'Pricing - gh.gg',
+    description: 'Flexible pricing for developers. Start free or unlock premium features with BYOK and managed AI.',
+  },
+};
 
 export default function PricingPage() {
-  const { isSignedIn, signIn } = useAuth();
-
-  const handleSignIn = () => {
-    signIn('/pricing');
-  };
-  const createCheckout = trpc.billing.createCheckoutSession.useMutation({
-    onSuccess: (data) => {
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    },
-    onError: (err) => {
-      toast.error(err.message);
-    }
-  });
-
-  const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery();
-
-  const handleUpgrade = (plan: 'byok' | 'pro') => {
-    createCheckout.mutate({ plan });
-  };
-
   return (
     <div className="container py-8 max-w-6xl px-4 md:px-8">
       <div className="text-center mb-12">
@@ -38,17 +21,11 @@ export default function PricingPage() {
         </p>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-8">
-        {PLANS.filter(plan => plan.planType !== 'byok').map((plan) => (
-          <PricingCard
+      <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        {PLANS.map((plan) => (
+          <PricingCardServer
             key={plan.name}
             plan={plan}
-            currentPlan={currentPlan?.plan}
-            onUpgrade={handleUpgrade}
-            onSignIn={handleSignIn}
-            isLoading={planLoading || createCheckout.isPending}
-            isSignedIn={isSignedIn}
-            buttonText="Get Started"
           />
         ))}
       </div>

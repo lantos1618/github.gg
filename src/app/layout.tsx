@@ -66,7 +66,14 @@ export default function RootLayout({
             )}
             <main className="pt-14">{children}</main>
             <Footer />
-            <Toaster position="top-right" richColors />
+            <Toaster
+              position="bottom-right"
+              richColors
+              expand={true}
+              visibleToasts={5}
+              closeButton
+              duration={4000}
+            />
           </TRPCProvider>
         </PostHogProvider>
         <Analytics />

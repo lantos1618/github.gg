@@ -121,16 +121,36 @@ export async function GET(req: NextRequest) {
           const repos = await githubService.getUserRepositories(username);
           if (repos.length === 0) throw new Error(`${username} has no public repositories.`);
 
+          // Filter and sort repos
+          const nonForkRepos = repos.filter(r => !r.fork);
+          const topRepos = nonForkRepos
+            .sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0))
+            .slice(0, 20);
+
           sendEvent('progress', {
             status: 'generating_profile',
             progress: role === 'challenger' ? 20 : 40,
-            message: `Analyzing ${repos.length} repositories for ${username}...`
+            message: `Found ${repos.length} repos, analyzing top ${topRepos.length} for ${username}...`
           });
 
           const result = await generateDeveloperProfile({
             username,
             repos,
-            userId: session.user.id
+            userId: session.user.id,
+            onProgress: (current, total, repoName) => {
+              const baseProgress = role === 'challenger' ? 20 : 40;
+              const rangeSize = 20; // 20-40 or 40-60
+              const progressIncrement = Math.floor((current / total) * rangeSize);
+
+              sendEvent('progress', {
+                status: 'analyzing_repo',
+                progress: baseProgress + progressIncrement,
+                message: `Analyzing repo ${current}/${total}: ${repoName}`,
+                repoName,
+                current,
+                total
+              });
+            }
           });
 
           const maxVersionResult = await db

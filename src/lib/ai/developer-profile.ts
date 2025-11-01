@@ -143,6 +143,7 @@ export type DeveloperProfileParams = {
     files: Array<{ path: string; content: string }>;
   }>;
   userId: string; // userId is now required to associate scorecards
+  onProgress?: (current: number, total: number, repoName: string) => void;
 };
 
 export type DeveloperProfileResult = {
@@ -155,10 +156,11 @@ export type DeveloperProfileResult = {
 };
 
 export async function generateDeveloperProfile({
-  username, 
+  username,
   repos,
   repoFiles,
-  userId
+  userId,
+  onProgress
 }: DeveloperProfileParams): Promise<DeveloperProfileResult> {
   const repoDataForPrompt = repos.slice(0, 20).map(repo => ({
     name: repo.name,
@@ -173,9 +175,8 @@ export async function generateDeveloperProfile({
   let scorecardInsights = '';
 
   if (repoFiles && repoFiles.length > 0) {
-    console.log(`📊 Generating scorecards for ${repoFiles.length} repositories in parallel...`);
     const topReposToAnalyze = repoFiles.slice(0, 5);
-    
+
     // Check for existing scorecards first
     const existingScorecards = await db
       .select()
@@ -184,25 +185,37 @@ export async function generateDeveloperProfile({
         eq(repositoryScorecards.userId, userId),
         eq(repositoryScorecards.repoOwner, username)
       ));
-    
+
     const existingScorecardMap = new Map(
       existingScorecards.map(sc => [`${sc.repoOwner}/${sc.repoName}`, sc])
     );
-    
+
     console.log(`🔍 Found ${existingScorecards.length} existing scorecards`);
-    
-    // Generate scorecards in parallel
-    const scorecardPromises = topReposToAnalyze.map(async (repoData) => {
+
+    // Process scorecards sequentially with progress updates
+    const scorecardResults = [];
+    const total = topReposToAnalyze.length;
+
+    for (let i = 0; i < topReposToAnalyze.length; i++) {
+      const repoData = topReposToAnalyze[i];
+      const current = i + 1;
+
+      if (onProgress) {
+        onProgress(current, total, repoData.repoName);
+      }
+
       const repoKey = `${username}/${repoData.repoName}`;
-      
+
+      let result;
+
       // Check if we already have a recent scorecard for this repo
       if (existingScorecardMap.has(repoKey)) {
         console.log(`✅ Using cached scorecard for ${repoData.repoName}`);
-        const existing = existingScorecards.find(sc => 
+        const existing = existingScorecards.find(sc =>
           sc.repoOwner === username && sc.repoName === repoData.repoName
         );
         if (existing) {
-          return {
+          result = {
             repoName: repoData.repoName,
             scorecard: {
               overallScore: existing.overallScore,
@@ -213,64 +226,66 @@ export async function generateDeveloperProfile({
           };
         }
       }
-      
-      console.log(`🔄 Generating new scorecard for ${repoData.repoName}...`);
-      try {
-        console.log(`🔍 Analyzing ${repoData.repoName}...`);
-        const scorecardResult = await generateScorecardAnalysis({
+
+      if (!result) {
+        try {
+          console.log(`🔍 Analyzing ${repoData.repoName}...`);
+          const scorecardResult = await generateScorecardAnalysis({
             files: repoData.files,
             repoName: repoData.repoName,
           });
-          
-        console.log(`✅ Scorecard generated for ${repoData.repoName}`);
-        
-        // Save the generated scorecard to the database
-        let inserted = null;
-        for (let i = 0; i < 3; i++) { // Retry logic for concurrent versioning
-          const maxVersionResult = await db
-            .select({ max: sql<number>`MAX(version)` })
-            .from(repositoryScorecards)
-            .where(and(
-              eq(repositoryScorecards.userId, userId),
-              eq(repositoryScorecards.repoOwner, username),
-              eq(repositoryScorecards.repoName, repoData.repoName)
-            ));
-          const nextVersion = (maxVersionResult[0]?.max || 0) + 1;
 
-          try {
-            const [result] = await db.insert(repositoryScorecards).values({
-              userId,
-              repoOwner: username,
-              repoName: repoData.repoName,
-              ref: 'main', // Assuming main, could be improved
-              version: nextVersion,
-              ...scorecardResult.scorecard,
-            }).onConflictDoNothing().returning();
-            if (result) {
-              inserted = result;
-              break;
+          console.log(`✅ Scorecard generated for ${repoData.repoName}`);
+
+          // Save the generated scorecard to the database
+          let inserted = null;
+          for (let retryCount = 0; retryCount < 3; retryCount++) { // Retry logic for concurrent versioning
+            const maxVersionResult = await db
+              .select({ max: sql<number>`MAX(version)` })
+              .from(repositoryScorecards)
+              .where(and(
+                eq(repositoryScorecards.userId, userId),
+                eq(repositoryScorecards.repoOwner, username),
+                eq(repositoryScorecards.repoName, repoData.repoName)
+              ));
+            const nextVersion = (maxVersionResult[0]?.max || 0) + 1;
+
+            try {
+              const [insertResult] = await db.insert(repositoryScorecards).values({
+                userId,
+                repoOwner: username,
+                repoName: repoData.repoName,
+                ref: 'main', // Assuming main, could be improved
+                version: nextVersion,
+                ...scorecardResult.scorecard,
+              }).onConflictDoNothing().returning();
+              if (insertResult) {
+                inserted = insertResult;
+                break;
+              }
+            } catch (e) {
+              if (isPgErrorWithCode(e) && e.code === '23505') continue;
+              throw e;
             }
-          } catch (e) {
-            if (isPgErrorWithCode(e) && e.code === '23505') continue;
-            throw e;
           }
+          if (!inserted) console.warn(`Failed to insert scorecard for ${repoData.repoName}`);
+
+          result = {
+            repoName: repoData.repoName,
+            scorecard: scorecardResult.scorecard,
+            usage: scorecardResult.usage,
+          };
+        } catch (error) {
+          console.warn(`Failed to generate or save scorecard for ${repoData.repoName}:`, error);
+          result = null;
         }
-        if (!inserted) console.warn(`Failed to insert scorecard for ${repoData.repoName}`);
-        
-        return {
-          repoName: repoData.repoName,
-          scorecard: scorecardResult.scorecard,
-          usage: scorecardResult.usage,
-        };
-      } catch (error) {
-        console.warn(`Failed to generate or save scorecard for ${repoData.repoName}:`, error);
-        return null;
       }
-    });
-    
-    // Wait for all scorecards to complete
-    const scorecardResults = await Promise.all(scorecardPromises);
-    
+
+      if (result) {
+        scorecardResults.push(result);
+      }
+    }
+
     // Aggregate results
     scorecardResults.forEach(result => {
       if (result) {

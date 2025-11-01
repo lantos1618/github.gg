@@ -177,137 +177,146 @@ export function LeaderboardTable() {
             </div>
           ) : filteredAndSortedLeaderboard.length > 0 ? (
             <>
-              {/* Sort Controls */}
-              <div className="flex flex-wrap gap-2 mb-4 pb-3 border-b">
-                <span className="text-sm font-medium text-muted-foreground mr-2">Sort by:</span>
-                <Button
-                  variant={sortField === 'eloRating' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleSort('eloRating')}
-                  className="gap-2"
-                >
-                  ELO {getSortIcon('eloRating')}
-                </Button>
-                <Button
-                  variant={sortField === 'winRate' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleSort('winRate')}
-                  className="gap-2"
-                >
-                  Win Rate {getSortIcon('winRate')}
-                </Button>
-                <Button
-                  variant={sortField === 'winStreak' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleSort('winStreak')}
-                  className="gap-2"
-                >
-                  Streak {getSortIcon('winStreak')}
-                </Button>
-                <Button
-                  variant={sortField === 'totalBattles' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleSort('totalBattles')}
-                  className="gap-2"
-                >
-                  Battles {getSortIcon('totalBattles')}
-                </Button>
-                <Button
-                  variant={sortField === 'wins' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleSort('wins')}
-                  className="gap-2"
-                >
-                  Wins {getSortIcon('wins')}
-                </Button>
-              </div>
-
-              {/* Leaderboard Entries */}
-              <div className="space-y-3">
-                {filteredAndSortedLeaderboard.map((entry, index) => {
-                  const isCurrentUser = entry.username.toLowerCase() === currentUsername;
-                  return (
-                    <div
-                      key={entry.username}
-                      onClick={() => !isCurrentUser && canBattle && handleChallenge(entry.username)}
-                      className={`p-4 rounded-lg border transition-all ${
-                        index === 0
-                          ? 'bg-yellow-50 border-yellow-200' :
-                        index === 1
-                          ? 'bg-gray-50 border-gray-200' :
-                        index === 2
-                          ? 'bg-amber-50 border-amber-200' :
-                          'bg-background border-border hover:bg-muted/50'
-                      } ${!isCurrentUser && canBattle ? 'cursor-pointer hover:shadow-md hover:scale-[1.01]' : ''}`}
-                    >
-                      <div className="flex items-center justify-between gap-4">
-                        {/* Rank and User */}
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2">
-                            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg">
-                              {getRankIcon(entry.rank) || entry.rank}
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Rank
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Developer
+                      </th>
+                      <th
+                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('eloRating')}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          ELO {getSortIcon('eloRating')}
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('winRate')}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          Win Rate {getSortIcon('winRate')}
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('winStreak')}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          Streak {getSortIcon('winStreak')}
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('totalBattles')}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          Battles {getSortIcon('totalBattles')}
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('wins')}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          Record {getSortIcon('wins')}
+                        </div>
+                      </th>
+                      {canBattle && (
+                        <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Action
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredAndSortedLeaderboard.map((entry, index) => {
+                      const isCurrentUser = entry.username.toLowerCase() === currentUsername;
+                      return (
+                        <tr
+                          key={entry.username}
+                          className={`transition-colors ${
+                            index === 0
+                              ? 'bg-yellow-50 hover:bg-yellow-100' :
+                            index === 1
+                              ? 'bg-gray-50 hover:bg-gray-100' :
+                            index === 2
+                              ? 'bg-amber-50 hover:bg-amber-100' :
+                              'hover:bg-gray-50'
+                          } ${isCurrentUser ? 'font-semibold' : ''}`}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              {getRankIcon(entry.rank)}
+                              <span className="text-lg font-bold">{entry.rank}</span>
                             </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
                             <div>
-                              <div className="font-semibold text-lg flex items-center gap-2">
+                              <div className="font-semibold text-gray-900 flex items-center gap-2">
                                 {entry.username}
                                 {isCurrentUser && (
                                   <Badge variant="secondary" className="text-xs">You</Badge>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="text-xs">
-                                  {entry.tier}
-                                </Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  {entry.totalBattles} battles
-                                </span>
-                              </div>
+                              <Badge variant="outline" className="text-xs mt-1">
+                                {entry.tier}
+                              </Badge>
                             </div>
-                          </div>
-                        </div>
-
-                        {/* Stats */}
-                        <div className="flex items-center gap-6">
-                          <div className="text-center">
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
                             <div className="text-2xl font-bold text-purple-600">
                               {entry.eloRating}
                             </div>
-                            <div className="text-xs text-muted-foreground">ELO</div>
-                          </div>
-
-                          <div className="text-center">
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
                             <div className="text-lg font-semibold text-green-600">
                               {entry.winRate.toFixed(1)}%
                             </div>
-                            <div className="text-xs text-muted-foreground">Win Rate</div>
-                          </div>
-
-                          <div className="text-center">
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
                             <div className="text-lg font-semibold text-orange-600">
                               {entry.winStreak}
                             </div>
-                            <div className="text-xs text-muted-foreground">Streak</div>
-                          </div>
-
-                          <div className="text-center">
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <div className="text-sm text-gray-500">
+                              {entry.totalBattles}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
                             <div className="text-sm font-medium">
                               {entry.wins}W - {entry.losses}L
                             </div>
-                            <div className="text-xs text-muted-foreground">Record</div>
-                          </div>
-
-                          {/* Click to Challenge Indicator */}
-                          {!isCurrentUser && canBattle && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Sword className="h-3 w-3" />
-                              <span>Click to challenge</span>
-                            </div>
+                          </td>
+                          {canBattle && (
+                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                              {!isCurrentUser ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleChallenge(entry.username)}
+                                  className="gap-1"
+                                >
+                                  <Sword className="h-3 w-3" />
+                                  Challenge
+                                </Button>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </td>
                           )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </>
           ) : (

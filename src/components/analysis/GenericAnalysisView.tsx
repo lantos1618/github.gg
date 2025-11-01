@@ -1,7 +1,7 @@
 "use client";
 import RepoPageLayout from "@/components/layouts/RepoPageLayout";
 import { Skeleton } from '@/components/ui/skeleton';
-import { useEffect, useState, ReactNode, useMemo } from 'react';
+import { useEffect, useState, ReactNode, useMemo, useCallback, useRef } from 'react';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import { useSelectedFiles } from '@/contexts/SelectedFilesContext';
@@ -103,8 +103,7 @@ function GenericAnalysisViewInner<TResponse>({
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [isFileExplorerOpen, setIsFileExplorerOpen] = useState(false);
   const [shouldAnalyze, setShouldAnalyze] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [progressMessage, setProgressMessage] = useState('');
+  const toastIdRef = useRef<string | number | null>(null);
 
   const planResult = config.usePlan() as { data: { plan: string } | undefined; isLoading: boolean };
   const { data: currentPlan, isLoading: planLoading } = planResult;
@@ -115,6 +114,11 @@ function GenericAnalysisViewInner<TResponse>({
   const selectedFiles = useMemo(() => {
     return files.filter(f => selectedFilePaths.has(f.path));
   }, [files, selectedFilePaths]);
+
+  // Memoize file paths array to prevent recreating on every render
+  const filePaths = useMemo(() => {
+    return selectedFiles.map((file: { path: string }) => file.path);
+  }, [selectedFiles]);
 
   // Use actualRef (after fallback) for all queries if configured
   const effectiveRef = config.useEffectiveRef ? (actualRef || refName || 'main') : (refName || 'main');
@@ -143,47 +147,66 @@ function GenericAnalysisViewInner<TResponse>({
     }
   }, [user, repo]);
 
+  // Memoize the subscription data handler to prevent recreating on every render
+  const handleSubscriptionData = useCallback((event: any) => {
+    if (event.type === 'progress') {
+      const progress = event.progress || 0;
+      const message = event.message || '';
+      setIsLoading(true);
+
+      // Update or create toast with progress
+      if (toastIdRef.current) {
+        toast.loading(`${message} (${progress}%)`, { id: toastIdRef.current });
+      } else {
+        const id = toast.loading(`${message} (${progress}%)`);
+        toastIdRef.current = id;
+      }
+    } else if (event.type === 'complete') {
+      config.onMutationSuccess(event.data, setAnalysisData, utils);
+      setShouldAnalyze(false);
+      setIsLoading(false);
+
+      // Replace loading toast with success
+      if (toastIdRef.current) {
+        toast.success('Analysis complete!', { id: toastIdRef.current });
+        toastIdRef.current = null;
+      } else {
+        toast.success('Analysis complete!');
+      }
+    } else if (event.type === 'error') {
+      config.onMutationError({ message: event.message }, setError);
+      setShouldAnalyze(false);
+      setIsLoading(false);
+
+      // Replace loading toast with error (error toast will be shown by onMutationError)
+      if (toastIdRef.current) {
+        toast.dismiss(toastIdRef.current);
+        toastIdRef.current = null;
+      }
+    }
+  }, [config, utils]);
+
   // Subscription for analysis
   config.useGenerateSubscription(
     {
       user,
       repo,
       ref: effectiveRef,
-      files: selectedFiles.map((file: { path: string; content: string; size: number }) => ({
-        path: file.path,
-        content: file.content,
-        size: file.size,
-      })),
+      filePaths,
     },
     {
       enabled: shouldAnalyze,
-      onData: (event: any) => {
-        if (event.type === 'progress') {
-          setProgress(event.progress);
-          setProgressMessage(event.message);
-          setIsLoading(true);
-        } else if (event.type === 'complete') {
-          config.onMutationSuccess(event.data, setAnalysisData, utils);
-          setShouldAnalyze(false);
-          setIsLoading(false);
-          setProgress(0);
-          setProgressMessage('');
-        } else if (event.type === 'error') {
-          config.onMutationError({ message: event.message }, setError);
-          setShouldAnalyze(false);
-          setIsLoading(false);
-          setProgress(0);
-          setProgressMessage('');
-        }
-      },
+      onData: handleSubscriptionData,
     }
   );
 
   // Add regenerate handler
   const handleRegenerate = () => {
     setError(null);
-    setProgress(0);
-    setProgressMessage('');
+    if (toastIdRef.current) {
+      toast.dismiss(toastIdRef.current);
+      toastIdRef.current = null;
+    }
     setShouldAnalyze(true);
   };
 
@@ -355,7 +378,7 @@ function GenericAnalysisViewInner<TResponse>({
       {/* File Explorer Tab Button */}
       <button
         onClick={() => setIsFileExplorerOpen(true)}
-        className="fixed right-0 top-20 z-30 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-l-lg shadow-lg transition-all duration-200 flex items-center gap-2 border border-r-0 border-blue-700"
+        className="fixed right-0 top-28 z-30 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-l-lg shadow-lg transition-all duration-200 flex items-center gap-2 border border-r-0 border-blue-700"
         style={{
           writingMode: 'vertical-rl',
           textOrientation: 'mixed',
@@ -381,20 +404,6 @@ function GenericAnalysisViewInner<TResponse>({
               isPending={shouldAnalyze}
               onRetry={handleRegenerate}
             />
-          )}
-          {progressMessage && (
-            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-blue-900">{progressMessage}</span>
-                <span className="text-sm text-blue-700">{progress}%</span>
-              </div>
-              <div className="w-full h-2 bg-blue-200 rounded">
-                <div
-                  className="h-2 bg-blue-600 rounded transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
           )}
           {overallLoading && (
             <div className="space-y-6">

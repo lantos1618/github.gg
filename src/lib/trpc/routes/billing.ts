@@ -20,51 +20,50 @@ const isStripeConfigured = () => {
 
 export const billingRouter = router({
   createCheckoutSession: protectedProcedure
-    .input(z.object({ 
-      plan: z.enum(['byok', 'pro']) 
+    .input(z.object({
+      plan: z.enum(['byok', 'pro'])
     }))
     .mutation(async ({ input, ctx }) => {
       if (!isStripeConfigured()) {
-        throw new TRPCError({ 
-          code: 'INTERNAL_SERVER_ERROR', 
-          message: 'Payment processing not configured in development mode' 
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Payment processing not configured in development mode'
         });
       }
 
-      const prices = {
-        byok: process.env.STRIPE_BYOK_PRICE_ID,
-        pro: process.env.STRIPE_PRO_PRICE_ID
-      };
+      const priceId = input.plan === 'byok'
+        ? process.env.STRIPE_BYOK_PRICE_ID
+        : process.env.STRIPE_PRO_PRICE_ID;
 
-      if (!prices[input.plan]) {
-        throw new TRPCError({ 
-          code: 'INTERNAL_SERVER_ERROR', 
-          message: 'Price ID not configured for this plan' 
+      if (!priceId) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `${input.plan} plan price ID not configured`
         });
       }
 
       try {
         const session = await stripe!.checkout.sessions.create({
           customer_email: ctx.user.email,
-          line_items: [{ 
-            price: prices[input.plan], 
-            quantity: 1 
+          line_items: [{
+            price: priceId,
+            quantity: 1
           }],
           mode: 'subscription',
           success_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings?success=true`,
           cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?canceled=true`,
-          metadata: { 
-            userId: ctx.user.id, 
-            plan: input.plan 
+          metadata: {
+            userId: ctx.user.id,
+            plan: input.plan
           }
         });
-        
+
         return { url: session.url };
       } catch (error) {
         console.error('Stripe checkout error:', error);
-        throw new TRPCError({ 
-          code: 'INTERNAL_SERVER_ERROR', 
-          message: 'Failed to create checkout session' 
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to create checkout session'
         });
       }
     }),

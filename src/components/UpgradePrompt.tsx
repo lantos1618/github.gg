@@ -25,7 +25,7 @@ export function UpgradePrompt({ feature, className = '' }: UpgradePromptProps) {
     }
   });
 
-  const handleUpgrade = (plan: 'byok' | 'pro') => {
+  const handleUpgrade = (plan: 'pro') => {
     createCheckout.mutate({ plan });
   };
 
@@ -91,8 +91,8 @@ export function UpgradePrompt({ feature, className = '' }: UpgradePromptProps) {
               <li>✓ BYOK (unlimited AI)</li>
               <li>✓ Email support</li>
             </ul>
-            <Button 
-              onClick={() => handleUpgrade('byok')}
+            <Button
+              onClick={() => handleUpgrade('pro')}
               disabled={createCheckout.isPending}
               className="w-full"
               variant="outline"

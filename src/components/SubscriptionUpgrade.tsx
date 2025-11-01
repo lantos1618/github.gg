@@ -20,15 +20,13 @@ export function SubscriptionUpgrade({ className = "", onUpgrade }: SubscriptionU
     signIn('/pricing');
   };
 
-  const handleUpgrade = async (planType: 'byok' | 'pro') => {
+  const handleUpgrade = async (planType: 'pro') => {
     if (!isSignedIn) {
       handleSignIn();
       return;
     }
 
-    if (planType === 'pro') {
-      setSelectedPlan(planType);
-    }
+    setSelectedPlan(planType);
     try {
       const result = await createCheckout.mutateAsync({ plan: planType });
       if (result.url) {
@@ -56,10 +54,8 @@ export function SubscriptionUpgrade({ className = "", onUpgrade }: SubscriptionU
         <div className="max-w-sm">
           <PricingCard
             plan={getPlanByType('pro')!}
-            onUpgrade={(planType) => {
-              if (planType === 'pro') {
-                handleUpgrade(planType);
-              }
+            onUpgrade={() => {
+              handleUpgrade('pro');
             }}
             onSignIn={handleSignIn}
             isLoading={createCheckout.isPending && selectedPlan === 'pro'}

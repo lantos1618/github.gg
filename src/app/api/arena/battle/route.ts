@@ -121,8 +121,10 @@ export async function GET(req: NextRequest) {
           const repos = await githubService.getUserRepositories(username);
           if (repos.length === 0) throw new Error(`${username} has no public repositories.`);
 
-          // Filter and sort repos
+          // Filter out forks - only analyze original work
           const nonForkRepos = repos.filter(r => !r.fork);
+          if (nonForkRepos.length === 0) throw new Error(`${username} has no original repositories (only forks).`);
+
           const topRepos = nonForkRepos
             .sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0))
             .slice(0, 20);
@@ -130,12 +132,12 @@ export async function GET(req: NextRequest) {
           sendEvent('progress', {
             status: 'generating_profile',
             progress: role === 'challenger' ? 20 : 40,
-            message: `Found ${repos.length} repos, analyzing top ${topRepos.length} for ${username}...`
+            message: `Found ${repos.length} repos (${nonForkRepos.length} original), analyzing top ${topRepos.length} for ${username}...`
           });
 
           const result = await generateDeveloperProfile({
             username,
-            repos,
+            repos: nonForkRepos,
             userId: session.user.id,
             onProgress: (current, total, repoName) => {
               const baseProgress = role === 'challenger' ? 20 : 40;

@@ -29,15 +29,20 @@ export async function getOrGenerateProfile(
     return existing[0].profileData as DeveloperProfile;
   }
 
-  // Generate new profile
+  // Generate new profile - only use non-fork repos
   const repos = await githubService.getUserRepositories(username);
   if (repos.length === 0) {
     throw new Error(`${username} has no public repositories.`);
   }
 
+  const nonForkRepos = repos.filter(r => !r.fork);
+  if (nonForkRepos.length === 0) {
+    throw new Error(`${username} has no original repositories (only forks).`);
+  }
+
   const result = await generateDeveloperProfile({
     username,
-    repos,
+    repos: nonForkRepos,
     userId
   });
 

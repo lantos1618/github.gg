@@ -57,7 +57,7 @@ export function ArenaClientView() {
       <div className="text-center space-y-4">
         <div className="flex items-center justify-center gap-3">
           <Trophy className="h-10 w-10 text-yellow-500" />
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+          <h1 className="text-5xl font-bold text-gray-900">
             DEV ARENA
           </h1>
           <Trophy className="h-10 w-10 text-yellow-500" />
@@ -69,7 +69,7 @@ export function ArenaClientView() {
 
       {/* My Stats Card (only if signed in) */}
       {isSignedIn && myRanking && (
-        <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+        <Card className="border-2 border-purple-200 bg-purple-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
               <Crown className="h-6 w-6 text-yellow-500" />

@@ -177,11 +177,11 @@ export default function UsersPage() {
                       <th
                         className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell cursor-pointer hover:bg-gray-100"
                         onClick={() => toggleSort('tokens')}
-                        title="Tokens spent analyzing this profile"
+                        title="Total tokens used by this developer across all AI features"
                       >
                         <div className="flex items-center justify-center gap-2">
                           <span className="text-base">🔥</span>
-                          Analysis Cost
+                          Token Usage
                           {sortField === 'tokens' && <ArrowUpDown className="h-3 w-3" />}
                         </div>
                       </th>
@@ -289,13 +289,13 @@ export default function UsersPage() {
                             </Link>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center hidden lg:table-cell">
-                            <Link href={`/${profile.username}`} title="Tokens spent by users analyzing this profile">
+                            <Link href={`/${profile.username}`} title="Total AI tokens used by this developer">
                               {(profile as any).totalTokens ? (
                                 <div className="inline-flex flex-col items-center">
                                   <span className="text-lg font-semibold text-purple-700">
                                     {((profile as any).totalTokens).toLocaleString()}
                                   </span>
-                                  <span className="text-xs text-gray-500">tokens used</span>
+                                  <span className="text-xs text-gray-500">tokens</span>
                                 </div>
                               ) : (
                                 <span className="text-gray-400 text-sm">—</span>

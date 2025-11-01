@@ -534,26 +534,54 @@ export const profileRouter = router({
 
       const profilesArray = Array.from(latestProfiles.values());
 
-      // Get token usage for each profile
-      const tokenUsageByUsername = await db
-        .select({
-          repoOwner: tokenUsage.repoOwner,
-          totalTokens: sql<number>`SUM(${tokenUsage.totalTokens})`,
-        })
-        .from(tokenUsage)
-        .where(eq(tokenUsage.feature, 'profile'))
-        .groupBy(tokenUsage.repoOwner);
+      // Early return if no profiles
+      if (profilesArray.length === 0) {
+        return [];
+      }
 
-      // Create a map of username -> total tokens
+      // Get all userIds for the usernames in profiles
+      const usernames = profilesArray.map(p => p.username);
+      const users = await db
+        .select({
+          id: user.id,
+          name: user.name,
+        })
+        .from(user)
+        .where(sql`LOWER(${user.name}) IN (${sql.raw(usernames.map(u => `'${u.toLowerCase()}'`).join(','))})`);
+
+      // Create a map of username -> userId
+      const usernameToUserIdMap = new Map(
+        users.map(u => [u.name?.toLowerCase(), u.id])
+      );
+
+      // Get total token usage by userId (across all features)
+      const userIds = Array.from(usernameToUserIdMap.values());
+      let tokenUsageByUserId: Array<{ userId: string; totalTokens: number }> = [];
+
+      if (userIds.length > 0) {
+        tokenUsageByUserId = await db
+          .select({
+            userId: tokenUsage.userId,
+            totalTokens: sql<number>`SUM(${tokenUsage.totalTokens})`,
+          })
+          .from(tokenUsage)
+          .where(sql`${tokenUsage.userId} IN (${sql.raw(userIds.map(id => `'${id}'`).join(','))})`)
+          .groupBy(tokenUsage.userId);
+      }
+
+      // Create a map of userId -> total tokens
       const tokenMap = new Map(
-        tokenUsageByUsername.map(t => [t.repoOwner?.toLowerCase(), Number(t.totalTokens)])
+        tokenUsageByUserId.map(t => [t.userId, Number(t.totalTokens)])
       );
 
       // Add token usage to profiles
-      const profilesWithTokens = profilesArray.map(profile => ({
-        ...profile,
-        totalTokens: tokenMap.get(profile.username) || 0,
-      }));
+      const profilesWithTokens = profilesArray.map(profile => {
+        const userId = usernameToUserIdMap.get(profile.username);
+        return {
+          ...profile,
+          totalTokens: userId ? (tokenMap.get(userId) || 0) : 0,
+        };
+      });
 
       return profilesWithTokens.sort((a, b) =>
         b.updatedAt.getTime() - a.updatedAt.getTime()

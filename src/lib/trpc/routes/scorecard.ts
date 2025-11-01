@@ -8,6 +8,7 @@ import { TRPCError } from '@trpc/server';
 import { scorecardSchema } from '@/lib/types/scorecard';
 import { createGitHubServiceFromSession } from '@/lib/github';
 import { executeAnalysisWithVersioning } from '@/lib/trpc/helpers/analysis-executor';
+import { fetchFilesByPaths } from '@/lib/github/file-fetcher';
 
 export const scorecardRouter = router({
   generateScorecard: protectedProcedure
@@ -15,17 +16,33 @@ export const scorecardRouter = router({
       user: z.string(),
       repo: z.string(),
       ref: z.string().optional().default('main'),
-      files: z.array(z.object({
-        path: z.string(),
-        content: z.string(),
-        size: z.number().optional(),
-      })),
+      filePaths: z.array(z.string()),
     }))
     .subscription(async function* ({ input, ctx }) {
       try {
         yield { type: 'progress', progress: 0, message: 'Starting scorecard analysis...' };
 
-        yield { type: 'progress', progress: 10, message: `Analyzing ${input.files.length} files...` };
+        // Validate filePaths
+        if (!input.filePaths || input.filePaths.length === 0) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'No files selected for analysis. Please select at least one file.'
+          });
+        }
+
+        yield { type: 'progress', progress: 5, message: `Fetching ${input.filePaths.length} files from GitHub...` };
+
+        // Fetch file contents from GitHub
+        const files = await fetchFilesByPaths(input.user, input.repo, input.filePaths, input.ref);
+
+        if (!files || files.length === 0) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Failed to fetch any files from GitHub. Please check the repository and file paths.'
+          });
+        }
+
+        yield { type: 'progress', progress: 15, message: `Analyzing ${files.length} files...` };
 
         const { insertedRecord } = await executeAnalysisWithVersioning({
           userId: ctx.user.id,
@@ -35,7 +52,7 @@ export const scorecardRouter = router({
           table: repositoryScorecards,
           generateFn: async () => {
             const result = await generateScorecardAnalysis({
-              files: input.files,
+              files,
               repoName: input.repo,
             });
             return {

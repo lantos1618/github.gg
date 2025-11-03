@@ -250,6 +250,47 @@ function topologicalSort(pages: WikiPage[]): WikiPage[] {
 }
 
 /**
+ * Group pages by dependency level for parallel generation
+ * Level 0: No dependencies
+ * Level 1: Only depends on level 0
+ * Level 2: Depends on level 0 or 1, etc.
+ */
+function groupPagesByLevel(pages: WikiPage[]): WikiPage[][] {
+  const pageMap = new Map(pages.map(p => [p.slug, p]));
+  const levels: WikiPage[][] = [];
+  const processed = new Set<string>();
+
+  while (processed.size < pages.length) {
+    const currentLevel: WikiPage[] = [];
+
+    for (const page of pages) {
+      if (processed.has(page.slug)) continue;
+
+      // Check if all dependencies are processed
+      const depsReady = page.dependsOn.every(dep => processed.has(dep) || !pageMap.has(dep));
+
+      if (depsReady) {
+        currentLevel.push(page);
+      }
+    }
+
+    if (currentLevel.length === 0) {
+      // Circular dependency or orphaned pages - add remaining pages
+      const remaining = pages.filter(p => !processed.has(p.slug));
+      if (remaining.length > 0) {
+        console.warn('⚠️ Breaking circular dependencies for remaining pages:', remaining.map(p => p.slug));
+        currentLevel.push(...remaining);
+      }
+    }
+
+    currentLevel.forEach(p => processed.add(p.slug));
+    levels.push(currentLevel);
+  }
+
+  return levels;
+}
+
+/**
  * Generate a single wiki page using cached context
  */
 async function generateWikiPage(
@@ -335,24 +376,36 @@ export async function generateWikiWithCache(
     const plan = await planWikiPages(cacheId, owner, repo);
     console.log(`📋 Planned ${plan.pages.length} pages:`, plan.pages.map(p => p.title).join(', '));
 
-    // Step 3: Sort pages by dependencies
-    const sortedPages = topologicalSort(plan.pages);
-    console.log('📊 Generation order:', sortedPages.map(p => p.title).join(' → '));
+    // Step 3: Group pages by dependency level for parallel generation
+    const pageLevels = groupPagesByLevel(plan.pages);
+    console.log(`📊 Generation levels: ${pageLevels.map((level, i) => `L${i}(${level.length})`).join(' → ')}`);
 
-    // Step 4: Generate each page
+    // Step 4: Generate pages in parallel by level
     const generatedPages = new Map<string, GeneratedPage>();
+    const totalPages = plan.pages.length;
+    let processedPages = 0;
 
-    for (let i = 0; i < sortedPages.length; i++) {
-      const page = sortedPages[i];
-      console.log(`📝 Generating page ${i + 1}/${sortedPages.length}: ${page.title}...`);
-      params.onProgress?.(`Generating: ${page.title}`, i + 1, sortedPages.length);
+    for (let levelIndex = 0; levelIndex < pageLevels.length; levelIndex++) {
+      const level = pageLevels[levelIndex];
+      console.log(`📝 Generating level ${levelIndex + 1}/${pageLevels.length} (${level.length} pages in parallel)...`);
+      params.onProgress?.(`Generating level ${levelIndex + 1}/${pageLevels.length}`, processedPages, totalPages);
 
-      const generated = await generateWikiPage(cacheId, page, generatedPages);
-      generatedPages.set(page.slug, generated);
+      // Generate all pages in this level in parallel
+      const levelResults = await Promise.all(
+        level.map(page => generateWikiPage(cacheId, page, generatedPages))
+      );
 
-      // Track tokens (rough estimate since we're using cache)
-      totalInputTokens += 500; // Prompt overhead
-      totalOutputTokens += Math.ceil(generated.content.length / 4);
+      // Store results
+      levelResults.forEach((generated) => {
+        generatedPages.set(generated.slug, generated);
+        processedPages++;
+
+        // Track tokens (rough estimate since we're using cache)
+        totalInputTokens += 500; // Prompt overhead
+        totalOutputTokens += Math.ceil(generated.content.length / 4);
+      });
+
+      console.log(`✅ Level ${levelIndex + 1} complete: ${level.map(p => p.title).join(', ')}`);
     }
 
     console.log(`✅ Wiki generation complete! ${generatedPages.size} pages created.`);
@@ -400,28 +453,42 @@ export async function* generateWikiWithCacheStreaming(
     const plan = await planWikiPages(cacheId, owner, repo);
     console.log(`📋 Planned ${plan.pages.length} pages:`, plan.pages.map(p => p.title).join(', '));
 
-    // Step 3: Sort pages by dependencies
-    const sortedPages = topologicalSort(plan.pages);
-    console.log('📊 Generation order:', sortedPages.map(p => p.title).join(' → '));
+    // Step 3: Group pages by dependency level for parallel generation
+    const pageLevels = groupPagesByLevel(plan.pages);
+    console.log(`📊 Generation levels: ${pageLevels.map((level, i) => `L${i}(${level.length})`).join(' → ')}`);
 
-    // Step 4: Generate each page (progress from 45% to 70%)
+    // Step 4: Generate pages in parallel by level (progress from 45% to 70%)
     const generatedPages = new Map<string, GeneratedPage>();
+    const totalPages = plan.pages.length;
+    let processedPages = 0;
 
-    for (let i = 0; i < sortedPages.length; i++) {
-      const page = sortedPages[i];
-      const pageProgress = 45 + Math.round((i / sortedPages.length) * 25);
+    for (let levelIndex = 0; levelIndex < pageLevels.length; levelIndex++) {
+      const level = pageLevels[levelIndex];
+
+      // Show progress for this level
+      const levelProgress = 45 + Math.round((processedPages / totalPages) * 25);
       yield {
         type: 'progress',
-        progress: pageProgress,
-        message: `Generating page ${i + 1}/${sortedPages.length}: ${page.title}...`
+        progress: levelProgress,
+        message: `Generating ${level.length} page${level.length > 1 ? 's' : ''} in parallel (level ${levelIndex + 1}/${pageLevels.length})...`
       };
 
-      const generated = await generateWikiPage(cacheId, page, generatedPages);
-      generatedPages.set(page.slug, generated);
+      // Generate all pages in this level in parallel
+      const levelResults = await Promise.all(
+        level.map(page => generateWikiPage(cacheId, page, generatedPages))
+      );
 
-      // Track tokens (rough estimate since we're using cache)
-      totalInputTokens += 500; // Prompt overhead
-      totalOutputTokens += Math.ceil(generated.content.length / 4);
+      // Store results
+      levelResults.forEach((generated) => {
+        generatedPages.set(generated.slug, generated);
+        processedPages++;
+
+        // Track tokens (rough estimate since we're using cache)
+        totalInputTokens += 500; // Prompt overhead
+        totalOutputTokens += Math.ceil(generated.content.length / 4);
+      });
+
+      console.log(`✅ Level ${levelIndex + 1} complete: ${level.map(p => p.title).join(', ')}`);
     }
 
     console.log(`✅ Wiki generation complete! ${generatedPages.size} pages created.`);

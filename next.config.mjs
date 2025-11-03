@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Use separate directories for dev (turbopack) vs production build
+  distDir: process.env.NODE_ENV === 'production' ? '.next' : '.next-dev',
+
   images: {
     remotePatterns: [
       {

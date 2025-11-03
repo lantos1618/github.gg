@@ -2,6 +2,50 @@ import { GoogleGenAI } from '@google/genai';
 
 const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '' });
 
+/**
+ * Retry wrapper for Gemini API calls with rate limit handling
+ */
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelay = 1000
+): Promise<T> {
+  let lastError: any;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+
+      // Check if it's a rate limit error (429)
+      const is429 = error?.message?.includes('429') ||
+                    error?.status === 'RESOURCE_EXHAUSTED' ||
+                    error?.error?.status === 'RESOURCE_EXHAUSTED';
+
+      if (is429 && attempt < maxRetries) {
+        // Extract retry delay from error if available
+        let retryDelay = baseDelay * Math.pow(2, attempt);
+
+        // Try to parse the retry delay from error message
+        const retryMatch = error?.message?.match(/retry in ([\d.]+)s/i);
+        if (retryMatch) {
+          retryDelay = Math.ceil(parseFloat(retryMatch[1]) * 1000);
+        }
+
+        console.log(`⏳ Rate limited (attempt ${attempt + 1}/${maxRetries + 1}), waiting ${retryDelay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        continue;
+      }
+
+      // For other errors or max retries reached, throw
+      throw error;
+    }
+  }
+
+  throw lastError;
+}
+
 // Example page types to guide AI planning
 const EXAMPLE_PAGE_TYPES = `
 Common wiki page types you might want to create:
@@ -122,18 +166,20 @@ ${f.content}
 `).join('\n---\n')}
 `;
 
-  // Create cached content using Gemini API
-  const cacheResponse = await genAI.caches.create({
-    model: 'gemini-2.5-flash',
-    config: {
-      systemInstruction: 'You are a documentation generator. This cached content contains a complete codebase for wiki generation.',
-      contents: [{
-        role: 'user',
-        parts: [{ text: codebaseContent }]
-      }],
-      ttl: '3600s', // 1 hour cache
-    }
-  });
+  // Create cached content using Gemini API with retry logic
+  const cacheResponse = await retryWithBackoff(() =>
+    genAI.caches.create({
+      model: 'gemini-2.5-flash',
+      config: {
+        systemInstruction: 'You are a documentation generator. This cached content contains a complete codebase for wiki generation.',
+        contents: [{
+          role: 'user',
+          parts: [{ text: codebaseContent }]
+        }],
+        ttl: '3600s', // 1 hour cache
+      }
+    })
+  );
 
   return cacheResponse.name || '';
 }
@@ -180,13 +226,15 @@ Return ONLY valid JSON matching this structure:
   ]
 }`;
 
-  const result = await genAI.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-    config: {
-      cachedContent: cacheId,
-    }
-  });
+  const result = await retryWithBackoff(() =>
+    genAI.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        cachedContent: cacheId,
+      }
+    })
+  );
   const responseText = result.text || '';
 
   // Extract JSON from response (handle markdown code blocks)
@@ -323,13 +371,15 @@ The entire codebase is in the cached context above. Use it to generate this page
 IMPORTANT: Return ONLY clean markdown. No JSON, no code blocks wrapping the markdown.
 Start directly with the content.`;
 
-  const result = await genAI.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-    config: {
-      cachedContent: cacheId,
-    }
-  });
+  const result = await retryWithBackoff(() =>
+    genAI.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        cachedContent: cacheId,
+      }
+    })
+  );
 
   const content = result.text || '';
 
@@ -406,6 +456,11 @@ export async function generateWikiWithCache(
       });
 
       console.log(`✅ Level ${levelIndex + 1} complete: ${level.map(p => p.title).join(', ')}`);
+
+      // Add a small delay between levels to help with rate limiting
+      if (levelIndex < pageLevels.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     }
 
     console.log(`✅ Wiki generation complete! ${generatedPages.size} pages created.`);
@@ -489,6 +544,11 @@ export async function* generateWikiWithCacheStreaming(
       });
 
       console.log(`✅ Level ${levelIndex + 1} complete: ${level.map(p => p.title).join(', ')}`);
+
+      // Add a small delay between levels to help with rate limiting
+      if (levelIndex < pageLevels.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     }
 
     console.log(`✅ Wiki generation complete! ${generatedPages.size} pages created.`);

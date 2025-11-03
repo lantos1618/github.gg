@@ -35,10 +35,28 @@ export const aiSlopRouter = router({
       try {
         yield { type: 'progress', progress: 0, message: 'Starting AI slop analysis...' };
 
+        // Validate filePaths
+        if (!input.filePaths || input.filePaths.length === 0) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'No files selected for analysis. Please select at least one file.'
+          });
+        }
+
+        // Create authenticated GitHub service
+        const githubService = await createGitHubServiceFromSession(ctx.session);
+
         yield { type: 'progress', progress: 5, message: `Fetching ${input.filePaths.length} files from GitHub...` };
 
         // Fetch file contents from GitHub
-        const files = await fetchFilesByPaths(input.user, input.repo, input.filePaths, input.ref);
+        const files = await fetchFilesByPaths(input.user, input.repo, input.filePaths, githubService, input.ref);
+
+        if (!files || files.length === 0) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Failed to fetch any files from GitHub. Please check the repository and file paths.'
+          });
+        }
 
         yield { type: 'progress', progress: 15, message: `Analyzing ${files.length} files...` };
 

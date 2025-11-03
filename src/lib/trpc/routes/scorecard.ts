@@ -31,10 +31,13 @@ export const scorecardRouter = router({
           });
         }
 
+        // Create authenticated GitHub service
+        const githubService = await createGitHubServiceFromSession(ctx.session);
+
         yield { type: 'progress', progress: 5, message: `Fetching ${input.filePaths.length} files from GitHub...` };
 
         // Fetch file contents from GitHub
-        const files = await fetchFilesByPaths(input.user, input.repo, input.filePaths, input.ref);
+        const files = await fetchFilesByPaths(input.user, input.repo, input.filePaths, githubService, input.ref);
 
         if (!files || files.length === 0) {
           throw new TRPCError({

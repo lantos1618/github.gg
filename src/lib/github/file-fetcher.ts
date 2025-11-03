@@ -1,4 +1,4 @@
-import { createPublicGitHubService } from '@/lib/github';
+import { GitHubService } from '@/lib/github';
 
 export interface SourceFile {
   path: string;
@@ -13,6 +13,7 @@ export interface SourceFile {
  * @param owner - Repository owner
  * @param repo - Repository name
  * @param paths - Array of file paths to fetch
+ * @param githubService - Authenticated GitHub service
  * @param ref - Git ref (branch/tag/commit), defaults to 'main'
  * @returns Array of files with their content
  */
@@ -20,9 +21,9 @@ export async function fetchFilesByPaths(
   owner: string,
   repo: string,
   paths: string[],
+  githubService: GitHubService,
   ref: string = 'main'
 ): Promise<SourceFile[]> {
-  const githubService = createPublicGitHubService();
   const files: SourceFile[] = [];
 
   // Fetch files in batches to avoid overwhelming GitHub API

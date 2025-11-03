@@ -10,4 +10,7 @@ const handler = (req: Request) =>
     createContext: () => createContext(req),
   });
 
-export { handler as GET, handler as POST }; 
+export { handler as GET, handler as POST };
+
+// Set maximum duration to 5 minutes for long-running operations like wiki generation
+export const maxDuration = 300; 

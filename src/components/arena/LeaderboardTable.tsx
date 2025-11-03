@@ -29,15 +29,11 @@ export function LeaderboardTable() {
   const router = useRouter();
   const { user, isSignedIn } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTier, setSelectedTier] = useState<string>('all');
-  const [limit, setLimit] = useState(50);
+  const [limit] = useState(50);
   const [sortField, setSortField] = useState<SortField>('eloRating');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-  const { data: leaderboard, isLoading } = trpc.arena.getLeaderboard.useQuery({
-    limit,
-    tier: selectedTier === 'all' ? undefined : selectedTier
-  });
+  const { data: leaderboard, isLoading } = trpc.arena.getLeaderboard.useQuery({ limit });
 
   const { data: currentPlan } = trpc.user.getCurrentPlan.useQuery(undefined, {
     enabled: isSignedIn
@@ -81,15 +77,7 @@ export function LeaderboardTable() {
     return sortDirection === 'asc' ? comparison : -comparison;
   });
 
-  const tiers = [
-    { value: 'all', label: 'All Tiers' },
-    { value: 'Bronze', label: 'Bronze' },
-    { value: 'Silver', label: 'Silver' },
-    { value: 'Gold', label: 'Gold' },
-    { value: 'Platinum', label: 'Platinum' },
-    { value: 'Diamond', label: 'Diamond' },
-    { value: 'Master', label: 'Master' },
-  ];
+  
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Crown className="h-4 w-4 text-yellow-500" />;
@@ -111,51 +99,18 @@ export function LeaderboardTable() {
         </p>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search developers..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            {/* Tier Filter */}
-            <div className="flex flex-wrap gap-2">
-              {tiers.map((tier) => (
-                <Button
-                  key={tier.value}
-                  variant={selectedTier === tier.value ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedTier(tier.value)}
-                >
-                  {tier.label}
-                </Button>
-              ))}
-            </div>
-
-            {/* Limit Selector */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Show:</span>
-              <select
-                value={limit}
-                onChange={(e) => setLimit(Number(e.target.value))}
-                className="border rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value={25}>Top 25</option>
-                <option value={50}>Top 50</option>
-                <option value={100}>Top 100</option>
-              </select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Search */}
+      <div className="max-w-md w-full mx-auto">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search developers..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
 
       {/* Leaderboard */}
       <Card>
@@ -271,7 +226,7 @@ export function LeaderboardTable() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <div className="text-2xl font-bold text-purple-600">
+                            <div className="text-2xl font-bold text-blue-600">
                               {entry.eloRating}
                             </div>
                           </td>
@@ -356,7 +311,7 @@ export function LeaderboardTable() {
 
           <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-purple-600">
+              <div className="text-2xl font-bold text-blue-600">
                 {Math.round(filteredAndSortedLeaderboard.reduce((sum, entry) => sum + entry.winRate, 0) / filteredAndSortedLeaderboard.length)}
               </div>
               <div className="text-sm text-muted-foreground">Avg Win Rate</div>

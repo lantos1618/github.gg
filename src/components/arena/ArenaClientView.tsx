@@ -69,7 +69,7 @@ export function ArenaClientView() {
 
       {/* My Stats Card (only if signed in) */}
       {isSignedIn && myRanking && (
-        <Card className="border-2 border-purple-200 bg-purple-50">
+        <Card className="border border-gray-200 bg-gray-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
               <Crown className="h-6 w-6 text-yellow-500" />
@@ -79,7 +79,7 @@ export function ArenaClientView() {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="text-center space-y-1">
-                <div className="text-4xl font-bold text-purple-600">
+                <div className="text-4xl font-bold text-blue-600">
                   {myRanking.eloRating}
                 </div>
                 <div className="text-sm text-muted-foreground font-medium">ELO</div>
@@ -109,16 +109,25 @@ export function ArenaClientView() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
-          <TabsTrigger value="leaderboard" className="flex items-center gap-2">
+        <TabsList className="grid w-full grid-cols-3 max-w-lg mx-auto shadow-sm ring-1 ring-border/60 bg-muted/60">
+          <TabsTrigger
+            value="leaderboard"
+            className="flex items-center gap-2 md:gap-2.5 px-3 py-2.5 md:px-4 md:py-3 text-sm md:text-base data-[state=active]:text-foreground"
+          >
             <Trophy className="h-4 w-4" />
             Leaderboard
           </TabsTrigger>
-          <TabsTrigger value="battle" className="flex items-center gap-2">
+          <TabsTrigger
+            value="battle"
+            className="flex items-center gap-2 md:gap-2.5 px-3 py-2.5 md:px-4 md:py-3 text-sm md:text-base data-[state=active]:text-foreground"
+          >
             <Sword className="h-4 w-4" />
             Battle
           </TabsTrigger>
-          <TabsTrigger value="history" className="flex items-center gap-2">
+          <TabsTrigger
+            value="history"
+            className="flex items-center gap-2 md:gap-2.5 px-3 py-2.5 md:px-4 md:py-3 text-sm md:text-base data-[state=active]:text-foreground"
+          >
             <History className="h-4 w-4" />
             History
           </TabsTrigger>

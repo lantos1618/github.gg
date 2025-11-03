@@ -9,7 +9,7 @@ import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
 import { prism } from '@milkdown/plugin-prism';
 
 import '@milkdown/theme-nord/style.css';
-import 'prismjs/themes/prism-tomorrow.css';
+import 'prismjs/themes/prism.css';
 
 interface MilkdownViewerProps {
   content: string;

@@ -11,8 +11,8 @@ interface MarkdownRendererProps {
 
 const CodeBlock = ({ lang, code }: { lang: string; code: string }) => {
   const highlighted = useShikiHighlighter(code, lang, {
-    light: 'github-light',
-    dark: 'github-dark',
+    light: 'vitesse-light',
+    dark: 'one-dark-pro',
   });
 
   return (

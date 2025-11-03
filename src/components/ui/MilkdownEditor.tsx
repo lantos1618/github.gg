@@ -11,7 +11,7 @@ import { history } from '@milkdown/plugin-history';
 import { prism } from '@milkdown/plugin-prism';
 
 import '@milkdown/theme-nord/style.css';
-import 'prismjs/themes/prism-tomorrow.css';
+import 'prismjs/themes/prism.css';
 
 interface MilkdownEditorProps {
   content: string;

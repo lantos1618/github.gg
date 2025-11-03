@@ -37,11 +37,11 @@ export const aiSlopRouter = router({
 
         // Validate filePaths
         if (!input.filePaths || input.filePaths.length === 0) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'No files selected for analysis. Please select at least one file.'
-          });
+          yield { type: 'error', message: 'No files selected for analysis. Please select at least one file.' };
+          return;
         }
+
+        yield { type: 'progress', progress: 3, message: 'Authenticating with GitHub...' };
 
         // Create authenticated GitHub service
         const githubService = await createGitHubServiceFromSession(ctx.session);
@@ -52,13 +52,11 @@ export const aiSlopRouter = router({
         const files = await fetchFilesByPaths(input.user, input.repo, input.filePaths, githubService, input.ref);
 
         if (!files || files.length === 0) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'Failed to fetch any files from GitHub. Please check the repository and file paths.'
-          });
+          yield { type: 'error', message: 'Failed to fetch any files from GitHub. Please check the repository and file paths.' };
+          return;
         }
 
-        yield { type: 'progress', progress: 15, message: `Analyzing ${files.length} files...` };
+        yield { type: 'progress', progress: 15, message: `Analyzing ${files.length} files with AI (this may take 30-60 seconds)...` };
 
         const { insertedRecord } = await executeAnalysisWithVersioning({
           userId: ctx.user.id,

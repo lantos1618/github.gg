@@ -35,10 +35,12 @@ export const wikiRouter = router({
     }))
     .subscription(async function* ({ input, ctx }) {
       const { owner, repo, maxFiles } = input;
-      const githubService = await createGitHubServiceFromSession(ctx.session);
 
       try {
         yield { type: 'progress', progress: 0, message: 'Starting wiki generation...' };
+        yield { type: 'progress', progress: 5, message: 'Authenticating with GitHub...' };
+
+        const githubService = await createGitHubServiceFromSession(ctx.session);
 
         // Fetch all metadata in parallel
         yield { type: 'progress', progress: 10, message: 'Fetching repository metadata...' };
@@ -49,7 +51,8 @@ export const wikiRouter = router({
         ]);
 
         if (repoData.status === 'rejected') {
-          throw new Error('Failed to fetch repository data');
+          yield { type: 'error', message: 'Failed to fetch repository data. Please check the repository exists and you have access.' };
+          return;
         }
 
         // Process README
@@ -94,7 +97,8 @@ export const wikiRouter = router({
         }
 
         if (!wikiResult) {
-          throw new Error('Wiki generation did not complete successfully');
+          yield { type: 'error', message: 'Wiki generation did not complete successfully. Please try again.' };
+          return;
         }
 
         yield { type: 'progress', progress: 70, message: 'Saving wiki pages...' };

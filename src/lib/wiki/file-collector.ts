@@ -1,4 +1,4 @@
-import { createPublicGitHubService } from '@/lib/github';
+import { GitHubService } from '@/lib/github';
 
 export interface SourceFile {
   path: string;
@@ -14,9 +14,9 @@ const IGNORED_PATHS = ['node_modules', '.git'];
 export async function collectRepositoryFiles(
   owner: string,
   repo: string,
+  githubService: GitHubService,
   maxFiles: number = 200
 ): Promise<SourceFile[]> {
-  const githubService = createPublicGitHubService();
   const files: SourceFile[] = [];
 
   async function collectFiles(path: string, depth = 0): Promise<void> {

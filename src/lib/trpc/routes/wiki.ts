@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
-import { createPublicGitHubService } from '@/lib/github';
+import { createGitHubServiceFromSession } from '@/lib/github';
 import { generateWikiWithCache } from '@/lib/ai/wiki-generator';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
@@ -35,7 +35,7 @@ export const wikiRouter = router({
     }))
     .subscription(async function* ({ input, ctx }) {
       const { owner, repo, maxFiles } = input;
-      const githubService = createPublicGitHubService();
+      const githubService = await createGitHubServiceFromSession(ctx.session);
 
       try {
         yield { type: 'progress', progress: 0, message: 'Starting wiki generation...' };
@@ -71,7 +71,7 @@ export const wikiRouter = router({
 
         // Collect source files using dedicated module
         yield { type: 'progress', progress: 20, message: `Collecting up to ${maxFiles} source files...` };
-        const files = await collectRepositoryFiles(owner, repo, maxFiles);
+        const files = await collectRepositoryFiles(owner, repo, githubService, maxFiles);
 
         // Generate wiki using Gemini context caching
         yield { type: 'progress', progress: 40, message: `Generating wiki for ${files.length} files...` };

@@ -121,23 +121,54 @@ export async function GET(req: NextRequest) {
           const repos = await githubService.getUserRepositories(username);
           if (repos.length === 0) throw new Error(`${username} has no public repositories.`);
 
-          // Filter out forks - only analyze original work
-          const nonForkRepos = repos.filter(r => !r.fork);
-          if (nonForkRepos.length === 0) throw new Error(`${username} has no original repositories (only forks).`);
+          // Filter repos: include originals + forks where user has commits
+          sendEvent('progress', {
+            status: 'filtering_repos',
+            progress: role === 'challenger' ? 18 : 38,
+            message: `Checking ${repos.length} repos for actual contributions...`
+          });
 
-          const topRepos = nonForkRepos
+          const validRepos = [];
+          const forkRepos = repos.filter(r => r.fork);
+          const nonForkRepos = repos.filter(r => !r.fork);
+
+          // Always include non-fork repos
+          validRepos.push(...nonForkRepos);
+
+          // For forks, check if user has commits
+          for (const forkRepo of forkRepos) {
+            try {
+              const commits = await githubService['octokit'].rest.repos.listCommits({
+                owner: forkRepo.owner,
+                repo: forkRepo.name,
+                author: username,
+                per_page: 1 // Just need to know if they have ANY commits
+              });
+
+              if (commits.data.length > 0) {
+                validRepos.push(forkRepo);
+              }
+            } catch (error) {
+              // If we can't check commits (e.g., rate limit), skip this fork
+              console.warn(`Couldn't check commits for fork ${forkRepo.name}:`, error);
+            }
+          }
+
+          if (validRepos.length === 0) throw new Error(`${username} has no repositories with their contributions.`);
+
+          const topRepos = validRepos
             .sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0))
             .slice(0, 20);
 
           sendEvent('progress', {
             status: 'generating_profile',
             progress: role === 'challenger' ? 20 : 40,
-            message: `Found ${repos.length} repos (${nonForkRepos.length} original), analyzing top ${topRepos.length} for ${username}...`
+            message: `Found ${repos.length} repos (${validRepos.length} with contributions), analyzing top ${topRepos.length} for ${username}...`
           });
 
           const result = await generateDeveloperProfile({
             username,
-            repos: nonForkRepos,
+            repos: validRepos,
             userId: session.user.id,
             onProgress: (current, total, repoName) => {
               const baseProgress = role === 'challenger' ? 20 : 40;

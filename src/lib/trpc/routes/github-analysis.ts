@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
-import { createPublicGitHubService } from '@/lib/github';
+import { createGitHubServiceFromSession, createPublicGitHubService } from '@/lib/github';
 import { analyzePullRequest } from '@/lib/ai/pr-analysis';
 import { analyzeIssue } from '@/lib/ai/issue-analysis';
 import { TRPCError } from '@trpc/server';
@@ -118,7 +118,7 @@ export const githubAnalysisRouter = router({
     }))
     .subscription(async function* ({ input, ctx }) {
       const { owner, repo, number } = input;
-      const githubService = createPublicGitHubService();
+      const githubService = await createGitHubServiceFromSession(ctx.session);
 
       try {
         // Yield initial progress
@@ -343,7 +343,7 @@ export const githubAnalysisRouter = router({
     }))
     .subscription(async function* ({ input, ctx }) {
       const { owner, repo, number } = input;
-      const githubService = createPublicGitHubService();
+      const githubService = await createGitHubServiceFromSession(ctx.session);
 
       try {
         // Yield initial progress

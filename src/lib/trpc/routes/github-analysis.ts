@@ -118,7 +118,6 @@ export const githubAnalysisRouter = router({
     }))
     .subscription(async function* ({ input, ctx }) {
       const { owner, repo, number } = input;
-      const githubService = await createGitHubServiceFromSession(ctx.session);
 
       try {
         // Yield initial progress
@@ -127,6 +126,14 @@ export const githubAnalysisRouter = router({
           progress: 0,
           message: 'Starting PR analysis...',
         };
+
+        yield {
+          type: 'progress' as const,
+          progress: 3,
+          message: 'Authenticating with GitHub...',
+        };
+
+        const githubService = await createGitHubServiceFromSession(ctx.session);
 
         const [pr, files] = await Promise.all([
           githubService['octokit'].pulls.get({
@@ -343,11 +350,14 @@ export const githubAnalysisRouter = router({
     }))
     .subscription(async function* ({ input, ctx }) {
       const { owner, repo, number } = input;
-      const githubService = await createGitHubServiceFromSession(ctx.session);
 
       try {
         // Yield initial progress
         yield { type: 'progress' as const, progress: 0 };
+
+        yield { type: 'progress' as const, progress: 3, message: 'Authenticating with GitHub...' };
+
+        const githubService = await createGitHubServiceFromSession(ctx.session);
 
         const [issue, repoData] = await Promise.all([
           githubService['octokit'].issues.get({

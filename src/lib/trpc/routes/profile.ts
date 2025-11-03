@@ -164,20 +164,14 @@ export const profileRouter = router({
         const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
         if (!subscription || subscription.status !== 'active') {
           yield { type: 'error', message: 'Active subscription required for AI features' };
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message: 'Active subscription required for AI features'
-          });
+          return;
         }
 
         // Get appropriate API key
         const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
         if (!keyInfo) {
           yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message: 'Please add your Gemini API key in settings to use this feature'
-          });
+          return;
         }
 
         // Check generation limits for BYOK users
@@ -198,10 +192,7 @@ export const profileRouter = router({
 
           if (todayUsage.length >= 5) {
             yield { type: 'error', message: 'Daily limit of 5 profile generations reached. Upgrade to Pro for unlimited generations.' };
-            throw new TRPCError({
-              code: 'FORBIDDEN',
-              message: 'Daily limit of 5 profile generations reached. Upgrade to Pro for unlimited generations.'
-            });
+            return;
           }
         }
 

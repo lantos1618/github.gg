@@ -195,20 +195,14 @@ export const diagramRouter = router({
         // Check for active subscription
         if (!subscription || subscription.status !== 'active') {
           yield { type: 'error', message: 'Active subscription required for AI features' };
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message: 'Active subscription required for AI features'
-          });
+          return;
         }
 
         // 2. Get appropriate API key
         const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
         if (!keyInfo) {
           yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message: 'Please add your Gemini API key in settings to use this feature'
-          });
+          return;
         }
 
         yield { type: 'progress', progress: 10, message: 'Fetching repository files...' };

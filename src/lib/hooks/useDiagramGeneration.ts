@@ -26,7 +26,6 @@ export function useDiagramGeneration({
   const [diagramCode, setDiagramCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [lastInput, setLastInput] = useState<{diagramType: DiagramType; filesHash: string} | null>(null);
-  const [manualRetryKey, setManualRetryKey] = useState(0);
   const [previousDiagramCode, setPreviousDiagramCode] = useState<string>('');
   const [lastError, setLastError] = useState<string>('');
   const [shouldGenerate, setShouldGenerate] = useState(false);
@@ -72,31 +71,13 @@ export function useDiagramGeneration({
     }
   );
 
-  // Auto-generate when input changes
-  useEffect(() => {
-    // NEW GUARDS: Don't run if user has no access or files aren't loaded yet.
-    if (!hasAccessRef.current) {
-      console.log('🔥 Skipping generation - no access (user not authenticated or no plan)');
-      return;
-    }
-    if (!diagramType) return;
-    if (!user || !repo) return;
+  // NO AUTO-GENERATION - user must click the button explicitly
 
-    // The new trigger is much more stable, based on simple strings
-    const currentInputHash = `${user}/${repo}/${refName}/${path}/${diagramType}`;
-    const inputChanged = !lastInput || lastInput.filesHash !== currentInputHash;
-
-    // Prevent re-triggering if a request is already pending
-    if (!inputChanged || isPending) return;
-
+  const handleRetry = () => {
     setError(null);
-    setLastError('');
-    if (diagramCode) {
-      setPreviousDiagramCode(diagramCode);
-    }
-    setDiagramCode('');
-    setLastInput({ diagramType, filesHash: currentInputHash });
+    setLastInput(null);
 
+    // Simple retry without context
     setGenerateInput({
       owner: user,
       repo,
@@ -104,19 +85,8 @@ export function useDiagramGeneration({
       path,
       diagramType,
       options,
-      ...(manualRetryKey > 0 && {
-        previousResult: previousDiagramCode,
-        lastError: lastError,
-        isRetry: true,
-      }),
     });
     setShouldGenerate(true);
-  }, [user, repo, refName, path, diagramType, options, lastInput, isPending, diagramCode, previousDiagramCode, lastError, manualRetryKey]);
-
-  const handleRetry = () => {
-    setError(null);
-    setLastInput(null);
-    setManualRetryKey(k => k + 1);
   };
 
   const handleRetryWithContext = (renderError?: string) => {
@@ -134,7 +104,7 @@ export function useDiagramGeneration({
       path,
       diagramType,
       options,
-      previousResult: previousDiagramCode,
+      previousResult: previousDiagramCode || diagramCode,
       lastError: errorToSend,
       isRetry: true,
     });

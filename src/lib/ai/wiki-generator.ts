@@ -75,6 +75,7 @@ export interface WikiGeneratorParams {
   }>;
   packageJson?: Record<string, unknown>;
   readme?: string;
+  onProgress?: (stage: string, current: number, total: number) => void;
 }
 
 export interface WikiGeneratorResult {
@@ -306,6 +307,7 @@ Start directly with the content.`;
 
 /**
  * Generate complete wiki using Gemini context caching
+ * Now returns a simple Promise - use generateWikiWithCacheStreaming for progress updates
  */
 export async function generateWikiWithCache(
   params: WikiGeneratorParams
@@ -319,6 +321,7 @@ export async function generateWikiWithCache(
   try {
     // Step 1: Cache the entire codebase
     console.log('📦 Creating codebase cache...');
+    params.onProgress?.('Caching codebase context...', 0, 1);
     const cacheId = await createCodebaseCache(params);
 
     // Estimate cache size (rough)
@@ -328,6 +331,7 @@ export async function generateWikiWithCache(
 
     // Step 2: Plan wiki pages
     console.log('🎯 Planning wiki pages...');
+    params.onProgress?.('Planning wiki structure...', 0, 1);
     const plan = await planWikiPages(cacheId, owner, repo);
     console.log(`📋 Planned ${plan.pages.length} pages:`, plan.pages.map(p => p.title).join(', '));
 
@@ -341,6 +345,7 @@ export async function generateWikiWithCache(
     for (let i = 0; i < sortedPages.length; i++) {
       const page = sortedPages[i];
       console.log(`📝 Generating page ${i + 1}/${sortedPages.length}: ${page.title}...`);
+      params.onProgress?.(`Generating: ${page.title}`, i + 1, sortedPages.length);
 
       const generated = await generateWikiPage(cacheId, page, generatedPages);
       generatedPages.set(page.slug, generated);
@@ -359,6 +364,78 @@ export async function generateWikiWithCache(
         outputTokens: totalOutputTokens,
         totalTokens: totalInputTokens + totalOutputTokens,
         cacheTokens
+      }
+    };
+
+  } catch (error) {
+    console.error('Wiki generation error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Generate complete wiki using Gemini context caching - with streaming progress updates
+ */
+export async function* generateWikiWithCacheStreaming(
+  params: Omit<WikiGeneratorParams, 'onProgress'>
+): AsyncGenerator<{ type: 'progress' | 'complete', progress?: number, message?: string, result?: WikiGeneratorResult }> {
+  const { owner, repo } = params;
+
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  let cacheTokens = 0;
+
+  try {
+    // Step 1: Cache the entire codebase
+    yield { type: 'progress', progress: 40, message: 'Caching codebase context...' };
+    const cacheId = await createCodebaseCache(params);
+
+    // Estimate cache size (rough)
+    const codebaseSize = params.files.reduce((sum, f) => sum + f.content.length, 0);
+    cacheTokens = Math.ceil(codebaseSize / 4); // Rough token estimate
+    console.log(`✅ Cache created: ${cacheId} (~${cacheTokens} tokens)`);
+
+    // Step 2: Plan wiki pages
+    yield { type: 'progress', progress: 45, message: 'Planning wiki structure...' };
+    const plan = await planWikiPages(cacheId, owner, repo);
+    console.log(`📋 Planned ${plan.pages.length} pages:`, plan.pages.map(p => p.title).join(', '));
+
+    // Step 3: Sort pages by dependencies
+    const sortedPages = topologicalSort(plan.pages);
+    console.log('📊 Generation order:', sortedPages.map(p => p.title).join(' → '));
+
+    // Step 4: Generate each page (progress from 45% to 70%)
+    const generatedPages = new Map<string, GeneratedPage>();
+
+    for (let i = 0; i < sortedPages.length; i++) {
+      const page = sortedPages[i];
+      const pageProgress = 45 + Math.round((i / sortedPages.length) * 25);
+      yield {
+        type: 'progress',
+        progress: pageProgress,
+        message: `Generating page ${i + 1}/${sortedPages.length}: ${page.title}...`
+      };
+
+      const generated = await generateWikiPage(cacheId, page, generatedPages);
+      generatedPages.set(page.slug, generated);
+
+      // Track tokens (rough estimate since we're using cache)
+      totalInputTokens += 500; // Prompt overhead
+      totalOutputTokens += Math.ceil(generated.content.length / 4);
+    }
+
+    console.log(`✅ Wiki generation complete! ${generatedPages.size} pages created.`);
+
+    yield {
+      type: 'complete',
+      result: {
+        pages: Array.from(generatedPages.values()),
+        usage: {
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          totalTokens: totalInputTokens + totalOutputTokens,
+          cacheTokens
+        }
       }
     };
 

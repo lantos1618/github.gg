@@ -7,6 +7,12 @@ export interface SourceFile {
   size: number;
 }
 
+export interface FileCollectionProgress {
+  filesCollected: number;
+  currentPath: string;
+  totalEstimated?: number;
+}
+
 const SOURCE_EXTENSIONS = ['ts', 'tsx', 'js', 'jsx', 'py', 'java', 'go', 'rs', 'cpp', 'c', 'h'];
 const MAX_FILE_SIZE = 100000;
 const IGNORED_PATHS = ['node_modules', '.git'];
@@ -15,7 +21,8 @@ export async function collectRepositoryFiles(
   owner: string,
   repo: string,
   githubService: GitHubService,
-  maxFiles: number = 200
+  maxFiles: number = 200,
+  onProgress?: (progress: FileCollectionProgress) => void
 ): Promise<SourceFile[]> {
   const files: SourceFile[] = [];
 
@@ -23,6 +30,8 @@ export async function collectRepositoryFiles(
     if (depth > 3 || files.length >= maxFiles) return;
 
     try {
+      onProgress?.({ filesCollected: files.length, currentPath: path || '/' });
+
       const items = await githubService['octokit'].repos.getContent({
         owner,
         repo,
@@ -80,6 +89,9 @@ export async function collectRepositoryFiles(
               language: ext,
               size: item.size || 0,
             });
+
+            // Emit progress after each file is collected
+            onProgress?.({ filesCollected: files.length, currentPath: item.path });
           }
         }
       }

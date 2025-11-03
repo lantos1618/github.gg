@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
 import { createGitHubServiceFromSession } from '@/lib/github';
-import { generateWikiWithCache } from '@/lib/ai/wiki-generator';
+import { generateWikiWithCacheStreaming } from '@/lib/ai/wiki-generator';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
 import { tokenUsage } from '@/db/schema';
@@ -73,9 +73,11 @@ export const wikiRouter = router({
         yield { type: 'progress', progress: 20, message: `Collecting up to ${maxFiles} source files...` };
         const files = await collectRepositoryFiles(owner, repo, githubService, maxFiles);
 
-        // Generate wiki using Gemini context caching
-        yield { type: 'progress', progress: 40, message: `Generating wiki for ${files.length} files...` };
-        const wikiResult = await generateWikiWithCache({
+        yield { type: 'progress', progress: 35, message: `Collected ${files.length} source files, starting generation...` };
+
+        // Generate wiki using Gemini context caching with real-time progress
+        let wikiResult;
+        for await (const update of generateWikiWithCacheStreaming({
           owner,
           repo,
           repoDescription: repoData.value.data.description || undefined,
@@ -83,7 +85,17 @@ export const wikiRouter = router({
           files,
           packageJson,
           readme,
-        });
+        })) {
+          if (update.type === 'progress') {
+            yield { type: 'progress', progress: update.progress, message: update.message };
+          } else if (update.type === 'complete') {
+            wikiResult = update.result;
+          }
+        }
+
+        if (!wikiResult) {
+          throw new Error('Wiki generation did not complete successfully');
+        }
 
         yield { type: 'progress', progress: 70, message: 'Saving wiki pages...' };
 

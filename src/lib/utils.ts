@@ -27,109 +27,210 @@ export function shuffleArray<T>(array: T[]): T[] {
 }
 
 /**
- * Parses segments after /tree/ to find the longest matching branch name
- * and returns the branch name and remaining path.
+ * Parses segments to find the longest matching branch name
+ * Supports branches with slashes by trying longest matches first
+ *
+ * @param segments - URL segments to parse
+ * @param branchNames - List of known branch names from the repository
+ * @returns Parsed branch name and remaining path
  */
-export function parseBranchAndPath(segments: string[], branchNames: string[]): { branch: string; path?: string } {
+export function parseBranchAndPath(
+  segments: string[],
+  branchNames: string[]
+): { branch: string; path?: string } {
   if (segments.length === 0) {
-    return { branch: 'main' }; // fallback
+    return { branch: 'main' };
   }
 
-  // Try to match the longest possible prefix to a branch name
+  // Try matching from longest to shortest to handle branches with slashes
+  // E.g., "feature/new-ui/components" should match before "feature/new-ui"
   for (let i = segments.length; i > 0; i--) {
     const candidate = segments.slice(0, i).join('/');
     if (branchNames.includes(candidate)) {
-      const path = segments.slice(i).join('/') || undefined;
-      return { branch: candidate, path };
+      const remainingPath = segments.slice(i).join('/') || undefined;
+      return { branch: candidate, path: remainingPath };
     }
   }
 
-  // Fallback: treat first segment as branch (for backward compatibility)
-  const path = segments.slice(1).join('/') || undefined;
-  return { branch: segments[0], path };
+  // Fallback: treat first segment as branch name
+  const remainingPath = segments.slice(1).join('/') || undefined;
+  return { branch: segments[0], path: remainingPath };
+}
+
+// Known tab paths in the application
+const TAB_PATHS = [
+  "scorecard",
+  "diagram",
+  "ai-slop",
+  "automations",
+  "issues",
+  "pulls",
+  "dependencies",
+  "architecture",
+  "components",
+  "data-flow"
+] as const;
+
+interface ParseRepoPathParams {
+  user: string;
+  params?: string[];
+}
+
+interface ParseRepoPathResult {
+  user: string;
+  repo?: string;
+  ref?: string;
+  path?: string;
+  tab?: string;
+  currentPath: string;
 }
 
 /**
- * Parses Next.js dynamic route params for a GitHub-style repo URL.
- * Returns { user, repo, ref, path, tab, currentPath }
+ * Parses GitHub-style repository URLs from Next.js route params
  *
- * @param params - Route parameters from Next.js
- * @param branchNames - Optional array of branch names for accurate parsing of branches with slashes.
- *                      If not provided, uses simple decoding which may not handle slashes correctly.
+ * Supported patterns:
+ * - /user/repo
+ * - /user/repo/tree/branch
+ * - /user/repo/tree/branch/path
+ * - /user/repo/tab
+ * - /user/repo/branch
+ * - /user/repo/branch/path
+ *
+ * @param params - Next.js route parameters
+ * @param branchNames - Known branch names for accurate slash-handling (optional)
+ * @returns Parsed repository path components
  */
 export function parseRepoPath(
-  params: { user: string; params?: string[] },
+  params: ParseRepoPathParams,
   branchNames: string[] = []
-) {
-  const TAB_PATHS = ["scorecard", "diagram", "ai-slop", "automations", "issues", "pulls", "dependencies", "architecture", "components", "data-flow"];
-  const { user, params: rest = [] } = params;
-  let repo: string | undefined;
-  let ref: string | undefined;
-  let pathParts: string[] = [];
-  let tab: string | undefined;
+): ParseRepoPathResult {
+  const { user, params: segments = [] } = params;
 
-  // Whether to use enhanced branch parsing
-  const useEnhancedParsing = branchNames.length > 0;
-
-  if (rest.length > 0) {
-    repo = rest[0];
-    if (rest.length > 1) {
-      if (rest[1] === "tree" && rest.length > 2) {
-        // Pattern: /user/repo/tree/branch/...
-        if (useEnhancedParsing) {
-          const segmentsAfterTree = rest.slice(2);
-          const { branch, path } = parseBranchAndPath(segmentsAfterTree, branchNames);
-          ref = branch;
-          pathParts = path ? path.split('/') : [];
-        } else {
-          ref = decodeURIComponent(rest[2]);
-          pathParts = rest.slice(3);
-        }
-      } else {
-        // Pattern: /user/repo/branch/... (no "tree")
-        // Check if rest[1] is a tab - if so, no branch specified
-        if (TAB_PATHS.includes(rest[1])) {
-          // It's a tab, no branch
-          tab = rest[1];
-          pathParts = rest.slice(2);
-        } else {
-          // It's a branch
-          if (useEnhancedParsing) {
-            const segmentsAfterRepo = rest.slice(1);
-            const { branch, path } = parseBranchAndPath(segmentsAfterRepo, branchNames);
-            ref = branch;
-            pathParts = path ? path.split('/') : [];
-          } else {
-            ref = decodeURIComponent(rest[1]);
-            pathParts = rest.slice(2);
-          }
-        }
-      }
-    }
+  if (segments.length === 0) {
+    return { user, currentPath: `/${user}` };
   }
 
-  // Extract tab from pathParts if not already set
-  if (!tab && pathParts.length > 0) {
-    for (let i = 0; i < pathParts.length; i++) {
-      if (TAB_PATHS.includes(pathParts[i])) {
-        tab = pathParts[i];
-        // Everything before tab is path, everything after is also path
-        pathParts = [...pathParts.slice(0, i), ...pathParts.slice(i + 1)];
-        break;
-      }
-    }
+  const repo = segments[0];
+
+  if (segments.length === 1) {
+    return { user, repo, currentPath: `/${user}/${repo}` };
   }
 
-  const path = pathParts.length > 0 ? pathParts.join("/") : undefined;
+  // Parse the remaining segments after repo
+  const { ref, path, tab } = parseSegmentsAfterRepo(
+    segments.slice(1),
+    branchNames
+  );
 
-  // Build currentPath without /tree/ (matching sidebar URL pattern)
-  let currentPath = `/${user}`;
-  if (repo) currentPath += `/${repo}`;
-  if (ref) currentPath += `/${ref}`;
-  if (path) currentPath += `/${path}`;
-  if (tab) currentPath += `/${tab}`;
+  // Build currentPath (used for navigation)
+  const currentPath = buildCurrentPath(user, repo, ref, path, tab);
 
   return { user, repo, ref, path, tab, currentPath };
+}
+
+/**
+ * Parses segments that come after the repo name in the URL
+ */
+function parseSegmentsAfterRepo(
+  segments: string[],
+  branchNames: string[]
+): { ref?: string; path?: string; tab?: string } {
+  // Handle /tree/ prefix: /user/repo/tree/branch/...
+  if (segments[0] === "tree" && segments.length > 1) {
+    const afterTree = segments.slice(1);
+    return parseRefAndPath(afterTree, branchNames);
+  }
+
+  // Handle tab paths: /user/repo/tab
+  if (TAB_PATHS.includes(segments[0] as typeof TAB_PATHS[number])) {
+    const tab = segments[0];
+    const pathParts = segments.slice(1);
+    const { tab: nestedTab, pathParts: cleanPath } = extractTabFromPath(pathParts);
+
+    return {
+      tab: nestedTab || tab,
+      path: cleanPath.length > 0 ? cleanPath.join('/') : undefined
+    };
+  }
+
+  // Default: treat as branch/path: /user/repo/branch/...
+  return parseRefAndPath(segments, branchNames);
+}
+
+/**
+ * Parses ref (branch) and path from segments
+ */
+function parseRefAndPath(
+  segments: string[],
+  branchNames: string[]
+): { ref?: string; path?: string; tab?: string } {
+  const useEnhancedParsing = branchNames.length > 0;
+
+  if (useEnhancedParsing) {
+    const { branch, path: branchPath } = parseBranchAndPath(segments, branchNames);
+    const pathParts = branchPath ? branchPath.split('/') : [];
+    const { tab, pathParts: cleanPath } = extractTabFromPath(pathParts);
+
+    return {
+      ref: branch,
+      path: cleanPath.length > 0 ? cleanPath.join('/') : undefined,
+      tab
+    };
+  }
+
+  // Simple parsing (no branch name knowledge)
+  const ref = decodeURIComponent(segments[0]);
+  const pathParts = segments.slice(1);
+  const { tab, pathParts: cleanPath } = extractTabFromPath(pathParts);
+
+  return {
+    ref,
+    path: cleanPath.length > 0 ? cleanPath.join('/') : undefined,
+    tab
+  };
+}
+
+/**
+ * Extracts tab from path segments and returns clean path
+ */
+function extractTabFromPath(pathParts: string[]): {
+  tab?: string;
+  pathParts: string[];
+} {
+  const tabIndex = pathParts.findIndex(part =>
+    TAB_PATHS.includes(part as typeof TAB_PATHS[number])
+  );
+
+  if (tabIndex === -1) {
+    return { pathParts };
+  }
+
+  return {
+    tab: pathParts[tabIndex],
+    pathParts: [
+      ...pathParts.slice(0, tabIndex),
+      ...pathParts.slice(tabIndex + 1)
+    ]
+  };
+}
+
+/**
+ * Builds the current path for navigation
+ */
+function buildCurrentPath(
+  user: string,
+  repo: string,
+  ref?: string,
+  path?: string,
+  tab?: string
+): string {
+  const parts = [user, repo];
+
+  if (ref) parts.push(ref);
+  if (path) parts.push(path);
+  if (tab) parts.push(tab);
+
+  return '/' + parts.join('/');
 }
 
 /**

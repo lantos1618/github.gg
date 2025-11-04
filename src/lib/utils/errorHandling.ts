@@ -2,6 +2,36 @@ import { parseError } from '@/lib/types/errors';
 import { TRPCClientError } from '@trpc/client';
 
 /**
+ * TRPC error codes for common error scenarios
+ */
+const TRPC_ERROR_CODES = {
+  RATE_LIMIT: 'TOO_MANY_REQUESTS',
+  FORBIDDEN: 'FORBIDDEN',
+} as const;
+
+/**
+ * External API error patterns (fallback when not using tRPC)
+ * These are only checked when the error doesn't come from tRPC
+ */
+const EXTERNAL_ERROR_PATTERNS = {
+  RATE_LIMIT: [
+    'rate limit',
+    '429',
+    'quota',
+    'exceeded',
+    'too many requests',
+    'resource_exhausted',
+    'resource exhausted',
+  ],
+  SUBSCRIPTION: [
+    'active subscription required',
+    'subscription required',
+    'please add your gemini api key',
+    'requires a paid plan',
+  ],
+} as const;
+
+/**
  * Parse Gemini API error to extract user-friendly message
  */
 export function parseGeminiError(error: unknown): string {
@@ -22,52 +52,54 @@ function isTRPCError(error: unknown, code?: string): boolean {
 }
 
 /**
+ * Check if error message matches any of the given patterns
+ * Used as fallback for external API errors that don't use tRPC
+ */
+function matchesErrorPatterns(errorMessage: string, patterns: readonly string[]): boolean {
+  const lowerError = errorMessage.toLowerCase();
+  return patterns.some(pattern => lowerError.includes(pattern));
+}
+
+/**
  * Check if an error is a rate limit error
- * Checks both tRPC error codes and fallback to message parsing for external APIs
+ * Prioritizes tRPC error codes, falls back to pattern matching for external APIs
+ *
+ * @param error - Error object, string, or unknown value to check
+ * @returns true if the error indicates rate limiting
  */
 export function isRateLimitError(error: unknown): boolean {
-  // Check tRPC error code first (most reliable)
-  if (isTRPCError(error, 'TOO_MANY_REQUESTS')) {
+  // PRIORITY 1: Check tRPC error code (most reliable method)
+  if (isTRPCError(error, TRPC_ERROR_CODES.RATE_LIMIT)) {
     return true;
   }
 
-  // Fallback to message parsing for external API errors (Gemini, GitHub, etc.)
+  // PRIORITY 2: Fallback to pattern matching for external API errors
+  // This handles errors from Gemini, GitHub, and other external services
   const errorMessage = typeof error === 'string' ? error : parseError(error);
   if (!errorMessage) return false;
 
-  const lowerError = errorMessage.toLowerCase();
-  const isRateLimit = lowerError.includes('rate limit') ||
-                     lowerError.includes('429') ||
-                     lowerError.includes('quota') ||
-                     lowerError.includes('exceeded') ||
-                     lowerError.includes('too many requests') ||
-                     lowerError.includes('resource_exhausted') ||
-                     lowerError.includes('resource exhausted');
-
-  return isRateLimit;
+  return matchesErrorPatterns(errorMessage, EXTERNAL_ERROR_PATTERNS.RATE_LIMIT);
 }
 
 /**
  * Check if an error is a subscription error
- * Uses tRPC error codes for reliable detection
+ * Prioritizes tRPC error codes, falls back to pattern matching for external APIs
+ *
+ * @param error - Error object, string, or unknown value to check
+ * @returns true if the error indicates subscription/permission issues
  */
 export function isSubscriptionError(error: unknown): boolean {
-  // Check tRPC FORBIDDEN error code (most reliable)
-  if (isTRPCError(error, 'FORBIDDEN')) {
+  // PRIORITY 1: Check tRPC FORBIDDEN error code (most reliable method)
+  if (isTRPCError(error, TRPC_ERROR_CODES.FORBIDDEN)) {
     return true;
   }
 
-  // Fallback to message parsing for backward compatibility
+  // PRIORITY 2: Fallback to pattern matching for external API errors
+  // This handles subscription-related errors from various sources
   const errorMessage = typeof error === 'string' ? error : parseError(error);
   if (!errorMessage) return false;
 
-  const lowerError = errorMessage.toLowerCase();
-  const isSubscription = lowerError.includes('active subscription required') ||
-                        lowerError.includes('subscription required') ||
-                        lowerError.includes('please add your gemini api key') ||
-                        lowerError.includes('requires a paid plan');
-
-  return isSubscription;
+  return matchesErrorPatterns(errorMessage, EXTERNAL_ERROR_PATTERNS.SUBSCRIPTION);
 }
 
 /**

@@ -1,5 +1,17 @@
 #!/usr/bin/env bun
 
+import type {
+  StreamEvent,
+  AssistantMessage,
+  UserMessage,
+  ToolCallContent,
+  TodoItem,
+  ToolCallInfo,
+  ToolResultInfo,
+  MessageContent,
+  TextContent,
+} from './types';
+
 // Check for scorecard mode
 const isScoreCardMode = process.argv.includes('--scorecard-mode');
 
@@ -36,33 +48,33 @@ function getTypeColor(type: string): string {
   }
 }
 
-function _formatHeader(json: any, lineNumber: number): string {
+function _formatHeader(json: StreamEvent, lineNumber: number): string {
   const type = json.type || 'unknown';
   const typeColor = getTypeColor(type);
 
   let header = `${colors.dim}--- Line ${lineNumber} ${typeColor}[${type.toUpperCase()}]${colors.reset}`;
 
   // Add context based on type
-  if (json.message?.role) {
+  if ('message' in json && json.message?.role) {
     header += ` ${colors.dim}(${json.message.role})${colors.reset}`;
   }
 
-  if (json.message?.content?.[0]?.name) {
+  if ('message' in json && json.message?.content?.[0] && 'name' in json.message.content[0]) {
     header += ` ${colors.cyan}${json.message.content[0].name}${colors.reset}`;
   }
 
-  if (json.name) {
+  if ('name' in json && json.name) {
     header += ` ${colors.cyan}${json.name}${colors.reset}`;
   }
 
-  if (json.subtype) {
+  if ('subtype' in json && json.subtype) {
     header += ` ${colors.dim}${json.subtype}${colors.reset}`;
   }
 
   return `${header} ${colors.dim}---${colors.reset}`;
 }
 
-function _colorizeJson(obj: any, indent = 0, path: string[] = []): string {
+function _colorizeJson(obj: unknown, indent = 0, path: string[] = []): string {
   const spaces = '  '.repeat(indent);
 
   if (obj === null) return `${colors.dim}null${colors.reset}`;
@@ -120,7 +132,7 @@ function _colorizeJson(obj: any, indent = 0, path: string[] = []): string {
         coloredKey = `${colors.bright}${colors.blue}"${key}"${colors.reset}`;
       }
 
-      const value = _colorizeJson(obj[key], indent + 1, [...path, key]);
+      const value = _colorizeJson((obj as Record<string, unknown>)[key], indent + 1, [...path, key]);
       return `${spaces}  ${coloredKey}: ${value}`;
     });
 
@@ -146,7 +158,7 @@ function formatScoreCardFix(message: string): string {
   return message;
 }
 
-function formatTodoList(todos: any[]): string {
+function formatTodoList(todos: TodoItem[]): string {
   let output = `📋 ${colors.bright}${colors.cyan}Todo List Update${colors.reset}\n`;
 
   const statusColors = {
@@ -167,14 +179,14 @@ function formatTodoList(todos: any[]): string {
     low: colors.dim,
   };
 
-  todos.forEach((todo: any, index) => {
-    const statusColor = statusColors[todo.status as keyof typeof statusColors] || colors.reset;
-    const statusIcon = statusIcons[todo.status as keyof typeof statusIcons] || '❓';
-    const priorityColor = priorityColors[todo.priority as keyof typeof priorityColors] || colors.reset;
+  todos.forEach((todo, index) => {
+    const statusColor = statusColors[todo.status] || colors.reset;
+    const statusIcon = statusIcons[todo.status] || '❓';
+    const priorityColor = priorityColors[todo.priority || 'medium'] || colors.reset;
     const checkbox = todo.status === 'completed' ? '☑️' : '☐';
 
     output += `  ${checkbox} ${statusIcon} ${statusColor}${todo.content}${colors.reset}`;
-    output += ` ${priorityColor}[${todo.priority}]${colors.reset}`;
+    output += ` ${priorityColor}[${todo.priority || 'medium'}]${colors.reset}`;
 
     if (todo.status === 'in_progress') {
       output += ` ${colors.bright}${colors.yellow}← ACTIVE${colors.reset}`;
@@ -196,73 +208,100 @@ function formatTodoList(todos: any[]): string {
   return output;
 }
 
-function formatConcise(json: any): string {
+function formatConcise(json: StreamEvent): string {
   const type = json.type || 'unknown';
   const typeColor = getTypeColor(type);
 
   let output = `⏺ ${typeColor}${type.charAt(0).toUpperCase() + type.slice(1)}${colors.reset}`;
 
   // Special handling for TodoWrite calls
-  if (type === 'assistant' && json.message?.content?.[0]?.name === 'TodoWrite') {
-    const toolInput = json.message.content[0].input;
-    if (toolInput?.todos && Array.isArray(toolInput.todos)) {
-      return formatTodoList(toolInput.todos);
+  if (json.type === 'assistant' && json.message?.content?.[0]) {
+    const firstContent = json.message.content[0];
+    if (firstContent.type === 'tool_use' && firstContent.name === 'TodoWrite') {
+      const toolInput = firstContent.input;
+      if (toolInput?.todos && Array.isArray(toolInput.todos)) {
+        return formatTodoList(toolInput.todos as TodoItem[]);
+      }
     }
   }
 
   // Add context based on type
-  if (type === 'assistant' && json.message?.content?.[0]?.name) {
-    const toolName = json.message.content[0].name;
-    const toolInput = json.message.content[0].input;
+  if (json.type === 'assistant' && json.message?.content?.[0]) {
+    const firstContent = json.message.content[0];
+    if (firstContent.type === 'tool_use') {
+      const toolName = firstContent.name;
+      const toolInput = firstContent.input;
 
-    // Format tool name with key arguments
-    let toolDisplay = `${colors.cyan}${toolName}${colors.reset}`;
+      // Format tool name with key arguments
+      let toolDisplay = `${colors.cyan}${toolName}${colors.reset}`;
 
-    if (toolInput) {
-      const keyArgs = [];
+      if (toolInput) {
+        const keyArgs: string[] = [];
 
-      // Extract the most important argument for each tool type
-      if (toolInput.file_path) keyArgs.push(toolInput.file_path);
-      else if (toolInput.path) keyArgs.push(toolInput.path);
-      else if (toolInput.pattern) keyArgs.push(`"${toolInput.pattern}"`);
-      else if (toolInput.command) keyArgs.push(toolInput.command);
-      else if (toolInput.cmd) keyArgs.push(toolInput.cmd);
-      else if (toolInput.query) keyArgs.push(`"${toolInput.query}"`);
-      else if (toolInput.description) keyArgs.push(toolInput.description);
-      else if (toolInput.prompt) keyArgs.push(`"${toolInput.prompt.substring(0, 30)}..."`);
-      else if (toolInput.url) keyArgs.push(toolInput.url);
+        // Extract the most important argument for each tool type
+        const input = toolInput as Record<string, unknown>;
+        if (input.file_path && typeof input.file_path === 'string') {
+          keyArgs.push(input.file_path);
+        } else if (input.path && typeof input.path === 'string') {
+          keyArgs.push(input.path);
+        } else if (input.pattern && typeof input.pattern === 'string') {
+          keyArgs.push(`"${input.pattern}"`);
+        } else if (input.command && typeof input.command === 'string') {
+          keyArgs.push(input.command);
+        } else if (input.cmd && typeof input.cmd === 'string') {
+          keyArgs.push(input.cmd);
+        } else if (input.query && typeof input.query === 'string') {
+          keyArgs.push(`"${input.query}"`);
+        } else if (input.description && typeof input.description === 'string') {
+          keyArgs.push(input.description);
+        } else if (input.prompt && typeof input.prompt === 'string') {
+          keyArgs.push(`"${input.prompt.substring(0, 30)}..."`);
+        } else if (input.url && typeof input.url === 'string') {
+          keyArgs.push(input.url);
+        }
 
-      if (keyArgs.length > 0) {
-        toolDisplay += `(${colors.green}${keyArgs[0]}${colors.reset})`;
+        if (keyArgs.length > 0) {
+          toolDisplay += `(${colors.green}${keyArgs[0]}${colors.reset})`;
+        }
+      }
+
+      output = `⏺ ${toolDisplay}`;
+
+      // Show additional arguments on next lines for complex tools
+      if (toolInput) {
+        const additionalArgs: string[] = [];
+        const input = toolInput as Record<string, unknown>;
+
+        if (toolName === 'Bash' && input.cwd && typeof input.cwd === 'string') {
+          additionalArgs.push(`cwd: ${input.cwd}`);
+        }
+        if (input.limit && typeof input.limit === 'number') {
+          additionalArgs.push(`limit: ${input.limit}`);
+        }
+        if (input.offset && typeof input.offset === 'number') {
+          additionalArgs.push(`offset: ${input.offset}`);
+        }
+        if (input.include && typeof input.include === 'string') {
+          additionalArgs.push(`include: ${input.include}`);
+        }
+        if (input.old_string && typeof input.old_string === 'string' &&
+            input.new_string && typeof input.new_string === 'string') {
+          additionalArgs.push(
+            `replace: "${input.old_string.substring(0, 20)}..." → "${input.new_string.substring(0, 20)}..."`
+          );
+        }
+        if (input.timeout && typeof input.timeout === 'number') {
+          additionalArgs.push(`timeout: ${input.timeout}ms`);
+        }
+
+        if (additionalArgs.length > 0) {
+          output += `\n  ⎿  ${colors.dim}${additionalArgs.join(', ')}${colors.reset}`;
+        }
       }
     }
-
-    output = `⏺ ${toolDisplay}`;
-
-    // Show additional arguments on next lines for complex tools
-    if (toolInput) {
-      const additionalArgs = [];
-
-      if (toolName === 'Bash' && toolInput.cwd) {
-        additionalArgs.push(`cwd: ${toolInput.cwd}`);
-      }
-      if (toolInput.limit) additionalArgs.push(`limit: ${toolInput.limit}`);
-      if (toolInput.offset) additionalArgs.push(`offset: ${toolInput.offset}`);
-      if (toolInput.include) additionalArgs.push(`include: ${toolInput.include}`);
-      if (toolInput.old_string && toolInput.new_string) {
-        additionalArgs.push(
-          `replace: "${toolInput.old_string.substring(0, 20)}..." → "${toolInput.new_string.substring(0, 20)}..."`
-        );
-      }
-      if (toolInput.timeout) additionalArgs.push(`timeout: ${toolInput.timeout}ms`);
-
-      if (additionalArgs.length > 0) {
-        output += `\n  ⎿  ${colors.dim}${additionalArgs.join(', ')}${colors.reset}`;
-      }
-    }
-  } else if (type === 'tool_result' && json.name) {
+  } else if (json.type === 'tool_result' && json.name) {
     output += `(${colors.cyan}${json.name}${colors.reset})`;
-  } else if (type === 'user' && json.message?.content?.[0]) {
+  } else if (json.type === 'user' && json.message?.content?.[0]) {
     const content = json.message.content[0];
     if (content.type === 'tool_result') {
       // Override the type display for tool results
@@ -287,17 +326,17 @@ function formatConcise(json: any): string {
           output += `\n      ${colors.dim}${lines[1]}${colors.reset}`;
         }
       }
-    } else if (content.text) {
+    } else if (content.type === 'text') {
       const text = content.text.substring(0, 50);
       output += `: ${colors.dim}${text}${text.length === 50 ? '...' : ''}${colors.reset}`;
     }
-  } else if (type === 'system' && json.subtype) {
+  } else if (json.type === 'system' && json.subtype) {
     output += `(${colors.dim}${json.subtype}${colors.reset})`;
   }
 
   // Show assistant message content if it exists
-  if (type === 'assistant' && json.message?.content) {
-    const textContent = json.message.content.find((c: any) => c.type === 'text');
+  if (json.type === 'assistant' && json.message?.content) {
+    const textContent = json.message.content.find((c): c is TextContent => c.type === 'text');
     if (textContent?.text) {
       const lines = textContent.text.split('\n').slice(0, 3); // Show first 3 lines
       output += `\n  ⎿  ${colors.reset}${lines[0]}${colors.reset}`;
@@ -315,15 +354,18 @@ function formatConcise(json: any): string {
 
   // Add summary line
   let summary = '';
-  if (json.message?.usage) {
+  if ('message' in json && json.message?.usage) {
     const usage = json.message.usage;
     summary = `${usage.input_tokens || 0}/${usage.output_tokens || 0} tokens`;
-  } else if (json.output && typeof json.output === 'string') {
+  } else if ('output' in json && typeof json.output === 'string') {
     summary = `${json.output.length} chars output`;
-  } else if (json.message?.content?.length) {
+  } else if ('message' in json && json.message?.content?.length) {
     summary = `${json.message.content.length} content items`;
-  } else if (json.tools?.length) {
-    summary = `${json.tools.length} tools available`;
+  }
+
+  const jsonWithTools = json as { tools?: unknown[] };
+  if (jsonWithTools.tools && Array.isArray(jsonWithTools.tools)) {
+    summary = `${jsonWithTools.tools.length} tools available`;
   }
 
   if (summary) {
@@ -335,8 +377,8 @@ function formatConcise(json: any): string {
 
 async function processStream() {
   const debugMode = process.argv.includes('--debug');
-  const toolCalls = new Map(); // Store tool calls by their ID
-  const pendingResults = new Map(); // Store results waiting for their tool calls
+  const toolCalls = new Map<string, ToolCallInfo>(); // Store tool calls by their ID
+  const pendingResults = new Map<string, ToolResultInfo>(); // Store results waiting for their tool calls
   let lastLine: string | null = null; // Track the last line to detect final message
   let isLastAssistantMessage = false;
 
@@ -359,58 +401,65 @@ async function processStream() {
           : '';
 
         try {
-          const json = JSON.parse(line);
+          const json: StreamEvent = JSON.parse(line);
 
           // Check if this is a tool call
-          if (json.type === 'assistant' && json.message?.content?.[0]?.id) {
-            const toolCall = json.message.content[0];
-            const toolId = toolCall.id;
+          if (json.type === 'assistant' && json.message?.content?.[0]) {
+            const firstContent = json.message.content[0];
+            if (firstContent.type === 'tool_use') {
+              const toolId = firstContent.id;
 
-            // Store the tool call
-            toolCalls.set(toolId, {
-              toolCall: json,
-              timestamp: timestamp,
-            });
+              // Store the tool call
+              toolCalls.set(toolId, {
+                toolCall: json,
+                timestamp: timestamp,
+              });
 
-            // Check if we have a pending result for this tool call
-            if (pendingResults.has(toolId)) {
-              const result = pendingResults.get(toolId);
-              displayToolCallWithResult(
-                toolCall,
-                json,
-                result.toolResult,
-                result.timestamp,
-                timestamp
-              );
-              pendingResults.delete(toolId);
-            } else {
-              // Display the tool call and mark it as pending
-              process.stdout.write(`${timestamp + formatConcise(json)}\n`);
-              process.stdout.write(`${colors.dim}  ⎿  Waiting for result...${colors.reset}\n\n`);
+              // Check if we have a pending result for this tool call
+              if (pendingResults.has(toolId)) {
+                const result = pendingResults.get(toolId)!;
+                displayToolCallWithResult(
+                  firstContent,
+                  json,
+                  result.toolResult,
+                  result.timestamp,
+                  timestamp
+                );
+                pendingResults.delete(toolId);
+              } else {
+                // Display the tool call and mark it as pending
+                process.stdout.write(`${timestamp + formatConcise(json)}\n`);
+                process.stdout.write(`${colors.dim}  ⎿  Waiting for result...${colors.reset}\n\n`);
+              }
             }
           }
           // Check if this is a tool result
-          else if (json.type === 'user' && json.message?.content?.[0]?.type === 'tool_result') {
-            const toolResult = json.message.content[0];
-            const toolId = toolResult.tool_use_id;
+          else if (json.type === 'user' && json.message?.content?.[0]) {
+            const firstContent = json.message.content[0];
+            if (firstContent.type === 'tool_result') {
+              const toolId = firstContent.tool_use_id;
 
-            if (toolCalls.has(toolId)) {
-              // We have the matching tool call, display them together
-              const stored = toolCalls.get(toolId);
-              displayToolCallWithResult(
-                stored.toolCall.message.content[0],
-                stored.toolCall,
-                json,
-                stored.timestamp,
-                timestamp
-              );
-              toolCalls.delete(toolId);
-            } else {
-              // Store the result and wait for the tool call
-              pendingResults.set(toolId, {
-                toolResult: json,
-                timestamp: timestamp,
-              });
+              if (toolCalls.has(toolId)) {
+                // We have the matching tool call, display them together
+                const stored = toolCalls.get(toolId)!;
+                const storedFirstContent = stored.toolCall.message.content[0];
+                if (storedFirstContent.type === 'tool_use') {
+                  displayToolCallWithResult(
+                    storedFirstContent,
+                    stored.toolCall,
+                    json,
+                    stored.timestamp,
+                    timestamp
+                  );
+                }
+                toolCalls.delete(toolId);
+              } else {
+                // Store the result and wait for the tool call
+                pendingResults.set(toolId, {
+                  toolResult: json,
+                  timestamp: timestamp,
+                });
+              }
             }
           }
           // Check if this is the result message and display full content
@@ -433,7 +482,8 @@ async function processStream() {
 
           // Track if this might be the last assistant message
           lastLine = line;
-          isLastAssistantMessage = json.type === 'assistant' && !json.message?.content?.[0]?.id;
+          const firstContent = json.type === 'assistant' && json.message?.content?.[0];
+          isLastAssistantMessage = json.type === 'assistant' && firstContent !== false && (!firstContent || firstContent.type !== 'tool_use');
         } catch (_error) {
           process.stdout.write(`${timestamp}${colors.red}⏺ Parse Error${colors.reset}\n`);
           process.stdout.write(`  ⎿  ${colors.dim}${line.substring(0, 50)}...${colors.reset}\n\n`);
@@ -472,9 +522,9 @@ async function processStream() {
 }
 
 function displayToolCallWithResult(
-  toolCall: any,
-  toolCallJson: any,
-  toolResultJson: any,
+  toolCall: ToolCallContent,
+  toolCallJson: AssistantMessage,
+  toolResultJson: UserMessage,
   callTimestamp: string,
   resultTimestamp: string
 ) {
@@ -483,6 +533,8 @@ function displayToolCallWithResult(
 
   // Display the result
   const toolResult = toolResultJson.message.content[0];
+  if (toolResult.type !== 'tool_result') return;
+
   const isError = toolResult.is_error;
   const resultIcon = isError ? '❌' : '✅';
   const resultColor = isError ? colors.red : colors.green;

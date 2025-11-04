@@ -2,17 +2,18 @@
 
 import Script from 'next/script';
 
-export function GoogleAnalytics() {
-  const measurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-0WBNL603WK';
 
-  if (!measurementId || measurementId === 'G-XXXXXXXXXX') {
+export function GoogleAnalytics() {
+  // Always show in production with the ID
+  if (typeof window === 'undefined') {
     return null;
   }
 
   return (
     <>
       <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}
+        src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
         strategy="afterInteractive"
       />
       <Script id="google-analytics" strategy="afterInteractive">
@@ -20,7 +21,7 @@ export function GoogleAnalytics() {
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
           gtag('js', new Date());
-          gtag('config', '${measurementId}', {
+          gtag('config', '${GA_MEASUREMENT_ID}', {
             page_path: window.location.pathname,
           });
         `}

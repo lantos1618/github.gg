@@ -62,7 +62,7 @@ export function FeatureRequestBox() {
               transition={{ duration: 0.5, type: "spring", stiffness: 200 }}
               viewport={{ once: true }}
             >
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+              <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center">
                 <Send className="w-8 h-8 text-white" />
               </div>
             </motion.div>

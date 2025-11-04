@@ -25,7 +25,7 @@ export const auth = betterAuth({
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scope: ['repo', 'read:user', 'user:email', 'read:org'],
+      scope: ['repo', 'read:user', 'user:email', 'read:org', 'notifications'],
       prompt: 'select_account',
       authorization: {
         // This is key for allowing users to switch GitHub accounts on sign-in.

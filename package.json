@@ -119,5 +119,10 @@
     "eslint-config-next": "^15.5.4",
     "tailwindcss": "^4",
     "typescript": "5.9.3"
+  },
+  "overrides": {
+    "@shikijs/core": "3.14.0",
+    "@shikijs/themes": "3.14.0",
+    "@shikijs/langs": "3.14.0"
   }
 }

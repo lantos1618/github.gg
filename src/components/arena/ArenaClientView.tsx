@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { trpc } from '@/lib/trpc/client';
 import { Trophy, Sword, Crown, History } from 'lucide-react';
@@ -107,40 +107,42 @@ export function ArenaClientView() {
         </Card>
       )}
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 max-w-lg mx-auto shadow-sm ring-1 ring-border/60 bg-muted/60">
-          <TabsTrigger
-            value="leaderboard"
-            className="flex items-center gap-2 md:gap-2.5 px-3 py-2.5 md:px-4 md:py-3 text-sm md:text-base data-[state=active]:text-foreground"
-          >
-            <Trophy className="h-4 w-4" />
-            Leaderboard
-          </TabsTrigger>
-          <TabsTrigger
-            value="battle"
-            className="flex items-center gap-2 md:gap-2.5 px-3 py-2.5 md:px-4 md:py-3 text-sm md:text-base data-[state=active]:text-foreground"
-          >
-            <Sword className="h-4 w-4" />
-            Battle
-          </TabsTrigger>
-          <TabsTrigger
-            value="history"
-            className="flex items-center gap-2 md:gap-2.5 px-3 py-2.5 md:px-4 md:py-3 text-sm md:text-base data-[state=active]:text-foreground"
-          >
-            <History className="h-4 w-4" />
-            History
-          </TabsTrigger>
-        </TabsList>
+      {/* Navigation Buttons */}
+      <div className="flex items-center justify-center gap-2">
+        <Button
+          variant={activeTab === 'leaderboard' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('leaderboard')}
+          className="flex items-center gap-2"
+        >
+          <Trophy className="h-4 w-4" />
+          Leaderboard
+        </Button>
+        <Button
+          variant={activeTab === 'battle' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('battle')}
+          className="flex items-center gap-2"
+        >
+          <Sword className="h-4 w-4" />
+          Battle
+        </Button>
+        <Button
+          variant={activeTab === 'history' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('history')}
+          className="flex items-center gap-2"
+        >
+          <History className="h-4 w-4" />
+          History
+        </Button>
+      </div>
 
-        {/* Leaderboard Tab (combines Overview + Rankings) */}
-        <TabsContent value="leaderboard" className="space-y-6">
+      {/* Content */}
+      <div className="space-y-6">
+        {activeTab === 'leaderboard' && (
           <LeaderboardTable />
-        </TabsContent>
+        )}
 
-        {/* Battle Tab */}
-        <TabsContent value="battle" className="space-y-6">
-          {canBattle ? (
+        {activeTab === 'battle' && (
+          canBattle ? (
             <ChallengeForm />
           ) : (
             <Card>
@@ -152,12 +154,11 @@ export function ArenaClientView() {
                 </p>
               </CardContent>
             </Card>
-          )}
-        </TabsContent>
+          )
+        )}
 
-        {/* History Tab */}
-        <TabsContent value="history" className="space-y-6">
-          {canBattle ? (
+        {activeTab === 'history' && (
+          canBattle ? (
             <BattleAnalysis />
           ) : (
             <Card>
@@ -169,9 +170,9 @@ export function ArenaClientView() {
                 </p>
               </CardContent>
             </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+          )
+        )}
+      </div>
     </div>
   );
 }

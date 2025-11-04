@@ -5,11 +5,6 @@ import Script from 'next/script';
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-0WBNL603WK';
 
 export function GoogleAnalytics() {
-  // Always show in production with the ID
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
   return (
     <>
       <Script

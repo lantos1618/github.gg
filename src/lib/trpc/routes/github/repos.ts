@@ -4,6 +4,63 @@ import { createGitHubServiceForUserOperations, RepoSummary } from '@/lib/github'
 import { CACHED_REPOS } from '@/lib/constants';
 import { shuffleArray } from '@/lib/utils';
 import { parseError } from '@/lib/types/errors';
+import { Octokit } from '@octokit/rest';
+
+/**
+ * Background function to refresh star counts
+ * Fetches from GitHub API and updates DB cache
+ */
+async function refreshStarCountsInBackground() {
+  const { db } = await import('@/db');
+  const { cachedRepos } = await import('@/db/schema');
+
+  const githubToken = process.env.GITHUB_APP_TOKEN || process.env.GITHUB_TOKEN;
+  const octokit = new Octokit({ auth: githubToken });
+
+  console.log(`🔄 Refreshing star counts for ${CACHED_REPOS.length} repos...`);
+
+  for (const repo of CACHED_REPOS) {
+    try {
+      const { data } = await octokit.rest.repos.get({
+        owner: repo.owner,
+        repo: repo.name,
+      });
+
+      await db
+        .insert(cachedRepos)
+        .values({
+          owner: repo.owner,
+          name: repo.name,
+          description: data.description || undefined,
+          stargazersCount: data.stargazers_count,
+          forksCount: data.forks_count,
+          language: data.language || undefined,
+          topics: (data.topics as string[]) || [],
+          userId: null,
+          lastFetched: new Date(),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [cachedRepos.owner, cachedRepos.name, cachedRepos.userId],
+          set: {
+            description: data.description || undefined,
+            stargazersCount: data.stargazers_count,
+            forksCount: data.forks_count,
+            language: data.language || undefined,
+            topics: (data.topics as string[]) || [],
+            lastFetched: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+
+      console.log(`✅ ${repo.owner}/${repo.name}: ${data.stargazers_count} stars`);
+    } catch (error) {
+      console.error(`❌ Failed to fetch ${repo.owner}/${repo.name}:`, error);
+    }
+  }
+
+  console.log('✅ Star count refresh complete');
+}
 
 /**
  * ULTRATHINK REPOS ROUTER
@@ -11,32 +68,88 @@ import { parseError } from '@/lib/types/errors';
  * Philosophy: Keep it simple, fast, and stateless
  * - Anonymous users get shuffled popular repos (instant)
  * - Logged-in users get their repos via 1 fast GitHub API call
- * - No complex DB caching needed
+ * - Star counts cached in DB, auto-refreshed when stale (6 hours)
  */
 export const reposRouter = router({
   /**
    * Get repositories for scrolling - Anonymous users
-   * Returns shuffled popular repos from CACHED_REPOS
-   * FAST: No API calls, no DB queries
+   * Returns shuffled popular repos with cached star counts from DB
+   * FAST: Reads from DB cache (6 hour TTL), triggers background refresh if stale
    */
   getReposForScrollingCached: publicProcedure
     .input(z.object({
       limit: z.number().min(1).max(100).default(64),
     }))
     .query(async ({ input }): Promise<RepoSummary[]> => {
-      // Just shuffle and return - instant!
-      const shuffled = shuffleArray([...CACHED_REPOS]).slice(0, input.limit);
+      try {
+        const { db } = await import('@/db');
+        const { cachedRepos } = await import('@/db/schema');
+        const { sql } = await import('drizzle-orm');
 
-      return shuffled.map(repo => ({
-        owner: repo.owner,
-        name: repo.name,
-        description: undefined, // Will be fetched on-demand when viewing
-        stargazersCount: 0, // Will be fetched on-demand
-        forksCount: 0, // Will be fetched on-demand
-        language: undefined,
-        topics: [],
-        url: `https://github.com/${repo.owner}/${repo.name}`,
-      }));
+        const cacheThreshold = new Date(Date.now() - 6 * 60 * 60 * 1000); // 6 hours
+
+        // Fetch cached data from DB (userId IS NULL = public repos)
+        const cached = await db
+          .select()
+          .from(cachedRepos)
+          .where(sql`${cachedRepos.userId} IS NULL`)
+          .limit(100);
+
+        // Create a map of cached repos
+        const cachedMap = new Map(
+          cached.map(r => [`${r.owner}/${r.name}`, r])
+        );
+
+        // Check if cache is stale (oldest entry is > 6 hours old)
+        const oldestEntry = cached.reduce((oldest, entry) =>
+          !oldest || entry.lastFetched < oldest.lastFetched ? entry : oldest
+        , cached[0]);
+
+        const isStale = !oldestEntry || oldestEntry.lastFetched < cacheThreshold;
+
+        // If stale, trigger background refresh (don't await)
+        if (isStale) {
+          console.log('🔄 Cache is stale, triggering background refresh...');
+          refreshStarCountsInBackground().catch(err =>
+            console.error('Background refresh failed:', err)
+          );
+        }
+
+        // Merge cached data with CACHED_REPOS
+        const enrichedRepos = CACHED_REPOS.map(repo => {
+          const repoKey = `${repo.owner}/${repo.name}`;
+          const cachedData = cachedMap.get(repoKey);
+
+          return {
+            owner: repo.owner,
+            name: repo.name,
+            description: cachedData?.description || undefined,
+            stargazersCount: cachedData?.stargazersCount || repo.stargazersCount || 0,
+            forksCount: cachedData?.forksCount || 0,
+            language: cachedData?.language || undefined,
+            topics: cachedData?.topics || [],
+            url: `https://github.com/${repo.owner}/${repo.name}`,
+          };
+        });
+
+        // Shuffle and return
+        const shuffled = shuffleArray(enrichedRepos).slice(0, input.limit);
+        return shuffled;
+      } catch (error) {
+        console.error('Failed to get cached repos:', error);
+        // Fallback to hardcoded values
+        const shuffled = shuffleArray([...CACHED_REPOS]).slice(0, input.limit);
+        return shuffled.map(repo => ({
+          owner: repo.owner,
+          name: repo.name,
+          description: undefined,
+          stargazersCount: repo.stargazersCount || 0,
+          forksCount: 0,
+          language: undefined,
+          topics: [],
+          url: `https://github.com/${repo.owner}/${repo.name}`,
+        }));
+      }
     }),
 
   /**
@@ -129,24 +242,60 @@ export const reposRouter = router({
 
   /**
    * Get sponsor repositories
-   * Returns hardcoded sponsor repos from CACHED_REPOS
-   * FAST: No API calls, no DB queries
+   * Returns sponsor repos with cached star counts from DB
+   * FAST: Reads from DB cache (6 hour TTL)
    */
   getSponsorRepos: publicProcedure
     .query(async () => {
-      const sponsorRepos = CACHED_REPOS.filter(repo => repo.sponsor);
+      try {
+        const { db } = await import('@/db');
+        const { cachedRepos } = await import('@/db/schema');
+        const { sql } = await import('drizzle-orm');
 
-      return sponsorRepos.map(repo => ({
-        owner: repo.owner,
-        name: repo.name,
-        description: undefined,
-        stargazersCount: 0,
-        forksCount: 0,
-        language: undefined,
-        topics: [],
-        url: `https://github.com/${repo.owner}/${repo.name}`,
-        isSponsor: true as const,
-      }));
+        const sponsorRepos = CACHED_REPOS.filter(repo => repo.sponsor);
+
+        // Fetch cached data from DB
+        const cached = await db
+          .select()
+          .from(cachedRepos)
+          .where(sql`${cachedRepos.userId} IS NULL`)
+          .limit(100);
+
+        const cachedMap = new Map(
+          cached.map(r => [`${r.owner}/${r.name}`, r])
+        );
+
+        return sponsorRepos.map(repo => {
+          const repoKey = `${repo.owner}/${repo.name}`;
+          const cachedData = cachedMap.get(repoKey);
+
+          return {
+            owner: repo.owner,
+            name: repo.name,
+            description: cachedData?.description || undefined,
+            stargazersCount: cachedData?.stargazersCount || repo.stargazersCount || 0,
+            forksCount: cachedData?.forksCount || 0,
+            language: cachedData?.language || undefined,
+            topics: cachedData?.topics || [],
+            url: `https://github.com/${repo.owner}/${repo.name}`,
+            isSponsor: true as const,
+          };
+        });
+      } catch (error) {
+        console.error('Failed to get sponsor repos:', error);
+        const sponsorRepos = CACHED_REPOS.filter(repo => repo.sponsor);
+        return sponsorRepos.map(repo => ({
+          owner: repo.owner,
+          name: repo.name,
+          description: undefined,
+          stargazersCount: repo.stargazersCount || 0,
+          forksCount: 0,
+          language: undefined,
+          topics: [],
+          url: `https://github.com/${repo.owner}/${repo.name}`,
+          isSponsor: true as const,
+        }));
+      }
     }),
 
   /**

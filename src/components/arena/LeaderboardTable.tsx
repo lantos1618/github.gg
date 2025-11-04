@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -213,16 +214,26 @@ export function LeaderboardTable() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <div className="font-semibold text-gray-900 flex items-center gap-2">
-                                {entry.username}
-                                {isCurrentUser && (
-                                  <Badge variant="secondary" className="text-xs">You</Badge>
-                                )}
+                            <div className="flex items-center gap-3">
+                              <Image
+                                src={`https://github.com/${entry.username}.png`}
+                                alt={entry.username}
+                                width={40}
+                                height={40}
+                                className="rounded-full"
+                                unoptimized
+                              />
+                              <div>
+                                <div className="font-semibold text-gray-900 flex items-center gap-2">
+                                  {entry.username}
+                                  {isCurrentUser && (
+                                    <Badge variant="secondary" className="text-xs">You</Badge>
+                                  )}
+                                </div>
+                                <Badge variant="outline" className="text-xs mt-1">
+                                  {entry.tier}
+                                </Badge>
                               </div>
-                              <Badge variant="outline" className="text-xs mt-1">
-                                {entry.tier}
-                              </Badge>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center">

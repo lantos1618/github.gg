@@ -12,7 +12,7 @@ import { SessionData } from '@/lib/types/errors';
 
 // Main GitHub service - simple facade that coordinates other services
 export class GitHubService {
-  private octokit: Octokit;
+  public readonly octokit: Octokit;
   private repositoryService: RepositoryService;
   private userService: UserService;
 

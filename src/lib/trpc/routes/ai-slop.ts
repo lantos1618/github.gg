@@ -51,7 +51,7 @@ export const aiSlopRouter = router({
         if (!ref || ref === 'main') {
           yield { type: 'progress', progress: 4, message: 'Fetching repository info...' };
           const repoInfo = await githubService.getRepositoryInfo(input.user, input.repo);
-          ref = repoInfo.default_branch || 'main';
+          ref = repoInfo.defaultBranch || 'main';
         }
 
         yield { type: 'progress', progress: 5, message: `Fetching ${input.filePaths.length} files from GitHub...` };

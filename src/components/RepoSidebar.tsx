@@ -21,6 +21,7 @@ import {
   X,
   FolderGit2,
   Github,
+  Wrench,
 } from 'lucide-react';
 import { cn, parseRepoPath } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
@@ -137,6 +138,7 @@ export function RepoSidebar({ owner, repo, wikiPages = [] }: RepoSidebarProps) {
     items: [
       { key: 'scorecard', label: 'Scorecard', path: `${baseUrl}/scorecard`, icon: BarChart3 },
       { key: 'ai-slop', label: 'AI Slop', path: `${baseUrl}/ai-slop`, icon: Bot },
+      { key: 'refactor', label: 'Refactor', path: `${baseUrl}/refactor`, icon: Wrench },
       {
         key: 'automations',
         label: 'Automations',

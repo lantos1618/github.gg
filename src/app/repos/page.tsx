@@ -5,11 +5,11 @@ import { trpc } from '@/lib/trpc/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Search, Sparkles, ArrowUpDown, ChevronLeft, ChevronRight, GitFork } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
+import { LoadingPage, PageHeader, EmptyState } from '@/components/common';
 
 type SortField = 'date' | 'score' | 'name';
 type SortOrder = 'asc' | 'desc';
@@ -61,17 +61,12 @@ export default function ReposPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pt-20 pb-12">
+    <div className="min-h-screen bg-white pt-20 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-            <GitFork className="h-10 w-10 text-purple-600" />
-            Analyzed Repositories
-          </h1>
-          <p className="text-gray-600 text-lg">
-            Explore repositories with AI-generated scorecards and insights
-          </p>
-        </div>
+        <PageHeader
+          title="Analyzed Repositories"
+          description="Explore repositories with AI-generated scorecards and insights"
+        />
 
         {/* Search Control */}
         <div className="mb-6">
@@ -91,11 +86,7 @@ export default function ReposPage() {
         </div>
 
         {isLoading ? (
-          <div className="space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-24 w-full" />
-            ))}
-          </div>
+          <LoadingPage text="Loading repositories..." />
         ) : paginatedRepos.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
@@ -107,10 +98,10 @@ export default function ReposPage() {
         ) : (
           <>
             {/* Table View */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-100">
+                  <thead className="bg-gray-50/50">
                     <tr>
                       <th
                         className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"

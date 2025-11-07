@@ -22,4 +22,13 @@ export * from './github';
 // Monetization tables
 export * from './monetization';
 
+// Email tables
+export * from './email';
+
+// Dev Environment tables
+export * from './dev-environments';
+
+// User VMs tables
+export * from './user-vms';
+
 // Do NOT import or export relations here. Only table definitions.

@@ -46,10 +46,18 @@ export const aiSlopRouter = router({
         // Create authenticated GitHub service
         const githubService = await createGitHubServiceFromSession(ctx.session);
 
+        // Fetch repo info to get actual default branch if not provided
+        let ref = input.ref;
+        if (!ref || ref === 'main') {
+          yield { type: 'progress', progress: 4, message: 'Fetching repository info...' };
+          const repoInfo = await githubService.getRepositoryInfo(input.user, input.repo);
+          ref = repoInfo.default_branch || 'main';
+        }
+
         yield { type: 'progress', progress: 5, message: `Fetching ${input.filePaths.length} files from GitHub...` };
 
         // Fetch file contents from GitHub
-        const files = await fetchFilesByPaths(input.user, input.repo, input.filePaths, githubService, input.ref);
+        const files = await fetchFilesByPaths(input.user, input.repo, input.filePaths, githubService, ref);
 
         if (!files || files.length === 0) {
           yield { type: 'error', message: 'Failed to fetch any files from GitHub. Please check the repository and file paths.' };
@@ -78,13 +86,13 @@ export const aiSlopRouter = router({
             eq(aiSlopAnalyses.userId, ctx.user.id),
             eq(aiSlopAnalyses.repoOwner, input.user),
             eq(aiSlopAnalyses.repoName, input.repo),
-            eq(aiSlopAnalyses.ref, input.ref || 'main'),
+            eq(aiSlopAnalyses.ref, ref),
           ],
           buildInsertValues: (data, version) => ({
             userId: ctx.user.id,
             repoOwner: input.user,
             repoName: input.repo,
-            ref: input.ref || 'main',
+            ref: ref,
             version,
             overallScore: data.overallScore,
             aiGeneratedPercentage: data.aiGeneratedPercentage,

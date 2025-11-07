@@ -5,13 +5,13 @@ import { trpc } from '@/lib/trpc/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Search, User, Sparkles, ArrowUpDown, ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import type { DeveloperProfile } from '@/lib/types/profile';
+import { LoadingPage, PageHeader } from '@/components/common';
 
 type SortField = 'date' | 'score' | 'username' | 'elo' | 'tokens';
 type SortOrder = 'asc' | 'desc';
@@ -91,15 +91,10 @@ export default function UsersPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pt-20 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-            <User className="h-10 w-10 text-purple-600" />
-            Analyzed Developer Profiles
-          </h1>
-          <p className="text-gray-600 text-lg">
-            Discover developers with AI-generated insights and analysis
-          </p>
-        </div>
+        <PageHeader
+          title="Analyzed Developer Profiles"
+          description="Discover developers with AI-generated insights and analysis"
+        />
 
         {/* Search Control */}
         <div className="mb-6">
@@ -119,11 +114,7 @@ export default function UsersPage() {
         </div>
 
         {isLoading ? (
-          <div className="space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-24 w-full" />
-            ))}
-          </div>
+          <LoadingPage text="Loading developer profiles..." />
         ) : paginatedProfiles.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">

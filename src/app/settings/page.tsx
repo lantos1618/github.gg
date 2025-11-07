@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -9,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Key, Trash2, BarChart3, Webhook } from 'lucide-react';
+import { PageHeader, CardWithHeader } from '@/components/common';
 
 export default function SettingsPage() {
   const [apiKey, setApiKey] = useState('');
@@ -87,21 +87,15 @@ export default function SettingsPage() {
 
   return (
     <div className="container py-8 max-w-4xl px-4 md:px-8">
-      <h1 className="text-3xl font-bold mb-8">Settings</h1>
-      
+      <PageHeader title="Settings" description="Manage your account settings and preferences" />
+
       <div className="grid gap-8">
         {/* Current Plan */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Key className="h-5 w-5" />
-              Your Plan
-            </CardTitle>
-            <CardDescription>
-              Manage your subscription and billing.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <CardWithHeader
+          title="Your Plan"
+          description="Manage your subscription and billing."
+          icon={Key}
+        >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-lg font-semibold capitalize">
@@ -121,21 +115,15 @@ export default function SettingsPage() {
                 {getBillingPortal.isPending ? 'Loading...' : 'Manage Billing'}
               </Button>
             </div>
-          </CardContent>
-        </Card>
+        </CardWithHeader>
 
         {/* API Key Management */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Key className="h-5 w-5" />
-              Bring Your Own Key (BYOK)
-            </CardTitle>
-            <CardDescription>
-              Add your own Google Gemini API key for unlimited usage.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <CardWithHeader
+          title="Bring Your Own Key (BYOK)"
+          description="Add your own Google Gemini API key for unlimited usage."
+          icon={Key}
+        >
+          <div className="space-y-4">
             {keyStatus?.hasKey ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -185,21 +173,15 @@ export default function SettingsPage() {
                 </p>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </CardWithHeader>
 
         {/* Usage Statistics */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Usage Statistics
-            </CardTitle>
-            <CardDescription>
-              Your token usage for this month.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <CardWithHeader
+          title="Usage Statistics"
+          description="Your token usage for this month."
+          icon={BarChart3}
+        >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center p-4 bg-blue-50 rounded-lg">
                 <div className="text-2xl font-bold text-blue-600">
@@ -245,21 +227,15 @@ export default function SettingsPage() {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+        </CardWithHeader>
 
         {/* Webhook Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Webhook className="h-5 w-5" />
-              PR Review Automation
-            </CardTitle>
-            <CardDescription>
-              Configure automated pull request reviews for your repositories.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <CardWithHeader
+          title="PR Review Automation"
+          description="Configure automated pull request reviews for your repositories."
+          icon={Webhook}
+        >
+          <div className="space-y-4">
             {!installationInfo ? (
               <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <p className="text-sm text-yellow-800 mb-3">
@@ -322,8 +298,8 @@ export default function SettingsPage() {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </CardWithHeader>
       </div>
     </div>
   );

@@ -3,11 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
 import { trpc } from '@/lib/trpc/client';
 import { useAuth } from '@/lib/auth/client';
 import {
@@ -22,6 +21,7 @@ import {
   ArrowDown,
   Sword
 } from 'lucide-react';
+import { CardWithHeader, LoadingPage, StatCard } from '@/components/common';
 
 type SortField = 'eloRating' | 'winRate' | 'winStreak' | 'totalBattles' | 'wins';
 type SortDirection = 'asc' | 'desc';
@@ -114,24 +114,18 @@ export function LeaderboardTable() {
       </div>
 
       {/* Leaderboard */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-3">
-            <Trophy className="h-5 w-5" />
-            <span>Leaderboard</span>
-            <Badge variant="outline" className="ml-auto">
-              {filteredAndSortedLeaderboard.length} developers
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-3">
-              {[...Array(10)].map((_, i) => (
-                <Skeleton key={i} className="h-20 w-full" />
-              ))}
-            </div>
-          ) : filteredAndSortedLeaderboard.length > 0 ? (
+      <CardWithHeader
+        title="Leaderboard"
+        icon={Trophy}
+        action={
+          <Badge variant="outline">
+            {filteredAndSortedLeaderboard.length} developers
+          </Badge>
+        }
+      >
+        {isLoading ? (
+          <LoadingPage text="Loading leaderboard..." />
+        ) : filteredAndSortedLeaderboard.length > 0 ? (
             <>
               {/* Table */}
               <div className="overflow-x-auto">
@@ -296,47 +290,35 @@ export function LeaderboardTable() {
               </p>
             </div>
           )}
-        </CardContent>
-      </Card>
+      </CardWithHeader>
 
       {/* Stats Summary */}
       {filteredAndSortedLeaderboard.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">
-                {filteredAndSortedLeaderboard.length}
-              </div>
-              <div className="text-sm text-muted-foreground">Total Developers</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {Math.round(filteredAndSortedLeaderboard.reduce((sum, entry) => sum + entry.eloRating, 0) / filteredAndSortedLeaderboard.length)}
-              </div>
-              <div className="text-sm text-muted-foreground">Avg ELO</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {Math.round(filteredAndSortedLeaderboard.reduce((sum, entry) => sum + entry.winRate, 0) / filteredAndSortedLeaderboard.length)}
-              </div>
-              <div className="text-sm text-muted-foreground">Avg Win Rate</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-orange-600">
-                {Math.max(...filteredAndSortedLeaderboard.map(entry => entry.winStreak))}
-              </div>
-              <div className="text-sm text-muted-foreground">Best Streak</div>
-            </CardContent>
-          </Card>
+          <StatCard
+            title="Total Developers"
+            value={filteredAndSortedLeaderboard.length}
+            icon={Users}
+            variant="success"
+          />
+          <StatCard
+            title="Avg ELO"
+            value={Math.round(filteredAndSortedLeaderboard.reduce((sum, entry) => sum + entry.eloRating, 0) / filteredAndSortedLeaderboard.length)}
+            icon={Trophy}
+            variant="info"
+          />
+          <StatCard
+            title="Avg Win Rate"
+            value={Math.round(filteredAndSortedLeaderboard.reduce((sum, entry) => sum + entry.winRate, 0) / filteredAndSortedLeaderboard.length)}
+            icon={Medal}
+            variant="info"
+          />
+          <StatCard
+            title="Best Streak"
+            value={Math.max(...filteredAndSortedLeaderboard.map(entry => entry.winStreak))}
+            icon={Crown}
+            variant="warning"
+          />
         </div>
       )}
     </div>

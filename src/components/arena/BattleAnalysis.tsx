@@ -4,7 +4,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   Trophy,
   Sword,
@@ -22,6 +21,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { trpc } from '@/lib/trpc/client';
 import type { AiAnalysis } from '@/lib/types/arena';
+import { LoadingPage } from '@/components/common';
 
 export function BattleAnalysis() {
   const router = useRouter();
@@ -53,58 +53,7 @@ export function BattleAnalysis() {
   };
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        {/* Header Skeleton */}
-        <div className="text-center space-y-2">
-          <Skeleton className="h-8 w-64 mx-auto" />
-          <Skeleton className="h-4 w-96 mx-auto" />
-        </div>
-
-        {/* Battle Cards Skeleton */}
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-4">
-                    <Skeleton className="h-12 w-12 rounded-lg" />
-                    <div className="space-y-2">
-                      <Skeleton className="h-5 w-48" />
-                      <div className="flex items-center gap-4">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-4 w-20" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Skeleton className="h-6 w-20" />
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-8 w-28" />
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <Skeleton className="h-4 w-32 mb-2" />
-                  <div className="flex flex-wrap gap-2">
-                    <Skeleton className="h-6 w-24" />
-                    <Skeleton className="h-6 w-20" />
-                    <Skeleton className="h-6 w-28" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <Skeleton className="h-20 rounded-lg" />
-                  <Skeleton className="h-20 rounded-lg" />
-                </div>
-
-                <Skeleton className="h-10 w-full" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
+    return <LoadingPage text="Loading battle history..." />;
   }
 
   return (

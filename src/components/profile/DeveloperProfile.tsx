@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
@@ -16,10 +15,11 @@ import { Badge } from '@/components/ui/badge';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import { developerProfileSchema } from '@/lib/types/profile';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 import { ScoreHistory } from '@/components/ScoreHistory';
 import { toast } from 'sonner';
+import { CardWithHeader, LoadingPage, LoadingInline } from '@/components/common';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface DeveloperProfileProps {
   username: string;
@@ -204,19 +204,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   const renderContent = () => {
     // Loading state
     if (planLoading || publicLoading) {
-      return (
-        <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-          <div className="space-y-4">
-            <Skeleton className="h-16 w-64" />
-            <Skeleton className="h-6 w-96" />
-          </div>
-          <Skeleton className="h-48 w-full" />
-          <div className="grid grid-cols-2 gap-6">
-            <Skeleton className="h-64 w-full" />
-            <Skeleton className="h-64 w-full" />
-          </div>
-        </div>
-      );
+      return <LoadingPage text="Loading profile..." />;
     }
 
     // Valid profile state
@@ -253,7 +241,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
                 </div>
                 {currentUser?.user ? (
                   emailLoading ? (
-                    <Skeleton className="h-5 w-48 mt-1" />
+                    <LoadingInline />
                   ) : emailData?.email ? (
                     <div className="flex items-center gap-2 text-muted-foreground mt-1 text-base">
                       <Mail className="h-4 w-4" />
@@ -345,28 +333,18 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
         {/* Profile Content */}
         <div className="space-y-8">
           {/* Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Professional Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-700 leading-relaxed">{validProfile.summary}</p>
-            </CardContent>
-          </Card>
+          <CardWithHeader title="Professional Summary">
+            <p className="text-gray-700 leading-relaxed">{validProfile.summary}</p>
+          </CardWithHeader>
           {/* Suggestions for Improvement */}
           {Array.isArray(validProfile.suggestions) && validProfile.suggestions.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Suggestions for Improvement</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="list-disc pl-5 space-y-2">
-                  {validProfile.suggestions.map((suggestion, idx) => (
-                    <li key={idx} className="text-gray-700">{suggestion}</li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
+            <CardWithHeader title="Suggestions for Improvement">
+              <ul className="list-disc pl-5 space-y-2">
+                {validProfile.suggestions.map((suggestion, idx) => (
+                  <li key={idx} className="text-gray-700">{suggestion}</li>
+                ))}
+              </ul>
+            </CardWithHeader>
           )}
           {/* Skills and Development Style */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -401,19 +379,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     // Loading state (after mutation)
     const isLoading = publicLoading || planLoading;
     if (isLoading && !publicProfile) {
-      return (
-      <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-        <div className="space-y-4">
-          <Skeleton className="h-16 w-64" />
-          <Skeleton className="h-6 w-96" />
-        </div>
-        <Skeleton className="h-48 w-full" />
-        <div className="grid grid-cols-2 gap-6">
-          <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-64 w-full" />
-        </div>
-      </div>
-      );
+      return <LoadingPage text="Loading profile..." />;
     }
 
     // No profile state

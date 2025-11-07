@@ -1,6 +1,5 @@
 "use client";
 import RepoPageLayout from "@/components/layouts/RepoPageLayout";
-import { Skeleton } from '@/components/ui/skeleton';
 import { useEffect, useState, ReactNode, useMemo, useCallback, useRef } from 'react';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 import { useRepoData } from '@/lib/hooks/useRepoData';
@@ -12,6 +11,7 @@ import { RefreshCw, Copy, FolderTree } from 'lucide-react';
 import { toast } from 'sonner';
 import { MarkdownCardRenderer } from '@/components/MarkdownCardRenderer';
 import { FileExplorerDrawer } from '@/components/FileExplorerDrawer';
+import { LoadingPage } from '@/components/common';
 
 import { trpc } from '@/lib/trpc/client';
 
@@ -355,13 +355,7 @@ function GenericAnalysisViewInner<TResponse>({
 
   // If plan is loading, show spinner
   if (planLoading || publicLoading) {
-    return (
-      <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8 space-y-6">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-64 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
+    return <LoadingPage text={config.loadingMessage} />;
   }
 
   // If user does not have a paid plan, show upgrade
@@ -406,15 +400,7 @@ function GenericAnalysisViewInner<TResponse>({
             />
           )}
           {overallLoading && (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <Skeleton className="h-6 w-64" />
-                <Skeleton className="h-4 w-48" />
-              </div>
-              <Skeleton className="h-64 w-full" />
-              <Skeleton className="h-64 w-full" />
-              <Skeleton className="h-48 w-full" />
-            </div>
+            <LoadingPage text={config.generatingMessage} />
           )}
           {markdownContent && (
             <>

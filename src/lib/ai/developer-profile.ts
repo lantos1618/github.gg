@@ -162,7 +162,12 @@ export async function generateDeveloperProfile({
   userId,
   onProgress
 }: DeveloperProfileParams): Promise<DeveloperProfileResult> {
-  const repoDataForPrompt = repos.slice(0, 20).map(repo => ({
+  // Filter out forked repositories - we only want to score based on user's original work
+  const nonForkedRepos = repos.filter(repo => !repo.fork);
+
+  console.log(`📊 Total repos: ${repos.length}, Non-forked: ${nonForkedRepos.length}, Filtered out: ${repos.length - nonForkedRepos.length} forks`);
+
+  const repoDataForPrompt = nonForkedRepos.slice(0, 20).map(repo => ({
     name: repo.name,
     owner: repo.owner,
     language: repo.language,
@@ -299,9 +304,9 @@ export async function generateDeveloperProfile({
 
   console.log(`🤖 Generating developer profile with AI...`);
 
-  // Validate that we have actual repos
-  if (repos.length === 0) {
-    throw new Error(`No public repositories found for user '${username}'. Cannot generate profile.`);
+  // Validate that we have actual non-forked repos
+  if (nonForkedRepos.length === 0) {
+    throw new Error(`No original (non-forked) public repositories found for user '${username}'. Cannot generate profile.`);
   }
 
   const prompt = `
@@ -310,6 +315,8 @@ export async function generateDeveloperProfile({
     For each scored metric, provide a score from 1 (novice) to 10 (expert) and a concise reason.
     Base your reasons on the provided data.
     Also provide 3-5 concrete, actionable suggestions for how this developer can improve.
+
+    IMPORTANT: We are analyzing ONLY their original repositories (forked repos have been excluded) to ensure fair scoring based on their actual contributions.
 
     CRITICAL RULES:
     1. You MUST ONLY use repositories from the provided "Repository Metadata" section below
@@ -320,7 +327,7 @@ export async function generateDeveloperProfile({
 
     Your entire output must be a single, valid JSON object that strictly adheres to the provided Zod schema.
 
-    Repository Metadata (${repos.length} repositories available):
+    Repository Metadata (${nonForkedRepos.length} original repositories available):
     ${JSON.stringify(repoDataForPrompt, null, 2)}
     ${scorecardInsights ? `\nDetailed Code Analysis from Scorecards:\n${scorecardInsights}` : ''}
   `;
@@ -341,7 +348,7 @@ export async function generateDeveloperProfile({
     ...object,
     topRepos: Array.isArray(object.topRepos)
       ? object.topRepos.map((r: ScoredRepo) => {
-          const match = repos.find(repo => repo.name === r.name || repo.url === r.url);
+          const match = nonForkedRepos.find(repo => repo.name === r.name || repo.url === r.url);
           return {
             ...r,
             owner: match?.owner || username,

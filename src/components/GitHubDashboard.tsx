@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Home, Radio, Search, ChevronDown, MessageSquare, GitPullRequest, CircleDot, Filter } from 'lucide-react';
+import { Home, Radio, Search, ChevronDown, MessageSquare, GitPullRequest, CircleDot, Filter, Menu, X } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { useAuth } from '@/lib/auth/client';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,6 +12,8 @@ export const GitHubDashboard = () => {
   const { user } = useAuth();
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
   const [repoSearch, setRepoSearch] = useState('');
+  const [showLeftSidebar, setShowLeftSidebar] = useState(false);
+  const [showRightSidebar, setShowRightSidebar] = useState(false);
 
   const { data: pullRequests, isLoading: prsLoading } = trpc.github.getUserPullRequests.useQuery({ limit: 10 });
   const { data: issues, isLoading: issuesLoading } = trpc.github.getUserIssues.useQuery({ limit: 10 });
@@ -43,13 +45,35 @@ export const GitHubDashboard = () => {
 
   return (
     <div className="flex h-screen bg-white text-gray-900">
-      {/* Sidebar */}
-      <aside className="w-[280px] border-r border-gray-200 flex flex-col flex-shrink-0">
+      {/* Mobile overlay */}
+      {(showLeftSidebar || showRightSidebar) && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => {
+            setShowLeftSidebar(false);
+            setShowRightSidebar(false);
+          }}
+        />
+      )}
+
+      {/* Left Sidebar */}
+      <aside className={`
+        w-[280px] border-r border-gray-200 flex flex-col flex-shrink-0
+        fixed lg:relative inset-y-0 left-0 z-50 bg-white
+        transform transition-transform duration-200 ease-in-out
+        ${showLeftSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
         <nav className="flex-1 overflow-y-auto">
-          <div className="p-2">
-            <button className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md bg-gray-100 text-gray-900 font-medium">
+          <div className="p-2 flex items-center justify-between lg:justify-start">
+            <button className="flex-1 flex items-center gap-3 px-3 py-2 text-sm rounded-md bg-gray-100 text-gray-900 font-medium">
               <Home className="w-4 h-4" />
               Home
+            </button>
+            <button
+              className="lg:hidden ml-2 p-2 hover:bg-gray-100 rounded-md"
+              onClick={() => setShowLeftSidebar(false)}
+            >
+              <X className="w-5 h-5" />
             </button>
           </div>
 
@@ -102,9 +126,26 @@ export const GitHubDashboard = () => {
 
       {/* Main content: PRs and Issues */}
       <main className="flex-1 overflow-y-auto">
-        <div className="p-6 space-y-6">
+        {/* Mobile header */}
+        <div className="lg:hidden sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+          <button
+            className="p-2 hover:bg-gray-100 rounded-md"
+            onClick={() => setShowLeftSidebar(true)}
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <h1 className="text-lg font-semibold">Dashboard</h1>
+          <button
+            className="p-2 hover:bg-gray-100 rounded-md"
+            onClick={() => setShowRightSidebar(true)}
+          >
+            <Radio className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-4 md:p-6 space-y-6">
           <section>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
               <h2 className="text-lg font-semibold text-gray-900">Pull requests</h2>
               <div className="flex items-center gap-2">
                 <a href="https://github.com/pulls" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
@@ -126,29 +167,29 @@ export const GitHubDashboard = () => {
                 pullRequests.map((pr, index) => (
                   <div
                     key={pr.id}
-                    className={`p-4 hover:bg-gray-50 ${index !== pullRequests.length - 1 ? 'border-b border-gray-200' : ''}`}
+                    className={`p-3 md:p-4 hover:bg-gray-50 ${index !== pullRequests.length - 1 ? 'border-b border-gray-200' : ''}`}
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-2 md:gap-3">
                       <GitPullRequest className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <a
                           href={pr.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm font-semibold text-gray-900 hover:text-blue-600"
+                          className="text-sm font-semibold text-gray-900 hover:text-blue-600 break-words"
                         >
                           {pr.title}
                         </a>
-                        <div className="flex items-center gap-2 mt-1 text-xs text-gray-600">
-                          <span>{pr.repo}#{pr.number}</span>
-                          <span>•</span>
-                          <span>Opened by {pr.author}</span>
-                          <span>•</span>
-                          <span>Updated {formatTimeAgo(pr.updatedTime)}</span>
+                        <div className="flex flex-wrap items-center gap-1 md:gap-2 mt-1 text-xs text-gray-600">
+                          <span className="whitespace-nowrap">{pr.repo}#{pr.number}</span>
+                          <span className="hidden sm:inline">•</span>
+                          <span className="whitespace-nowrap">Opened by {pr.author}</span>
+                          <span className="hidden sm:inline">•</span>
+                          <span className="whitespace-nowrap">Updated {formatTimeAgo(pr.updatedTime)}</span>
                         </div>
                       </div>
                       {pr.comments > 0 && (
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
+                        <div className="flex items-center gap-1 text-xs text-gray-600 flex-shrink-0">
                           <MessageSquare className="w-3.5 h-3.5" />
                           <span>{pr.comments}</span>
                         </div>
@@ -165,7 +206,7 @@ export const GitHubDashboard = () => {
           </section>
 
           <section>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
               <h2 className="text-lg font-semibold text-gray-900">Issues</h2>
               <div className="flex items-center gap-2">
                 <a href="https://github.com/issues" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
@@ -187,29 +228,29 @@ export const GitHubDashboard = () => {
                 issues.map((issue, index) => (
                   <div
                     key={issue.id}
-                    className={`p-4 hover:bg-gray-50 ${index !== issues.length - 1 ? 'border-b border-gray-200' : ''}`}
+                    className={`p-3 md:p-4 hover:bg-gray-50 ${index !== issues.length - 1 ? 'border-b border-gray-200' : ''}`}
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-2 md:gap-3">
                       <CircleDot className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <a
                           href={issue.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm font-semibold text-gray-900 hover:text-blue-600"
+                          className="text-sm font-semibold text-gray-900 hover:text-blue-600 break-words"
                         >
                           {issue.title}
                         </a>
-                        <div className="flex items-center gap-2 mt-1 text-xs text-gray-600">
-                          <span>{issue.repo}#{issue.number}</span>
-                          <span>•</span>
-                          <span>Opened by {issue.author}</span>
-                          <span>•</span>
-                          <span>Updated {formatTimeAgo(issue.updatedTime)}</span>
+                        <div className="flex flex-wrap items-center gap-1 md:gap-2 mt-1 text-xs text-gray-600">
+                          <span className="whitespace-nowrap">{issue.repo}#{issue.number}</span>
+                          <span className="hidden sm:inline">•</span>
+                          <span className="whitespace-nowrap">Opened by {issue.author}</span>
+                          <span className="hidden sm:inline">•</span>
+                          <span className="whitespace-nowrap">Updated {formatTimeAgo(issue.updatedTime)}</span>
                         </div>
                       </div>
                       {issue.comments > 0 && (
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
+                        <div className="flex items-center gap-1 text-xs text-gray-600 flex-shrink-0">
                           <MessageSquare className="w-3.5 h-3.5" />
                           <span>{issue.comments}</span>
                         </div>
@@ -228,10 +269,21 @@ export const GitHubDashboard = () => {
       </main>
 
       {/* Recent Activity - Right sidebar */}
-      <aside className="w-[340px] border-l border-gray-200 flex-shrink-0 overflow-y-auto">
-        <div className="sticky top-0 p-6">
+      <aside className={`
+        w-[340px] border-l border-gray-200 flex-shrink-0 overflow-y-auto
+        fixed lg:relative inset-y-0 right-0 z-50 bg-white
+        transform transition-transform duration-200 ease-in-out
+        ${showRightSidebar ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
+      `}>
+        <div className="sticky top-0 p-4 md:p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-900">Recent activity</h2>
+            <button
+              className="lg:hidden mr-2 p-2 hover:bg-gray-100 rounded-md"
+              onClick={() => setShowRightSidebar(false)}
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="text-sm font-semibold text-gray-900 flex-1">Recent activity</h2>
             {!activitiesLoading && (
               <span className="text-xs text-gray-500">{activities?.length || 0} items</span>
             )}

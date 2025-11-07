@@ -13,6 +13,8 @@ import { adminRouter } from '@/lib/trpc/routes/admin';
 import { webhooksRouter } from '@/lib/trpc/routes/webhooks';
 import { githubAnalysisRouter } from '@/lib/trpc/routes/github-analysis';
 import { wikiRouter } from '@/lib/trpc/routes/wiki';
+import { vmRouter } from '@/lib/trpc/routes/vm';
+import { refactorRouter } from '@/lib/trpc/routes/refactor';
 import { z } from 'zod';
 import { router } from '@/lib/trpc/trpc';
 import { db } from '@/db';
@@ -105,6 +107,12 @@ export const appRouter = router({
 
   // Wiki documentation routes
   wiki: wikiRouter,
+
+  // VM management routes
+  vm: vmRouter,
+
+  // Refactor analysis routes
+  refactor: refactorRouter,
 });
 
 export type AppRouter = typeof appRouter; 

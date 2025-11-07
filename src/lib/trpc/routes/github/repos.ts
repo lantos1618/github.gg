@@ -14,7 +14,7 @@ async function refreshStarCountsInBackground() {
   const { db } = await import('@/db');
   const { cachedRepos } = await import('@/db/schema');
 
-  const githubToken = process.env.GITHUB_APP_TOKEN || process.env.GITHUB_TOKEN;
+  const githubToken = process.env.GITHUB_APP_TOKEN || process.env.GITHUB_TOKEN || process.env.GITHUB_PUBLIC_API_KEY;
   const octokit = new Octokit({ auth: githubToken });
 
   console.log(`🔄 Refreshing star counts for ${CACHED_REPOS.length} repos...`);

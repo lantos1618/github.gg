@@ -7,6 +7,8 @@ export const user = pgTable('user', {
   emailVerified: boolean('emailVerified').default(false),
   image: text('image'),
   githubUsername: text('github_username'),
+  vmTier: text('vm_tier').default('free'), // 'free', 'pro', 'unlimited'
+  role: text('role').default('user'), // 'user', 'admin'
   createdAt: timestamp('createdAt').defaultNow(),
   updatedAt: timestamp('updatedAt').defaultNow(),
 });

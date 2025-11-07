@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { Webhook, Activity, Search, RefreshCw, ExternalLink, Sparkles, Zap, Shie
 import { formatDistanceToNow } from 'date-fns';
 import { useSession } from '@/lib/auth/client';
 import { SortableTable, Column } from '@/components/ui/sortable-table';
+import { FeatureCard, PageHeader, CardWithHeader } from '@/components/common';
 
 type RepoWithActivity = {
   id: string;
@@ -207,35 +208,21 @@ export default function AutomationsPage() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-8 mb-12">
-          <Card>
-            <CardHeader>
-              <Sparkles className="h-12 w-12 text-purple-600 mb-2" />
-              <CardTitle>Smart PR Reviews</CardTitle>
-              <CardDescription>
-                AI analyzes every pull request and provides detailed code reviews, catching bugs and suggesting improvements.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <Zap className="h-12 w-12 text-yellow-600 mb-2" />
-              <CardTitle>Instant Feedback</CardTitle>
-              <CardDescription>
-                Get automated feedback within seconds of opening a PR. No more waiting for reviewers.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <Shield className="h-12 w-12 text-blue-600 mb-2" />
-              <CardTitle>Security Scanning</CardTitle>
-              <CardDescription>
-                Automatically detect security vulnerabilities, code smells, and potential bugs before they hit production.
-              </CardDescription>
-            </CardHeader>
-          </Card>
+          <FeatureCard
+            icon={Sparkles}
+            title="Smart PR Reviews"
+            description="AI analyzes every pull request and provides detailed code reviews, catching bugs and suggesting improvements."
+          />
+          <FeatureCard
+            icon={Zap}
+            title="Instant Feedback"
+            description="Get automated feedback within seconds of opening a PR. No more waiting for reviewers."
+          />
+          <FeatureCard
+            icon={Shield}
+            title="Security Scanning"
+            description="Automatically detect security vulnerabilities, code smells, and potential bugs before they hit production."
+          />
         </div>
 
         <Card className="max-w-2xl mx-auto">
@@ -288,17 +275,12 @@ export default function AutomationsPage() {
 
       <div className="grid gap-8">
         {/* Global Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Webhook className="h-5 w-5" />
-              Global Settings
-            </CardTitle>
-            <CardDescription>
-              Configure global automation preferences for {installationInfo.accountLogin}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <CardWithHeader
+          title="Global Settings"
+          description={`Configure global automation preferences for ${installationInfo.accountLogin}`}
+          icon={Webhook}
+        >
+          <div className="space-y-4">
             <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
               <div className="flex items-center gap-2">
                 <div className="text-sm text-green-800">
@@ -320,21 +302,15 @@ export default function AutomationsPage() {
                 </Link>
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CardWithHeader>
 
         {/* Repository Webhooks */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Webhook className="h-5 w-5" />
-              Repository Webhooks
-            </CardTitle>
-            <CardDescription>
-              Enable or disable AI automation for individual repositories
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <CardWithHeader
+          title="Repository Webhooks"
+          description="Enable or disable AI automation for individual repositories"
+          icon={Webhook}
+        >
             {/* Search */}
             <div className="mb-4 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -357,30 +333,23 @@ export default function AutomationsPage() {
               emptyMessage={repoSearch ? 'No repositories found matching your search.' : 'No repositories found.'}
               maxHeight="400px"
             />
-          </CardContent>
-        </Card>
+        </CardWithHeader>
 
         {/* Activity Log */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 justify-between">
-              <div className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                Activity Log
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => window.location.reload()}
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            </CardTitle>
-            <CardDescription>
-              Recent AI automation activity across your repositories
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <CardWithHeader
+          title="Activity Log"
+          description="Recent AI automation activity across your repositories"
+          icon={Activity}
+          action={
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => window.location.reload()}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          }
+        >
             {/* Search */}
             <div className="mb-4 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -505,8 +474,7 @@ export default function AutomationsPage() {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+        </CardWithHeader>
       </div>
     </div>
   );

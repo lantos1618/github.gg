@@ -140,12 +140,9 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   }, [username]);
 
   const handleChallenge = useCallback(() => {
-    // Prevent self-challenge (case-insensitive)
-    if (!currentUser?.user?.githubUsername || currentUser.user.githubUsername.toLowerCase() === username.toLowerCase()) {
-      return;
-    }
+    // Navigate to arena page - server will validate and prevent self-challenges
     router.push(`/arena?opponent=${username}`);
-  }, [router, username, currentUser?.user?.githubUsername]);
+  }, [router, username]);
 
   // Version selector UI
   const VersionSelector = () => {

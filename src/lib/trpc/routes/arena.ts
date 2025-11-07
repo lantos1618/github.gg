@@ -159,6 +159,14 @@ export const arenaRouter = router({
 
       const normalizedOpponentUsername = opponentUsername.toLowerCase();
 
+      // Prevent self-challenge
+      if (challengerUsername === normalizedOpponentUsername) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'You cannot challenge yourself'
+        });
+      }
+
       // Verify opponent exists
       const opponentRepos = await githubService.getUserRepositories(opponentUsername);
       if (opponentRepos.length === 0) {

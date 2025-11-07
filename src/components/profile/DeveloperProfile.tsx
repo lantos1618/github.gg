@@ -87,7 +87,10 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   });
 
   // Check if viewing own profile
-  const isOwnProfile = currentUser?.user?.githubUsername?.toLowerCase() === username.toLowerCase();
+  // Use githubUsername if available, otherwise will be false (safe default)
+  const isOwnProfile = currentUser?.user?.githubUsername
+    ? currentUser.user.githubUsername.toLowerCase() === username.toLowerCase()
+    : false;
 
   // Fetch user repos if viewing own profile
   const { data: userRepos, isLoading: reposLoading, error: reposError } = trpc.profile.getUserRepositories.useQuery(

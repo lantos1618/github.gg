@@ -5,7 +5,6 @@ import PRListClientView from './PRListClientView';
 import PRDetailClientView from './PRDetailClientView';
 import IssueListClientView from './IssueListClientView';
 import IssueDetailClientView from './IssueDetailClientView';
-import RefactorClientView from './RefactorClientView';
 import ComingSoon from '@/components/ComingSoon';
 import { notFound } from 'next/navigation';
 import { parseRepoPath } from '@/lib/utils';
@@ -77,10 +76,6 @@ export default async function Page({ params }: PageProps) {
 
   if (tab === 'scorecard' || tab === 'ai-slop') {
     return <AnalysisClientView user={user} repo={repo} refName={ref} path={path} analysisType={tab} />;
-  }
-
-  if (tab === 'refactor') {
-    return <RefactorClientView user={user} repo={repo} refName={ref} />;
   }
 
   if (tab === 'diagram') {

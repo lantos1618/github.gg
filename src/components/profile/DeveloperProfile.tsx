@@ -273,11 +273,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
               <>
                 {isOwnProfile && (
                   <Button
-                    onClick={() => {
-                      console.log('🖱️ Select Repos button clicked');
-                      setShowRepoSelector(true);
-                      console.log('🎭 showRepoSelector set to true');
-                    }}
+                    onClick={() => setShowRepoSelector(true)}
                     disabled={isGenerating || shouldGenerate || reposLoading}
                     className="flex items-center gap-2 px-6 py-3 text-base font-medium"
                     size="lg"

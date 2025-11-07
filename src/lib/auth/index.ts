@@ -2,6 +2,7 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 /**
  * This is the single source of truth for authentication.
@@ -21,6 +22,79 @@ export const auth = betterAuth({
     provider: 'pg',
     usePlural: false,
   }),
+  user: {
+    additionalFields: {
+      githubUsername: {
+        type: 'string',
+        required: false,
+        input: false, // Don't allow direct input
+      },
+    },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        async before(user) {
+          // Extract githubUsername from the OAuth profile during user creation
+          console.log('[Auth] Creating user, profile data:', user);
+          return user;
+        },
+      },
+    },
+    session: {
+      create: {
+        async after(session) {
+          // Update githubUsername every time a user logs in
+          try {
+            // Find the GitHub account for this user
+            const githubAccount = await db.query.account.findFirst({
+              where: (account, { and, eq }) =>
+                and(
+                  eq(account.userId, session.userId),
+                  eq(account.providerId, 'github')
+                ),
+            });
+
+            if (githubAccount && githubAccount.accountId) {
+              // Fetch GitHub username from API
+              const response = await fetch(
+                `https://api.github.com/user/${githubAccount.accountId}`,
+                {
+                  headers: {
+                    Accept: 'application/vnd.github.v3+json',
+                    'User-Agent': 'github.gg',
+                    ...(githubAccount.accessToken && {
+                      Authorization: `token ${githubAccount.accessToken}`,
+                    }),
+                  },
+                }
+              );
+
+              if (response.ok) {
+                const githubProfile = await response.json();
+                const githubUsername = githubProfile.login?.toLowerCase();
+
+                if (githubUsername) {
+                  // Update user with GitHub username
+                  await db
+                    .update(schema.user)
+                    .set({ githubUsername })
+                    .where(eq(schema.user.id, session.userId));
+
+                  console.log(
+                    `[Auth] Updated githubUsername for user ${session.userId}: ${githubUsername}`
+                  );
+                }
+              }
+            }
+          } catch (error) {
+            console.error('[Auth] Failed to update githubUsername:', error);
+            // Don't throw - auth should succeed even if username update fails
+          }
+        },
+      },
+    },
+  },
   socialProviders: {
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -34,12 +108,7 @@ export const auth = betterAuth({
           access_type: 'offline',
         },
       },
-      mapProfileToUser: (profile: { login?: string }) => {
-        return {
-          githubUsername: profile.login?.toLowerCase(),
-        };
-      },
-    }
+    },
   },
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days

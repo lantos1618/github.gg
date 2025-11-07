@@ -202,6 +202,8 @@ export async function incrementViewCount(
 
     // Track individual viewer if logged in
     if (userId && username) {
+      console.log('[Repository] Tracking viewer:', { owner, repo, slug, version: pageVersion, userId, username });
+
       const viewerConditions = [
         eq(wikiPageViewers.repoOwner, owner),
         eq(wikiPageViewers.repoName, repo),
@@ -217,6 +219,7 @@ export async function incrementViewCount(
         .limit(1);
 
       if (existingViewer.length > 0) {
+        console.log('[Repository] Updating existing viewer record');
         await db
           .update(wikiPageViewers)
           .set({
@@ -225,6 +228,7 @@ export async function incrementViewCount(
           })
           .where(eq(wikiPageViewers.id, existingViewer[0].id));
       } else {
+        console.log('[Repository] Creating new viewer record');
         await db.insert(wikiPageViewers).values({
           repoOwner: owner,
           repoName: repo,
@@ -237,6 +241,9 @@ export async function incrementViewCount(
           viewCount: 1,
         });
       }
+      console.log('[Repository] Viewer tracking completed successfully');
+    } else {
+      console.log('[Repository] Skipping viewer tracking - no userId or username provided');
     }
 
     return true;

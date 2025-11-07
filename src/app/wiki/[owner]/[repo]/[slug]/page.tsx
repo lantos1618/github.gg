@@ -110,7 +110,7 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
   }
 
   // Increment view count (server action)
-  incrementViewCount({ owner, repo, slug, version: page.version });
+  await incrementViewCount({ owner, repo, slug, version: page.version });
 
   // Map TOC pages to the format expected by the sidebar
   const wikiPages = toc.pages.map(p => ({ slug: p.slug, title: p.title }));

@@ -38,13 +38,21 @@ export async function incrementViewCount({
         });
 
         username = userRecord?.githubUsername ?? undefined;
+
+        if (!username) {
+          console.warn('[View Tracking] User is logged in but githubUsername is missing:', {
+            userId: session.user.id,
+            email: session.user.email,
+          });
+        }
       }
-    } catch {
+    } catch (authError) {
       // User not logged in, continue without tracking
+      console.debug('[View Tracking] No authenticated user found');
     }
 
     const caller = await createCaller();
-    await caller.wiki.incrementViewCount({
+    const result = await caller.wiki.incrementViewCount({
       owner,
       repo,
       slug,
@@ -52,8 +60,18 @@ export async function incrementViewCount({
       userId,
       username,
     });
+
+    if (userId && username) {
+      console.log('[View Tracking] Tracked view for user:', {
+        username,
+        owner,
+        repo,
+        slug,
+        success: result.success,
+      });
+    }
   } catch (error) {
-    console.error('Failed to increment view count:', error);
+    console.error('[View Tracking] Failed to increment view count:', error);
     // Don't throw - view counting is non-critical
   }
 }

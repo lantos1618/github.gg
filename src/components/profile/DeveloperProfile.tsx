@@ -96,7 +96,8 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   );
 
   // More robust check for showing challenge button (case-insensitive)
-  const shouldShowChallengeButton = !!currentUser?.user?.githubUsername && currentUser.user.githubUsername.toLowerCase() !== username.toLowerCase();
+  // Show if logged in and not viewing own profile (check username on click for safety)
+  const shouldShowChallengeButton = !!currentUser && !isOwnProfile;
 
   const { data: emailData, isLoading: emailLoading } = trpc.profile.getDeveloperEmail.useQuery(
     { username },

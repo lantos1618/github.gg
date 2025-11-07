@@ -95,17 +95,6 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     { enabled: isOwnProfile && !!currentUser }
   );
 
-  // Debug logging
-  console.log('🔍 Debug:', {
-    isOwnProfile,
-    username,
-    githubUsername: currentUser?.user?.githubUsername,
-    currentPlan: currentPlan?.plan,
-    userRepos: userRepos?.length,
-    reposLoading,
-    reposError
-  });
-
   // More robust check for showing challenge button (case-insensitive)
   const shouldShowChallengeButton = !!currentUser?.user?.githubUsername && currentUser.user.githubUsername.toLowerCase() !== username.toLowerCase();
 

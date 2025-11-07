@@ -32,15 +32,6 @@ export const auth = betterAuth({
     },
   },
   databaseHooks: {
-    user: {
-      create: {
-        async before(user) {
-          // Extract githubUsername from the OAuth profile during user creation
-          console.log('[Auth] Creating user, profile data:', user);
-          return user;
-        },
-      },
-    },
     session: {
       create: {
         async after(session) {

@@ -10,7 +10,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { StatCard } from '@/components/ui/stat-card';
-import { LoadingPage, EmptyState } from '@/components/ui/loading-spinner';
+import { LoadingPage } from '@/components/ui/loading-spinner';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   Server,
   Cpu,

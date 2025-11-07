@@ -41,7 +41,7 @@ export function NavbarServer() {
             href="/arena"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
           >
-            🏟️ Dev Arena
+            🏆 Dev Rank
           </Link>
         </div>
 

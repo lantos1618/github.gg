@@ -58,7 +58,7 @@ export function ArenaClientView() {
         <div className="flex items-center justify-center gap-3">
           <Trophy className="h-10 w-10 text-yellow-500" />
           <h1 className="text-5xl font-bold text-gray-900">
-            DEV ARENA
+            DEV RANK
           </h1>
           <Trophy className="h-10 w-10 text-yellow-500" />
         </div>

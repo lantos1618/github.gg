@@ -32,7 +32,7 @@
 - **Score History**: Track repository and developer metrics over time
 - **GitHub App Integration**: Automated PR reviews and issue analysis via webhooks
 
-#### 🏟️ **Dev Arena** (Coming Soon)
+#### 🏆 **Dev Rank** (Coming Soon)
 - **ELO Rankings**: Competitive developer rankings based on GitHub activity
 - **Code Battles**: Challenge other developers and showcase your skills
 - **Tournaments**: Participate in coding competitions
@@ -284,7 +284,7 @@ bun run db:push
 - [x] Score history tracking
 - [x] GitHub App integration
 - [x] Webhook support for automated reviews
-- [ ] Dev Arena ELO rankings
+- [ ] Dev Rank ELO rankings
 - [ ] Code battles and tournaments
 - [ ] Team analytics
 - [ ] VS Code extension

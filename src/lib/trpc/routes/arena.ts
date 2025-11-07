@@ -98,7 +98,7 @@ export const arenaRouter = router({
       if (!subscription || subscription.status !== 'active') {
         throw new TRPCError({
           code: 'FORBIDDEN',
-          message: 'Active subscription required for Dev Arena battles'
+          message: 'Active subscription required for Dev Rank battles'
         });
       }
 

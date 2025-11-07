@@ -11,7 +11,7 @@ PLEASE REVIEW THE DATA STRUCTURES FOR DB I THINK WE MADE A MISTAKE ( REVIEW IF I
 ## ✅ Completed Tasks (2025-10-08)
 
 ### Issues Fixed:
-1. **Dev Arena**: Fixed opponent parameter handling in arena routing - users can now challenge others via URL parameter
+1. **Dev Rank**: Fixed opponent parameter handling in arena routing - users can now challenge others via URL parameter
 2. **User Versioning**: Fixed versioning query for user profiles - properly handles `null` vs `undefined` version selection
 3. **Score History Graphs**: Added recharts-based score history visualization component showing ELO rating changes over time
 4. **Database Schema**: Added `userScoreHistory` and `repoScoreHistory` tables for tracking scores over time

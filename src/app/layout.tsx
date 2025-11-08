@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { TRPCProvider } from "@/lib/trpc/provider";
 import { NavbarServer } from "@/components/NavbarServer";
-import { Footer } from "@/components/Footer";
+import { ConditionalFooter } from "@/components/ConditionalFooter";
 import { Toaster } from 'sonner'
 import { PostHogProvider } from './providers'
 import { Analytics } from "@vercel/analytics/next";
@@ -65,7 +65,7 @@ export default function RootLayout({
               </div>
             )}
             <main className="pt-14">{children}</main>
-            <Footer />
+            <ConditionalFooter />
             <Toaster
               position="bottom-right"
               richColors

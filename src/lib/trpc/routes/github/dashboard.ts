@@ -111,13 +111,41 @@ export const dashboardRouter = router({
           });
           console.log(`✅ Successfully fetched ${notifications.data.length} notifications`);
 
-        const activities = notifications.data.map(notification => {
+        const activities = await Promise.all(notifications.data.map(async (notification) => {
           const repo = notification.repository.full_name;
           const subject = notification.subject;
 
           // Extract issue/PR number from URL if present
           const urlMatch = subject.url?.match(/\/(?:issues|pulls)\/(\d+)$/);
           const issueNumber = urlMatch ? parseInt(urlMatch[1], 10) : 0;
+
+          // Fetch comment count if we have an issue/PR number
+          let comments = 0;
+          if (issueNumber > 0 && subject.url) {
+            try {
+              // Extract owner/repo from repository
+              const [owner, repoName] = repo.split('/');
+              
+              if (subject.type === 'PullRequest') {
+                const pr = await githubService.octokit.pulls.get({
+                  owner,
+                  repo: repoName,
+                  pull_number: issueNumber,
+                });
+                comments = pr.data.comments || 0;
+              } else if (subject.type === 'Issue') {
+                const issue = await githubService.octokit.issues.get({
+                  owner,
+                  repo: repoName,
+                  issue_number: issueNumber,
+                });
+                comments = issue.data.comments || 0;
+              }
+            } catch (error) {
+              // Silently fail - comments will remain 0
+              console.log(`Could not fetch comments for ${repo}#${issueNumber}:`, error);
+            }
+          }
 
           // Determine status and statusText based on subject type and reason
           let status = 'notification';
@@ -167,11 +195,76 @@ export const dashboardRouter = router({
             url: subject.url?.replace('api.github.com/repos', 'github.com').replace(/\/pulls\//, '/pull/') || notification.repository.html_url,
             unread: notification.unread,
             priority,
+            comments,
           };
-        });
+        }));
+
+        // Fetch recent comments on issues/PRs the user is involved in
+        let commentActivities: any[] = [];
+        try {
+          // Get user's login
+          const { data: user } = await githubService.octokit.users.getAuthenticated();
+          const userLogin = user.login;
+
+          // Fetch user's issues/PRs to get comments on them
+          const userItems = await githubService.octokit.issues.listForAuthenticatedUser({
+            filter: 'all',
+            state: 'all',
+            sort: 'updated',
+            direction: 'desc',
+            per_page: 20, // Limit to avoid too many API calls
+          });
+
+          // Fetch comments for each issue/PR
+          const commentPromises = userItems.data.slice(0, 10).map(async (item) => {
+            try {
+              const [owner, repoName] = item.repository_url.split('/').slice(-2);
+              const comments = await githubService.octokit.issues.listComments({
+                owner,
+                repo: repoName,
+                issue_number: item.number,
+                per_page: 5, // Get most recent 5 comments
+                sort: 'updated',
+                direction: 'desc',
+              });
+
+              return comments.data
+                .filter(comment => comment.user?.login !== userLogin) // Only comments by others
+                .slice(0, 3) // Limit to 3 most recent
+                .map(comment => ({
+                  id: `comment-${comment.id}`,
+                  repo: `${owner}/${repoName}`,
+                  issueNumber: item.number,
+                  title: item.title,
+                  timeAgo: new Date(comment.updated_at || comment.created_at).toISOString(),
+                  status: item.pull_request ? 'pr' : 'issue',
+                  statusText: 'commented',
+                  url: comment.html_url,
+                  unread: false,
+                  priority: 2,
+                  comments: 0,
+                  commentBody: comment.body,
+                  commentAuthor: comment.user?.login || 'unknown',
+                  commentAuthorAvatar: comment.user?.avatar_url,
+                  isComment: true,
+                }));
+            } catch (error) {
+              console.log(`Could not fetch comments for ${item.repository_url.split('/').slice(-2).join('/')}#${item.number}:`, error);
+              return [];
+            }
+          });
+
+          const commentArrays = await Promise.all(commentPromises);
+          commentActivities = commentArrays.flat();
+        } catch (error) {
+          console.log('Could not fetch comments:', error);
+        }
+
+        // Combine notifications and comments
+        const allActivities = [...activities, ...commentActivities];
 
         // Sort by unread first, then priority, then time
-        const sorted = activities.sort((a, b) => {
+        const sorted = allActivities.sort((a, b) => {
           if (a.unread !== b.unread) {
             return a.unread ? -1 : 1; // Unread first
           }
@@ -181,9 +274,12 @@ export const dashboardRouter = router({
           return new Date(b.timeAgo).getTime() - new Date(a.timeAgo).getTime();
         });
 
-        console.log(`📊 Activity feed: ${sorted.length} notifications (${sorted.filter(a => a.unread).length} unread)`);
+        // Limit to requested number
+        const limited = sorted.slice(0, input.limit);
 
-          return sorted;
+        console.log(`📊 Activity feed: ${limited.length} items (${limited.filter(a => a.unread).length} unread, ${limited.filter(a => a.isComment).length} comments)`);
+
+          return limited;
         } catch (notificationError: any) {
           // Fallback if notifications scope is not granted
           console.log('⚠️ Notifications API failed (missing scope?), falling back to direct PR/issue fetch');
@@ -213,6 +309,7 @@ export const dashboardRouter = router({
                   url: item.html_url,
                   unread: false,
                   priority: 2,
+                  comments: item.comments,
                 });
               } else {
                 activities.push({
@@ -226,6 +323,7 @@ export const dashboardRouter = router({
                   url: item.html_url,
                   unread: false,
                   priority: 1,
+                  comments: item.comments,
                 });
               }
             });

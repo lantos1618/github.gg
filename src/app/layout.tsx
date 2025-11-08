@@ -42,9 +42,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="h-full">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
       >
         <PostHogProvider>
           <TRPCProvider>
@@ -67,7 +67,7 @@ export default function RootLayout({
                 DEV
               </div>
             )}
-            <main className="pt-14">{children}</main>
+            <main className="pt-14 flex-1 min-h-[calc(100vh-3.5rem)]">{children}</main>
             <ConditionalFooter />
             <Toaster
               position="bottom-right"

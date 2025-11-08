@@ -7,9 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/api/', '/admin/'],
     },
-    sitemap: [
-      'https://github.gg/sitemap.xml',
-      'https://github.gg/wiki-sitemap.xml',
-    ],
+    sitemap: 'https://github.gg/sitemap.xml', // Sitemap index that references all sitemaps
   };
 }

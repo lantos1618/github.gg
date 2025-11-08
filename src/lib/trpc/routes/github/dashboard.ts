@@ -97,6 +97,7 @@ export const dashboardRouter = router({
   getUserActivity: protectedProcedure
     .input(z.object({
       limit: z.number().min(1).max(50).default(20),
+      offset: z.number().min(0).default(0).optional(),
     }))
     .query(async ({ input, ctx }) => {
       try {

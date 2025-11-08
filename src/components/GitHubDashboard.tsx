@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Home, Radio, Search, ChevronDown, MessageSquare, GitPullRequest, CircleDot, Filter, Menu, X } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
@@ -17,10 +17,42 @@ export const GitHubDashboard = () => {
   const [showLeftSidebar, setShowLeftSidebar] = useState(false);
   const [showRightSidebar, setShowRightSidebar] = useState(false);
   const [reposExpanded, setReposExpanded] = useState(true);
+  const [activitiesLimit, setActivitiesLimit] = useState(10);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const loadMoreMobileRef = useRef<HTMLDivElement>(null);
 
   const { data: pullRequests, isLoading: prsLoading } = trpc.github.getUserPullRequests.useQuery({ limit: 10 });
   const { data: issues, isLoading: issuesLoading } = trpc.github.getUserIssues.useQuery({ limit: 10 });
-  const { data: activities, isLoading: activitiesLoading } = trpc.github.getUserActivity.useQuery({ limit: 10 });
+  
+  // Fetch activities - start with 10, load more as user scrolls
+  const { data: activities, isLoading: activitiesLoading } = trpc.github.getUserActivity.useQuery({ 
+    limit: activitiesLimit 
+  });
+
+  // Infinite scroll: detect when user scrolls to bottom
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !activitiesLoading && activities && activities.length === activitiesLimit) {
+          // Only load more if we got the full limit (means there might be more)
+          setActivitiesLimit(prev => Math.min(prev + 10, 50)); // Cap at 50 (API max)
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentRef = loadMoreRef.current;
+    const currentMobileRef = loadMoreMobileRef.current;
+
+    if (currentRef) observer.observe(currentRef);
+    if (currentMobileRef) observer.observe(currentMobileRef);
+
+    return () => {
+      if (currentRef) observer.unobserve(currentRef);
+      if (currentMobileRef) observer.unobserve(currentMobileRef);
+    };
+  }, [activitiesLoading, activities, activitiesLimit]);
+
   const { data: repositoriesRaw, isLoading: reposLoading } = trpc.github.getUserRepositories.useQuery({ limit: 100 });
 
   // Filter and sort repositories
@@ -143,9 +175,6 @@ export const GitHubDashboard = () => {
                 <X className="w-5 h-5" />
               </button>
               <h2 className="text-sm font-semibold text-gray-900 flex-1">Recent activity</h2>
-              {!activitiesLoading && (
-                <span className="text-xs text-gray-500">{activities?.length || 0} items</span>
-              )}
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-4 md:p-6">
@@ -157,78 +186,90 @@ export const GitHubDashboard = () => {
                   ))}
                 </>
               ) : activities && activities.length > 0 ? (
-                activities.map(activity => (
-                  <div
-                    key={activity.id}
-                    className={`text-sm p-2 rounded-lg ${
-                      activity.unread ? 'bg-blue-50 border border-blue-200' : ''
-                    } ${activity.isComment ? 'bg-gray-50 border border-gray-200' : ''}`}
-                  >
-                    <div className="flex items-start gap-2">
-                      {activity.isComment && activity.commentAuthorAvatar && (
-                        <img
-                          src={activity.commentAuthorAvatar}
-                          alt={activity.commentAuthor}
-                          className="w-6 h-6 rounded-full flex-shrink-0 mt-0.5"
-                        />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <div className="text-xs text-gray-600">
-                            <span className="font-medium text-gray-900">{activity.repo}</span>
-                            {activity.issueNumber > 0 && (
-                              <span className="mx-1">#{activity.issueNumber}</span>
+                <>
+                  {activities.map(activity => (
+                    <div
+                      key={activity.id}
+                      className={`text-sm p-2 rounded-lg ${
+                        activity.unread ? 'bg-blue-50 border border-blue-200' : ''
+                      } ${activity.isComment ? 'bg-gray-50 border border-gray-200' : ''}`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {activity.isComment && activity.commentAuthorAvatar && (
+                          <img
+                            src={activity.commentAuthorAvatar}
+                            alt={activity.commentAuthor}
+                            className="w-6 h-6 rounded-full flex-shrink-0 mt-0.5"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="text-xs text-gray-600">
+                              <span className="font-medium text-gray-900">{activity.repo}</span>
+                              {activity.issueNumber > 0 && (
+                                <span className="mx-1">#{activity.issueNumber}</span>
+                              )}
+                            </div>
+                            {activity.unread && (
+                              <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0" />
                             )}
                           </div>
-                          {activity.unread && (
-                            <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0" />
+                          <a
+                            href={activity.url || `https://github.com/${activity.repo}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-gray-900 hover:text-blue-600 line-clamp-2 font-medium"
+                          >
+                            {activity.title}
+                          </a>
+                          {activity.isComment && activity.commentBody && (
+                            <div className="mt-2 p-2 bg-white border border-gray-200 rounded-md">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-medium text-gray-900">{activity.commentAuthor}</span>
+                                <span className="text-xs text-gray-500">commented</span>
+                              </div>
+                              <div className="text-xs text-gray-700 line-clamp-3 whitespace-pre-wrap">
+                                {activity.commentBody.replace(/```[\s\S]*?```/g, '[code block]').replace(/`[^`]+`/g, '[code]')}
+                              </div>
+                            </div>
                           )}
-                        </div>
-                        <a
-                          href={activity.url || `https://github.com/${activity.repo}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-gray-900 hover:text-blue-600 line-clamp-2 font-medium"
-                        >
-                          {activity.title}
-                        </a>
-                        {activity.isComment && activity.commentBody && (
-                          <div className="mt-2 p-2 bg-white border border-gray-200 rounded-md">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-medium text-gray-900">{activity.commentAuthor}</span>
-                              <span className="text-xs text-gray-500">commented</span>
-                            </div>
-                            <div className="text-xs text-gray-700 line-clamp-3 whitespace-pre-wrap">
-                              {activity.commentBody.replace(/```[\s\S]*?```/g, '[code block]').replace(/`[^`]+`/g, '[code]')}
-                            </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-gray-600 capitalize">{activity.statusText}</span>
+                            {activity.status === 'review_requested' && (
+                              <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">
+                                Action needed
+                              </span>
+                            )}
+                            {activity.status === 'mention' && (
+                              <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium">
+                                Mentioned
+                              </span>
+                            )}
+                            {!activity.isComment && activity.comments > 0 && (
+                              <div className="flex items-center gap-1 text-xs text-gray-600">
+                                <MessageSquare className="w-3.5 h-3.5" />
+                                <span>{activity.comments}</span>
+                              </div>
+                            )}
                           </div>
-                        )}
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs text-gray-600 capitalize">{activity.statusText}</span>
-                          {activity.status === 'review_requested' && (
-                            <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">
-                              Action needed
-                            </span>
-                          )}
-                          {activity.status === 'mention' && (
-                            <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium">
-                              Mentioned
-                            </span>
-                          )}
-                          {!activity.isComment && activity.comments > 0 && (
-                            <div className="flex items-center gap-1 text-xs text-gray-600">
-                              <MessageSquare className="w-3.5 h-3.5" />
-                              <span>{activity.comments}</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {formatTimeAgo(activity.timeAgo)}
+                          <div className="text-xs text-gray-500 mt-1">
+                            {formatTimeAgo(activity.timeAgo)}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+                  {/* Load more trigger */}
+                  {activities.length === activitiesLimit && activitiesLimit < 50 && (
+                    <div ref={loadMoreMobileRef} className="py-4 text-center">
+                      {activitiesLoading ? (
+                        <Skeleton className="h-20 w-full" />
+                      ) : (
+                        <div className="text-xs text-gray-400">Scroll for more...</div>
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="text-center py-8">
                   <div className="text-sm text-gray-500 mb-2">
@@ -456,9 +497,6 @@ export const GitHubDashboard = () => {
           <div className="sticky top-0 bg-white border-b border-gray-200 p-4 md:p-6 z-10">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900 flex-1">Recent activity</h2>
-              {!activitiesLoading && (
-                <span className="text-xs text-gray-500">{activities?.length || 0} items</span>
-              )}
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-4 md:p-6">
@@ -470,78 +508,90 @@ export const GitHubDashboard = () => {
                   ))}
                 </>
               ) : activities && activities.length > 0 ? (
-                activities.map(activity => (
-                  <div
-                    key={activity.id}
-                    className={`text-sm p-2 rounded-lg ${
-                      activity.unread ? 'bg-blue-50 border border-blue-200' : ''
-                    } ${activity.isComment ? 'bg-gray-50 border border-gray-200' : ''}`}
-                  >
-                    <div className="flex items-start gap-2">
-                      {activity.isComment && activity.commentAuthorAvatar && (
-                        <img
-                          src={activity.commentAuthorAvatar}
-                          alt={activity.commentAuthor}
-                          className="w-6 h-6 rounded-full flex-shrink-0 mt-0.5"
-                        />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <div className="text-xs text-gray-600">
-                            <span className="font-medium text-gray-900">{activity.repo}</span>
-                            {activity.issueNumber > 0 && (
-                              <span className="mx-1">#{activity.issueNumber}</span>
+                <>
+                  {activities.map(activity => (
+                    <div
+                      key={activity.id}
+                      className={`text-sm p-2 rounded-lg ${
+                        activity.unread ? 'bg-blue-50 border border-blue-200' : ''
+                      } ${activity.isComment ? 'bg-gray-50 border border-gray-200' : ''}`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {activity.isComment && activity.commentAuthorAvatar && (
+                          <img
+                            src={activity.commentAuthorAvatar}
+                            alt={activity.commentAuthor}
+                            className="w-6 h-6 rounded-full flex-shrink-0 mt-0.5"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="text-xs text-gray-600">
+                              <span className="font-medium text-gray-900">{activity.repo}</span>
+                              {activity.issueNumber > 0 && (
+                                <span className="mx-1">#{activity.issueNumber}</span>
+                              )}
+                            </div>
+                            {activity.unread && (
+                              <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0" />
                             )}
                           </div>
-                          {activity.unread && (
-                            <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0" />
+                          <a
+                            href={activity.url || `https://github.com/${activity.repo}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-gray-900 hover:text-blue-600 line-clamp-2 font-medium"
+                          >
+                            {activity.title}
+                          </a>
+                          {activity.isComment && activity.commentBody && (
+                            <div className="mt-2 p-2 bg-white border border-gray-200 rounded-md">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-medium text-gray-900">{activity.commentAuthor}</span>
+                                <span className="text-xs text-gray-500">commented</span>
+                              </div>
+                              <div className="text-xs text-gray-700 line-clamp-3 whitespace-pre-wrap">
+                                {activity.commentBody.replace(/```[\s\S]*?```/g, '[code block]').replace(/`[^`]+`/g, '[code]')}
+                              </div>
+                            </div>
                           )}
-                        </div>
-                        <a
-                          href={activity.url || `https://github.com/${activity.repo}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-gray-900 hover:text-blue-600 line-clamp-2 font-medium"
-                        >
-                          {activity.title}
-                        </a>
-                        {activity.isComment && activity.commentBody && (
-                          <div className="mt-2 p-2 bg-white border border-gray-200 rounded-md">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-medium text-gray-900">{activity.commentAuthor}</span>
-                              <span className="text-xs text-gray-500">commented</span>
-                            </div>
-                            <div className="text-xs text-gray-700 line-clamp-3 whitespace-pre-wrap">
-                              {activity.commentBody.replace(/```[\s\S]*?```/g, '[code block]').replace(/`[^`]+`/g, '[code]')}
-                            </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-gray-600 capitalize">{activity.statusText}</span>
+                            {activity.status === 'review_requested' && (
+                              <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">
+                                Action needed
+                              </span>
+                            )}
+                            {activity.status === 'mention' && (
+                              <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium">
+                                Mentioned
+                              </span>
+                            )}
+                            {!activity.isComment && activity.comments > 0 && (
+                              <div className="flex items-center gap-1 text-xs text-gray-600">
+                                <MessageSquare className="w-3.5 h-3.5" />
+                                <span>{activity.comments}</span>
+                              </div>
+                            )}
                           </div>
-                        )}
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs text-gray-600 capitalize">{activity.statusText}</span>
-                          {activity.status === 'review_requested' && (
-                            <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">
-                              Action needed
-                            </span>
-                          )}
-                          {activity.status === 'mention' && (
-                            <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium">
-                              Mentioned
-                            </span>
-                          )}
-                          {!activity.isComment && activity.comments > 0 && (
-                            <div className="flex items-center gap-1 text-xs text-gray-600">
-                              <MessageSquare className="w-3.5 h-3.5" />
-                              <span>{activity.comments}</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {formatTimeAgo(activity.timeAgo)}
+                          <div className="text-xs text-gray-500 mt-1">
+                            {formatTimeAgo(activity.timeAgo)}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+                  {/* Load more trigger */}
+                  {activities.length === activitiesLimit && activitiesLimit < 50 && (
+                    <div ref={loadMoreRef} className="py-4 text-center">
+                      {activitiesLoading ? (
+                        <Skeleton className="h-20 w-full" />
+                      ) : (
+                        <div className="text-xs text-gray-400">Scroll for more...</div>
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="text-center py-8">
                   <div className="text-sm text-gray-500 mb-2">

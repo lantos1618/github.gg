@@ -5,6 +5,7 @@ import { RepoSidebar } from '@/components/RepoSidebar';
 import { RepoHeader } from '@/components/RepoHeader';
 import { useRouter } from 'next/navigation';
 import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext';
+import { Footer } from '@/components/Footer';
 
 interface WikiPage {
   slug: string;
@@ -37,24 +38,26 @@ function RepoSidebarLayoutInner({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex h-[calc(100vh-3.5rem)] bg-gray-50">
       {/* Optional Header */}
       {showHeader && (
-        <RepoHeader
-          user={owner}
-          repo={repo}
-          refName={refName}
-          onBranchChange={handleBranchChange}
-          onCopyAll={() => {}}
-          onDownloadAll={() => {}}
-          isCopying={false}
-          copied={false}
-          fileCount={0}
-        />
+        <div className={`fixed top-14 left-0 right-0 z-30 transition-all duration-300 ${isExpanded ? 'lg:left-64' : 'lg:left-16'}`}>
+          <RepoHeader
+            user={owner}
+            repo={repo}
+            refName={refName}
+            onBranchChange={handleBranchChange}
+            onCopyAll={() => {}}
+            onDownloadAll={() => {}}
+            isCopying={false}
+            copied={false}
+            fileCount={0}
+          />
+        </div>
       )}
 
       {/* Main Layout with Sidebar */}
-      <div className="flex">
+      <div className="flex flex-1 min-w-0">
         <RepoSidebar
           owner={owner}
           repo={repo}
@@ -62,8 +65,11 @@ function RepoSidebarLayoutInner({
         />
 
         {/* Main Content */}
-        <main className={`flex-1 min-h-screen transition-all duration-300 ${isExpanded ? 'lg:ml-64' : 'lg:ml-16'}`}>
-          {children}
+        <main className={`flex-1 flex flex-col overflow-y-auto transition-all duration-300 ${isExpanded ? 'lg:ml-64' : 'lg:ml-16'} ${showHeader ? 'pt-32' : ''}`}>
+          <div className="flex-1">
+            {children}
+          </div>
+          <Footer />
         </main>
       </div>
     </div>

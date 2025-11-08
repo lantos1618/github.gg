@@ -6,6 +6,7 @@ import { trpc } from '@/lib/trpc/client';
 import type { RepoFile } from '@/types/repo';
 import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext';
 import { SelectedFilesProvider } from '@/contexts/SelectedFilesContext';
+import { Footer } from '@/components/Footer';
 
 interface RepoPageLayoutProps {
   user: string;
@@ -37,18 +38,21 @@ function RepoPageLayoutContent({
   const wikiPages = wikiToc?.pages.map(p => ({ slug: p.slug, title: p.title })) || [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex h-[calc(100vh-3.5rem)] bg-gray-50">
       <RepoSidebar
         owner={user}
         repo={repo}
         wikiPages={wikiPages}
       />
 
-      <div className={`min-h-screen transition-all duration-300 ${isExpanded ? 'lg:ml-64' : 'lg:ml-16'}`}>
+      <main className={`flex-1 flex flex-col overflow-y-auto transition-all duration-300 ${isExpanded ? 'lg:ml-64' : 'lg:ml-16'}`}>
         <SelectedFilesProvider files={files}>
-          {children}
+          <div className="flex-1">
+            {children}
+          </div>
+          <Footer />
         </SelectedFilesProvider>
-      </div>
+      </main>
     </div>
   );
 }

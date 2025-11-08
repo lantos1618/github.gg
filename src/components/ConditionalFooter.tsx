@@ -9,7 +9,10 @@ export function ConditionalFooter() {
   // Hide footer on home page (dashboard has its own footer)
   const isHomePage = pathname === '/';
   
-  if (isHomePage) {
+  // Hide footer on repo pages (they have footer inside content area)
+  const isRepoPage = pathname.match(/^\/[^/]+\/[^/]+/);
+  
+  if (isHomePage || isRepoPage) {
     return null;
   }
   

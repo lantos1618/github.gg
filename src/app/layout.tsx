@@ -31,6 +31,9 @@ export const metadata: Metadata = {
     apple: '/favicon/apple-touch-icon.png',
   },
   manifest: '/favicon/site.webmanifest',
+  other: {
+    'msvalidate.01': '5D13814D95915D6874F1138BE444F2ED',
+  },
 };
 
 export default function RootLayout({

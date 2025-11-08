@@ -97,7 +97,7 @@ export const dashboardRouter = router({
   getUserActivity: protectedProcedure
     .input(z.object({
       limit: z.number().min(1).max(50).default(20),
-      offset: z.number().min(0).default(0).optional(),
+      page: z.number().min(1).default(1).optional(),
     }))
     .query(async ({ input, ctx }) => {
       try {
@@ -109,6 +109,7 @@ export const dashboardRouter = router({
           const notifications = await githubService.octokit.activity.listNotificationsForAuthenticatedUser({
             all: true,
             per_page: input.limit,
+            page: input.page || 1,
           });
           console.log(`✅ Successfully fetched ${notifications.data.length} notifications`);
 

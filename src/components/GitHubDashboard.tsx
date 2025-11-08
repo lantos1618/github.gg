@@ -17,25 +17,42 @@ export const GitHubDashboard = () => {
   const [showLeftSidebar, setShowLeftSidebar] = useState(false);
   const [showRightSidebar, setShowRightSidebar] = useState(false);
   const [reposExpanded, setReposExpanded] = useState(true);
-  const [activitiesLimit, setActivitiesLimit] = useState(10);
+  const [activitiesPage, setActivitiesPage] = useState(1);
+  const [loadedActivities, setLoadedActivities] = useState<any[]>([]);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const loadMoreMobileRef = useRef<HTMLDivElement>(null);
+  const pageSize = 10;
 
   const { data: pullRequests, isLoading: prsLoading } = trpc.github.getUserPullRequests.useQuery({ limit: 10 });
   const { data: issues, isLoading: issuesLoading } = trpc.github.getUserIssues.useQuery({ limit: 10 });
   
-  // Fetch activities - start with 10, load more as user scrolls
-  const { data: activities, isLoading: activitiesLoading } = trpc.github.getUserActivity.useQuery({ 
-    limit: activitiesLimit 
+  // Fetch current page of activities
+  const { data: currentPageActivities, isLoading: activitiesLoading } = trpc.github.getUserActivity.useQuery({ 
+    limit: pageSize, 
+    page: activitiesPage 
   });
+
+  // Combine loaded activities when new page loads
+  useEffect(() => {
+    if (currentPageActivities && currentPageActivities.length > 0) {
+      setLoadedActivities(prev => {
+        // Deduplicate by id
+        const seen = new Set(prev.map(a => a.id));
+        const newActivities = currentPageActivities.filter(a => !seen.has(a.id));
+        return [...prev, ...newActivities];
+      });
+    }
+  }, [currentPageActivities]);
+
+  const activities = loadedActivities;
 
   // Infinite scroll: detect when user scrolls to bottom
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting && !activitiesLoading && activities && activities.length === activitiesLimit) {
-          // Only load more if we got the full limit (means there might be more)
-          setActivitiesLimit(prev => Math.min(prev + 10, 50)); // Cap at 50 (API max)
+        if (entries[0]?.isIntersecting && !activitiesLoading && currentPageActivities && currentPageActivities.length === pageSize) {
+          // Load next page if current page was full (max 5 pages = 50 items)
+          setActivitiesPage(prev => Math.min(prev + 1, 5));
         }
       },
       { threshold: 0.1 }
@@ -51,7 +68,7 @@ export const GitHubDashboard = () => {
       if (currentRef) observer.unobserve(currentRef);
       if (currentMobileRef) observer.unobserve(currentMobileRef);
     };
-  }, [activitiesLoading, activities, activitiesLimit]);
+  }, [activitiesLoading, currentPageActivities, pageSize]);
 
   const { data: repositoriesRaw, isLoading: reposLoading } = trpc.github.getUserRepositories.useQuery({ limit: 100 });
 
@@ -260,7 +277,7 @@ export const GitHubDashboard = () => {
                     </div>
                   ))}
                   {/* Load more trigger */}
-                  {activities.length === activitiesLimit && activitiesLimit < 50 && (
+                  {currentPageActivities && currentPageActivities.length === pageSize && activitiesPage < 5 && (
                     <div ref={loadMoreMobileRef} className="py-4 text-center">
                       {activitiesLoading ? (
                         <Skeleton className="h-20 w-full" />
@@ -582,7 +599,7 @@ export const GitHubDashboard = () => {
                     </div>
                   ))}
                   {/* Load more trigger */}
-                  {activities.length === activitiesLimit && activitiesLimit < 50 && (
+                  {currentPageActivities && currentPageActivities.length === pageSize && activitiesPage < 5 && (
                     <div ref={loadMoreRef} className="py-4 text-center">
                       {activitiesLoading ? (
                         <Skeleton className="h-20 w-full" />

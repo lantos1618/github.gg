@@ -1,8 +1,7 @@
 'use client';
 
-import { HeroSection, FeaturesTimeline } from '@/components/home';
+import { HeroSection } from '@/components/home';
 import { GitHubDashboard } from '@/components/GitHubDashboard';
-import { features } from '@/data/features';
 import { useAuth } from '@/lib/auth/client';
 
 export default function Home() {
@@ -25,7 +24,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       <HeroSection />
-      <FeaturesTimeline features={features} />
     </div>
   );
 }

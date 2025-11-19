@@ -126,13 +126,13 @@ const FileItem = memo(function FileItem({ file, fileIndex, copiedFile, onCopy, o
       ref={containerRef}
       key={file.path}
       id={`file-${file.path}`}
-      className={fileIndex > 0 ? 'border-t-4 border-gray-300' : ''}
+      className={fileIndex > 0 ? 'border-t border-gray-200 mt-8' : ''}
       style={{ contentVisibility: 'auto', minHeight: isInView ? 'auto' : '400px' }}
     >
       {/* File Header with Breadcrumb */}
-      <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100/50 sticky top-14 z-10">
+      <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100/50 sticky top-14 z-10">
         {/* Breadcrumb Navigation */}
-        <nav className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 overflow-x-auto scrollbar-hide">
+        <nav className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm text-gray-600 mb-3 overflow-x-auto scrollbar-hide">
           {breadcrumbs.map((crumb) => (
             <div key={crumb.path} className="flex items-center flex-shrink-0">
               <span className={`whitespace-nowrap ${crumb.isLast ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
@@ -144,7 +144,7 @@ const FileItem = memo(function FileItem({ file, fileIndex, copiedFile, onCopy, o
         </nav>
 
         {/* File Info & Actions */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-center space-x-3 sm:space-x-4 text-xs sm:text-sm text-gray-500">
             <span>{formatFileSize(file.size)}</span>
             <span>{lines.length} lines</span>

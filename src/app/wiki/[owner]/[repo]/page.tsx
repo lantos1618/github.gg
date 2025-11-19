@@ -87,9 +87,11 @@ export default async function WikiIndex({ params, searchParams }: WikiIndexProps
     console.error('Failed to check repository permissions:', error);
   }
 
+  const wikiPages = toc?.pages.map(p => ({ slug: p.slug, title: p.title })) || [];
+
   if (!toc || toc.pages.length === 0) {
     return (
-      <RepoPageLayout user={owner} repo={repo} branches={branches} defaultBranch={defaultBranch}>
+      <RepoPageLayout user={owner} repo={repo} branches={branches} defaultBranch={defaultBranch} wikiPages={wikiPages}>
         <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
           <Card>
             <CardHeader>
@@ -117,7 +119,7 @@ export default async function WikiIndex({ params, searchParams }: WikiIndexProps
   }
 
   return (
-    <RepoPageLayout user={owner} repo={repo} branches={branches} defaultBranch={defaultBranch}>
+    <RepoPageLayout user={owner} repo={repo} branches={branches} defaultBranch={defaultBranch} wikiPages={wikiPages}>
       <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
         <Card>
           <CardHeader>

@@ -8,6 +8,11 @@ import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext';
 import { SelectedFilesProvider } from '@/contexts/SelectedFilesContext';
 import { Footer } from '@/components/Footer';
 
+interface WikiPage {
+  slug: string;
+  title: string;
+}
+
 interface RepoPageLayoutProps {
   user: string;
   repo: string;
@@ -22,6 +27,7 @@ interface RepoPageLayoutProps {
   };
   branches?: string[];
   defaultBranch?: string;
+  wikiPages?: WikiPage[];
 }
 
 function RepoPageLayoutContent({
@@ -31,15 +37,16 @@ function RepoPageLayoutContent({
   children,
   branches = [],
   defaultBranch = 'main',
+  wikiPages: serverWikiPages = [],
 }: RepoPageLayoutProps) {
   const { isExpanded } = useSidebar();
 
-  // Fetch wiki pages for sidebar
+  // Use server-provided wiki pages, or fetch client-side if not provided
   const { data: wikiToc } = trpc.wiki.getWikiTableOfContents.useQuery(
     { owner: user, repo },
-    { enabled: !!user && !!repo }
+    { enabled: !!user && !!repo && serverWikiPages.length === 0 }
   );
-  const wikiPages = wikiToc?.pages.map(p => ({ slug: p.slug, title: p.title })) || [];
+  const wikiPages = serverWikiPages.length > 0 ? serverWikiPages : (wikiToc?.pages.map(p => ({ slug: p.slug, title: p.title })) || []);
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] bg-gray-50">

@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 
 export async function GET(request: Request) {
+  // Only allow debug endpoint in development
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  }
+
   try {
     // Get Better Auth session
     const session = await auth.api.getSession(request);

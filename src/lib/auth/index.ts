@@ -3,6 +3,10 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { validateEnvironment } from '@/lib/config/env-validation';
+
+// Validate environment on import
+validateEnvironment();
 
 /**
  * This is the single source of truth for authentication.
@@ -90,7 +94,9 @@ export const auth = betterAuth({
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scope: ['repo', 'read:user', 'user:email', 'read:org', 'notifications'],
+      // Scopes: public_repo (analyze public repos), read:user (profile info), user:email (get email)
+      // Removed 'repo' (full private repo access) - request it only when GitHub App is installed
+      scope: ['public_repo', 'read:user', 'user:email', 'read:org'],
       prompt: 'select_account',
       authorization: {
         // This is key for allowing users to switch GitHub accounts on sign-in.

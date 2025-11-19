@@ -8,7 +8,7 @@ export const tokenUsage = pgTable('token_usage', {
   feature: text('feature').notNull(), // 'diagram', 'scorecard', etc.
   repoOwner: text('repo_owner'), // GitHub username/org name
   repoName: text('repo_name'), // Repository name
-  model: text('model'), // AI model used (e.g., gemini-2.5-pro)
+  model: text('model'), // AI model used (e.g., gemini-3-pro-preview)
   inputTokens: integer('input_tokens').notNull(),
   outputTokens: integer('output_tokens').notNull(),
   totalTokens: integer('total_tokens').notNull(),

@@ -119,7 +119,7 @@ BE HONEST: If it's a poorly written issue, call it out. If it's excellent, prais
 Your response must be a valid JSON object following the schema provided.`;
 
     const { object, usage } = await generateObject({
-      model: google('models/gemini-2.5-pro'),
+      model: google('models/gemini-3-pro-preview'),
       schema: issueAnalysisSchema,
       messages: [
         { role: 'user', content: prompt },

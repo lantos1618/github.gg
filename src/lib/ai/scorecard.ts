@@ -74,7 +74,7 @@ ANALYZE THESE FILES:
 ${files.map(file => `\n--- ${file.path} ---\n${file.content}`).join('\n')}`;
 
     const { object, usage } = await generateObject({
-      model: google('models/gemini-2.5-pro'),
+      model: google('models/gemini-3-pro-preview'),
       schema: scorecardSchema,
       messages: [
         { role: 'user', content: prompt },

@@ -175,7 +175,7 @@ Extract and document:
 Your response must be a valid JSON object following the schema provided.`;
 
   const { object, usage } = await generateObject({
-    model: google('models/gemini-2.5-pro'),
+    model: google('models/gemini-3-pro-preview'),
     schema: partialDocumentationSchema,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -243,7 +243,7 @@ Generate complete structured documentation that covers:
 Your response must be a valid JSON object following the schema provided.`;
 
   const { object, usage } = await generateObject({
-    model: google('models/gemini-2.5-pro'),
+    model: google('models/gemini-3-pro-preview'),
     schema: documentationSchema,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -395,7 +395,7 @@ Generate structured documentation that covers:
 Your response must be a valid JSON object following the schema provided.`;
 
     const { object, usage } = await generateObject({
-      model: google('models/gemini-2.5-pro'),
+      model: google('models/gemini-3-pro-preview'),
       schema: documentationSchema,
       messages: [
         { role: 'user', content: prompt },

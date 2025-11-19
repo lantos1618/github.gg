@@ -317,7 +317,7 @@ export async function GET(req: NextRequest) {
           feature: 'arena_battle',
           repoOwner: battle[0].challengerUsername,
           repoName: null,
-          model: 'gemini-2.5-pro',
+          model: 'gemini-3-pro-preview',
           inputTokens: battleAnalysis.usage.inputTokens,
           outputTokens: battleAnalysis.usage.outputTokens,
           totalTokens: battleAnalysis.usage.totalTokens,

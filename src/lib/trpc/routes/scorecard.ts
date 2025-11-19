@@ -109,7 +109,7 @@ export const scorecardRouter = router({
               feature: 'scorecard',
               repoOwner: input.user,
               repoName: input.repo,
-              model: 'gemini-2.5-pro',
+              model: 'gemini-3-pro-preview',
               inputTokens: result.usage.inputTokens,
               outputTokens: result.usage.outputTokens,
               totalTokens: result.usage.totalTokens,

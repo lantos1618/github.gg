@@ -333,7 +333,7 @@ export async function generateDeveloperProfile({
   `;
 
   const { object, usage } = await generateObject({
-    model: google('models/gemini-2.5-pro'),
+    model: google('models/gemini-3-pro-preview'),
     schema: developerProfileSchema,
     messages: [{ role: 'user', content: prompt }],
   });

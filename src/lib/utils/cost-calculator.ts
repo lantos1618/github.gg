@@ -49,7 +49,7 @@ export function calculateTokenCost(usage: TokenUsage): CostBreakdown {
   if (model.includes('gemini-2.5-flash')) {
     inputCost = (inputTokens / 1_000_000) * GEMINI_2_5_FLASH_PRICING.input;
     outputCost = (outputTokens / 1_000_000) * GEMINI_2_5_FLASH_PRICING.output;
-  } else if (model.includes('gemini-2.5-pro')) {
+  } else if (model.includes('gemini-3-pro-preview')) {
     // Determine if this is a small or large prompt
     const isLargePrompt = inputTokens > 200_000;
 
@@ -146,7 +146,7 @@ export function calculateDailyCostAndRevenue({ usages, subscriptions, days, getP
           inputTokens: u.inputTokens,
           outputTokens: u.outputTokens,
           totalTokens: u.totalTokens,
-          model: u.model || 'gemini-2.5-pro',
+          model: u.model || 'gemini-3-pro-preview',
         });
         return sum + costObj.totalCost;
       }, 0);
@@ -178,7 +178,7 @@ export function calculatePerUserCostAndUsage(usages: Array<{
       inputTokens: u.inputTokens,
       outputTokens: u.outputTokens,
       totalTokens: u.totalTokens,
-      model: u.model || 'gemini-2.5-pro',
+      model: u.model || 'gemini-3-pro-preview',
     });
     const prev = userMap.get(u.userId) || { totalCost: 0, totalTokens: 0, byokTokens: 0, managedTokens: 0 };
     userMap.set(u.userId, {

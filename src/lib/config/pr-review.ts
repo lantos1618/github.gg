@@ -25,7 +25,7 @@ export const PR_REVIEW_CONFIG = {
   /**
    * AI model to use for analysis (can be overridden via env)
    */
-  aiModel: (process.env.PR_REVIEW_AI_MODEL || 'gemini-2.5-pro'),
+  aiModel: (process.env.PR_REVIEW_AI_MODEL || 'gemini-3-pro-preview'),
 
   /**
    * GitHub comment marker for identifying our AI reviews

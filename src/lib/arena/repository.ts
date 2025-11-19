@@ -99,7 +99,7 @@ export async function logTokenUsage(
     feature: 'arena_battle',
     repoOwner: username,
     repoName: null,
-    model: 'gemini-2.5-pro',
+    model: 'gemini-3-pro-preview',
     inputTokens: usage.inputTokens,
     outputTokens: usage.outputTokens,
     totalTokens: usage.totalTokens,

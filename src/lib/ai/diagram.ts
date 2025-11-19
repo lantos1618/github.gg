@@ -98,7 +98,7 @@ ANALYZE THESE FILES:
 ${files.map((file: { path: string; content: string }) => `--- ${file.path} ---\n${file.content}`).join('\n')}`;
 
     const result = await generateObject({
-      model: google('models/gemini-2.5-pro'),
+      model: google('models/gemini-3-pro-preview'),
       schema: diagramSchema,
       messages: [
         { role: 'user', content: prompt },
@@ -139,7 +139,7 @@ ANALYZE THESE FILES:
 ${files.map((file: { path: string; content: string }) => `--- ${file.path} ---\n${file.content}`).join('\n')}`;
 
   const result = await generateObject({
-    model: google('models/gemini-2.5-pro'),
+    model: google('models/gemini-3-pro-preview'),
     schema: diagramSchema,
     messages: [
       { role: 'user', content: prompt },

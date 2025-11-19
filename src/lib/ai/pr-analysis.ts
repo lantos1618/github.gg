@@ -101,7 +101,7 @@ ${file.patch || 'Binary file or no patch available'}
 Your response must be a valid JSON object following the schema provided.`;
 
     const { object, usage } = await generateObject({
-      model: google('models/gemini-2.5-pro'),
+      model: google('models/gemini-3-pro-preview'),
       schema: prAnalysisSchema,
       messages: [
         { role: 'user', content: prompt },

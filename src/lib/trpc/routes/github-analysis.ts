@@ -156,6 +156,12 @@ export const githubAnalysisRouter = router({
           message: 'Fetched PR data, analyzing...',
         };
 
+        yield {
+          type: 'progress' as const,
+          progress: 30,
+          message: 'Analyzing code quality...',
+        };
+
         const analysisResult = await analyzePullRequest({
           prTitle: pr.data.title,
           prDescription: pr.data.body || '',
@@ -174,8 +180,20 @@ export const githubAnalysisRouter = router({
         // Yield progress after analysis
         yield {
           type: 'progress' as const,
-          progress: 80,
-          message: 'Analysis complete, saving results...',
+          progress: 70,
+          message: 'Analyzing security and performance...',
+        };
+
+        yield {
+          type: 'progress' as const,
+          progress: 85,
+          message: 'Generating recommendations...',
+        };
+
+        yield {
+          type: 'progress' as const,
+          progress: 95,
+          message: 'Saving results...',
         };
 
         // Log token usage
@@ -185,7 +203,7 @@ export const githubAnalysisRouter = router({
             feature: 'pr_analysis',
             repoOwner: owner,
             repoName: repo,
-            model: 'gemini-2.5-pro',
+            model: 'gemini-3-pro-preview',
             inputTokens: analysisResult.usage.inputTokens,
             outputTokens: analysisResult.usage.outputTokens,
             totalTokens: analysisResult.usage.totalTokens,
@@ -353,7 +371,7 @@ export const githubAnalysisRouter = router({
 
       try {
         // Yield initial progress
-        yield { type: 'progress' as const, progress: 0 };
+        yield { type: 'progress' as const, progress: 0, message: 'Starting issue analysis...' };
 
         yield { type: 'progress' as const, progress: 3, message: 'Authenticating with GitHub...' };
 
@@ -372,7 +390,7 @@ export const githubAnalysisRouter = router({
         ]);
 
         // Yield progress after fetching data
-        yield { type: 'progress' as const, progress: 10 };
+        yield { type: 'progress' as const, progress: 15, message: 'Fetched issue data, analyzing...' };
 
         const analysisResult = await analyzeIssue({
           issueTitle: issue.data.title,
@@ -388,7 +406,9 @@ export const githubAnalysisRouter = router({
         });
 
         // Yield progress after analysis
-        yield { type: 'progress' as const, progress: 80 };
+        yield { type: 'progress' as const, progress: 70, message: 'Analysis complete, generating recommendations...' };
+
+        yield { type: 'progress' as const, progress: 90, message: 'Saving results...' };
 
         // Log token usage
         try {
@@ -397,7 +417,7 @@ export const githubAnalysisRouter = router({
             feature: 'issue_analysis',
             repoOwner: owner,
             repoName: repo,
-            model: 'gemini-2.5-pro',
+            model: 'gemini-3-pro-preview',
             inputTokens: analysisResult.usage.inputTokens,
             outputTokens: analysisResult.usage.outputTokens,
             totalTokens: analysisResult.usage.totalTokens,

@@ -9,7 +9,10 @@ import { calculateTokenCost, calculateTotalCost, calculateDailyCostAndRevenue } 
 export const adminRouter = router({
   // Admin check
   isAdmin: adminProcedure.query(async ({ ctx }) => {
-    const adminEmails = process.env.ADMIN_EMAILS!.split(',').map(email => email.trim());
+    if (!process.env.ADMIN_EMAILS) {
+      throw new Error('ADMIN_EMAILS is not configured');
+    }
+    const adminEmails = process.env.ADMIN_EMAILS.split(',').map(email => email.trim());
     const userEmail = ctx.user.email?.toLowerCase();
     return { isAdmin: !!userEmail && adminEmails.includes(userEmail) };
   }),
@@ -55,7 +58,7 @@ export const adminRouter = router({
         inputTokens: u.inputTokens,
         outputTokens: u.outputTokens,
         totalTokens: u.totalTokens,
-        model: u.model || 'gemini-2.5-pro', // Default model
+        model: u.model || 'gemini-3-pro-preview', // Default model
       })));
 
       // Aggregate statistics
@@ -120,7 +123,7 @@ export const adminRouter = router({
         inputTokens: u.inputTokens,
         outputTokens: u.outputTokens,
         totalTokens: u.totalTokens,
-        model: u.model || 'gemini-2.5-pro',
+        model: u.model || 'gemini-3-pro-preview',
       })));
 
       return {
@@ -186,7 +189,7 @@ export const adminRouter = router({
           inputTokens: u.inputTokens,
           outputTokens: u.outputTokens,
           totalTokens: u.totalTokens,
-          model: u.model || 'gemini-2.5-pro',
+          model: u.model || 'gemini-3-pro-preview',
         })));
 
         return {
@@ -251,7 +254,7 @@ export const adminRouter = router({
           inputTokens: u.inputTokens,
           outputTokens: u.outputTokens,
           totalTokens: u.totalTokens,
-          model: u.model || 'gemini-2.5-pro',
+          model: u.model || 'gemini-3-pro-preview',
         });
 
         acc[u.feature].totalTokens += u.totalTokens;

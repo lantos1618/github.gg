@@ -59,7 +59,7 @@ function RepoClientViewInner({ user, repo, refName, path, files, isLoading, erro
       </button>
 
       {/* Code Viewer */}
-      <div className="h-[calc(100vh-200px)] overflow-auto">
+      <div>
         <EnhancedCodeViewer files={selectedFiles} />
       </div>
 

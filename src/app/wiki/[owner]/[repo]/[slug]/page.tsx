@@ -13,8 +13,6 @@ import { RepoSidebarLayout } from '@/components/layouts/RepoSidebarLayout';
 import { MilkdownViewer } from '@/components/ui/MilkdownViewer';
 import { TableOfContents } from '@/components/ui/TableOfContents';
 
-// ISR: Revalidate every hour to keep content fresh while reducing DB load
-export const revalidate = 3600;
 export const dynamicParams = true;
 
 interface WikiPageProps {

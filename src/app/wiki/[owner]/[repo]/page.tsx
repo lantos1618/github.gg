@@ -10,8 +10,6 @@ import { auth } from '@/lib/auth';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import { headers } from 'next/headers';
 
-// ISR: Revalidate every hour to keep wiki index fresh while reducing DB load
-export const revalidate = 3600;
 export const dynamicParams = true;
 
 interface WikiIndexProps {

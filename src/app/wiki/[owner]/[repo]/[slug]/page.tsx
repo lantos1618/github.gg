@@ -26,19 +26,6 @@ interface WikiPageProps {
   }>;
 }
 
-// Pre-render popular wiki pages at build time
-export async function generateStaticParams() {
-  try {
-    // In a real scenario, you'd query the database for the most viewed wiki pages
-    // For now, return empty array to enable on-demand ISR for all pages
-    // This means first access to a page will be slow, but subsequent accesses are instant
-    return [];
-  } catch (error) {
-    console.error('Failed to generate static wiki page params:', error);
-    return [];
-  }
-}
-
 // Generate metadata for SEO
 export async function generateMetadata({ params, searchParams }: WikiPageProps): Promise<Metadata> {
   const { owner, repo, slug } = await params;

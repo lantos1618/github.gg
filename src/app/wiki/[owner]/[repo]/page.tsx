@@ -22,19 +22,6 @@ interface WikiIndexProps {
   }>;
 }
 
-// Pre-render popular wiki indexes at build time
-export async function generateStaticParams() {
-  try {
-    // In a real scenario, you'd query the database for popular repos with wikis
-    // For now, return empty array to enable on-demand ISR for all repos
-    // This means first access to a wiki will be slow, but subsequent accesses are instant
-    return [];
-  } catch (error) {
-    console.error('Failed to generate static wiki index params:', error);
-    return [];
-  }
-}
-
 // Generate metadata for SEO
 export async function generateMetadata({ params }: WikiIndexProps): Promise<Metadata> {
   const { owner, repo } = await params;

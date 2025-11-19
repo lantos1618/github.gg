@@ -220,7 +220,7 @@ export function FileTreeSidebar({
             <div className="mt-2">
               <button
                 onClick={() => setShowHiddenFiles(!showHiddenFiles)}
-                className="text-xs text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1 cursor-pointer hover:bg-orange-50 px-2 py-1 rounded transition-colors w-full text-left"
+                className="text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 font-medium flex items-center gap-1 cursor-pointer px-2 py-1.5 rounded transition-colors w-full text-left border border-orange-200"
               >
                 {showHiddenFiles ? (
                   <ChevronDown className="w-3 h-3" />

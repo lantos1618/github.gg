@@ -19,6 +19,8 @@ interface RepoSidebarLayoutProps {
   showHeader?: boolean;
   refName?: string;
   wikiPages?: WikiPage[];
+  branches?: string[];
+  defaultBranch?: string;
 }
 
 // Inner component that consumes the sidebar context
@@ -29,6 +31,8 @@ function RepoSidebarLayoutInner({
   showHeader = false,
   refName = 'main',
   wikiPages = [],
+  branches = [],
+  defaultBranch = 'main',
 }: RepoSidebarLayoutProps) {
   const router = useRouter();
   const { isExpanded } = useSidebar();
@@ -62,6 +66,8 @@ function RepoSidebarLayoutInner({
           owner={owner}
           repo={repo}
           wikiPages={wikiPages}
+          branches={branches}
+          defaultBranch={defaultBranch}
         />
 
         {/* Main Content */}

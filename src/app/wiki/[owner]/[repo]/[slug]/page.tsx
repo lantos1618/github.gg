@@ -90,6 +90,15 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
     }),
   ]);
 
+  // Fetch sidebar data server-side
+  const [branchesResult, repoInfoResult] = await Promise.allSettled([
+    caller.github.getBranches({ owner, repo }),
+    caller.github.getRepoInfo({ owner, repo }),
+  ]);
+
+  const branches = branchesResult.status === 'fulfilled' ? branchesResult.value : [];
+  const defaultBranch = repoInfoResult.status === 'fulfilled' ? repoInfoResult.value?.defaultBranch : 'main';
+
   if (!page) {
     notFound();
   }
@@ -123,7 +132,7 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
   const nextPage = currentIndex < toc.pages.length - 1 ? toc.pages[currentIndex + 1] : null;
 
   return (
-    <RepoSidebarLayout owner={owner} repo={repo} wikiPages={wikiPages}>
+    <RepoSidebarLayout owner={owner} repo={repo} wikiPages={wikiPages} branches={branches} defaultBranch={defaultBranch}>
       <div className="min-h-screen">
         <div className="flex max-w-[1600px] mx-auto">
           {/* Main content container */}

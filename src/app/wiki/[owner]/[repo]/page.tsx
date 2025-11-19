@@ -57,11 +57,18 @@ export default async function WikiIndex({ params, searchParams }: WikiIndexProps
   const { version } = await searchParams;
 
   const caller = await createCaller();
-  const toc = await caller.wiki.getWikiTableOfContents({
-    owner,
-    repo,
-    version: version ? parseInt(version) : undefined,
-  });
+  const [toc, branchesResult, repoInfoResult] = await Promise.all([
+    caller.wiki.getWikiTableOfContents({
+      owner,
+      repo,
+      version: version ? parseInt(version) : undefined,
+    }),
+    caller.github.getBranches({ owner, repo }).catch(() => undefined),
+    caller.github.getRepoInfo({ owner, repo }).catch(() => undefined),
+  ]);
+
+  const branches = branchesResult || [];
+  const defaultBranch = repoInfoResult?.defaultBranch || 'main';
 
   // Check if user has permission to edit/delete wiki
   let canEditWiki = false;
@@ -82,7 +89,7 @@ export default async function WikiIndex({ params, searchParams }: WikiIndexProps
 
   if (!toc || toc.pages.length === 0) {
     return (
-      <RepoPageLayout user={owner} repo={repo}>
+      <RepoPageLayout user={owner} repo={repo} branches={branches} defaultBranch={defaultBranch}>
         <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
           <Card>
             <CardHeader>
@@ -110,7 +117,7 @@ export default async function WikiIndex({ params, searchParams }: WikiIndexProps
   }
 
   return (
-    <RepoPageLayout user={owner} repo={repo}>
+    <RepoPageLayout user={owner} repo={repo} branches={branches} defaultBranch={defaultBranch}>
       <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
         <Card>
           <CardHeader>

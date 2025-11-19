@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 import { cn, parseRepoPath } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
-import { trpc } from '@/lib/trpc/client';
 
 interface WikiPage {
   slug: string;
@@ -36,6 +35,8 @@ interface RepoSidebarProps {
   owner: string;
   repo: string;
   wikiPages?: WikiPage[];
+  branches?: string[];
+  defaultBranch?: string;
 }
 
 interface NavItem {
@@ -51,20 +52,13 @@ interface NavSection {
   items: NavItem[];
 }
 
-export function RepoSidebar({ owner, repo, wikiPages = [] }: RepoSidebarProps) {
+export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaultBranch = 'main' }: RepoSidebarProps) {
   const { isExpanded, setIsExpanded } = useSidebar();
   const [isWikiExpanded, setIsWikiExpanded] = useState(true);
   const [isAutomationsExpanded, setIsAutomationsExpanded] = useState(true);
   const [isDiagramsExpanded, setIsDiagramsExpanded] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
-
-  // Fetch branches and repo info
-  const { data: branches } = trpc.github.getBranches.useQuery({ owner, repo });
-  const { data: repoInfo } = trpc.github.getRepoInfo.useQuery({ owner, repo });
-
-  // Get the actual default branch from repo info, fallback to 'main'
-  const defaultBranch = repoInfo?.defaultBranch || 'main';
 
   // Check if we're on a wiki page (wiki has different URL structure)
   const isOnWikiPage = pathname.startsWith(`/wiki/${owner}/${repo}`);

@@ -20,6 +20,8 @@ interface RepoPageLayoutProps {
     isFileExplorerOpen: boolean;
     setIsFileExplorerOpen: (open: boolean) => void;
   };
+  branches?: string[];
+  defaultBranch?: string;
 }
 
 function RepoPageLayoutContent({
@@ -27,6 +29,8 @@ function RepoPageLayoutContent({
   repo,
   files,
   children,
+  branches = [],
+  defaultBranch = 'main',
 }: RepoPageLayoutProps) {
   const { isExpanded } = useSidebar();
 
@@ -43,6 +47,8 @@ function RepoPageLayoutContent({
         owner={user}
         repo={repo}
         wikiPages={wikiPages}
+        branches={branches}
+        defaultBranch={defaultBranch}
       />
 
       <main className={`flex-1 flex flex-col overflow-y-auto transition-all duration-300 ${isExpanded ? 'lg:ml-64' : 'lg:ml-16'}`}>

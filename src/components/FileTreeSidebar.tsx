@@ -8,7 +8,9 @@ import {
   Check,
   CheckCircle2,
   Circle,
-  X
+  X,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +47,7 @@ export function FileTreeSidebar({
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [copiedTree, setCopiedTree] = useState(false);
+  const [showHiddenFiles, setShowHiddenFiles] = useState(false);
   const { maxFileSize, setMaxFileSize } = useSelectedFiles();
 
   // Get selected files for copy all
@@ -58,6 +61,11 @@ export function FileTreeSidebar({
   // Count files filtered by size
   const filesFilteredBySize = useMemo(() => {
     return files.filter(f => (f.size || 0) > maxFileSize).length;
+  }, [files, maxFileSize]);
+
+  // Get hidden files
+  const hiddenFiles = useMemo(() => {
+    return files.filter(f => (f.size || 0) > maxFileSize);
   }, [files, maxFileSize]);
 
   const fileTree = useMemo(() => buildFileTree(files), [files]);
@@ -209,9 +217,39 @@ export function FileTreeSidebar({
             className="w-full"
           />
           {filesFilteredBySize > 0 && (
-            <p className="text-xs text-orange-600 mt-2">
-              {filesFilteredBySize} file{filesFilteredBySize > 1 ? 's' : ''} hidden (too large)
-            </p>
+            <div className="mt-2">
+              <button
+                onClick={() => setShowHiddenFiles(!showHiddenFiles)}
+                className="text-xs text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1 cursor-pointer"
+              >
+                {showHiddenFiles ? (
+                  <ChevronDown className="w-3 h-3" />
+                ) : (
+                  <ChevronRight className="w-3 h-3" />
+                )}
+                {filesFilteredBySize} file{filesFilteredBySize > 1 ? 's' : ''} hidden (too large)
+              </button>
+
+              {showHiddenFiles && (
+                <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-md max-h-32 overflow-y-auto">
+                  <ul className="space-y-1">
+                    {hiddenFiles.map((file) => {
+                      const fileName = file.path.split('/').pop() || file.path;
+                      return (
+                        <li key={file.path} className="text-xs text-gray-600">
+                          <div className="flex items-center justify-between px-1 py-0.5 truncate">
+                            <span className="truncate text-xs">{file.path}</span>
+                            <span className="text-xs text-gray-500 font-mono flex-shrink-0 ml-1">
+                              {formatFileSize(file.size)}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </div>
           )}
         </div>
 

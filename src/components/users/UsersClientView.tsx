@@ -15,9 +15,22 @@ import { LoadingPage, PageHeader } from '@/components/common';
 type SortField = 'date' | 'score' | 'username' | 'elo' | 'tokens';
 type SortOrder = 'asc' | 'desc';
 
+interface DeveloperProfileEntry {
+  username: string;
+  profileData: DeveloperProfile | unknown; // Can be unknown on server
+  updatedAt: Date | string;
+  totalTokens?: number;
+  version?: number;
+}
+
+interface LeaderboardEntry {
+  username: string;
+  eloRating: number;
+}
+
 interface UsersClientViewProps {
-  initialProfiles: any[];
-  initialLeaderboard: any[];
+  initialProfiles: DeveloperProfileEntry[];
+  initialLeaderboard: LeaderboardEntry[];
 }
 
 export function UsersClientView({ initialProfiles, initialLeaderboard }: UsersClientViewProps) {
@@ -59,10 +72,10 @@ export function UsersClientView({ initialProfiles, initialLeaderboard }: UsersCl
       const bElo = eloMap.get(b.username.toLowerCase()) || 0;
       comparison = bElo - aElo;
     } else if (sortField === 'tokens') {
-      const aTokens = (a as any).totalTokens || 0;
-      const bTokens = (b as any).totalTokens || 0;
-      comparison = bTokens - aTokens;
-    }
+       const aTokens = a.totalTokens || 0;
+       const bTokens = b.totalTokens || 0;
+       comparison = bTokens - aTokens;
+     }
 
     return sortOrder === 'asc' ? -comparison : comparison;
   });
@@ -272,10 +285,10 @@ export function UsersClientView({ initialProfiles, initialLeaderboard }: UsersCl
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center hidden lg:table-cell">
                             <Link href={`/${profile.username}`} title="Total AI tokens used by this developer">
-                              {(profile as any).totalTokens ? (
+                              {profile.totalTokens ? (
                                 <div className="inline-flex flex-col items-center">
                                   <span className="text-lg font-semibold text-purple-700">
-                                    {((profile as any).totalTokens).toLocaleString()}
+                                    {(profile.totalTokens).toLocaleString()}
                                   </span>
                                   <span className="text-xs text-gray-500">tokens</span>
                                 </div>

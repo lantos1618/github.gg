@@ -20,6 +20,9 @@ import { sendBattleResultsEmail } from '@/lib/email/resend';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { createLogger } from '@/lib/logging';
+
+const logger = createLogger('ArenaBattle');
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minutes
@@ -150,7 +153,9 @@ export async function GET(req: NextRequest) {
               }
             } catch (error) {
               // If we can't check commits (e.g., rate limit), skip this fork
-              console.warn(`Couldn't check commits for fork ${forkRepo.name}:`, error);
+              logger.warn(`Failed to check commits for fork ${forkRepo.name}`, {
+                error: error instanceof Error ? error.message : String(error)
+              });
             }
           }
 

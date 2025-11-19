@@ -1,17 +1,16 @@
 "use client";
 import RepoPageLayout from "@/components/layouts/RepoPageLayout";
 import { useEffect, useState, ReactNode, useMemo, useCallback, useRef } from 'react';
-import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import { useSelectedFiles } from '@/contexts/SelectedFilesContext';
 import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
-import { VersionDropdown } from '@/components/VersionDropdown';
-import { Button } from '@/components/ui/button';
-import { RefreshCw, Copy, FolderTree } from 'lucide-react';
+import { FolderTree } from 'lucide-react';
 import { toast } from 'sonner';
-import { MarkdownCardRenderer } from '@/components/MarkdownCardRenderer';
 import { FileExplorerDrawer } from '@/components/FileExplorerDrawer';
-import { LoadingPage } from '@/components/common';
+
+import { AnalysisHeader } from './AnalysisHeader';
+import { AnalysisContent } from './AnalysisContent';
+import { AnalysisStateHandler } from './AnalysisStateHandler';
 
 import { trpc } from '@/lib/trpc/client';
 
@@ -225,18 +224,24 @@ function GenericAnalysisViewInner<TResponse>({
   const overallLoading = filesLoading || isLoading;
   const canAccess = currentPlan && currentPlan.plan !== 'free';
 
-  // If repository is private, show appropriate message
+  // Determine the current state
+  let currentState: 'loading' | 'error' | 'no-data' | 'ready' | 'private' | 'upgrade' = 'loading';
+  
   if (isPrivateRepo) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <h2 className="text-xl font-semibold text-gray-600 mb-2">Repository is Private</h2>
-        <p className="text-gray-500">{config.privateRepoMessage}</p>
-      </div>
-    );
+    currentState = 'private';
+  } else if (planLoading || publicLoading) {
+    currentState = 'loading';
+  } else if (!canAccess) {
+    currentState = 'upgrade';
+  } else if (error) {
+    currentState = 'error';
+  } else if (analysisDataObj || markdownContent) {
+    currentState = 'ready';
+  } else if (!overallLoading) {
+    currentState = 'no-data';
   }
 
-  // If a cached analysis is available, show it
-  if (analysisDataObj) {
+  const renderContent = () => {
     return (
       <div className="max-w-screen-xl w-full mx-auto px-2 sm:px-4 pt-2 sm:pt-4">
         {/* File Explorer Tab Button */}
@@ -255,88 +260,35 @@ function GenericAnalysisViewInner<TResponse>({
 
         {/* Main Content */}
         <div>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-            <VersionDropdown
-              versions={versions}
-              isLoading={versionsLoading}
-              selectedVersion={selectedVersion}
-              onVersionChange={setSelectedVersion}
-            />
-
-            <div className="flex items-center gap-2">
-              {config.showCopyButton && (
-                <Button
-                  onClick={() => handleCopyMarkdown(analysisDataObj.markdown)}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                  title="Copy Markdown"
-                >
-                  <Copy className="h-4 w-4" />
-                  Copy Markdown
-                </Button>
-              )}
-              {canAccess && (
-                <Button
-                  onClick={handleRegenerate}
-                  disabled={shouldAnalyze}
-                  className="flex items-center gap-2"
-                >
-                  <RefreshCw className={`h-4 w-4 ${shouldAnalyze ? 'animate-spin' : ''}`} />
-                  {shouldAnalyze ? config.generatingButtonText : 'Regenerate'}
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {config.showMetricsBar && config.renderCustomMetrics && (
-            <div className="mb-4">
-              {config.renderCustomMetrics(analysisDataObj)}
-            </div>
-          )}
-
-          {/* Metrics Visualization */}
-          {analysisDataObj.metrics && Array.isArray(analysisDataObj.metrics) && (
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold mb-2">Metrics Breakdown</h3>
-              <div className="overflow-x-auto">
-                <table className="min-w-full border rounded-md bg-background">
-                  <thead>
-                    <tr>
-                      <th className="px-4 py-2 text-left">Metric</th>
-                      <th className="px-4 py-2 text-left">Score</th>
-                      <th className="px-4 py-2 text-left">Reason</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {analysisDataObj.metrics.map((m, i) => {
-                      const colorClass = config.getMetricColor ? config.getMetricColor(m.score) : 'bg-blue-500';
-                      return (
-                        <tr key={i} className="border-t">
-                          <td className="px-4 py-2 font-medium whitespace-nowrap">{m.metric}</td>
-                          <td className="px-4 py-2">
-                            <div className="flex items-center gap-2">
-                              <span>{m.score}</span>
-                              <div className="w-32 h-2 bg-gray-200 rounded">
-                                <div
-                                  className={`h-2 rounded ${colorClass}`}
-                                  style={{ width: `${Math.max(0, Math.min(100, m.score))}%` }}
-                                />
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-2 text-sm text-gray-700">{m.reason}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-          <MarkdownCardRenderer
-            markdown={analysisDataObj.markdown}
-            title={config.title}
+          <AnalysisHeader
+            versions={versions || []}
+            isLoadingVersions={versionsLoading}
+            selectedVersion={selectedVersion}
+            onVersionChange={setSelectedVersion}
+            onRegenerate={handleRegenerate}
+            onCopyMarkdown={handleCopyMarkdown}
+            markdown={analysisDataObj?.markdown || markdownContent}
+            isRegenerating={shouldAnalyze}
+            canAccess={canAccess}
+            showCopyButton={config.showCopyButton === true}
           />
+
+          {analysisDataObj && (
+            <AnalysisContent
+              data={analysisDataObj}
+              title={config.title}
+              showMetricsBar={config.showMetricsBar}
+              renderCustomMetrics={config.renderCustomMetrics}
+              getMetricColor={config.getMetricColor}
+            />
+          )}
+
+          {markdownContent && !analysisDataObj && (
+            <AnalysisContent
+              data={{ markdown: markdownContent }}
+              title={config.title}
+            />
+          )}
         </div>
 
         {/* File Explorer Drawer */}
@@ -351,109 +303,43 @@ function GenericAnalysisViewInner<TResponse>({
         />
       </div>
     );
-  }
-
-  // If plan is loading, show spinner
-  if (planLoading || publicLoading) {
-    return <LoadingPage text={config.loadingMessage} />;
-  }
-
-  // If user does not have a paid plan, show upgrade
-  if (!canAccess) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <SubscriptionUpgrade />
-      </div>
-    );
-  }
+  };
 
   return (
-    <div className="max-w-screen-xl w-full mx-auto px-2 sm:px-4 pt-2 sm:pt-4">
-      {/* File Explorer Tab Button */}
-      <button
-        onClick={() => setIsFileExplorerOpen(true)}
-        className="fixed right-0 top-28 z-30 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-l-lg shadow-lg transition-all duration-200 flex items-center gap-2 border border-r-0 border-blue-700"
-        style={{
-          writingMode: 'vertical-rl',
-          textOrientation: 'mixed',
-        }}
-        title="Open File Explorer"
-      >
-        <span className="text-sm font-medium tracking-wider">FILES</span>
-        <FolderTree className="h-4 w-4" />
-      </button>
-
-      {/* Main Content */}
-      <div>
-          <VersionDropdown
-            versions={versions}
-            isLoading={versionsLoading}
-            selectedVersion={selectedVersion}
-            onVersionChange={setSelectedVersion}
-          />
-
-          {error && (
-            <ErrorDisplay
-              error={error}
-              isPending={shouldAnalyze}
-              onRetry={handleRegenerate}
-            />
-          )}
-          {overallLoading && (
-            <LoadingPage text={config.generatingMessage} />
-          )}
-          {markdownContent && (
-            <>
-              {config.showCopyButton && (
-                <div className="flex items-center justify-end mb-3">
-                  <Button
-                    onClick={() => handleCopyMarkdown(markdownContent)}
-                    variant="outline"
-                    className="flex items-center gap-2"
-                    title="Copy Markdown"
-                  >
-                    <Copy className="h-4 w-4" />
-                    Copy Markdown
-                  </Button>
-                </div>
-              )}
-              <MarkdownCardRenderer
-                markdown={markdownContent}
-                title={config.title}
-              />
-            </>
-          )}
-          {!markdownContent && !overallLoading && !error && (
-            <div className="flex flex-col items-center justify-center min-h-[400px]">
-              <h2 className="text-xl font-semibold text-gray-600 mb-2">{config.noDataTitle}</h2>
-              <p className="text-gray-500 mb-6 text-center max-w-md">
-                {config.noDataDescription}
-              </p>
-              <Button
-                onClick={handleRegenerate}
-                disabled={shouldAnalyze || filesLoading}
-                className="flex items-center gap-2"
-                size="lg"
-              >
-                <RefreshCw className={`h-4 w-4 ${shouldAnalyze ? 'animate-spin' : ''}`} />
-                {shouldAnalyze ? config.generatingButtonText : config.generateButtonText}
-              </Button>
-              <p className="text-sm text-gray-400 mt-4">Files selected: {selectedFiles.length} of {files.length}</p>
-            </div>
-          )}
-        </div>
-
-      {/* File Explorer Drawer */}
-      <FileExplorerDrawer
-        owner={user}
-        repo={repo}
-        files={files}
-        selectedFiles={selectedFilePaths}
-        onToggleFile={toggleFile}
-        isOpen={isFileExplorerOpen}
-        onClose={() => setIsFileExplorerOpen(false)}
-      />
-    </div>
+    <AnalysisStateHandler
+      state={currentState}
+      error={error ?? undefined}
+      isRegenerating={shouldAnalyze || overallLoading}
+      onRegenerate={handleRegenerate}
+      message={
+        currentState === 'loading'
+          ? config.loadingMessage
+          : currentState === 'error'
+          ? error ?? 'An error occurred'
+          : undefined
+      }
+      title={
+        currentState === 'private'
+          ? 'Repository is Private'
+          : currentState === 'no-data'
+          ? config.noDataTitle
+          : undefined
+      }
+      description={
+        currentState === 'private'
+          ? config.privateRepoMessage
+          : currentState === 'no-data'
+          ? config.noDataDescription
+          : undefined
+      }
+      filesSelected={
+        currentState === 'no-data'
+          ? { selected: selectedFiles.length, total: files.length }
+          : undefined
+      }
+    >
+      {currentState === 'upgrade' ? <SubscriptionUpgrade /> : renderContent()}
+    </AnalysisStateHandler>
   );
 }
 

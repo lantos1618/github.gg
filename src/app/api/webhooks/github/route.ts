@@ -4,6 +4,9 @@ import { githubAppInstallations, installationRepositories } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { postPRReviewComment, isPRReviewEnabled } from '@/lib/github/pr-comment-service';
 import { postCommitAnalysisComment, postIssueAnalysisComment, isAnalysisEnabled } from '@/lib/github/commit-issue-comment-service';
+import { createLogger } from '@/lib/logging';
+
+const logger = createLogger('GitHubWebhook');
 
 // Only initialize webhooks if the secret is available
 const webhooks = process.env.GITHUB_WEBHOOK_SECRET
@@ -14,14 +17,7 @@ const webhooks = process.env.GITHUB_WEBHOOK_SECRET
 
 // Centralized error logging utility for webhook handlers
 function logWebhookError(context: string, details: Record<string, unknown>, error: unknown) {
-  console.error(`[GitHub Webhook] ERROR: Failed to ${context}`, {
-    ...details,
-    error: error instanceof Error ? {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-    } : String(error),
-  });
+  logger.error(`Failed to ${context}`, error, details);
 }
 
 /**
@@ -46,35 +42,35 @@ function createAnalysisHandler<TParams extends { installationId?: number; owner:
     const resourceId = getResourceId(params);
 
     if (!params.installationId) {
-      console.error(`[GitHub Webhook] ERROR: No installation ID provided for ${featureName}`, {
-        repo: repoFullName,
-        [resourceType]: resourceId,
-      });
-      return;
-    }
+       logger.error(`No installation ID provided for ${featureName}`, undefined, {
+         repo: repoFullName,
+         [resourceType]: resourceId,
+       });
+       return;
+     }
 
-    // Check if feature is enabled for this repo
-    const isEnabled = await checkEnabled(params.installationId, params.owner, params.repo);
-    if (!isEnabled) {
-      console.log(`[GitHub Webhook] ${featureName} not enabled`, {
-        repo: repoFullName,
-        [resourceType]: resourceId,
-      });
-      return;
-    }
+     // Check if feature is enabled for this repo
+     const isEnabled = await checkEnabled(params.installationId, params.owner, params.repo);
+     if (!isEnabled) {
+       logger.debug(`${featureName} not enabled`, {
+         repo: repoFullName,
+         [resourceType]: resourceId,
+       });
+       return;
+     }
 
-    console.log(`[GitHub Webhook] Starting ${featureName}`, {
-      repo: repoFullName,
-      [resourceType]: resourceId,
-      installationId: params.installationId,
-    });
+     logger.info(`Starting ${featureName}`, {
+       repo: repoFullName,
+       [resourceType]: resourceId,
+       installationId: params.installationId,
+     });
 
-    try {
-      await performAnalysis({ ...params, installationId: params.installationId });
-      console.log(`[GitHub Webhook] SUCCESS: ${featureName} completed`, {
-        repo: repoFullName,
-        [resourceType]: resourceId,
-      });
+     try {
+       await performAnalysis({ ...params, installationId: params.installationId });
+       logger.info(`SUCCESS: ${featureName} completed`, {
+         repo: repoFullName,
+         [resourceType]: resourceId,
+       });
     } catch (error) {
       logWebhookError(featureName, { repo: repoFullName, [resourceType]: resourceId }, error);
       throw error;
@@ -157,32 +153,32 @@ const handleIssueAnalysis = createAnalysisHandler<{
 if (webhooks) {
   webhooks.on('installation.created', async ({ payload }) => {
     const installationId = payload.installation.id;
-    console.log('[GitHub Webhook] installation.created:', { installationId });
+    logger.info('Installation created', { installationId });
 
     try {
-      // Check if account exists and get its type
-      const account = payload.installation.account;
-      if (!account) {
-        console.error('[GitHub Webhook] ERROR: No account found in installation payload', {
-          installationId,
-          payloadKeys: Object.keys(payload),
-        });
-        return;
-      }
+       // Check if account exists and get its type
+       const account = payload.installation.account;
+       if (!account) {
+         logger.error('No account found in installation payload', undefined, {
+           installationId,
+           payloadKeys: Object.keys(payload),
+         });
+         return;
+       }
 
-      const accountType = 'type' in account ? account.type : 'User';
+       const accountType = 'type' in account ? account.type : 'User';
 
-      // Extract account details based on type
-      const accountLogin = 'login' in account ? account.login : account.slug;
-      const accountAvatarUrl = account.avatar_url;
-      const accountName = 'name' in account ? account.name : accountLogin;
+       // Extract account details based on type
+       const accountLogin = 'login' in account ? account.login : account.slug;
+       const accountAvatarUrl = account.avatar_url;
+       const accountName = 'name' in account ? account.name : accountLogin;
 
-      console.log('[GitHub Webhook] Recording installation:', {
-        installationId,
-        accountLogin,
-        accountType,
-        repositoryCount: payload.repositories?.length || 0,
-      });
+       logger.info('Recording installation', {
+         installationId,
+         accountLogin,
+         accountType,
+         repositoryCount: payload.repositories?.length || 0,
+       });
 
       await db.insert(githubAppInstallations).values({
         installationId: payload.installation.id,
@@ -204,53 +200,39 @@ if (webhooks) {
         }
       }
 
-      console.log('[GitHub Webhook] SUCCESS: Successfully recorded installation', {
+      logger.info('Successfully recorded installation', {
         installationId,
         accountLogin,
         repositoryCount: payload.repositories?.length || 0,
       });
-    } catch (error) {
-      console.error('[GitHub Webhook] ERROR: Failed to record installation', {
-        installationId,
-        error: error instanceof Error ? {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        } : String(error),
+      } catch (error) {
+      logger.error('Failed to record installation', error, { installationId });
+      }
       });
-    }
-  });
 
-  webhooks.on('installation.deleted', async ({ payload }) => {
-    const installationId = payload.installation.id;
-    console.log('[GitHub Webhook] installation.deleted:', { installationId });
+      webhooks.on('installation.deleted', async ({ payload }) => {
+      const installationId = payload.installation.id;
+      logger.info('Installation deleted', { installationId });
 
-    try {
+      try {
       // First, delete all related repository records
       await db.delete(installationRepositories)
         .where(eq(installationRepositories.installationId, installationId));
-      console.log('[GitHub Webhook] Deleted repository records:', { installationId });
+      logger.info('Deleted repository records', { installationId });
 
       // Then delete the installation record
       await db.delete(githubAppInstallations)
         .where(eq(githubAppInstallations.installationId, installationId));
-      console.log('[GitHub Webhook] SUCCESS: Successfully deleted installation', { installationId });
-    } catch (error) {
-      console.error('[GitHub Webhook] ERROR: Failed to delete installation', {
-        installationId,
-        error: error instanceof Error ? {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        } : String(error),
+      logger.info('Successfully deleted installation', { installationId });
+      } catch (error) {
+      logger.error('Failed to delete installation', error, { installationId });
+      }
       });
-    }
-  });
 
-  webhooks.on('installation_repositories.added', async ({ payload }) => {
-    const installationId = payload.installation.id;
-    const count = payload.repositories_added.length;
-    console.log('[GitHub Webhook] installation_repositories.added:', { installationId, count });
+      webhooks.on('installation_repositories.added', async ({ payload }) => {
+      const installationId = payload.installation.id;
+      const count = payload.repositories_added.length;
+      logger.info('Installation repositories added', { installationId, count });
 
     try {
       for (const repo of payload.repositories_added) {
@@ -260,9 +242,9 @@ if (webhooks) {
           fullName: repo.full_name,
         });
       }
-      console.log('[GitHub Webhook] SUCCESS: Successfully added repositories', { installationId, count });
+      logger.info('Successfully added repositories', { installationId, count });
     } catch (error) {
-      console.error('[GitHub Webhook] ERROR: Failed to add repositories', {
+      logger.error('Failed to add repositories', {
         installationId,
         count,
         error: error instanceof Error ? {
@@ -277,7 +259,7 @@ if (webhooks) {
   webhooks.on('installation_repositories.removed', async ({ payload }) => {
     const installationId = payload.installation.id;
     const count = payload.repositories_removed.length;
-    console.log('[GitHub Webhook] installation_repositories.removed:', { installationId, count });
+    logger.info('Installation repositories removed', { installationId, count });
 
     try {
       for (const repo of payload.repositories_removed) {
@@ -287,9 +269,9 @@ if (webhooks) {
             eq(installationRepositories.repositoryId, repo.id)
           ));
       }
-      console.log('[GitHub Webhook] SUCCESS: Successfully removed repositories', { installationId, count });
+      logger.info('Successfully removed repositories', { installationId, count });
     } catch (error) {
-      console.error('[GitHub Webhook] ERROR: Failed to remove repositories', {
+      logger.error('Failed to remove repositories', {
         installationId,
         count,
         error: error instanceof Error ? {
@@ -304,10 +286,10 @@ if (webhooks) {
   webhooks.on('push', async ({ payload }) => {
     const repo = payload.repository.full_name;
     const commitCount = payload.commits.length;
-    console.log('[GitHub Webhook] push:', { repo, commitCount });
+    logger.info('Push event', { repo, commitCount });
 
     if (!payload.repository.owner) {
-      console.error('[GitHub Webhook] ERROR: No owner found in push event', {
+      logger.error('No owner found in push event', {
         repo,
         hasRepository: !!payload.repository,
       });
@@ -316,7 +298,7 @@ if (webhooks) {
 
     // Analyze each commit (limit to last 3 to avoid overwhelming API)
     const commitsToAnalyze = payload.commits.slice(-3);
-    console.log('[GitHub Webhook] Analyzing commits:', {
+    logger.info('Analyzing commits', {
       repo,
       totalCommits: commitCount,
       analyzingCount: commitsToAnalyze.length,
@@ -338,7 +320,7 @@ if (webhooks) {
     const repo = payload.repository.full_name;
     const prNumber = payload.pull_request.number;
     const prTitle = payload.pull_request.title;
-    console.log('[GitHub Webhook] pull_request.opened:', { repo, prNumber, prTitle });
+    logger.info('Pull request opened', { repo, prNumber, prTitle });
 
     // Trigger PR analysis in the background
     handlePRAnalysis({
@@ -359,7 +341,7 @@ if (webhooks) {
     const repo = payload.repository.full_name;
     const prNumber = payload.pull_request.number;
     const prTitle = payload.pull_request.title;
-    console.log('[GitHub Webhook] pull_request.synchronize:', { repo, prNumber, prTitle });
+    logger.info('Pull request synchronize', { repo, prNumber, prTitle });
 
     // Re-run analysis when PR is updated
     handlePRAnalysis({
@@ -380,7 +362,7 @@ if (webhooks) {
     const repo = payload.repository.full_name;
     const issueNumber = payload.issue.number;
     const issueTitle = payload.issue.title;
-    console.log('[GitHub Webhook] issues.opened:', { repo, issueNumber, issueTitle });
+    logger.info('Issue opened', { repo, issueNumber, issueTitle });
 
     // Trigger issue analysis in the background
     handleIssueAnalysis({
@@ -400,7 +382,7 @@ export async function POST(request: Request) {
   const delivery = request.headers.get('x-github-delivery') ?? 'unknown';
 
   // Log incoming webhook request with full details
-  console.log('[GitHub Webhook] Incoming webhook:', {
+  logger.info('Incoming webhook:', {
     event,
     delivery,
     hasWebhookSecret: !!process.env.GITHUB_WEBHOOK_SECRET,
@@ -409,7 +391,7 @@ export async function POST(request: Request) {
   });
 
   if (!webhooks) {
-    console.error('[GitHub Webhook] ERROR: Webhooks not configured', {
+    logger.error('Webhooks not configured', {
       hasSecret: !!process.env.GITHUB_WEBHOOK_SECRET,
       webhooksInitialized: !!webhooks,
       event,
@@ -421,13 +403,13 @@ export async function POST(request: Request) {
   let payload: string;
   try {
     payload = await request.text();
-    console.log('[GitHub Webhook] Payload received:', {
+    logger.info('Payload received:', {
       event,
       delivery,
       payloadLength: payload.length,
     });
   } catch (error) {
-    console.error('[GitHub Webhook] ERROR: Failed to read request body', {
+    logger.error('Failed to read request body', {
       event,
       delivery,
       error: error instanceof Error ? {
@@ -442,7 +424,7 @@ export async function POST(request: Request) {
   const signature = request.headers.get('x-hub-signature-256');
 
   if (!signature) {
-    console.error('[GitHub Webhook] ERROR: No signature found in webhook request', {
+    logger.error('No signature found in webhook request', {
       event,
       delivery,
       headers: Object.fromEntries(request.headers.entries()),
@@ -453,7 +435,7 @@ export async function POST(request: Request) {
   try {
     const verified = await webhooks.verify(payload, signature);
     if (!verified) {
-      console.error('[GitHub Webhook] ERROR: Webhook signature verification failed', {
+      logger.error('Webhook signature verification failed', {
         event,
         delivery,
         signatureProvided: !!signature,
@@ -461,9 +443,9 @@ export async function POST(request: Request) {
       });
       return new Response('Signature verification failed', { status: 401 });
     }
-    console.log('[GitHub Webhook] Signature verified successfully:', { event, delivery });
+    logger.info('Signature verified successfully:', { event, delivery });
   } catch (error) {
-    console.error('[GitHub Webhook] ERROR: Webhook verification error', {
+    logger.error('Webhook verification error', {
       event,
       delivery,
       error: error instanceof Error ? {
@@ -476,7 +458,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    console.log('[GitHub Webhook] Processing webhook event:', { event, delivery });
+    logger.info('Processing webhook event:', { event, delivery });
 
     await webhooks.receive({
       id: delivery,
@@ -484,14 +466,14 @@ export async function POST(request: Request) {
       payload: JSON.parse(payload),
     } as Parameters<typeof webhooks.receive>[0]);
 
-    console.log('[GitHub Webhook] SUCCESS: Successfully processed webhook event', {
+    logger.info('SUCCESS: Successfully processed webhook event', {
       event,
       delivery,
       timestamp: new Date().toISOString(),
     });
     return new Response('OK', { status: 200 });
   } catch (error) {
-    console.error('[GitHub Webhook] ERROR: Error processing webhook', {
+    logger.error('Error processing webhook', {
       event,
       delivery,
       error: error instanceof Error ? {

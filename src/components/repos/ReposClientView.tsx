@@ -13,8 +13,18 @@ import { PageHeader } from '@/components/common';
 type SortField = 'date' | 'score' | 'name';
 type SortOrder = 'asc' | 'desc';
 
+interface RepositoryScorecardEntry {
+  repoOwner: string;
+  repoName: string;
+  overallScore: number;
+  updatedAt: Date | string;
+  metrics: any[]; // ScorecardMetric[]
+  ref: string | null;
+  version: number;
+}
+
 interface ReposClientViewProps {
-  initialRepos: any[];
+  initialRepos: RepositoryScorecardEntry[];
 }
 
 export function ReposClientView({ initialRepos }: ReposClientViewProps) {

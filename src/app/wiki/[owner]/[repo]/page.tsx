@@ -1,3 +1,8 @@
+'use client';
+
+import { createLogger } from '@/lib/logging';
+const logger = createLogger('WikiPermissionCheck');
+
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { Book, FileText, ChevronRight } from 'lucide-react';
@@ -84,7 +89,7 @@ export default async function WikiIndex({ params, searchParams }: WikiIndexProps
       canEditWiki = !!(repoData.permissions?.admin || repoData.permissions?.push);
     }
   } catch (error) {
-    console.error('Failed to check repository permissions:', error);
+    logger.error('Failed to check repository permissions', error);
   }
 
   const wikiPages = toc?.pages.map(p => ({ slug: p.slug, title: p.title })) || [];

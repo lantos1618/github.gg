@@ -6,6 +6,9 @@ import { headers } from 'next/headers';
 import { db } from '@/db';
 import { user } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { createLogger } from '@/lib/logging';
+
+const logger = createLogger('WikiViewTracking');
 
 export async function incrementViewCount({
   owner,
@@ -40,38 +43,38 @@ export async function incrementViewCount({
         username = userRecord?.githubUsername ?? undefined;
 
         if (!username) {
-          console.warn('[View Tracking] User is logged in but githubUsername is missing:', {
+          logger.warn('User is logged in but githubUsername is missing', {
             userId: session.user.id,
             email: session.user.email,
           });
         }
-      }
-    } catch (authError) {
-      // User not logged in, continue without tracking
-      console.debug('[View Tracking] No authenticated user found');
-    }
+        }
+        } catch (authError) {
+        // User not logged in, continue without tracking
+        logger.debug('No authenticated user found');
+        }
 
-    const caller = await createCaller();
-    const result = await caller.wiki.incrementViewCount({
-      owner,
-      repo,
-      slug,
-      version,
-      userId,
-      username,
-    });
-
-    if (userId && username) {
-      console.log('[View Tracking] Tracked view for user:', {
-        username,
+        const caller = await createCaller();
+        const result = await caller.wiki.incrementViewCount({
         owner,
         repo,
         slug,
-        success: result.success,
-      });
-    }
-  } catch (error) {
-    console.error('[View Tracking] Failed to increment view count:', error);
+        version,
+        userId,
+        username,
+        });
+
+        if (userId && username) {
+        logger.info('Tracked view for user', {
+         username,
+         owner,
+         repo,
+         slug,
+         success: result.success,
+        });
+        }
+        } catch (error) {
+        logger.error('Failed to increment view count', error);
     // Don't throw - view counting is non-critical
   }
 }

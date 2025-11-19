@@ -9,6 +9,7 @@ import { RepoStatus } from '@/components/RepoStatus';
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import { useSelectedFiles } from '@/contexts/SelectedFilesContext';
 import { FolderTree } from 'lucide-react';
+import { RepoFile } from '@/types/repo';
 
 interface RepoClientViewProps {
   user: string;
@@ -18,7 +19,7 @@ interface RepoClientViewProps {
 }
 
 interface RepoClientViewInnerProps extends RepoClientViewProps {
-  files: any[];
+  files: RepoFile[];
   isLoading: boolean;
   error: unknown;
 }

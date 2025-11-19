@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, LucideIcon } from 'lucide-react';
 import { PricingCardActions } from './PricingCardActions';
+import { getPricingCardClassName, getPricingCardStyle } from '@/lib/utils/pricing';
 
 export interface Plan {
   name: string;
@@ -27,27 +28,8 @@ export function PricingCardServer({
   const Icon = plan.icon;
   const isPro = plan.planType === 'pro';
 
-  const getCardClassName = () => {
-    const baseClasses = 'relative transition-all duration-300';
-
-    if (variant === 'compact') {
-      return `${baseClasses} border rounded-lg ${isPro ? 'border-2 border-purple-200 hover:border-purple-300' : 'border hover:shadow-lg'}`;
-    }
-
-    if (variant === 'hero') {
-      return `${baseClasses} ${isPro ? 'bg-gradient-to-br from-purple-50 to-blue-50' : ''}`;
-    }
-
-    // default variant
-    if (isPro) {
-      return `${baseClasses} border-2 border-purple-500/30 scale-105 shadow-xl bg-gradient-to-br from-purple-50/80 to-blue-50/80 backdrop-blur-sm overflow-hidden`;
-    }
-
-    return `${baseClasses} border shadow-md hover:shadow-lg`;
-  };
-
   return (
-    <Card className={`${getCardClassName()} ${className}`} style={isPro ? { zIndex: 2 } : {}}>
+    <Card className={getPricingCardClassName(isPro, variant, className)} style={getPricingCardStyle(isPro)}>
       <CardHeader className="text-center relative">
         {isPro && variant === 'default' && (
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-400 via-purple-500 to-purple-400"></div>

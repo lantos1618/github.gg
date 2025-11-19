@@ -12,6 +12,8 @@ import {
   Circle,
   X,
   GitBranch,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -52,6 +54,7 @@ export function FileExplorerDrawer({
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [copiedTree, setCopiedTree] = useState(false);
+  const [showHiddenFiles, setShowHiddenFiles] = useState(false);
   const { maxFileSize, setMaxFileSize } = useSelectedFiles();
   const pathname = usePathname();
   const router = useRouter();
@@ -131,6 +134,11 @@ export function FileExplorerDrawer({
   // Count files filtered by size
   const filesFilteredBySize = useMemo(() => {
     return files.filter(f => (f.size || 0) > maxFileSize).length;
+  }, [files, maxFileSize]);
+
+  // Get hidden files
+  const hiddenFiles = useMemo(() => {
+    return files.filter(f => (f.size || 0) > maxFileSize);
   }, [files, maxFileSize]);
 
   const fileTree = useMemo(() => buildFileTree(files), [files]);
@@ -308,9 +316,48 @@ export function FileExplorerDrawer({
               className="w-full"
             />
             {filesFilteredBySize > 0 && (
-              <p className="text-xs text-orange-600 mt-2">
-                {filesFilteredBySize} file{filesFilteredBySize > 1 ? 's' : ''} hidden (too large)
-              </p>
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowHiddenFiles(!showHiddenFiles)}
+                  className="w-full flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 rounded-md hover:bg-orange-100 transition-colors cursor-pointer text-left"
+                  style={{ borderColor: 'rgb(254, 215, 170)', borderWidth: '1px', borderStyle: 'solid' }}
+                  aria-expanded={showHiddenFiles}
+                  aria-label={`${showHiddenFiles ? 'Hide' : 'Show'} ${filesFilteredBySize} hidden file${filesFilteredBySize > 1 ? 's' : ''}`}
+                >
+                  {showHiddenFiles ? (
+                    <ChevronDown className="w-3 h-3 flex-shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-3 h-3 flex-shrink-0" />
+                  )}
+                  <span>
+                    {filesFilteredBySize} file{filesFilteredBySize > 1 ? 's' : ''} hidden (too large)
+                  </span>
+                </button>
+
+                {showHiddenFiles && (
+                  <div 
+                    className="mt-2 p-2 bg-orange-50 rounded-md max-h-32 overflow-y-auto"
+                    style={{ borderColor: 'rgb(254, 215, 170)', borderWidth: '1px', borderStyle: 'solid' }}
+                  >
+                    <ul className="space-y-1">
+                      {hiddenFiles.map((file) => {
+                        const fileName = file.path.split('/').pop() || file.path;
+                        return (
+                          <li key={file.path} className="text-xs text-gray-600">
+                            <div className="flex items-center justify-between px-1 py-0.5 truncate">
+                              <span className="truncate text-xs">{file.path}</span>
+                              <span className="text-xs text-gray-500 font-mono flex-shrink-0 ml-1">
+                                {formatFileSize(file.size)}
+                              </span>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 

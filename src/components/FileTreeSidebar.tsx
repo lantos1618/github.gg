@@ -219,15 +219,20 @@ export function FileTreeSidebar({
           {filesFilteredBySize > 0 && (
             <div className="mt-2">
               <button
+                type="button"
                 onClick={() => setShowHiddenFiles(!showHiddenFiles)}
-                className="text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 font-medium flex items-center gap-1 cursor-pointer px-2 py-1.5 rounded transition-colors w-full text-left border border-orange-200"
+                className="w-full flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded-md hover:bg-orange-100 transition-colors cursor-pointer text-left"
+                aria-expanded={showHiddenFiles}
+                aria-label={`${showHiddenFiles ? 'Hide' : 'Show'} ${filesFilteredBySize} hidden file${filesFilteredBySize > 1 ? 's' : ''}`}
               >
                 {showHiddenFiles ? (
-                  <ChevronDown className="w-3 h-3" />
+                  <ChevronDown className="w-3 h-3 flex-shrink-0" />
                 ) : (
-                  <ChevronRight className="w-3 h-3" />
+                  <ChevronRight className="w-3 h-3 flex-shrink-0" />
                 )}
-                {filesFilteredBySize} file{filesFilteredBySize > 1 ? 's' : ''} hidden (too large)
+                <span>
+                  {filesFilteredBySize} file{filesFilteredBySize > 1 ? 's' : ''} hidden (too large)
+                </span>
               </button>
 
               {showHiddenFiles && (

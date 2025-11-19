@@ -10,6 +10,10 @@ import { auth } from '@/lib/auth';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import { headers } from 'next/headers';
 
+// ISR: Revalidate every hour to keep wiki index fresh while reducing DB load
+export const revalidate = 3600;
+export const dynamicParams = true;
+
 interface WikiIndexProps {
   params: Promise<{
     owner: string;
@@ -18,6 +22,19 @@ interface WikiIndexProps {
   searchParams: Promise<{
     version?: string;
   }>;
+}
+
+// Pre-render popular wiki indexes at build time
+export async function generateStaticParams() {
+  try {
+    // In a real scenario, you'd query the database for popular repos with wikis
+    // For now, return empty array to enable on-demand ISR for all repos
+    // This means first access to a wiki will be slow, but subsequent accesses are instant
+    return [];
+  } catch (error) {
+    console.error('Failed to generate static wiki index params:', error);
+    return [];
+  }
 }
 
 // Generate metadata for SEO

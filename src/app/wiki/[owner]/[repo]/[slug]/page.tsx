@@ -13,6 +13,10 @@ import { RepoSidebarLayout } from '@/components/layouts/RepoSidebarLayout';
 import { MilkdownViewer } from '@/components/ui/MilkdownViewer';
 import { TableOfContents } from '@/components/ui/TableOfContents';
 
+// ISR: Revalidate every hour to keep content fresh while reducing DB load
+export const revalidate = 3600;
+export const dynamicParams = true;
+
 interface WikiPageProps {
   params: Promise<{
     owner: string;
@@ -22,6 +26,19 @@ interface WikiPageProps {
   searchParams: Promise<{
     version?: string;
   }>;
+}
+
+// Pre-render popular wiki pages at build time
+export async function generateStaticParams() {
+  try {
+    // In a real scenario, you'd query the database for the most viewed wiki pages
+    // For now, return empty array to enable on-demand ISR for all pages
+    // This means first access to a page will be slow, but subsequent accesses are instant
+    return [];
+  } catch (error) {
+    console.error('Failed to generate static wiki page params:', error);
+    return [];
+  }
 }
 
 // Generate metadata for SEO

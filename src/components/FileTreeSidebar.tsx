@@ -221,7 +221,8 @@ export function FileTreeSidebar({
               <button
                 type="button"
                 onClick={() => setShowHiddenFiles(!showHiddenFiles)}
-                className="w-full flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded-md hover:bg-orange-100 transition-colors cursor-pointer text-left"
+                className="w-full flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 rounded-md hover:bg-orange-100 transition-colors cursor-pointer text-left"
+                style={{ borderColor: 'rgb(254, 215, 170)', borderWidth: '1px', borderStyle: 'solid' }}
                 aria-expanded={showHiddenFiles}
                 aria-label={`${showHiddenFiles ? 'Hide' : 'Show'} ${filesFilteredBySize} hidden file${filesFilteredBySize > 1 ? 's' : ''}`}
               >
@@ -236,7 +237,10 @@ export function FileTreeSidebar({
               </button>
 
               {showHiddenFiles && (
-                <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-md max-h-32 overflow-y-auto">
+                <div 
+                  className="mt-2 p-2 bg-orange-50 rounded-md max-h-32 overflow-y-auto"
+                  style={{ borderColor: 'rgb(254, 215, 170)', borderWidth: '1px', borderStyle: 'solid' }}
+                >
                   <ul className="space-y-1">
                     {hiddenFiles.map((file) => {
                       const fileName = file.path.split('/').pop() || file.path;

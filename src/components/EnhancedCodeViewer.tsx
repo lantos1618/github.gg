@@ -130,7 +130,7 @@ const FileItem = memo(function FileItem({ file, fileIndex, copiedFile, onCopy, o
       style={{ contentVisibility: 'auto', minHeight: isInView ? 'auto' : '400px' }}
     >
       {/* File Header with Breadcrumb */}
-      <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100/50 sticky top-0 z-10">
+      <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100/50 sticky top-14 z-10">
         {/* Breadcrumb Navigation */}
         <nav className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 overflow-x-auto scrollbar-hide">
           {breadcrumbs.map((crumb) => (

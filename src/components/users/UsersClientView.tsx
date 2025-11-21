@@ -10,7 +10,7 @@ import { Search, Sparkles, ArrowUpDown, ChevronLeft, ChevronRight, Trophy } from
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import type { DeveloperProfile } from '@/lib/types/profile';
-import { LoadingPage, PageHeader } from '@/components/common';
+import { LoadingPage } from '@/components/common';
 
 type SortField = 'date' | 'score' | 'username' | 'elo' | 'tokens';
 type SortOrder = 'asc' | 'desc';
@@ -95,286 +95,213 @@ export function UsersClientView({ initialProfiles, initialLeaderboard }: UsersCl
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pt-20 pb-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <PageHeader
-          title="Analyzed Developer Profiles"
-          description="Discover developers with AI-generated insights and analysis"
-        />
+    <div className="min-h-screen bg-white pt-20 pb-20">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-16">
+            <h1 className="text-5xl font-bold text-black tracking-tight mb-4">Analyzed Profiles</h1>
+            <p className="text-xl text-gray-500 font-light max-w-2xl">
+                Discover developers with AI-generated insights.
+            </p>
+        </div>
 
         {/* Search Control */}
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+        <div className="mb-12">
+          <div className="relative max-w-xl">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <Input
               type="text"
-              placeholder="Search developers by username..."
+              placeholder="Search username..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
                 setPage(0);
               }}
-              className="pl-10 py-6 text-lg"
+              className="pl-12 h-14 text-lg border-2 border-gray-100 rounded-xl focus:border-black focus:ring-0 transition-colors"
             />
           </div>
         </div>
 
         {paginatedProfiles.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-gray-500 text-lg">
-                {searchQuery ? 'No profiles found matching your search.' : 'No analyzed profiles yet.'}
-              </p>
-            </CardContent>
-          </Card>
+          <div className="py-20 text-center border-t border-gray-100">
+            <p className="text-gray-400 text-lg">
+              {searchQuery ? 'No profiles found.' : 'No analyzed profiles yet.'}
+            </p>
+          </div>
         ) : (
           <>
             {/* Table View */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th
-                        className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                        onClick={() => toggleSort('username')}
-                      >
-                        <div className="flex items-center gap-2">
-                          Developer
-                          {sortField === 'username' && <ArrowUpDown className="h-3 w-3" />}
-                        </div>
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
-                        Summary
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                        Top Skills
-                      </th>
-                      <th
-                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell cursor-pointer hover:bg-gray-100"
-                        onClick={() => toggleSort('elo')}
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          <Trophy className="h-3.5 w-3.5 text-yellow-500" />
-                          ELO
-                          {sortField === 'elo' && <ArrowUpDown className="h-3 w-3" />}
-                        </div>
-                      </th>
-                      <th
-                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                        onClick={() => toggleSort('score')}
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          Score
-                          {sortField === 'score' && <ArrowUpDown className="h-3 w-3" />}
-                        </div>
-                      </th>
-                      <th
-                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell cursor-pointer hover:bg-gray-100"
-                        onClick={() => toggleSort('tokens')}
-                        title="Total tokens used by this developer across all AI features"
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="text-base">🔥</span>
-                          Token Usage
-                          {sortField === 'tokens' && <ArrowUpDown className="h-3 w-3" />}
-                        </div>
-                      </th>
-                      <th
-                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell cursor-pointer hover:bg-gray-100"
-                        onClick={() => toggleSort('date')}
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          Analyzed
-                          {sortField === 'date' && <ArrowUpDown className="h-3 w-3" />}
-                        </div>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {paginatedProfiles.map((profile) => {
-                      const profileData = profile.profileData as DeveloperProfile;
-                      const topSkills = profileData.techStack?.slice(0, 3) || [];
-                      const avgScore = profileData.topRepos?.length
-                        ? Math.round(
-                            profileData.topRepos
-                              .map(r => r.significanceScore || 0)
-                              .reduce((a, b) => a + b, 0) / profileData.topRepos.length * 10
-                          )
-                        : null;
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th
+                      className="py-6 pr-8 text-sm font-medium text-gray-500 cursor-pointer hover:text-black transition-colors"
+                      onClick={() => toggleSort('username')}
+                    >
+                      <div className="flex items-center gap-2">
+                        Developer
+                        {sortField === 'username' && <ArrowUpDown className="h-3 w-3" />}
+                      </div>
+                    </th>
+                    <th className="py-6 px-8 text-sm font-medium text-gray-500 hidden lg:table-cell">
+                      Summary
+                    </th>
+                    <th className="py-6 px-8 text-sm font-medium text-gray-500 hidden md:table-cell">
+                      Top Skills
+                    </th>
+                    <th
+                      className="py-6 px-8 text-center text-sm font-medium text-gray-500 cursor-pointer hover:text-black transition-colors hidden xl:table-cell"
+                      onClick={() => toggleSort('elo')}
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        ELO
+                        {sortField === 'elo' && <ArrowUpDown className="h-3 w-3" />}
+                      </div>
+                    </th>
+                    <th
+                      className="py-6 px-8 text-center text-sm font-medium text-gray-500 cursor-pointer hover:text-black transition-colors"
+                      onClick={() => toggleSort('score')}
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        Score
+                        {sortField === 'score' && <ArrowUpDown className="h-3 w-3" />}
+                      </div>
+                    </th>
+                    <th
+                      className="py-6 pl-8 text-right text-sm font-medium text-gray-500 cursor-pointer hover:text-black transition-colors hidden sm:table-cell"
+                      onClick={() => toggleSort('date')}
+                    >
+                      <div className="flex items-center justify-end gap-2">
+                        Analyzed
+                        {sortField === 'date' && <ArrowUpDown className="h-3 w-3" />}
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {paginatedProfiles.map((profile) => {
+                    const profileData = profile.profileData as DeveloperProfile;
+                    const topSkills = profileData.techStack?.slice(0, 3) || [];
+                    const avgScore = profileData.topRepos?.length
+                      ? Math.round(
+                          profileData.topRepos
+                            .map(r => r.significanceScore || 0)
+                            .reduce((a, b) => a + b, 0) / profileData.topRepos.length * 10
+                        )
+                      : null;
 
-                      return (
-                        <tr key={`${profile.username}-${profile.version}`} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Link href={`/${profile.username}`} className="flex items-center gap-3 group">
-                              <Avatar className="h-12 w-12">
-                                <AvatarImage
-                                  src={`https://avatars.githubusercontent.com/${profile.username}`}
-                                  alt={profile.username}
-                                />
-                                <AvatarFallback>{profile.username[0]?.toUpperCase()}</AvatarFallback>
-                              </Avatar>
-                              <div className="min-w-0">
-                                <p className="font-semibold text-gray-900 group-hover:text-purple-600 transition-colors truncate">
-                                  {profile.username}
-                                </p>
-                                <div className="flex items-center gap-1 mt-1">
-                                  <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                                    <Sparkles className="h-2.5 w-2.5" />
-                                    AI
-                                  </Badge>
-                                  {profileData.topRepos && (
-                                    <span className="text-xs text-gray-500 sm:hidden">
-                                      {profileData.topRepos.length} repos
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </Link>
-                          </td>
-                          <td className="px-6 py-4 hidden lg:table-cell">
-                            <Link href={`/${profile.username}`}>
-                              <p className="text-sm text-gray-600 line-clamp-2 max-w-md">
-                                {profileData.summary || 'No summary available'}
+                    return (
+                      <tr key={`${profile.username}-${profile.version}`} className="group hover:bg-gray-50/50 transition-colors">
+                        <td className="py-6 pr-8">
+                          <Link href={`/${profile.username}`} className="flex items-center gap-4">
+                            <Avatar className="h-10 w-10 border border-gray-200">
+                              <AvatarImage
+                                src={`https://avatars.githubusercontent.com/${profile.username}`}
+                                alt={profile.username}
+                              />
+                              <AvatarFallback className="bg-gray-100 text-gray-500">{profile.username[0]?.toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-bold text-black text-base group-hover:text-blue-600 transition-colors">
+                                {profile.username}
                               </p>
-                            </Link>
-                          </td>
-                          <td className="px-6 py-4 hidden md:table-cell">
-                            <Link href={`/${profile.username}`}>
-                              <div className="flex flex-wrap gap-1">
-                                {topSkills.map((skill, idx) => (
-                                  <Badge key={idx} variant="outline" className="text-xs">
-                                    {skill.name}
-                                  </Badge>
-                                ))}
-                                {profileData.techStack && profileData.techStack.length > 3 && (
-                                  <Badge variant="outline" className="text-xs text-gray-500">
-                                    +{profileData.techStack.length - 3}
-                                  </Badge>
-                                )}
-                              </div>
-                            </Link>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center hidden xl:table-cell">
-                            <Link href={`/${profile.username}`}>
-                              {eloMap.get(profile.username.toLowerCase()) ? (
-                                <div className="inline-flex items-center gap-1.5">
-                                  <Trophy className="h-4 w-4 text-yellow-500" />
-                                  <span className="text-lg font-bold text-gray-900">
-                                    {eloMap.get(profile.username.toLowerCase())}
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-gray-400 text-sm">—</span>
-                              )}
-                            </Link>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <Link href={`/${profile.username}`}>
-                              {avgScore !== null ? (
-                                <div className="inline-flex flex-col items-center">
-                                  <span className="text-2xl font-bold text-purple-600">
-                                    {avgScore}
-                                  </span>
-                                  <span className="text-xs text-gray-500">/100</span>
-                                </div>
-                              ) : (
-                                <span className="text-gray-400">N/A</span>
-                              )}
-                            </Link>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center hidden lg:table-cell">
-                            <Link href={`/${profile.username}`} title="Total AI tokens used by this developer">
-                              {profile.totalTokens ? (
-                                <div className="inline-flex flex-col items-center">
-                                  <span className="text-lg font-semibold text-purple-700">
-                                    {(profile.totalTokens).toLocaleString()}
-                                  </span>
-                                  <span className="text-xs text-gray-500">tokens</span>
-                                </div>
-                              ) : (
-                                <span className="text-gray-400 text-sm">—</span>
-                              )}
-                            </Link>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center hidden sm:table-cell">
-                            <Link href={`/${profile.username}`}>
-                              <div className="text-xs text-gray-500">
-                                {formatDistanceToNow(new Date(profile.updatedAt), { addSuffix: true })}
-                              </div>
                               {profileData.topRepos && (
-                                <div className="text-xs text-gray-400 mt-1">
+                                <p className="text-xs text-gray-400 mt-0.5 sm:hidden">
                                   {profileData.topRepos.length} repos
-                                </div>
+                                </p>
                               )}
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                            </div>
+                          </Link>
+                        </td>
+                        <td className="py-6 px-8 hidden lg:table-cell align-top">
+                          <Link href={`/${profile.username}`} className="block">
+                            <p className="text-sm text-gray-500 leading-relaxed line-clamp-2 max-w-xl">
+                              {profileData.summary || 'No summary available'}
+                            </p>
+                          </Link>
+                        </td>
+                        <td className="py-6 px-8 hidden md:table-cell align-top">
+                          <Link href={`/${profile.username}`} className="block">
+                            <div className="flex flex-wrap gap-2">
+                              {topSkills.map((skill, idx) => (
+                                <span key={idx} className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600">
+                                  {skill.name}
+                                </span>
+                              ))}
+                              {profileData.techStack && profileData.techStack.length > 3 && (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium text-gray-400">
+                                  +{profileData.techStack.length - 3}
+                                </span>
+                              )}
+                            </div>
+                          </Link>
+                        </td>
+                        <td className="py-6 px-8 text-center hidden xl:table-cell align-middle">
+                          <Link href={`/${profile.username}`}>
+                            {eloMap.get(profile.username.toLowerCase()) ? (
+                              <span className="font-mono font-bold text-black">
+                                {eloMap.get(profile.username.toLowerCase())}
+                              </span>
+                            ) : (
+                              <span className="text-gray-300 text-sm">—</span>
+                            )}
+                          </Link>
+                        </td>
+                        <td className="py-6 px-8 text-center align-middle">
+                          <Link href={`/${profile.username}`}>
+                            {avgScore !== null ? (
+                              <div className="inline-flex items-center gap-1">
+                                <span className="text-lg font-bold text-black">
+                                  {avgScore}
+                                </span>
+                                <span className="text-xs text-gray-400">/100</span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-300 text-sm">N/A</span>
+                            )}
+                          </Link>
+                        </td>
+                        <td className="py-6 pl-8 text-right hidden sm:table-cell align-middle">
+                          <Link href={`/${profile.username}`}>
+                            <div className="text-sm text-gray-500">
+                              {formatDistanceToNow(new Date(profile.updatedAt), { addSuffix: true })}
+                            </div>
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="mt-6 flex items-center justify-between">
-                <div className="text-sm text-gray-500">
-                  Showing {page * pageSize + 1} to {Math.min((page + 1) * pageSize, sortedProfiles.length)} of {sortedProfiles.length} profiles
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(page - 1)}
-                    disabled={page === 0}
-                  >
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Previous
-                  </Button>
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i;
-                      } else if (page < 3) {
-                        pageNum = i;
-                      } else if (page > totalPages - 4) {
-                        pageNum = totalPages - 5 + i;
-                      } else {
-                        pageNum = page - 2 + i;
-                      }
-                      return (
-                        <Button
-                          key={pageNum}
-                          variant={page === pageNum ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setPage(pageNum)}
-                          className="w-10"
-                        >
-                          {pageNum + 1}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(page + 1)}
-                    disabled={page === totalPages - 1}
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </div>
+              <div className="mt-12 flex items-center justify-center gap-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setPage(page - 1)}
+                  disabled={page === 0}
+                  className="border-gray-200 hover:border-black hover:bg-transparent transition-colors"
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-gray-500 font-mono">
+                  Page {page + 1} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() => setPage(page + 1)}
+                  disabled={page === totalPages - 1}
+                  className="border-gray-200 hover:border-black hover:bg-transparent transition-colors"
+                >
+                  Next
+                </Button>
               </div>
             )}
           </>
         )}
-
       </div>
     </div>
   );
 }
-

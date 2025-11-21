@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
-import { DollarSign, Users, RefreshCw, UserCheck } from 'lucide-react';
+import { DollarSign, Users, RefreshCw, UserCheck, Download } from 'lucide-react';
 import { formatCost, calculatePerUserCostAndUsage } from '@/lib/utils/cost-calculator';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Image from 'next/image';
@@ -92,6 +92,29 @@ export default function AdminDashboard() {
     toast.success('Data refreshed!');
   };
 
+  const handleExportDeveloperProfiles = async () => {
+    try {
+      const response = await fetch('/api/admin/export-developer-profiles');
+      if (!response.ok) {
+        throw new Error('Failed to export developer profiles');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `developer-profiles-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success('Developer profiles exported!');
+    } catch (error) {
+      toast.error('Failed to export developer profiles');
+      console.error(error);
+    }
+  };
+
   const loading = loadingUsage || loadingSubs || loadingUsers || loadingDailyStats;
   const noData = !loading && (!usageStats || usageStats.summary.totalTokens === 0);
 
@@ -141,10 +164,16 @@ export default function AdminDashboard() {
     <div className="container py-8 max-w-3xl px-4 md:px-8">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <Button variant="outline" onClick={handleRefresh}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExportDeveloperProfiles}>
+            <Download className="h-4 w-4 mr-2" />
+            Export Developer Profiles
+          </Button>
+          <Button variant="outline" onClick={handleRefresh}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Summary Stats */}

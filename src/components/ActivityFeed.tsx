@@ -52,112 +52,76 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 md:p-6">
-      <div className="space-y-4">
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="relative border-l border-gray-200 ml-3 space-y-8">
         {isLoading ? (
-          <>
+          <div className="pl-6 space-y-6">
             {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-20 w-full" />
+              <Skeleton key={i} className="h-16 w-full" />
             ))}
-          </>
+          </div>
         ) : activities && activities.length > 0 ? (
           <>
             {activities.map((activity) => (
-              <div
-                key={activity.id}
-                className={`text-sm p-2 rounded-lg ${
-                  activity.unread ? 'bg-blue-50 border border-blue-200' : ''
-                } ${activity.isComment ? 'bg-gray-50 border border-gray-200' : ''}`}
-              >
-                <div className="flex items-start gap-2">
-                  {activity.isComment && activity.commentAuthorAvatar && (
-                    <img
-                      src={activity.commentAuthorAvatar}
-                      alt={activity.commentAuthor}
-                      className="w-6 h-6 rounded-full flex-shrink-0 mt-0.5"
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="text-xs text-gray-600">
-                        <span className="font-medium text-gray-900">{activity.repo}</span>
-                        {activity.issueNumber > 0 && (
-                          <span className="mx-1">#{activity.issueNumber}</span>
+              <div key={activity.id} className="relative pl-6 group">
+                {/* Timeline dot */}
+                <div className={`absolute left-[-5px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white ${activity.unread ? 'bg-blue-600 ring-2 ring-blue-100' : 'bg-gray-300 group-hover:bg-gray-400 transition-colors'}`} />
+                
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <span className="font-mono">{activity.repo}{activity.issueNumber > 0 && `#${activity.issueNumber}`}</span>
+                    <span>•</span>
+                    <span>{formatTimeAgo(activity.timeAgo)}</span>
+                  </div>
+                  
+                  <a
+                    href={activity.url || `https://github.com/${activity.repo}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors leading-snug"
+                  >
+                    {activity.title}
+                  </a>
+
+                  {activity.isComment && activity.commentBody && (
+                    <div className="mt-2 text-sm bg-gray-50 p-3 rounded-lg border border-gray-100 text-gray-600 line-clamp-3">
+                      <div className="flex items-center gap-2 mb-1 text-xs text-gray-500">
+                        {activity.commentAuthorAvatar && (
+                          <img src={activity.commentAuthorAvatar} className="w-4 h-4 rounded-full" alt="" />
                         )}
+                        <span className="font-semibold">{activity.commentAuthor}</span>
                       </div>
-                      {activity.unread && (
-                        <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0" />
-                      )}
+                      {activity.commentBody.replace(/```[\s\S]*?```/g, '[code]').substring(0, 100)}
                     </div>
-                    <a
-                      href={activity.url || `https://github.com/${activity.repo}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-gray-900 hover:text-blue-600 line-clamp-2 font-medium"
-                    >
-                      {activity.title}
-                    </a>
-                    {activity.isComment && activity.commentBody && (
-                      <div className="mt-2 p-2 bg-white border border-gray-200 rounded-md">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-medium text-gray-900">
-                            {activity.commentAuthor}
-                          </span>
-                          <span className="text-xs text-gray-500">commented</span>
-                        </div>
-                        <div className="text-xs text-gray-700 line-clamp-3 whitespace-pre-wrap">
-                          {activity.commentBody
-                            .replace(/```[\s\S]*?```/g, '[code block]')
-                            .replace(/`[^`]+`/g, '[code]')}
-                        </div>
-                      </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    {activity.status === 'review_requested' && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600 bg-orange-50 px-2 py-0.5 rounded">Review</span>
                     )}
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-gray-600 capitalize">{activity.statusText}</span>
-                      {activity.status === 'review_requested' && (
-                        <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">
-                          Action needed
-                        </span>
-                      )}
-                      {activity.status === 'mention' && (
-                        <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium">
-                          Mentioned
-                        </span>
-                      )}
-                      {!activity.isComment && activity.comments > 0 && (
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
-                          <MessageSquare className="w-3.5 h-3.5" />
-                          <span>{activity.comments}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {formatTimeAgo(activity.timeAgo)}
-                    </div>
+                    {activity.status === 'mention' && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 bg-purple-50 px-2 py-0.5 rounded">Mention</span>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
+            
             {/* Load more trigger */}
             {currentPageActivities &&
               currentPageActivities.length === pageSize &&
               activitiesPage < maxPages && (
-                <div ref={loadMoreRef} className="py-4 text-center">
+                <div ref={loadMoreRef} className="py-4 text-center pl-6">
                   {isLoading ? (
-                    <Skeleton className="h-20 w-full" />
+                    <Skeleton className="h-10 w-full" />
                   ) : (
-                    <div className="text-xs text-gray-400">Scroll for more...</div>
+                    <div className="text-xs text-gray-400">Loading more...</div>
                   )}
                 </div>
               )}
           </>
         ) : (
-          <div className="text-center py-8">
-            <div className="text-sm text-gray-500 mb-2">No recent activity found</div>
-            <div className="text-xs text-gray-400">
-              Activity includes notifications, PRs, issues, and commits
-            </div>
-          </div>
+          <div className="pl-6 text-sm text-gray-500">No recent activity.</div>
         )}
       </div>
     </div>

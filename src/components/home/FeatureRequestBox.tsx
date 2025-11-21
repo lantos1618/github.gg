@@ -74,7 +74,7 @@ export function FeatureRequestBox() {
             </p>
             <div className="bg-white/60 backdrop-blur-sm border border-blue-300 rounded-lg p-4">
               <p className="text-sm text-gray-700 mb-2">
-                <strong>Or contribute directly!</strong> gh.gg is open source.
+                <strong>Or contribute directly!</strong> GG is open source.
               </p>
               <a
                 href="https://github.com/lantos1618/github.gg"

@@ -9,7 +9,6 @@ import { useMemo, useCallback, forwardRef, useEffect, useState, useRef } from 'r
 import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import React from 'react';
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import chroma from 'chroma-js';
 import { useAuth } from '@/lib/auth/client';
 
 const CustomTooltipContent = forwardRef<
@@ -25,23 +24,18 @@ const CustomTooltipContent = forwardRef<
         ref={ref}
         sideOffset={sideOffset}
         className={cn(
-          "z-50 overflow-hidden rounded-md px-3 py-1.5 text-sm",
+          "z-50 overflow-hidden rounded-md px-3 py-1.5 text-sm bg-black text-white",
           className
         )}
-        style={{ backgroundColor: backgroundColor, color: textColor, border: 'none' }}
         {...props}
       >
         {props.children}
-        <TooltipPrimitive.Arrow style={{ fill: backgroundColor }} />
+        <TooltipPrimitive.Arrow className="fill-black" />
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>
   );
 });
 CustomTooltipContent.displayName = 'CustomTooltipContent';
-
-const pastelColors = [
-  '#FFD1D1', '#FFEACC', '#FEFFD8', '#E2FFDB', '#D4F9FF', '#D0E2FF', '#DDD9FF', '#FFE3FF'
-];
 
 type RepoData = Partial<RepoSummary> & { 
   owner: string; 
@@ -54,42 +48,14 @@ type RepoData = Partial<RepoSummary> & {
   stargazersCount?: number | string;
 };
 
-const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, isSkeleton?: boolean }) => {
+const RepoItem = ({ repo, isSkeleton }: { repo: RepoData; isSkeleton?: boolean }) => {
   const router = useRouter();
   const { owner, name, description, special, isUserRepo, isSponsor } = repo;
   const stars = repo.stargazersCount ? formatStars(repo.stargazersCount) : '0';
 
-  const { ultraLightColor, lightColor, darkColor } = useMemo(() => {
-    const baseColor = chroma(color);
-    return {
-      ultraLightColor: baseColor.brighten(0.8).hex(),
-      lightColor: baseColor.brighten(0.2).hex(),
-      darkColor: baseColor.darken(1.5).saturate(0.8).hex(),
-    };
-  }, [color]);
-
   const handleClick = useCallback(() => {
     router.push(`/${owner}/${name}`);
   }, [router, owner, name]);
-
-  const style = useMemo(() => {
-    const size = isSponsor
-      ? { minWidth: '220px', minHeight: '64px' }
-      : { minWidth: '220px', minHeight: '40px' };
-      
-    const border = isSponsor
-      ? { borderColor: 'black' }
-      : isUserRepo
-      ? { borderColor: darkColor }
-      : { borderColor: 'transparent' };
-
-    return {
-      backgroundColor: lightColor,
-      color: darkColor,
-      ...size,
-      ...border,
-    };
-  }, [isSponsor, isUserRepo, darkColor, lightColor]);
 
   return (
     <Tooltip>
@@ -97,23 +63,26 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
         <div className="inline-flex items-center mx-4">
           <motion.div
             className={cn(
-              "text-sm px-4 py-2 rounded-lg relative flex items-center justify-center border-2",
-              special && "special-repo-shimmer",
+              "text-sm px-4 py-2 rounded-lg relative flex items-center justify-center border",
+              "bg-white border-gray-200 text-black hover:border-black transition-colors duration-300"
             )}
-            style={style}
-            whileTap={{ scale: 0.95, transition: { type: "spring", stiffness: 400, damping: 17 } }}
+            style={{
+              minWidth: isSponsor ? '220px' : '220px',
+              minHeight: isSponsor ? '64px' : '40px'
+            }}
+            whileTap={{ scale: 0.95 }}
           >
             {isSponsor && (
-              <div className="absolute -top-px -right-px bg-black text-white text-xs font-bold px-2 py-0.5 rounded-bl-md rounded-tr-lg">
+              <div className="absolute -top-px -right-px bg-black text-white text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-bl-md rounded-tr-lg">
                 Sponsor
               </div>
             )}
             <div className="flex items-center justify-center text-center space-x-2">
               <span className="font-mono">
-                <span className="font-medium">{owner}/</span>
+                <span className="font-medium text-gray-500">{owner}/</span>
                 <span className="font-bold">{name}</span>
               </span>
-              <div className="flex items-center text-xs">
+              <div className="flex items-center text-xs text-gray-400">
                 <svg 
                   className="w-3 h-3 mr-0.5" 
                   fill="currentColor" 
@@ -136,7 +105,7 @@ const RepoItem = ({ repo, color, isSkeleton }: { repo: RepoData; color: string, 
         </div>
       </TooltipTrigger>
       {!isSkeleton && (
-        <CustomTooltipContent backgroundColor={darkColor} textColor={ultraLightColor}>
+        <CustomTooltipContent backgroundColor="black" textColor="white">
           <p className="max-w-xs">
             {repo.isPlaceholder 
               ? "Loading repository details..." 
@@ -271,18 +240,6 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
     };
   }, [shuffledRows]);
 
-  // Memoize row colors - create stable color assignments
-  const rowColors = useMemo(() => {
-    return Array.from({ length: responsiveRows }, (_, rowIndex) => {
-      const shuffled = [...pastelColors];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = (rowIndex * 7 + i) % (i + 1);
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-      return shuffled;
-    });
-  }, [responsiveRows]);
-
   return (
     <TooltipProvider>
       <div
@@ -305,10 +262,9 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
         {shuffledRows && (
           <div className="space-y-4">
             {shuffledRows.map((row, rowIndex) => {
-              const colors = rowColors[rowIndex] || pastelColors;
               // Top row goes right (reading direction), then alternates
               const direction = rowIndex % 2 === 0 ? 'right' : 'left';
-              const duration = 80; // keep a consistent speed for all rows
+              const duration = 120; // Slower, more elegant
               const delaySeconds = `-${(rowIndex % 12) * 3}s`; // staggered starting offsets
 
               // Skip empty rows
@@ -331,7 +287,6 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
                 >
                   {/* Duplicate row content 3 times for seamless loop */}
                   {[...row, ...row, ...row].map((repo, repoIndex) => {
-                    const colorIndex = repoIndex % colors.length;
                     return (
                       <motion.div
                         key={`${repo.owner}-${repo.name}-${repoIndex}`}
@@ -345,7 +300,6 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
                       >
                         <RepoItem
                           repo={repo}
-                          color={colors[colorIndex]}
                           isSkeleton={isLoading && repo.isPlaceholder}
                         />
                       </motion.div>
@@ -366,31 +320,6 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
           @keyframes scrollRight {
             0% { transform: translateX(-66.666%); }
             100% { transform: translateX(-33.333%); }
-          }
-          @keyframes shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-          }
-          .animate-shimmer {
-            animation: shimmer 1.5s infinite;
-          }
-          .special-repo-shimmer::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: linear-gradient(
-              100deg,
-              rgba(255, 255, 255, 0) 20%,
-              rgba(255, 255, 255, 0.4) 50%,
-              rgba(255, 255, 255, 0) 80%
-            );
-            background-size: 200% 100%;
-            animation: shimmer 2s infinite;
-            pointer-events: none;
-            border-radius: inherit;
           }
           @media (prefers-reduced-motion: reduce) {
             .flex {
@@ -420,4 +349,4 @@ export const ScrollingRepos = ({ className, children }: { className?: string, ch
       </div>
     </TooltipProvider>
   );
-}; 
+};

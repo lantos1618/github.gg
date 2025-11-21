@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
 import { Search, Star, GitFork, CheckCircle2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -29,9 +28,6 @@ interface RepoSelectorProps {
 export function RepoSelector({ open, onOpenChange, repos, onConfirm, defaultSelected = [] }: RepoSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRepos, setSelectedRepos] = useState<Set<string>>(new Set(defaultSelected));
-
-  console.log('🎭 RepoSelector rendered:', { open, reposCount: repos.length });
-  console.log('🎭 RepoSelector repos:', repos);
 
   // Filter out forks and apply search
   const filteredRepos = repos
@@ -71,11 +67,11 @@ export function RepoSelector({ open, onOpenChange, repos, onConfirm, defaultSele
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh]">
+      <DialogContent className="max-w-3xl max-h-[80vh] sm:rounded-xl">
         <DialogHeader>
-          <DialogTitle>Select Repositories for Analysis</DialogTitle>
-          <DialogDescription>
-            Choose which repositories best represent your skills. The AI will analyze these to generate your profile.
+          <DialogTitle className="text-xl font-bold text-black">Select Repositories</DialogTitle>
+          <DialogDescription className="text-gray-500">
+            Choose which repositories best represent your skills for AI analysis.
           </DialogDescription>
         </DialogHeader>
 
@@ -83,29 +79,30 @@ export function RepoSelector({ open, onOpenChange, repos, onConfirm, defaultSele
           {/* Search and Quick Actions */}
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Search repositories..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                className="pl-9 border-gray-200 focus:border-black"
               />
             </div>
-            <Button variant="outline" size="sm" onClick={handleSelectTop15}>
+            <Button variant="outline" size="sm" onClick={handleSelectTop15} className="border-gray-200 text-gray-600">
               Auto-select Top 15
             </Button>
           </div>
 
           {/* Selected Count */}
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">
-              {selectedRepos.size} repositories selected
+            <span className="text-gray-500">
+              {selectedRepos.size} selected
             </span>
             {selectedRepos.size > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSelectedRepos(new Set())}
+                className="text-gray-500 hover:text-black"
               >
                 Clear all
               </Button>
@@ -122,8 +119,8 @@ export function RepoSelector({ open, onOpenChange, repos, onConfirm, defaultSele
                     key={repo.name}
                     className={`p-4 border rounded-lg cursor-pointer transition-all ${
                       isSelected
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50 hover:bg-accent/50'
+                        ? 'border-black bg-gray-50'
+                        : 'border-gray-100 hover:border-gray-300 hover:bg-white'
                     }`}
                     onClick={() => handleToggle(repo.name)}
                   >
@@ -131,25 +128,20 @@ export function RepoSelector({ open, onOpenChange, repos, onConfirm, defaultSele
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={() => handleToggle(repo.name)}
-                        className="mt-1"
+                        className="mt-1 border-gray-300 data-[state=checked]:bg-black data-[state=checked]:border-black"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-semibold text-sm truncate">{repo.name}</h4>
-                          {isSelected && (
-                            <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0" />
-                          )}
+                          <h4 className="font-semibold text-sm truncate text-black">{repo.name}</h4>
                         </div>
                         {repo.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                          <p className="text-sm text-gray-500 line-clamp-2 mb-2 font-light">
                             {repo.description}
                           </p>
                         )}
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-4 text-xs text-gray-400 font-mono">
                           {repo.language && (
-                            <Badge variant="outline" className="text-xs">
-                              {repo.language}
-                            </Badge>
+                            <span>{repo.language}</span>
                           )}
                           <div className="flex items-center gap-1">
                             <Star className="h-3 w-3" />
@@ -170,11 +162,11 @@ export function RepoSelector({ open, onOpenChange, repos, onConfirm, defaultSele
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-gray-200">
             Cancel
           </Button>
-          <Button onClick={handleConfirm} disabled={selectedRepos.size === 0}>
-            Analyze {selectedRepos.size} {selectedRepos.size === 1 ? 'Repository' : 'Repositories'}
+          <Button onClick={handleConfirm} disabled={selectedRepos.size === 0} className="bg-black hover:bg-gray-800 text-white">
+            Analyze {selectedRepos.size} Repos
           </Button>
         </DialogFooter>
       </DialogContent>

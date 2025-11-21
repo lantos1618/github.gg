@@ -1,19 +1,12 @@
-'use client';
-
-import { createLogger } from '@/lib/logging';
-const logger = createLogger('WikiPermissionCheck');
-
 import { Metadata } from 'next';
-import Link from 'next/link';
-import { Book, FileText, ChevronRight } from 'lucide-react';
 import { createCaller } from '@/lib/trpc/server';
-import { WikiGenerationButton } from '@/components/WikiGenerationButton';
-import { WikiIndexMenu } from '@/components/wiki/WikiIndexMenu';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import RepoPageLayout from '@/components/layouts/RepoPageLayout';
 import { auth } from '@/lib/auth';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import { headers } from 'next/headers';
+import { WikiIndexClient } from './WikiIndexClient';
+import { createLogger } from '@/lib/logging';
+
+const logger = createLogger('WikiPermissionCheck');
 
 export const dynamicParams = true;
 
@@ -94,82 +87,16 @@ export default async function WikiIndex({ params, searchParams }: WikiIndexProps
 
   const wikiPages = toc?.pages.map(p => ({ slug: p.slug, title: p.title })) || [];
 
-  if (!toc || toc.pages.length === 0) {
-    return (
-      <RepoPageLayout user={owner} repo={repo} branches={branches} defaultBranch={defaultBranch} wikiPages={wikiPages}>
-        <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Book className="h-6 w-6 text-blue-600" />
-                    {repo} Wiki Documentation
-                  </CardTitle>
-                  <CardDescription className="mt-2">
-                    No wiki documentation exists for this repository yet.
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <WikiGenerationButton owner={owner} repo={repo} />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </RepoPageLayout>
-    );
-  }
-
   return (
-    <RepoPageLayout user={owner} repo={repo} branches={branches} defaultBranch={defaultBranch} wikiPages={wikiPages}>
-      <div className="max-w-screen-xl w-full mx-auto px-4 py-8">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Book className="h-6 w-6 text-blue-600" />
-                  {repo} Wiki Documentation
-                </CardTitle>
-                <CardDescription className="mt-2">
-                  {toc.pages.length} {toc.pages.length === 1 ? 'page' : 'pages'} available
-                </CardDescription>
-              </div>
-              <WikiIndexMenu
-                owner={owner}
-                repo={repo}
-                pages={toc.pages}
-                canEdit={canEditWiki}
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {toc.pages.map((page) => (
-                <Link
-                  key={page.slug}
-                  href={`/wiki/${owner}/${repo}/${page.slug}${version ? `?version=${version}` : ''}`}
-                  className="flex items-center justify-between p-4 rounded-lg border hover:bg-accent transition-colors group"
-                >
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5 text-muted-foreground group-hover:text-foreground" />
-                    <div>
-                      <h3 className="font-medium group-hover:text-primary">{page.title}</h3>
-                      {page.summary && (
-                        <p className="text-sm text-muted-foreground mt-1">{page.summary}</p>
-                      )}
-                    </div>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground" />
-                </Link>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </RepoPageLayout>
+    <WikiIndexClient
+      owner={owner}
+      repo={repo}
+      version={version ? parseInt(version) : undefined}
+      toc={toc}
+      branches={branches}
+      defaultBranch={defaultBranch}
+      canEditWiki={canEditWiki}
+      wikiPages={wikiPages}
+    />
   );
 }

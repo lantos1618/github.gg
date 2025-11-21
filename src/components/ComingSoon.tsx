@@ -59,7 +59,7 @@ export default function ComingSoon({
                   Want to contribute this feature?
                 </h3>
                 <p className="text-gray-700 mb-4">
-                  gh.gg is open source! You can help implement this feature by contributing to the repository.
+                  GG is open source! You can help implement this feature by contributing to the repository.
                 </p>
                 <div className="space-y-3">
                   <a

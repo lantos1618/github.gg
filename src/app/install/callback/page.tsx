@@ -126,7 +126,7 @@ function InstallCallbackContent() {
         <CardContent className="text-center">
           {status === 'success' && (
             <Button onClick={handleContinue} className="w-full">
-              Continue to gh.gg
+              Continue to GG
             </Button>
           )}
           {status === 'needs-auth' && (

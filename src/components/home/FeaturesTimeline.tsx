@@ -199,7 +199,7 @@ export function FeaturesTimeline({ features }: FeaturesTimelineProps) {
           viewport={{ once: true }}
         >
           <p>
-            gh.gg is not affiliated with, endorsed by, or sponsored by GitHub, Inc.
+            GG is not affiliated with, endorsed by, or sponsored by GitHub, Inc.
             <br />
             GitHub is a registered trademark of GitHub, Inc.
           </p>

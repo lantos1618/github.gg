@@ -1,6 +1,5 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -20,36 +19,29 @@ export function BattleCard({ battle }: BattleCardProps) {
   const isCompleted = battle.status === 'completed' && battle.completedAt;
   const isPending = battle.status === 'pending' || battle.status === 'in_progress';
 
-  const cardClass = isPending
-    ? 'border-2 border-yellow-200 bg-yellow-50'
-    : isWinner
-    ? 'border-2 border-green-200 bg-green-50'
-    : 'border-2 border-red-200 bg-red-50';
-
   return (
-    <Card className={cardClass}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-full ${isPending ? 'bg-yellow-100' : isWinner ? 'bg-green-100' : 'bg-red-100'}`}>
+    <div className="border border-gray-100 rounded-xl overflow-hidden bg-white hover:border-gray-200 transition-colors">
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-lg ${isPending ? 'bg-yellow-50' : isWinner ? 'bg-green-50' : 'bg-red-50'}`}>
               {isPending ? (
-                <Target className="h-5 w-5 text-yellow-600 animate-pulse" />
+                <Target className="h-6 w-6 text-yellow-600 animate-pulse" />
               ) : isWinner ? (
-                <Trophy className="h-5 w-5 text-green-600" />
+                <Trophy className="h-6 w-6 text-green-600" />
               ) : (
-                <Sword className="h-5 w-5 text-red-600" />
+                <Sword className="h-6 w-6 text-red-600" />
               )}
             </div>
             <div>
-              <CardTitle className="text-lg">
-                {battle.challengerUsername} vs {opponentUsername}
-              </CardTitle>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant={isPending ? "default" : "outline"} className="text-xs">
-                  <Target className="h-3 w-3 mr-1" />
-                  {isPending ? battle.status.toUpperCase() : 'Completed'}
-                </Badge>
-                <span className="text-sm text-muted-foreground">
+              <h3 className="text-lg font-bold text-black">
+                {battle.challengerUsername} <span className="text-gray-400 mx-1">vs</span> {opponentUsername}
+              </h3>
+              <div className="flex items-center gap-3 mt-1">
+                <span className={`text-xs font-bold uppercase tracking-wider ${isPending ? 'text-yellow-600' : 'text-gray-500'}`}>
+                  {isPending ? battle.status.replace('_', ' ') : 'Completed'}
+                </span>
+                <span className="text-xs text-gray-400">
                   {isCompleted && battle.completedAt
                     ? new Date(battle.completedAt).toLocaleDateString()
                     : new Date(battle.createdAt).toLocaleDateString()
@@ -59,160 +51,60 @@ export function BattleCard({ battle }: BattleCardProps) {
             </div>
           </div>
           <div className="text-right">
-            <div className={`text-2xl font-bold ${isPending ? 'text-yellow-600' : isWinner ? 'text-green-600' : 'text-red-600'}`}>
-              {isPending ? battle.status.toUpperCase().replace('_', ' ') : isWinner ? 'VICTORY' : 'DEFEAT'}
+            <div className={`text-xl font-bold ${isPending ? 'text-yellow-600' : isWinner ? 'text-green-600' : 'text-red-600'}`}>
+              {isPending ? '...' : isWinner ? 'VICTORY' : 'DEFEAT'}
             </div>
-            <div className="text-sm text-muted-foreground">
-              ELO: {isPending ? 'Calculating...' : (isCompleted && battle.eloChange) ? (battle.eloChange.challenger.change > 0 ? '+' : '') + battle.eloChange.challenger.change : 'N/A'}
+            <div className="text-sm text-gray-400 font-mono mt-1">
+              {isPending ? 'Calculating...' : (isCompleted && battle.eloChange) ? `${battle.eloChange.challenger.change > 0 ? '+' : ''}${battle.eloChange.challenger.change} ELO` : ''}
             </div>
           </div>
         </div>
-      </CardHeader>
 
-      <CardContent className="pt-0">
         {/* Battle Criteria */}
         {battle.criteria && (
-          <div className="mb-4">
-            <h4 className="font-medium mb-2">Battle Criteria:</h4>
-            <div className="flex flex-wrap gap-1">
-              {battle.criteria.map((criterion) => (
-                <Badge key={criterion} variant="outline" className="text-xs">
-                  {criterion.replace('_', ' ')}
-                </Badge>
-              ))}
-            </div>
+          <div className="flex flex-wrap gap-2 mb-6">
+            {battle.criteria.map((criterion) => (
+              <span key={criterion} className="px-2 py-1 rounded bg-gray-50 text-xs text-gray-600 border border-gray-100 capitalize">
+                {criterion.replace('_', ' ')}
+              </span>
+            ))}
           </div>
         )}
 
-        {/* Battle Analysis */}
+        {/* Battle Analysis Trigger */}
         <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
           <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" className="w-full justify-between p-0 h-auto">
-              <span>Battle Analysis</span>
-              {isExpanded ? (
-                <ChevronDown className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
-              )}
+            <Button variant="ghost" className="w-full flex items-center justify-between p-4 rounded-lg bg-gray-50 hover:bg-gray-100 text-sm font-medium">
+              <span>View Analysis & Scores</span>
+              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             </Button>
           </CollapsibleTrigger>
-          <CollapsibleContent className="mt-3 space-y-3">
-            {/* AI Analysis */}
-            {battle.aiAnalysis && (
-              <div className="bg-white rounded-lg p-4 border">
-                <h5 className="font-medium mb-2">AI Judge&apos;s Decision</h5>
-                <div className="prose prose-sm max-w-none space-y-3">
-                  {/* Handle different AI analysis formats */}
-                  {typeof battle.aiAnalysis === 'string' ? (
-                    <div className="whitespace-pre-wrap text-sm text-muted-foreground">
-                      {battle.aiAnalysis}
-                    </div>
-                  ) : (
-                    <>
-                      {/* Winner */}
-                      {battle.aiAnalysis.winner && (
-                        <div>
-                          <h6 className="font-medium text-green-600">Winner: {battle.aiAnalysis.winner}</h6>
-                        </div>
-                      )}
-                      
-                      {/* Reason */}
-                      {battle.aiAnalysis.reason && (
-                        <div>
-                          <h6 className="font-medium mb-1">Analysis:</h6>
-                          <div className="whitespace-pre-wrap text-sm text-muted-foreground">
-                            {battle.aiAnalysis.reason}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Highlights */}
-                      {battle.aiAnalysis.highlights && Array.isArray(battle.aiAnalysis.highlights) && battle.aiAnalysis.highlights.length > 0 && (
-                        <div>
-                          <h6 className="font-medium mb-1">Key Highlights:</h6>
-                          <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                            {battle.aiAnalysis.highlights.map((highlight: string, index: number) => (
-                              <li key={index}>{highlight}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      
-                      {/* Recommendations */}
-                      {battle.aiAnalysis.recommendations && Array.isArray(battle.aiAnalysis.recommendations) && battle.aiAnalysis.recommendations.length > 0 && (
-                        <div>
-                          <h6 className="font-medium mb-1">Recommendations:</h6>
-                          <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                            {battle.aiAnalysis.recommendations.map((recommendation: string, index: number) => (
-                              <li key={index}>{recommendation}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
+          <CollapsibleContent className="mt-4 space-y-6 px-2">
             {/* Battle Stats */}
             {battle.scores && (
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white rounded-lg p-3 border">
-                  <div className="text-sm font-medium text-muted-foreground">Challenger Score</div>
-                  <div className="text-lg font-bold">{battle.scores.challenger.total.toFixed(1)}</div>
+                <div className="p-4 rounded-lg border border-gray-100 bg-white">
+                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Challenger</div>
+                  <div className="text-2xl font-bold">{battle.scores.challenger.total.toFixed(1)}</div>
                 </div>
-                <div className="bg-white rounded-lg p-3 border">
-                  <div className="text-sm font-medium text-muted-foreground">Opponent Score</div>
-                  <div className="text-lg font-bold">{battle.scores.opponent.total.toFixed(1)}</div>
-                </div>
-              </div>
-            )}
-
-            {/* Repository Information */}
-            {battle.aiAnalysis && typeof battle.aiAnalysis === 'object' && battle.aiAnalysis.repositories && (
-              <div className="bg-white rounded-lg p-4 border">
-                <h5 className="font-medium mb-3">Repositories Analyzed</h5>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground mb-2">
-                      {battle.challengerUsername} ({battle.aiAnalysis.repositories.challenger.total} repos)
-                    </div>
-                    <div className="space-y-1">
-                      {battle.aiAnalysis.repositories.challenger.topRepos?.map((repo: string, index: number) => (
-                        <div key={index} className="text-xs text-muted-foreground">
-                          • {repo}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground mb-2">
-                      {battle.opponentUsername} ({battle.aiAnalysis.repositories.opponent.total} repos)
-                    </div>
-                    <div className="space-y-1">
-                      {battle.aiAnalysis.repositories.opponent.topRepos?.map((repo: string, index: number) => (
-                        <div key={index} className="text-xs text-muted-foreground">
-                          • {repo}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                <div className="p-4 rounded-lg border border-gray-100 bg-white">
+                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Opponent</div>
+                  <div className="text-2xl font-bold">{battle.scores.opponent.total.toFixed(1)}</div>
                 </div>
               </div>
             )}
 
-            {/* Detailed Scores by Criteria */}
+            {/* Detailed Scores */}
             {battle.scores && (
-              <div className="bg-white rounded-lg p-4 border">
-                <h5 className="font-medium mb-3">Scores by Criteria</h5>
+              <div className="space-y-3">
+                <h5 className="font-bold text-sm text-black">Score Breakdown</h5>
                 <div className="space-y-2">
                   {Object.entries(battle.scores.challenger.breakdown).map(([criterion, score]) => (
-                    <div key={criterion} className="flex justify-between items-center">
-                      <span className="text-sm capitalize">{criterion.replace('_', ' ')}</span>
-                      <div className="flex gap-4 text-sm">
+                    <div key={criterion} className="flex justify-between items-center text-sm py-2 border-b border-gray-50 last:border-0">
+                      <span className="capitalize text-gray-600">{criterion.replace('_', ' ')}</span>
+                      <div className="flex gap-6 font-mono">
                         <span className="font-medium">{score.toFixed(1)}</span>
-                        <span className="text-muted-foreground">vs</span>
+                        <span className="text-gray-300">|</span>
                         <span className="font-medium">{(battle.scores!.opponent.breakdown as Record<string, number>)[criterion]?.toFixed(1) || 'N/A'}</span>
                       </div>
                     </div>
@@ -220,9 +112,19 @@ export function BattleCard({ battle }: BattleCardProps) {
                 </div>
               </div>
             )}
+
+            {/* AI Analysis */}
+            {battle.aiAnalysis && (
+              <div className="space-y-3">
+                <h5 className="font-bold text-sm text-black">AI Verdict</h5>
+                <div className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-lg">
+                  {typeof battle.aiAnalysis === 'string' ? battle.aiAnalysis : battle.aiAnalysis.reason}
+                </div>
+              </div>
+            )}
           </CollapsibleContent>
         </Collapsible>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
-} 
+}

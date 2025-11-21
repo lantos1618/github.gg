@@ -18,8 +18,14 @@ export async function GET() {
     {
       url: `${baseUrl}/arena`,
       lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
+      changeFrequency: 'daily' as const, // Leaderboard changes daily
       priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/users`,
+      lastModified: new Date(),
+      changeFrequency: 'daily' as const, // New users
+      priority: 0.9,
     },
     {
       url: `${baseUrl}/automations`,

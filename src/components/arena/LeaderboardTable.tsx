@@ -3,30 +3,23 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc/client';
 import { useAuth } from '@/lib/auth/client';
-import {
-  BarChart3,
-  Search,
-  Trophy,
-  Medal,
-  Crown,
-  Users,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  Sword
-} from 'lucide-react';
-import { CardWithHeader, LoadingPage, StatCard } from '@/components/common';
+import { Search, ArrowUp, ArrowDown } from 'lucide-react';
+import { LoadingPage } from '@/components/common';
+import type { LeaderboardEntry } from '@/lib/types/leaderboard';
 
 type SortField = 'eloRating' | 'winRate' | 'winStreak' | 'totalBattles' | 'wins';
 type SortDirection = 'asc' | 'desc';
 
-export function LeaderboardTable() {
+interface LeaderboardTableProps {
+  initialLeaderboard?: LeaderboardEntry[];
+}
+
+export function LeaderboardTable({ initialLeaderboard }: LeaderboardTableProps) {
   const router = useRouter();
   const { user, isSignedIn } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,14 +27,16 @@ export function LeaderboardTable() {
   const [sortField, setSortField] = useState<SortField>('eloRating');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-  const { data: leaderboard, isLoading } = trpc.arena.getLeaderboard.useQuery({ limit });
+  const { data: leaderboard, isLoading } = trpc.arena.getLeaderboard.useQuery(
+    { limit },
+    { initialData: initialLeaderboard }
+  );
 
   const { data: currentPlan } = trpc.user.getCurrentPlan.useQuery(undefined, {
     enabled: isSignedIn
   });
 
   const handleChallenge = (username: string) => {
-    // Navigate to Battle tab with pre-filled opponent
     router.push(`/arena?tab=battle&opponent=${encodeURIComponent(username)}`);
   };
 
@@ -50,22 +45,16 @@ export function LeaderboardTable() {
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
-      // Toggle direction if clicking the same field
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
-      // Default to descending for new field
       setSortField(field);
       setSortDirection('desc');
     }
   };
 
   const getSortIcon = (field: SortField) => {
-    if (sortField !== field) {
-      return <ArrowUpDown className="h-4 w-4 text-muted-foreground" />;
-    }
-    return sortDirection === 'asc'
-      ? <ArrowUp className="h-4 w-4" />
-      : <ArrowDown className="h-4 w-4" />;
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />;
   };
 
   const filteredAndSortedLeaderboard = (leaderboard?.filter(entry =>
@@ -73,254 +62,136 @@ export function LeaderboardTable() {
   ) || []).sort((a, b) => {
     const aValue = a[sortField];
     const bValue = b[sortField];
-
     const comparison = aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
     return sortDirection === 'asc' ? comparison : -comparison;
   });
 
-  
-
-  const getRankIcon = (rank: number) => {
-    if (rank === 1) return <Crown className="h-4 w-4 text-yellow-500" />;
-    if (rank === 2) return <Medal className="h-4 w-4 text-gray-400" />;
-    if (rank === 3) return <Medal className="h-4 w-4 text-amber-600" />;
-    return null;
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="text-center space-y-4">
-        <div className="flex items-center justify-center gap-3">
-          <BarChart3 className="h-6 w-6" />
-          <h2 className="text-3xl font-bold">Global Rankings</h2>
-        </div>
-        <p className="text-muted-foreground max-w-2xl mx-auto">
-          See how you stack up against developers worldwide. Climb the ranks by winning battles and improving your skills.
-        </p>
-      </div>
-
+    <div className="space-y-12">
       {/* Search */}
-      <div className="max-w-md w-full mx-auto">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search developers..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+      <div className="relative max-w-xl">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+        <Input
+          placeholder="Search developers..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-12 h-14 text-lg border-2 border-gray-100 rounded-xl focus:border-black focus:ring-0 transition-colors"
+        />
       </div>
 
-      {/* Leaderboard */}
-      <CardWithHeader
-        title="Leaderboard"
-        icon={Trophy}
-        action={
-          <Badge variant="outline">
-            {filteredAndSortedLeaderboard.length} developers
-          </Badge>
-        }
-      >
-        {isLoading ? (
-          <LoadingPage text="Loading leaderboard..." />
-        ) : filteredAndSortedLeaderboard.length > 0 ? (
-            <>
-              {/* Table */}
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Rank
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Developer
-                      </th>
-                      <th
-                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                        onClick={() => handleSort('eloRating')}
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          ELO {getSortIcon('eloRating')}
+      {isLoading ? (
+        <LoadingPage text="Loading leaderboard..." />
+      ) : filteredAndSortedLeaderboard.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="py-6 pl-4 pr-8 text-sm font-medium text-gray-500 w-24">Rank</th>
+                <th className="py-6 px-8 text-sm font-medium text-gray-500">Developer</th>
+                <th 
+                  className="py-6 px-8 text-center text-sm font-medium text-gray-500 cursor-pointer hover:text-black transition-colors"
+                  onClick={() => handleSort('eloRating')}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    ELO {getSortIcon('eloRating')}
+                  </div>
+                </th>
+                <th 
+                  className="py-6 px-8 text-center text-sm font-medium text-gray-500 cursor-pointer hover:text-black transition-colors hidden sm:table-cell"
+                  onClick={() => handleSort('winRate')}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    Win Rate {getSortIcon('winRate')}
+                  </div>
+                </th>
+                <th 
+                  className="py-6 px-8 text-center text-sm font-medium text-gray-500 cursor-pointer hover:text-black transition-colors hidden md:table-cell"
+                  onClick={() => handleSort('winStreak')}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    Streak {getSortIcon('winStreak')}
+                  </div>
+                </th>
+                <th className="py-6 px-8 text-center text-sm font-medium text-gray-500 hidden lg:table-cell">Record</th>
+                {canBattle && <th className="py-6 pr-4 text-right text-sm font-medium text-gray-500">Action</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filteredAndSortedLeaderboard.map((entry, index) => {
+                const isCurrentUser = entry.username.toLowerCase() === currentUsername;
+                return (
+                  <tr
+                    key={entry.username}
+                    className="group hover:bg-gray-50/50 transition-colors"
+                  >
+                    <td className="py-6 pl-4 pr-8">
+                      <span className={`font-mono font-bold text-lg ${
+                        entry.rank <= 3 ? 'text-black' : 'text-gray-400'
+                      }`}>
+                        #{entry.rank}
+                      </span>
+                    </td>
+                    <td className="py-6 px-8">
+                      <Link href={`/${entry.username}`} className="flex items-center gap-4 group/link">
+                        <div className="relative h-10 w-10 rounded-full overflow-hidden border border-gray-200 bg-gray-50 group-hover/link:border-gray-300 transition-colors">
+                          <Image
+                            src={`https://github.com/${entry.username}.png`}
+                            alt={entry.username}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
                         </div>
-                      </th>
-                      <th
-                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                        onClick={() => handleSort('winRate')}
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          Win Rate {getSortIcon('winRate')}
+                        <div>
+                          <div className="font-bold text-black flex items-center gap-2 text-base group-hover/link:text-blue-600 transition-colors">
+                            {entry.username}
+                            {isCurrentUser && (
+                              <div className="h-1.5 w-1.5 rounded-full bg-blue-600" title="You" />
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-400 font-mono uppercase tracking-wide mt-0.5">{entry.tier}</div>
                         </div>
-                      </th>
-                      <th
-                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                        onClick={() => handleSort('winStreak')}
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          Streak {getSortIcon('winStreak')}
-                        </div>
-                      </th>
-                      <th
-                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                        onClick={() => handleSort('totalBattles')}
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          Battles {getSortIcon('totalBattles')}
-                        </div>
-                      </th>
-                      <th
-                        className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                        onClick={() => handleSort('wins')}
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          Record {getSortIcon('wins')}
-                        </div>
-                      </th>
-                      {canBattle && (
-                        <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Action
-                        </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredAndSortedLeaderboard.map((entry, index) => {
-                      const isCurrentUser = entry.username.toLowerCase() === currentUsername;
-                      return (
-                        <tr
-                          key={entry.username}
-                          className={`transition-colors ${
-                            index === 0
-                              ? 'bg-yellow-50 hover:bg-yellow-100' :
-                            index === 1
-                              ? 'bg-gray-50 hover:bg-gray-100' :
-                            index === 2
-                              ? 'bg-amber-50 hover:bg-amber-100' :
-                              'hover:bg-gray-50'
-                          } ${isCurrentUser ? 'font-semibold' : ''}`}
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              {getRankIcon(entry.rank)}
-                              <span className="text-lg font-bold">{entry.rank}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-3">
-                              <Image
-                                src={`https://github.com/${entry.username}.png`}
-                                alt={entry.username}
-                                width={40}
-                                height={40}
-                                className="rounded-full"
-                                unoptimized
-                              />
-                              <div>
-                                <div className="font-semibold text-gray-900 flex items-center gap-2">
-                                  {entry.username}
-                                  {isCurrentUser && (
-                                    <Badge variant="secondary" className="text-xs">You</Badge>
-                                  )}
-                                </div>
-                                <Badge variant="outline" className="text-xs mt-1">
-                                  {entry.tier}
-                                </Badge>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <div className="text-2xl font-bold text-blue-600">
-                              {entry.eloRating}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <div className="text-lg font-semibold text-green-600">
-                              {entry.winRate.toFixed(1)}%
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <div className="text-lg font-semibold text-orange-600">
-                              {entry.winStreak}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <div className="text-sm text-gray-500">
-                              {entry.totalBattles}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <div className="text-sm font-medium">
-                              {entry.wins}W - {entry.losses}L
-                            </div>
-                          </td>
-                          {canBattle && (
-                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                              {!isCurrentUser ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleChallenge(entry.username)}
-                                  className="gap-1"
-                                >
-                                  <Sword className="h-3 w-3" />
-                                  Challenge
-                                </Button>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">—</span>
-                              )}
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-12">
-              <div className="flex items-center justify-center gap-3 mb-4">
-                <Users className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">No Results Found</h3>
-              <p className="text-muted-foreground">
-                Try adjusting your search or filter criteria.
-              </p>
-            </div>
-          )}
-      </CardWithHeader>
-
-      {/* Stats Summary */}
-      {filteredAndSortedLeaderboard.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <StatCard
-            title="Total Developers"
-            value={filteredAndSortedLeaderboard.length}
-            icon={Users}
-            variant="success"
-          />
-          <StatCard
-            title="Avg ELO"
-            value={Math.round(filteredAndSortedLeaderboard.reduce((sum, entry) => sum + entry.eloRating, 0) / filteredAndSortedLeaderboard.length)}
-            icon={Trophy}
-            variant="info"
-          />
-          <StatCard
-            title="Avg Win Rate"
-            value={Math.round(filteredAndSortedLeaderboard.reduce((sum, entry) => sum + entry.winRate, 0) / filteredAndSortedLeaderboard.length)}
-            icon={Medal}
-            variant="info"
-          />
-          <StatCard
-            title="Best Streak"
-            value={Math.max(...filteredAndSortedLeaderboard.map(entry => entry.winStreak))}
-            icon={Crown}
-            variant="warning"
-          />
+                      </Link>
+                    </td>
+                    <td className="py-6 px-8 text-center">
+                      <span className="font-bold text-black text-lg">{entry.eloRating}</span>
+                    </td>
+                    <td className="py-6 px-8 text-center hidden sm:table-cell">
+                      <span className="text-gray-600 font-medium">{entry.winRate.toFixed(1)}%</span>
+                    </td>
+                    <td className="py-6 px-8 text-center hidden md:table-cell">
+                      <span className="text-gray-600 font-medium">{entry.winStreak}</span>
+                    </td>
+                    <td className="py-6 px-8 text-center hidden lg:table-cell">
+                      <span className="text-sm font-mono text-gray-500">
+                        {entry.wins}W - {entry.losses}L
+                      </span>
+                    </td>
+                    {canBattle && (
+                      <td className="py-6 pr-4 text-right">
+                        {!isCurrentUser && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleChallenge(entry.username)}
+                            className="border-gray-200 hover:border-black hover:bg-transparent h-9 px-4 font-medium transition-colors"
+                          >
+                            Challenge
+                          </Button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="py-20 text-center border-t border-gray-100">
+          <p className="text-gray-400 text-lg">No developers found matching your search.</p>
         </div>
       )}
     </div>
   );
-} 
+}

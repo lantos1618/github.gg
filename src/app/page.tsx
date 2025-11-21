@@ -1,6 +1,7 @@
 'use client';
 
 import { HeroSection } from '@/components/home';
+import { FeatureGrid } from '@/components/home/FeatureGrid';
 import { GitHubDashboard } from '@/components/GitHubDashboard';
 import { useAuth } from '@/lib/auth/client';
 
@@ -11,7 +12,7 @@ export default function Home() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-gray-500">Loading...</div>
+        <div className="h-1 w-1 bg-black animate-ping rounded-full"></div>
       </div>
     );
   }
@@ -22,8 +23,9 @@ export default function Home() {
 
   // Show landing page if not logged in
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white selection:bg-black selection:text-white">
       <HeroSection />
+      <FeatureGrid />
     </div>
   );
 }

@@ -2,18 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { trpc } from '@/lib/trpc/client';
-import { Trophy, Sword, Crown, History } from 'lucide-react';
 import { LeaderboardTable } from './LeaderboardTable';
 import { ChallengeForm } from './ChallengeForm';
 import { BattleAnalysis } from './BattleAnalysis';
 import { useAuth } from '@/lib/auth/client';
+import { Sword, History } from 'lucide-react';
+import type { LeaderboardEntry } from '@/lib/types/leaderboard';
 
-export function ArenaClientView() {
+interface ArenaClientViewProps {
+  initialLeaderboard?: LeaderboardEntry[];
+}
+
+export function ArenaClientView({ initialLeaderboard }: ArenaClientViewProps) {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState('leaderboard');
 
@@ -40,138 +43,115 @@ export function ArenaClientView() {
 
   if (authLoading || planLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
-        <div className="text-center space-y-4">
-          <Skeleton className="h-12 w-64 mx-auto" />
-          <Skeleton className="h-6 w-96 mx-auto" />
-        </div>
-        <Skeleton className="h-48 w-full" />
+      <div className="max-w-[1400px] mx-auto px-6 py-20 space-y-12">
+        <Skeleton className="h-32 w-full max-w-md mx-auto" />
         <Skeleton className="h-96 w-full" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
-      {/* Header */}
-      <div className="text-center space-y-4">
-        <div className="flex items-center justify-center gap-3">
-          <Trophy className="h-10 w-10 text-yellow-500" />
-          <h1 className="text-5xl font-bold text-gray-900">
-            DEV RANK
+    <div className="min-h-screen bg-white pt-20 pb-20">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+        {/* Header */}
+        <div className="text-center space-y-6">
+          <h1 className="text-6xl md:text-8xl font-bold text-black tracking-tighter">
+            Dev Rank
           </h1>
-          <Trophy className="h-10 w-10 text-yellow-500" />
+          <p className="text-xl text-gray-500 font-light max-w-2xl mx-auto">
+            Compete in AI-judged coding battles.
+          </p>
         </div>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Challenge developers and climb the global rankings
-        </p>
-      </div>
 
-      {/* My Stats Card (only if signed in) */}
-      {isSignedIn && myRanking && (
-        <Card className="border border-gray-200 bg-gray-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Crown className="h-6 w-6 text-yellow-500" />
-              Your Arena Stats
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="text-center space-y-1">
-                <div className="text-4xl font-bold text-blue-600">
-                  {myRanking.eloRating}
-                </div>
-                <div className="text-sm text-muted-foreground font-medium">ELO</div>
-              </div>
-              <div className="text-center space-y-1">
-                <Badge variant="secondary" className="text-lg px-4 py-2 font-bold">
-                  {myRanking.tier}
-                </Badge>
-                <div className="text-sm text-muted-foreground font-medium">Tier</div>
-              </div>
-              <div className="text-center space-y-1">
-                <div className="text-2xl font-bold text-green-600">{myRanking.wins}</div>
-                <div className="text-sm text-muted-foreground font-medium">Wins</div>
-              </div>
-              <div className="text-center space-y-1">
-                <div className="text-2xl font-bold text-red-600">{myRanking.losses}</div>
-                <div className="text-sm text-muted-foreground font-medium">Losses</div>
-              </div>
-              <div className="text-center space-y-1">
-                <div className="text-2xl font-bold text-orange-600">{myRanking.winStreak}</div>
-                <div className="text-sm text-muted-foreground font-medium">Streak</div>
-              </div>
+        {/* My Stats Row */}
+        {isSignedIn && myRanking && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto py-12 border-y border-gray-100">
+            <div className="text-center space-y-1">
+              <div className="text-5xl font-bold text-black tracking-tight">{myRanking.eloRating}</div>
+              <div className="text-sm text-gray-400 font-mono uppercase tracking-widest">ELO Rating</div>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Navigation Buttons */}
-      <div className="flex items-center justify-center gap-2">
-        <Button
-          variant={activeTab === 'leaderboard' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('leaderboard')}
-          className="flex items-center gap-2"
-        >
-          <Trophy className="h-4 w-4" />
-          Leaderboard
-        </Button>
-        <Button
-          variant={activeTab === 'battle' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('battle')}
-          className="flex items-center gap-2"
-        >
-          <Sword className="h-4 w-4" />
-          Battle
-        </Button>
-        <Button
-          variant={activeTab === 'history' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('history')}
-          className="flex items-center gap-2"
-        >
-          <History className="h-4 w-4" />
-          History
-        </Button>
-      </div>
-
-      {/* Content */}
-      <div className="space-y-6">
-        {activeTab === 'leaderboard' && (
-          <LeaderboardTable />
+            <div className="text-center space-y-1">
+              <div className="text-5xl font-bold text-black tracking-tight">{myRanking.tier}</div>
+              <div className="text-sm text-gray-400 font-mono uppercase tracking-widest">Tier</div>
+            </div>
+            <div className="text-center space-y-1">
+              <div className="text-5xl font-bold text-black tracking-tight">{myRanking.wins}</div>
+              <div className="text-sm text-gray-400 font-mono uppercase tracking-widest">Wins</div>
+            </div>
+            <div className="text-center space-y-1">
+              <div className="text-5xl font-bold text-black tracking-tight">{myRanking.winStreak}</div>
+              <div className="text-sm text-gray-400 font-mono uppercase tracking-widest">Streak</div>
+            </div>
+          </div>
         )}
 
-        {activeTab === 'battle' && (
-          canBattle ? (
-            <ChallengeForm />
-          ) : (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <Sword className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-xl font-semibold mb-2">Start Battling</h3>
-                <p className="text-muted-foreground mb-6">
-                  Sign in and upgrade to challenge developers in AI-judged coding battles
-                </p>
-              </CardContent>
-            </Card>
-          )
-        )}
+        {/* Tabs */}
+        <div className="flex justify-center">
+          <div className="inline-flex p-1 bg-gray-50 rounded-xl border border-gray-100">
+            {['leaderboard', 'battle', 'history'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-8 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  activeTab === tab
+                    ? 'bg-white text-black shadow-sm'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
 
-        {activeTab === 'history' && (
-          canBattle ? (
-            <BattleAnalysis />
-          ) : (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <History className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-xl font-semibold mb-2">Battle History</h3>
-                <p className="text-muted-foreground mb-6">
-                  Sign in and upgrade to view your battle history and detailed analysis
-                </p>
-              </CardContent>
-            </Card>
-          )
-        )}
+        {/* Content */}
+        <div className="min-h-[400px] max-w-5xl mx-auto">
+          {activeTab === 'leaderboard' && (
+            <LeaderboardTable initialLeaderboard={initialLeaderboard} />
+          )}
+
+          {activeTab === 'battle' && (
+            canBattle ? (
+              <ChallengeForm />
+            ) : (
+              <div className="flex flex-col items-center justify-center py-32 text-center space-y-8 border border-gray-100 rounded-2xl bg-gray-50/50">
+                <div className="h-20 w-20 rounded-full bg-white border border-gray-100 flex items-center justify-center">
+                  <Sword className="h-8 w-8 text-black" />
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-2xl font-bold text-black">Start Battling</h3>
+                  <p className="text-gray-500 max-w-md mx-auto font-light">
+                    Upgrade to challenge other developers in AI-judged coding battles.
+                  </p>
+                </div>
+                <Button className="bg-black text-white hover:bg-gray-800 px-8 py-6 rounded-xl text-lg font-medium shadow-lg hover:shadow-xl transition-all">
+                  Upgrade to Battle
+                </Button>
+              </div>
+            )
+          )}
+
+          {activeTab === 'history' && (
+            canBattle ? (
+              <BattleAnalysis />
+            ) : (
+              <div className="flex flex-col items-center justify-center py-32 text-center space-y-8 border border-gray-100 rounded-2xl bg-gray-50/50">
+                <div className="h-20 w-20 rounded-full bg-white border border-gray-100 flex items-center justify-center">
+                  <History className="h-8 w-8 text-black" />
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-2xl font-bold text-black">Battle History</h3>
+                  <p className="text-gray-500 max-w-md mx-auto font-light">
+                    Upgrade to view your detailed battle history and AI analysis.
+                  </p>
+                </div>
+                <Button className="bg-black text-white hover:bg-gray-800 px-8 py-6 rounded-xl text-lg font-medium shadow-lg hover:shadow-xl transition-all">
+                  Upgrade to View History
+                </Button>
+              </div>
+            )
+          )}
+        </div>
       </div>
     </div>
   );

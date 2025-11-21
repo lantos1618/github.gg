@@ -11,6 +11,7 @@ import { parseRepoPath } from '@/lib/utils';
 import { createGitHubServiceFromSession } from '@/lib/github';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
+import type { Metadata } from 'next';
 
 interface PageProps {
   params: Promise<{
@@ -23,6 +24,29 @@ import { DeveloperProfile } from '@/components/profile';
 
 function UserClientView({ user }: { user: string }) {
   return <DeveloperProfile username={user} />;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const awaitedParams = await params;
+  const { user, params: rest = [] } = awaitedParams;
+
+  if (!user) return {};
+
+  // Build canonical URL - remove 'tree/' prefix if present
+  let canonicalPath = `/${user}`;
+  if (rest && rest.length > 0) {
+    // Filter out 'tree' from the path segments
+    const filteredParams = rest.filter(p => p !== 'tree');
+    if (filteredParams.length > 0) {
+      canonicalPath += `/${filteredParams.join('/')}`;
+    }
+  }
+
+  return {
+    alternates: {
+      canonical: `https://github.gg${canonicalPath}`,
+    },
+  };
 }
 
 export default async function Page({ params }: PageProps) {

@@ -49,6 +49,9 @@ export async function generateMetadata({ params, searchParams }: WikiPageProps):
     title,
     description,
     keywords: (page.metadata as { keywords?: string[] })?.keywords || [owner, repo, 'documentation', 'wiki'],
+    alternates: {
+      canonical: `https://github.gg/wiki/${owner}/${repo}/${slug}`,
+    },
     openGraph: {
       title,
       description,

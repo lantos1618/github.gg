@@ -102,6 +102,13 @@ function GenericAnalysisViewInner<TResponse>({
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [isFileExplorerOpen, setIsFileExplorerOpen] = useState(false);
   const [shouldAnalyze, setShouldAnalyze] = useState(false);
+  // Store stable params for the duration of the analysis to prevent re-triggers
+  const [analysisParams, setAnalysisParams] = useState<{
+    user: string;
+    repo: string;
+    ref: string;
+    filePaths: string[];
+  } | null>(null);
   const toastIdRef = useRef<string | number | null>(null);
 
   const planResult = config.usePlan() as { data: { plan: string } | undefined; isLoading: boolean };
@@ -187,14 +194,14 @@ function GenericAnalysisViewInner<TResponse>({
 
   // Subscription for analysis
   config.useGenerateSubscription(
-    {
+    analysisParams || {
       user,
       repo,
       ref: effectiveRef,
       filePaths,
     },
     {
-      enabled: shouldAnalyze,
+      enabled: shouldAnalyze && !!analysisParams,
       onData: handleSubscriptionData,
     }
   );
@@ -206,6 +213,15 @@ function GenericAnalysisViewInner<TResponse>({
       toast.dismiss(toastIdRef.current);
       toastIdRef.current = null;
     }
+    
+    // Lock in the current parameters for this analysis run
+    setAnalysisParams({
+      user,
+      repo,
+      ref: effectiveRef,
+      filePaths,
+    });
+    
     setShouldAnalyze(true);
   };
 

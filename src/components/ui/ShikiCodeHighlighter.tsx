@@ -33,6 +33,16 @@ async function getHighlighter() {
         'swift',
         'kotlin',
         'zig',
+        'docker',
+        'dockerfile',
+        'graphql',
+        'lua',
+        'makefile',
+        'csharp',
+        'elixir',
+        'scala',
+        'solidity',
+        'toml',
       ],
     });
   }

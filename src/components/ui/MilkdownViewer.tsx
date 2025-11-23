@@ -11,6 +11,15 @@ import { prism } from '@milkdown/plugin-prism';
 import '@milkdown/theme-nord/style.css';
 import 'prismjs/themes/prism.css';
 import 'prismjs/components/prism-zig';
+import 'prismjs/components/prism-docker';
+import 'prismjs/components/prism-graphql';
+import 'prismjs/components/prism-lua';
+import 'prismjs/components/prism-makefile';
+import 'prismjs/components/prism-csharp';
+import 'prismjs/components/prism-elixir';
+import 'prismjs/components/prism-scala';
+import 'prismjs/components/prism-solidity';
+import 'prismjs/components/prism-toml';
 
 interface MilkdownViewerProps {
   content: string;

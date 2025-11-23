@@ -11,38 +11,38 @@ async function getHighlighter() {
     highlighter = await createHighlighter({
       themes: ['github-dark', 'github-light'],
       langs: [
-        'javascript',
-        'typescript',
-        'jsx',
-        'tsx',
-        'python',
-        'java',
-        'go',
-        'rust',
-        'cpp',
-        'c',
-        'bash',
-        'json',
-        'yaml',
-        'markdown',
-        'html',
-        'css',
-        'sql',
-        'php',
-        'ruby',
-        'swift',
-        'kotlin',
-        'zig',
-        'docker',
-        'dockerfile',
-        'graphql',
-        'lua',
-        'makefile',
-        'csharp',
-        'elixir',
-        'scala',
-        'solidity',
-        'toml',
+        import('shiki/langs/javascript.mjs'),
+        import('shiki/langs/typescript.mjs'),
+        import('shiki/langs/jsx.mjs'),
+        import('shiki/langs/tsx.mjs'),
+        import('shiki/langs/python.mjs'),
+        import('shiki/langs/java.mjs'),
+        import('shiki/langs/go.mjs'),
+        import('shiki/langs/rust.mjs'),
+        import('shiki/langs/cpp.mjs'),
+        import('shiki/langs/c.mjs'),
+        import('shiki/langs/bash.mjs'),
+        import('shiki/langs/json.mjs'),
+        import('shiki/langs/yaml.mjs'),
+        import('shiki/langs/markdown.mjs'),
+        import('shiki/langs/html.mjs'),
+        import('shiki/langs/css.mjs'),
+        import('shiki/langs/sql.mjs'),
+        import('shiki/langs/php.mjs'),
+        import('shiki/langs/ruby.mjs'),
+        import('shiki/langs/swift.mjs'),
+        import('shiki/langs/kotlin.mjs'),
+        import('shiki/langs/zig.mjs'),
+        import('shiki/langs/docker.mjs'),
+        import('shiki/langs/dockerfile.mjs'),
+        import('shiki/langs/graphql.mjs'),
+        import('shiki/langs/lua.mjs'),
+        import('shiki/langs/makefile.mjs'),
+        import('shiki/langs/csharp.mjs'),
+        import('shiki/langs/elixir.mjs'),
+        import('shiki/langs/scala.mjs'),
+        import('shiki/langs/solidity.mjs'),
+        import('shiki/langs/toml.mjs'),
       ],
     });
   }
@@ -62,19 +62,22 @@ async function highlightCodeWithShiki(code: string, lang: string): Promise<strin
     const highlighter = await getHighlighter();
 
     // Map common aliases to actual language names
-    const langMap: Record<string, BundledLanguage> = {
+    const langMap: Record<string, string> = {
       js: 'javascript',
       ts: 'typescript',
       py: 'python',
       sh: 'bash',
       yml: 'yaml',
+      cs: 'csharp',
+      'c#': 'csharp',
     };
 
-    const resolvedLang = (langMap[lang] || lang) as BundledLanguage;
+    const resolvedLang = (langMap[lang] || lang);
 
     // Check if language is supported
     const supportedLangs = highlighter.getLoadedLanguages();
-    const finalLang = supportedLangs.includes(resolvedLang) ? resolvedLang : 'text';
+    // Using 'any' cast because BundledLanguage type inference gets tricky with dynamic imports
+    const finalLang = supportedLangs.includes(resolvedLang as any) ? (resolvedLang as BundledLanguage) : 'text';
 
     return await codeToHtml(code, {
       lang: finalLang,

@@ -10,6 +10,7 @@ import { prism } from '@milkdown/plugin-prism';
 
 import '@milkdown/theme-nord/style.css';
 import 'prismjs/themes/prism.css';
+import 'prismjs/components/prism-zig';
 
 interface MilkdownViewerProps {
   content: string;

@@ -32,6 +32,7 @@ async function getHighlighter() {
         'ruby',
         'swift',
         'kotlin',
+        'zig',
       ],
     });
   }

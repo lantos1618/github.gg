@@ -495,7 +495,7 @@ export async function* generateWikiWithCacheStreaming(
 
   try {
     // Step 1: Cache the entire codebase
-    yield { type: 'progress', progress: 40, message: 'Caching codebase context...' };
+    yield { type: 'progress', progress: 40, message: 'Analyizing codebase context & creating cache...' };
     const cacheId = await createCodebaseCache(params);
 
     // Estimate cache size (rough)
@@ -504,7 +504,7 @@ export async function* generateWikiWithCacheStreaming(
     console.log(`✅ Cache created: ${cacheId} (~${cacheTokens} tokens)`);
 
     // Step 2: Plan wiki pages
-    yield { type: 'progress', progress: 45, message: 'Planning wiki structure...' };
+    yield { type: 'progress', progress: 50, message: 'Designing wiki structure & pages...' };
     const plan = await planWikiPages(cacheId, owner, repo);
     console.log(`📋 Planned ${plan.pages.length} pages:`, plan.pages.map(p => p.title).join(', '));
 
@@ -512,7 +512,7 @@ export async function* generateWikiWithCacheStreaming(
     const pageLevels = groupPagesByLevel(plan.pages);
     console.log(`📊 Generation levels: ${pageLevels.map((level, i) => `L${i}(${level.length})`).join(' → ')}`);
 
-    // Step 4: Generate pages in parallel by level (progress from 45% to 70%)
+    // Step 4: Generate pages in parallel by level (progress from 55% to 85%)
     const generatedPages = new Map<string, GeneratedPage>();
     const totalPages = plan.pages.length;
     let processedPages = 0;
@@ -521,11 +521,15 @@ export async function* generateWikiWithCacheStreaming(
       const level = pageLevels[levelIndex];
 
       // Show progress for this level
-      const levelProgress = 45 + Math.round((processedPages / totalPages) * 25);
+      // Scale from 55% to 85% based on completed pages
+      const progressStart = 55;
+      const progressRange = 30;
+      const currentProgress = progressStart + Math.round((processedPages / totalPages) * progressRange);
+      
       yield {
         type: 'progress',
-        progress: levelProgress,
-        message: `Generating ${level.length} page${level.length > 1 ? 's' : ''} in parallel (level ${levelIndex + 1}/${pageLevels.length})...`
+        progress: currentProgress,
+        message: `Generating content: ${level.length} page${level.length > 1 ? 's' : ''} in parallel (batch ${levelIndex + 1}/${pageLevels.length})...`
       };
 
       // Generate all pages in this level in parallel

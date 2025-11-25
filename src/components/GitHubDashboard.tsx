@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Radio, MessageSquare, GitPullRequest, CircleDot, Filter, Menu, X, Activity, ChevronLeft } from 'lucide-react';
+import { GitPullRequest, CircleDot, Filter, Menu, X, Activity, ChevronLeft, ArrowRight } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { useAuth } from '@/lib/auth/client';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,6 +10,190 @@ import { Footer } from '@/components/Footer';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { DashboardSidebar } from '@/components/DashboardSidebar';
 import { ActivityFeed } from '@/components/ActivityFeed';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+
+// Extract main content to reuse between mobile and desktop
+function DashboardContent({ 
+  user, 
+  pullRequests, 
+  issues, 
+  prsLoading, 
+  issuesLoading 
+}: { 
+  user: any, 
+  pullRequests: any[], 
+  issues: any[], 
+  prsLoading: boolean, 
+  issuesLoading: boolean 
+}) {
+  const formatTimeAgo = (isoString: string) => {
+    try {
+      return formatDistanceToNow(new Date(isoString), { addSuffix: true });
+    } catch {
+      return 'recently';
+    }
+  };
+
+  return (
+    <div className="flex-1 p-6 md:p-12 space-y-10 max-w-5xl mx-auto w-full animate-in fade-in duration-500">
+      <div className="space-y-3 mb-8">
+        <div className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-2">
+          Beta Dashboard
+        </div>
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+          Welcome back, <span className="text-primary">{user?.name?.split(' ')[0] || 'Developer'}</span>
+        </h1>
+        <p className="text-lg text-muted-foreground max-w-2xl leading-relaxed">
+          Here's a high-level overview of your development activity and pending tasks across your repositories.
+        </p>
+      </div>
+
+      <section className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-foreground flex items-center gap-3">
+            <div className="p-2 bg-blue-500/10 rounded-lg">
+              <GitPullRequest className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            Pull Requests
+          </h2>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="text-muted-foreground">
+              <Filter className="w-4 h-4 mr-2" />
+              Filter
+            </Button>
+            <Button variant="link" size="sm" className="text-primary" asChild>
+              <a href="https://github.com/pulls" target="_blank" rel="noopener noreferrer">
+                View all <ArrowRight className="w-3 h-3 ml-1" />
+              </a>
+            </Button>
+          </div>
+        </div>
+        <div className="grid gap-4">
+          {prsLoading ? (
+            [...Array(3)].map((_, i) => (
+              <div key={i} className="p-6 rounded-xl border border-border/50 bg-card shadow-sm">
+                <Skeleton className="h-6 w-2/3 mb-3" />
+                <Skeleton className="h-4 w-1/3" />
+              </div>
+            ))
+          ) : pullRequests && pullRequests.length > 0 ? (
+            pullRequests.map((pr) => (
+              <a
+                key={pr.id}
+                href={pr.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group block p-5 rounded-xl bg-card border border-border/50 hover:border-primary/30 hover:shadow-md transition-all duration-300"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="mt-1">
+                    <GitPullRequest className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors break-words leading-snug mb-2">
+                      {pr.title}
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                      <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded text-foreground/80">
+                        {pr.repo}#{pr.number}
+                      </span>
+                      <span className="w-1 h-1 rounded-full bg-border" />
+                      <span>opened by <span className="text-foreground font-medium">{pr.author}</span></span>
+                      <span className="w-1 h-1 rounded-full bg-border" />
+                      <span>{formatTimeAgo(pr.updatedTime)}</span>
+                    </div>
+                  </div>
+                  {pr.comments > 0 && (
+                    <Badge variant="secondary" className="ml-auto shrink-0 font-normal text-muted-foreground">
+                      {pr.comments} comments
+                    </Badge>
+                  )}
+                </div>
+              </a>
+            ))
+          ) : (
+            <div className="p-16 text-center border border-dashed border-border rounded-xl bg-muted/20">
+              <p className="text-muted-foreground">No open pull requests found.</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-foreground flex items-center gap-3">
+            <div className="p-2 bg-purple-500/10 rounded-lg">
+              <CircleDot className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            </div>
+            Issues
+          </h2>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="text-muted-foreground">
+              <Filter className="w-4 h-4 mr-2" />
+              Filter
+            </Button>
+            <Button variant="link" size="sm" className="text-primary" asChild>
+              <a href="https://github.com/issues" target="_blank" rel="noopener noreferrer">
+                View all <ArrowRight className="w-3 h-3 ml-1" />
+              </a>
+            </Button>
+          </div>
+        </div>
+        <div className="grid gap-4">
+          {issuesLoading ? (
+            [...Array(3)].map((_, i) => (
+              <div key={i} className="p-6 rounded-xl border border-border/50 bg-card shadow-sm">
+                <Skeleton className="h-6 w-2/3 mb-3" />
+                <Skeleton className="h-4 w-1/3" />
+              </div>
+            ))
+          ) : issues && issues.length > 0 ? (
+            issues.map((issue) => (
+              <a
+                key={issue.id}
+                href={issue.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group block p-5 rounded-xl bg-card border border-border/50 hover:border-primary/30 hover:shadow-md transition-all duration-300"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="mt-1">
+                    <CircleDot className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors break-words leading-snug mb-2">
+                      {issue.title}
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                      <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded text-foreground/80">
+                        {issue.repo}#{issue.number}
+                      </span>
+                      <span className="w-1 h-1 rounded-full bg-border" />
+                      <span>opened by <span className="text-foreground font-medium">{issue.author}</span></span>
+                      <span className="w-1 h-1 rounded-full bg-border" />
+                      <span>{formatTimeAgo(issue.updatedTime)}</span>
+                    </div>
+                  </div>
+                  {issue.comments > 0 && (
+                    <Badge variant="secondary" className="ml-auto shrink-0 font-normal text-muted-foreground">
+                      {issue.comments} comments
+                    </Badge>
+                  )}
+                </div>
+              </a>
+            ))
+          ) : (
+            <div className="p-16 text-center border border-dashed border-border rounded-xl bg-muted/20">
+              <p className="text-muted-foreground">No open issues found.</p>
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
 
 export const GitHubDashboard = () => {
   const { user } = useAuth();
@@ -79,25 +263,45 @@ export const GitHubDashboard = () => {
     );
   }, [repositoriesRaw, repoSearch]);
 
-  const formatTimeAgo = (isoString: string) => {
-    try {
-      return formatDistanceToNow(new Date(isoString), { addSuffix: true });
-    } catch {
-      return 'recently';
-    }
-  };
-
   return (
-    <div className="h-[calc(100vh-3.5rem)] bg-white text-black overflow-hidden">
-      {/* Mobile: Fixed sidebars */}
+    <div className="h-[calc(100vh-3.5rem)] bg-background text-foreground overflow-hidden flex flex-col">
+      
+      {/* Mobile Header */}
+      <div className="lg:hidden flex-shrink-0 sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border px-4 py-3 flex items-center justify-between">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="-ml-2"
+          onClick={() => setShowLeftSidebar(true)}
+        >
+          <Menu className="w-5 h-5" />
+        </Button>
+        <h1 className="text-lg font-bold">Dashboard</h1>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="-mr-2"
+          onClick={() => setShowRightSidebar(true)}
+        >
+          <Activity className="w-5 h-5" />
+        </Button>
+      </div>
+
+      {/* Mobile Sidebar Drawers */}
       <div className="lg:hidden">
-        {/* Left Sidebar - Mobile */}
+        {/* Left Sidebar Overlay & Drawer */}
+        <div 
+          className={cn(
+            "fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300",
+            showLeftSidebar ? "opacity-100" : "opacity-0 pointer-events-none"
+          )}
+          onClick={() => setShowLeftSidebar(false)}
+        />
         <div
-          className={`
-            fixed top-14 left-0 z-40 h-[calc(100vh-3.5rem)] w-full
-            transform transition-transform duration-200 ease-in-out pointer-events-none
-            ${showLeftSidebar ? 'translate-x-0 pointer-events-auto' : '-translate-x-full'}
-          `}
+          className={cn(
+            "fixed inset-y-0 left-0 z-50 w-[280px] bg-background shadow-2xl transform transition-transform duration-300 ease-in-out border-r border-border",
+            showLeftSidebar ? "translate-x-0" : "-translate-x-full"
+          )}
         >
           <DashboardSidebar
             repositories={repositories}
@@ -111,42 +315,50 @@ export const GitHubDashboard = () => {
           />
         </div>
 
-        {/* Right Sidebar - Mobile */}
+        {/* Right Sidebar Overlay & Drawer */}
+        <div 
+          className={cn(
+            "fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300",
+            showRightSidebar ? "opacity-100" : "opacity-0 pointer-events-none"
+          )}
+          onClick={() => setShowRightSidebar(false)}
+        />
         <div
-          className={`
-            w-[340px] border-l border-gray-100 flex flex-col flex-shrink-0
-            fixed top-14 right-0 z-40 bg-white
-            h-[calc(100vh-3.5rem)]
-            transform transition-transform duration-200 ease-in-out pointer-events-none
-            ${showRightSidebar ? 'translate-x-0 pointer-events-auto' : 'translate-x-full'}
-          `}
+          className={cn(
+            "fixed inset-y-0 right-0 z-50 w-[320px] bg-background shadow-2xl transform transition-transform duration-300 ease-in-out border-l border-border flex flex-col",
+            showRightSidebar ? "translate-x-0" : "translate-x-full"
+          )}
         >
-          <div className="sticky top-0 bg-white border-b border-gray-100 p-4 z-10 flex items-center justify-between">
-            <h2 className="text-sm font-bold text-black uppercase tracking-wider">Activity</h2>
-            <button
-              className="p-2 hover:bg-gray-50 rounded-md"
+          <div className="sticky top-0 bg-background border-b border-border p-4 flex items-center justify-between">
+            <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Activity</h2>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="-mr-2"
               onClick={() => setShowRightSidebar(false)}
             >
               <X className="w-4 h-4" />
-            </button>
+            </Button>
           </div>
-          <ActivityFeed
-            activities={activities}
-            isLoading={activitiesLoading}
-            currentPageActivities={currentPageActivities}
-            pageSize={pageSize}
-            activitiesPage={activitiesPage}
-            maxPages={5}
-            loadMoreRef={loadMoreMobileRef}
-            isMobile={true}
-          />
+          <div className="flex-1 overflow-y-auto">
+            <ActivityFeed
+              activities={activities}
+              isLoading={activitiesLoading}
+              currentPageActivities={currentPageActivities}
+              pageSize={pageSize}
+              activitiesPage={activitiesPage}
+              maxPages={5}
+              loadMoreRef={loadMoreMobileRef}
+              isMobile={true}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Desktop: Resizable panels */}
+      {/* Desktop Layout */}
       <ResizablePanelGroup direction="horizontal" className="hidden lg:flex h-full">
         {/* Left Sidebar */}
-        <ResizablePanel defaultSize={18} minSize={15} maxSize={25} className="flex p-0 border-r border-gray-100">
+        <ResizablePanel defaultSize={18} minSize={15} maxSize={25} className="flex p-0 border-r border-border">
           <DashboardSidebar
             repositories={repositories}
             reposLoading={reposLoading}
@@ -158,164 +370,35 @@ export const GitHubDashboard = () => {
           />
         </ResizablePanel>
 
-        <ResizableHandle className="bg-transparent w-1 hover:bg-gray-100 transition-colors" />
+        <ResizableHandle className="bg-transparent w-1 hover:bg-accent transition-colors" />
 
         {/* Main content */}
         <ResizablePanel defaultSize={57} minSize={40}>
-          <main className="flex flex-col overflow-y-auto h-full min-w-0 bg-white">
-            <div className="flex-1 p-8 md:p-12 space-y-12 max-w-5xl mx-auto w-full">
-              <div className="space-y-2 mb-8">
-                <h1 className="text-3xl font-bold text-black">Welcome back, {user?.name?.split(' ')[0] || 'Developer'}</h1>
-                <p className="text-gray-500">Here&apos;s what&apos;s happening across your repositories.</p>
-              </div>
-
-              <section>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold text-black flex items-center gap-2">
-                    <GitPullRequest className="h-5 w-5" />
-                    Pull Requests
-                  </h2>
-                  <div className="flex items-center gap-2">
-                    <button className="p-2 hover:bg-gray-50 rounded-md text-gray-500 hover:text-black transition-colors">
-                      <Filter className="w-4 h-4" />
-                    </button>
-                    <a href="https://github.com/pulls" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-600 hover:underline">
-                      View all
-                    </a>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  {prsLoading ? (
-                    <div className="space-y-4">
-                      {[...Array(3)].map((_, i) => (
-                        <Skeleton key={i} className="h-16 w-full rounded-xl" />
-                      ))}
-                    </div>
-                  ) : pullRequests && pullRequests.length > 0 ? (
-                    pullRequests.map((pr) => (
-                      <div
-                        key={pr.id}
-                        className="group p-4 rounded-xl hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-all duration-200"
-                      >
-                        <div className="flex items-start gap-4">
-                          <GitPullRequest className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <a
-                              href={pr.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-base font-semibold text-black group-hover:text-blue-600 transition-colors break-words"
-                            >
-                              {pr.title}
-                            </a>
-                            <div className="flex flex-wrap items-center gap-2 mt-1.5 text-sm text-gray-500">
-                              <span className="font-mono text-xs text-gray-400">{pr.repo}#{pr.number}</span>
-                              <span className="w-1 h-1 rounded-full bg-gray-300" />
-                              <span>Opened by <span className="text-black font-medium">{pr.author}</span></span>
-                              <span className="w-1 h-1 rounded-full bg-gray-300" />
-                              <span>{formatTimeAgo(pr.updatedTime)}</span>
-                            </div>
-                          </div>
-                          {pr.comments > 0 && (
-                            <div className="flex items-center gap-1.5 text-sm text-gray-500 bg-white px-2 py-1 rounded-md border border-gray-100 shadow-sm">
-                              <MessageSquare className="w-3.5 h-3.5" />
-                              <span>{pr.comments}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="p-12 text-center border border-dashed border-gray-200 rounded-xl bg-gray-50/50">
-                      <p className="text-gray-500">No open pull requests found.</p>
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              <section>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold text-black flex items-center gap-2">
-                    <CircleDot className="h-5 w-5" />
-                    Issues
-                  </h2>
-                  <div className="flex items-center gap-2">
-                    <button className="p-2 hover:bg-gray-50 rounded-md text-gray-500 hover:text-black transition-colors">
-                      <Filter className="w-4 h-4" />
-                    </button>
-                    <a href="https://github.com/issues" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-600 hover:underline">
-                      View all
-                    </a>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  {issuesLoading ? (
-                    <div className="space-y-4">
-                      {[...Array(3)].map((_, i) => (
-                        <Skeleton key={i} className="h-16 w-full rounded-xl" />
-                      ))}
-                    </div>
-                  ) : issues && issues.length > 0 ? (
-                    issues.map((issue) => (
-                      <div
-                        key={issue.id}
-                        className="group p-4 rounded-xl hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-all duration-200"
-                      >
-                        <div className="flex items-start gap-4">
-                          <CircleDot className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <a
-                              href={issue.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-base font-semibold text-black group-hover:text-blue-600 transition-colors break-words"
-                            >
-                              {issue.title}
-                            </a>
-                            <div className="flex flex-wrap items-center gap-2 mt-1.5 text-sm text-gray-500">
-                              <span className="font-mono text-xs text-gray-400">{issue.repo}#{issue.number}</span>
-                              <span className="w-1 h-1 rounded-full bg-gray-300" />
-                              <span>Opened by <span className="text-black font-medium">{issue.author}</span></span>
-                              <span className="w-1 h-1 rounded-full bg-gray-300" />
-                              <span>{formatTimeAgo(issue.updatedTime)}</span>
-                            </div>
-                          </div>
-                          {issue.comments > 0 && (
-                            <div className="flex items-center gap-1.5 text-sm text-gray-500 bg-white px-2 py-1 rounded-md border border-gray-100 shadow-sm">
-                              <MessageSquare className="w-3.5 h-3.5" />
-                              <span>{issue.comments}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="p-12 text-center border border-dashed border-gray-200 rounded-xl bg-gray-50/50">
-                      <p className="text-gray-500">No open issues found.</p>
-                    </div>
-                  )}
-                </div>
-              </section>
-            </div>
-            
-            {/* Footer inside main content */}
-            <div className="mt-auto">
+          <main className="flex flex-col overflow-y-auto h-full min-w-0 bg-background">
+            <DashboardContent 
+              user={user} 
+              pullRequests={pullRequests || []} 
+              issues={issues || []} 
+              prsLoading={prsLoading} 
+              issuesLoading={issuesLoading} 
+            />
+            <div className="mt-auto border-t border-border">
               <Footer />
             </div>
           </main>
         </ResizablePanel>
 
-        <ResizableHandle className="bg-transparent w-1 hover:bg-gray-100 transition-colors" />
+        <ResizableHandle className="bg-transparent w-1 hover:bg-accent transition-colors" />
 
         {/* Right Sidebar */}
-        <ResizablePanel defaultSize={25} minSize={20} maxSize={35} className="flex flex-col bg-white border-l border-gray-100">
-          <div className="sticky top-0 bg-white/80 backdrop-blur-sm border-b border-gray-100 p-6 z-10">
-            <h2 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center justify-between">
+        <ResizablePanel defaultSize={25} minSize={20} maxSize={35} className="flex flex-col bg-background border-l border-border">
+          <div className="sticky top-0 bg-background/80 backdrop-blur-sm border-b border-border p-6 z-10">
+            <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Activity className="h-4 w-4" />
+                <Activity className="h-4 w-4 text-primary" />
                 Recent Activity
               </div>
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-4 w-4 opacity-50" />
             </h2>
           </div>
           <ActivityFeed
@@ -331,68 +414,18 @@ export const GitHubDashboard = () => {
         </ResizablePanel>
       </ResizablePanelGroup>
 
-      {/* Mobile main content */}
-      <main className="lg:hidden flex flex-col overflow-y-auto h-full min-w-0">
-        {/* Mobile header */}
-        <div className="sticky top-0 z-30 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between flex-shrink-0">
-          <button
-            className="p-2 hover:bg-gray-50 rounded-md"
-            onClick={() => setShowLeftSidebar(true)}
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          <h1 className="text-lg font-bold">Dashboard</h1>
-          <button
-            className="p-2 hover:bg-gray-50 rounded-md"
-            onClick={() => setShowRightSidebar(true)}
-          >
-            <Radio className="w-5 h-5" />
-          </button>
+      {/* Mobile Main Content Render */}
+      <main className="lg:hidden flex flex-col overflow-y-auto flex-1 bg-background">
+        <DashboardContent 
+          user={user} 
+          pullRequests={pullRequests || []} 
+          issues={issues || []} 
+          prsLoading={prsLoading} 
+          issuesLoading={issuesLoading} 
+        />
+        <div className="mt-auto border-t border-border">
+          <Footer />
         </div>
-
-        <div className="flex-1 p-4 space-y-8">
-          {/* Same content as desktop but simplified padding */}
-          {/* ... (Copy/paste or componentize if needed, but keeping inline for simplicity as per request to redesign) */}
-          {/* Since the content is identical, I'll reuse the structure but maybe I should extract it to a component? 
-              For now I'll just duplicate the inner sections logic for mobile to ensure it renders correctly without heavy refactor.
-          */}
-           <div className="space-y-2 mb-6">
-                <h1 className="text-2xl font-bold text-black">Welcome, {user?.name?.split(' ')[0]}</h1>
-           </div>
-           {/* ... sections ... */}
-           {/* For brevity in this turn, assuming desktop redesign covers the structure, 
-               I will rely on the desktop sections being the primary "nicer" version. 
-               The mobile sections in previous code were just copies. 
-               I will paste the sections again for mobile. */}
-           <section>
-                <h2 className="text-lg font-bold text-black mb-4 flex items-center gap-2">
-                    <GitPullRequest className="h-5 w-5" /> Pull Requests
-                </h2>
-                <div className="space-y-2">
-                  {prsLoading ? <Skeleton className="h-20 w-full" /> : pullRequests?.map(pr => (
-                      <div key={pr.id} className="p-4 rounded-xl bg-gray-50 border border-gray-100">
-                          <a href={pr.url} className="font-semibold text-black block mb-1">{pr.title}</a>
-                          <div className="text-xs text-gray-500">{pr.repo}#{pr.number} • {formatTimeAgo(pr.updatedTime)}</div>
-                      </div>
-                  ))}
-                </div>
-           </section>
-           <section>
-                <h2 className="text-lg font-bold text-black mb-4 flex items-center gap-2">
-                    <CircleDot className="h-5 w-5" /> Issues
-                </h2>
-                <div className="space-y-2">
-                  {issuesLoading ? <Skeleton className="h-20 w-full" /> : issues?.map(issue => (
-                      <div key={issue.id} className="p-4 rounded-xl bg-gray-50 border border-gray-100">
-                          <a href={issue.url} className="font-semibold text-black block mb-1">{issue.title}</a>
-                          <div className="text-xs text-gray-500">{issue.repo}#{issue.number} • {formatTimeAgo(issue.updatedTime)}</div>
-                      </div>
-                  ))}
-                </div>
-           </section>
-        </div>
-        
-        <Footer />
       </main>
     </div>
   );

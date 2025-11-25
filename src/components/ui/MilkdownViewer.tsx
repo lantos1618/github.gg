@@ -21,6 +21,8 @@ import 'prismjs/components/prism-scala';
 import 'prismjs/components/prism-solidity';
 import 'prismjs/components/prism-toml';
 
+import { cn } from '@/lib/utils';
+
 interface MilkdownViewerProps {
   content: string;
   className?: string;
@@ -105,7 +107,7 @@ function MilkdownViewerInner({ content }: MilkdownViewerProps) {
   }, [content]);
 
   return (
-    <div ref={containerRef}>
+    <div ref={containerRef} className="milkdown-viewer-content">
       <Milkdown />
     </div>
   );
@@ -114,8 +116,16 @@ function MilkdownViewerInner({ content }: MilkdownViewerProps) {
 export function MilkdownViewer({ content, className = '' }: MilkdownViewerProps) {
   return (
     <MilkdownProvider>
-      <div className={`milkdown-viewer ${className}`}>
-        <MilkdownViewerInner content={content} />
+      <div className={cn(
+        "group relative bg-card border border-border rounded-xl shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md",
+        className
+      )}>
+        {/* Decorative top highlight like in EnhancedCodeViewer/Insights */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-50 group-hover:opacity-100 transition-opacity" />
+        
+        <div className="p-6 md:p-8">
+          <MilkdownViewerInner content={content} />
+        </div>
       </div>
     </MilkdownProvider>
   );

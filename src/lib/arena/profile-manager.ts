@@ -1,7 +1,7 @@
 import { db } from '@/db';
 import { developerProfileCache } from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
-import { generateDeveloperProfile } from '@/lib/ai/developer-profile';
+import { generateDeveloperProfileStreaming } from '@/lib/ai/developer-profile';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import type { GitHubService } from '@/lib/github';
 
@@ -40,11 +40,23 @@ export async function getOrGenerateProfile(
     throw new Error(`${username} has no original repositories (only forks).`);
   }
 
-  const result = await generateDeveloperProfile({
+  let profileResult;
+  // Consume the generator to get the final result
+  const generator = generateDeveloperProfileStreaming({
     username,
     repos: nonForkRepos,
     userId
   });
+
+  for await (const update of generator) {
+    if (update.type === 'complete' && update.result) {
+      profileResult = update.result;
+    }
+  }
+
+  if (!profileResult) {
+    throw new Error(`Failed to generate profile for ${username}`);
+  }
 
   // Get next version number
   const maxVersionResult = await db
@@ -57,12 +69,12 @@ export async function getOrGenerateProfile(
   await db.insert(developerProfileCache).values({
     username: normalizedUsername,
     version: nextVersion,
-    profileData: result.profile,
+    profileData: profileResult.profile,
     updatedAt: new Date()
   }).onConflictDoUpdate({
     target: [developerProfileCache.username, developerProfileCache.version],
-    set: { profileData: result.profile, updatedAt: new Date() }
+    set: { profileData: profileResult.profile, updatedAt: new Date() }
   });
 
-  return result.profile;
+  return profileResult.profile;
 }

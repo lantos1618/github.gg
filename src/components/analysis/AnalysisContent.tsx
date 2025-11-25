@@ -1,9 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { MarkdownCardRenderer } from '@/components/MarkdownCardRenderer';
 import { AnalysisMetrics } from './AnalysisMetrics';
-import { ReactNode } from 'react';
 
 interface Metric {
   metric: string;
@@ -14,6 +13,9 @@ interface Metric {
 interface AnalysisData {
   markdown: string;
   metrics?: Metric[];
+  detectedPatterns?: string[]; // Add this to support SlopMetrics
+  overallScore?: number;       // Add this to support SlopMetrics
+  aiGeneratedPercentage?: number; // Add this to support SlopMetrics
 }
 
 interface AnalysisContentProps {
@@ -32,7 +34,7 @@ export const AnalysisContent: React.FC<AnalysisContentProps> = ({
   getMetricColor,
 }) => {
   return (
-    <div>
+    <div className="space-y-6">
       {data.metrics && (
         <AnalysisMetrics
           metrics={data.metrics}
@@ -41,6 +43,12 @@ export const AnalysisContent: React.FC<AnalysisContentProps> = ({
           getMetricColor={getMetricColor}
         />
       )}
+      
+      {/* 
+        Ensure detectedPatterns are passed if renderCustomMetrics is used 
+        (SlopMetrics needs data.detectedPatterns, data.overallScore etc)
+      */}
+      
       <MarkdownCardRenderer markdown={data.markdown} title={title} />
     </div>
   );

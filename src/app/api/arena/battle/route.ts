@@ -13,7 +13,7 @@ import { createGitHubServiceForUserOperations } from '@/lib/github';
 import type { BetterAuthSession } from '@/lib/github/types';
 import { getOrCreateRanking, updateRankings } from '@/lib/arena/battle-helpers';
 import { ALL_BATTLE_CRITERIA } from '@/lib/constants/arena';
-import { generateDeveloperProfile } from '@/lib/ai/developer-profile';
+import { generateDeveloperProfileStreaming } from '@/lib/ai/developer-profile';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import type { BattleCriteria } from '@/lib/types/arena';
 import { sendBattleResultsEmail } from '@/lib/email/resend';
@@ -171,25 +171,46 @@ export async function GET(req: NextRequest) {
             message: `Found ${repos.length} repos (${validRepos.length} with contributions), analyzing top ${topRepos.length} for ${username}...`
           });
 
-          const result = await generateDeveloperProfile({
+          let profileResult;
+          
+          // Use streaming generator and bridge progress events
+          const generator = generateDeveloperProfileStreaming({
             username,
             repos: validRepos,
             userId: session.user.id,
-            onProgress: (current, total, repoName) => {
-              const baseProgress = role === 'challenger' ? 20 : 40;
-              const rangeSize = 20; // 20-40 or 40-60
-              const progressIncrement = Math.floor((current / total) * rangeSize);
-
-              sendEvent('progress', {
-                status: 'analyzing_repo',
-                progress: baseProgress + progressIncrement,
-                message: `Analyzing repo ${current}/${total}: ${repoName}`,
-                repoName,
-                current,
-                total
-              });
-            }
           });
+
+          for await (const update of generator) {
+            if (update.type === 'progress') {
+              // Bridge the progress update to SSE
+              // We need to map the generator's progress (0-100) to the battle's progress range for this user
+              // Battle progress allocation:
+              // Challenger: 20-40 (range size 20)
+              // Opponent: 40-60 (range size 20)
+              
+              if (update.metadata) {
+                const baseProgress = role === 'challenger' ? 20 : 40;
+                const rangeSize = 20;
+                const { current, total, repoName } = update.metadata;
+                const progressIncrement = Math.floor((current / total) * rangeSize);
+
+                sendEvent('progress', {
+                  status: 'analyzing_repo',
+                  progress: baseProgress + progressIncrement,
+                  message: `Analyzing repo ${current}/${total}: ${repoName}`,
+                  repoName,
+                  current,
+                  total
+                });
+              }
+            } else if (update.type === 'complete' && update.result) {
+              profileResult = update.result;
+            }
+          }
+
+          if (!profileResult) {
+             throw new Error(`Failed to generate profile for ${username}`);
+          }
 
           const maxVersionResult = await db
             .select({ max: sql<number>`MAX(version)` })
@@ -200,11 +221,11 @@ export async function GET(req: NextRequest) {
           await db.insert(developerProfileCache).values({
             username: normalizedUsername,
             version: nextVersion,
-            profileData: result.profile,
+            profileData: profileResult.profile,
             updatedAt: new Date()
           }).onConflictDoUpdate({
             target: [developerProfileCache.username, developerProfileCache.version],
-            set: { profileData: result.profile, updatedAt: new Date() }
+            set: { profileData: profileResult.profile, updatedAt: new Date() }
           });
 
           sendEvent('progress', {
@@ -213,7 +234,7 @@ export async function GET(req: NextRequest) {
             message: `Profile generated for ${username}`
           });
 
-          return result.profile;
+          return profileResult.profile;
         };
 
         // Generate both profiles

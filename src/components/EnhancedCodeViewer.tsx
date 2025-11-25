@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, memo, useRef, useEffect } from 'react';
-import { Copy, Check, Download, ChevronRight, ChevronDown } from 'lucide-react';
+import { Copy, Check, Download, ChevronRight, ChevronDown, Sparkles, FileText, Terminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RepoFile } from '@/types/repo';
 import ShikiHighlighter from 'react-shiki/web';
+import { cn } from '@/lib/utils';
 
-const MAX_LINES_INITIAL = 300; // Show first 300 lines by default
-const LARGE_FILE_THRESHOLD = 500; // Files over 500 lines are considered large
+const MAX_LINES_INITIAL = 300;
+const LARGE_FILE_THRESHOLD = 500;
 
 interface EnhancedCodeViewerProps {
   files: RepoFile[];
@@ -49,15 +50,6 @@ const getLanguageFromExtension = (extension?: string): string => {
   return languageMap[ext || ''] || 'text';
 };
 
-const generateBreadcrumb = (filePath: string) => {
-  const parts = filePath.split('/');
-  return parts.map((part, index) => ({
-    name: part,
-    path: parts.slice(0, index + 1).join('/'),
-    isLast: index === parts.length - 1
-  }));
-};
-
 const FileItem = memo(function FileItem({ file, fileIndex, copiedFile, onCopy, onDownload }: {
   file: RepoFile;
   fileIndex: number;
@@ -72,7 +64,6 @@ const FileItem = memo(function FileItem({ file, fileIndex, copiedFile, onCopy, o
 
   const fileName = file.path.split('/').pop() || file.path;
   const content = file.content || '';
-  const breadcrumbs = generateBreadcrumb(file.path);
   const extension = fileName.split('.').pop() || 'txt';
   const language = getLanguageFromExtension(extension);
   const lines = content.split('\n');
@@ -83,7 +74,7 @@ const FileItem = memo(function FileItem({ file, fileIndex, copiedFile, onCopy, o
     : content;
   const hiddenLinesCount = isLargeFile ? lines.length - MAX_LINES_INITIAL : 0;
 
-  // Lazy load with Intersection Observer
+  // Lazy load
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -93,10 +84,7 @@ const FileItem = memo(function FileItem({ file, fileIndex, copiedFile, onCopy, o
           }
         });
       },
-      {
-        rootMargin: '200px', // Start loading 200px before entering viewport
-        threshold: 0.01
-      }
+      { rootMargin: '200px', threshold: 0.01 }
     );
 
     const currentContainer = containerRef.current;
@@ -111,7 +99,7 @@ const FileItem = memo(function FileItem({ file, fileIndex, copiedFile, onCopy, o
     };
   }, [isInView]);
 
-  // Track when Shiki finishes highlighting
+  // Track Shiki highlighting
   useEffect(() => {
     if (isInView) {
       const timer = setTimeout(() => {
@@ -124,98 +112,112 @@ const FileItem = memo(function FileItem({ file, fileIndex, copiedFile, onCopy, o
   return (
     <div
       ref={containerRef}
-      key={file.path}
       id={`file-${file.path}`}
-      className={fileIndex > 0 ? 'border-t border-gray-200 mt-8' : ''}
-      style={{ contentVisibility: 'auto', minHeight: isInView ? 'auto' : '400px' }}
+      className={cn(
+        "group relative flex flex-col bg-card border border-border rounded-xl overflow-hidden transition-all duration-200",
+        fileIndex > 0 && "mt-6"
+      )}
+      style={{ contentVisibility: 'auto', minHeight: isInView ? 'auto' : '200px' }}
     >
-      {/* File Header with Breadcrumb */}
-      <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100/50 sticky top-14 z-10">
-        {/* Breadcrumb Navigation */}
-        <nav className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm text-gray-600 mb-3 overflow-x-auto scrollbar-hide">
-          {breadcrumbs.map((crumb) => (
-            <div key={crumb.path} className="flex items-center flex-shrink-0">
-              <span className={`whitespace-nowrap ${crumb.isLast ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
-                {crumb.name}
-              </span>
-              {!crumb.isLast && <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 mx-0.5 sm:mx-1" />}
-            </div>
-          ))}
-        </nav>
-
-        {/* File Info & Actions */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-          <div className="flex items-center space-x-3 sm:space-x-4 text-xs sm:text-sm text-gray-500">
-            <span>{formatFileSize(file.size)}</span>
-            <span>{lines.length} lines</span>
-            {isLargeFile && !isExpanded && (
-              <span className="text-amber-600 font-medium">
-                (showing first {MAX_LINES_INITIAL})
-              </span>
+      {/* File Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-4 py-3 bg-muted/30 border-b border-border/50">
+        <div className="flex items-center gap-3 overflow-hidden">
+          <div className="p-2 bg-background rounded-md border border-border shadow-sm shrink-0">
+            {language === 'typescript' || language === 'tsx' || language === 'javascript' ? (
+              <Terminal className="w-4 h-4 text-blue-500" />
+            ) : (
+              <FileText className="w-4 h-4 text-gray-500" />
             )}
           </div>
-
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onCopy(file.path, content)}
-              className="flex-1 sm:flex-initial text-xs sm:text-sm h-8 px-2 sm:px-3"
-            >
-              {copiedFile === file.path ? <Check className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" /> : <Copy className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />}
-              <span className="hidden sm:inline">{copiedFile === file.path ? 'Copied!' : 'Copy'}</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onDownload(fileName, content)}
-              className="flex-1 sm:flex-initial text-xs sm:text-sm h-8 px-2 sm:px-3"
-            >
-              <Download className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Download</span>
-            </Button>
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground overflow-hidden">
+              {file.path.split('/').slice(0, -1).map((part, i) => (
+                <span key={i} className="flex items-center whitespace-nowrap">
+                  {part}
+                  <ChevronRight className="w-3 h-3 mx-1 opacity-50" />
+                </span>
+              ))}
+            </div>
+            <span className="font-medium text-sm text-foreground truncate">
+              {fileName}
+            </span>
           </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="hidden sm:flex items-center gap-3 mr-2 text-xs text-muted-foreground font-mono">
+            <span>{formatFileSize(file.size)}</span>
+            <span>{lines.length} lines</span>
+          </div>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onCopy(file.path, content)}
+            className="h-8 w-8 hover:bg-background hover:border border-transparent hover:border-border transition-all"
+            title="Copy file content"
+          >
+            {copiedFile === file.path ? (
+              <Check className="w-3.5 h-3.5 text-green-500" />
+            ) : (
+              <Copy className="w-3.5 h-3.5" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onDownload(fileName, content)}
+            className="h-8 w-8 hover:bg-background hover:border border-transparent hover:border-border transition-all"
+            title="Download file"
+          >
+            <Download className="w-3.5 h-3.5" />
+          </Button>
         </div>
       </div>
 
       {/* Code Content */}
-      {isInView ? (
-        <>
-          <div className="relative shiki-wrapper" style={{ contain: 'layout style paint' }}>
-            {isHighlighting && (
-              <div className="absolute inset-0 bg-gray-900 flex items-center justify-center z-10">
-                <div className="text-gray-400 text-sm">Loading syntax highlighting...</div>
+      <div className="relative bg-[#0d1117] min-h-[100px]">
+        {isInView ? (
+          <>
+            <div className="relative shiki-wrapper text-sm">
+              {isHighlighting && (
+                <div className="absolute inset-0 bg-[#0d1117] flex items-center justify-center z-10">
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm animate-pulse">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" />
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:0.1s]" />
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:0.2s]" />
+                  </div>
+                </div>
+              )}
+              <ShikiHighlighter
+                language={language}
+                theme="github-dark"
+                showLineNumbers={true}
+              >
+                {displayContent}
+              </ShikiHighlighter>
+            </div>
+
+            {isLargeFile && !isExpanded && (
+              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-[#0d1117] via-[#0d1117]/90 to-transparent pt-20 pb-8 flex justify-center">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setIsExpanded(true)}
+                  className="shadow-lg border border-border/10 bg-gray-800 text-gray-200 hover:bg-gray-700 hover:text-white"
+                >
+                  <ChevronDown className="w-4 h-4 mr-2" />
+                  Show remaining {hiddenLinesCount} lines
+                </Button>
               </div>
             )}
-            <ShikiHighlighter
-              language={language}
-              theme="github-dark"
-              showLineNumbers={true}
-            >
-              {displayContent}
-            </ShikiHighlighter>
+          </>
+        ) : (
+          <div className="flex items-center justify-center py-12 text-gray-500 text-sm">
+            Loading content...
           </div>
-
-          {/* Expand button for large files */}
-          {isLargeFile && !isExpanded && (
-            <div className="border-t border-gray-700 bg-gray-800 p-4 text-center">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsExpanded(true)}
-                className="bg-gray-700 hover:bg-gray-600 text-white border-gray-600"
-              >
-                <ChevronDown className="w-4 h-4 mr-2" />
-                Show {hiddenLinesCount} more lines
-              </Button>
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="bg-gray-900 p-8 flex items-center justify-center min-h-[200px]">
-          <div className="text-gray-500 text-sm">Scroll to load content...</div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 });
@@ -262,48 +264,60 @@ export function EnhancedCodeViewer({ files }: EnhancedCodeViewerProps) {
 
   if (!files || files.length === 0) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-center py-16">
-          <div className="text-center">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No files selected</h3>
-            <p className="text-gray-500">Choose files from the sidebar to view their contents</p>
-          </div>
+      <div className="flex flex-col items-center justify-center py-24 text-center px-4 border border-dashed border-border rounded-xl bg-muted/20">
+        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+          <FileText className="w-8 h-8 text-muted-foreground" />
         </div>
+        <h3 className="text-lg font-semibold text-foreground mb-1">No files selected</h3>
+        <p className="text-muted-foreground max-w-sm">
+          Select files from the repository explorer to view their contents and analyze them.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm relative">
-      {/* Sticky Header with Copy for AI */}
-      <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-700">
-            {files.length} {files.length === 1 ? 'file' : 'files'} selected
-          </span>
+    <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 -mx-4 sm:-mx-6 bg-background/80 backdrop-blur-md border-b border-border shadow-sm supports-[backdrop-filter]:bg-background/60">
+        <div className="flex items-center gap-3 px-2">
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+            <FileText className="w-4 h-4 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Selected Files</h2>
+            <p className="text-xs text-muted-foreground">
+              {files.length} {files.length === 1 ? 'file' : 'files'} ready for review
+            </p>
+          </div>
         </div>
-        <button
+
+        <Button
           onClick={handleCopyAllForAI}
           disabled={files.length === 0}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-300 rounded-md hover:bg-purple-100 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Copy all file contents for AI/LLM"
+          className={cn(
+            "relative overflow-hidden transition-all duration-300",
+            copiedAll 
+              ? "bg-green-600 hover:bg-green-700 text-white ring-offset-2 ring-2 ring-green-600 ring-offset-background" 
+              : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hover:shadow-md"
+          )}
         >
           {copiedAll ? (
             <>
-              <Check className="w-4 h-4 text-green-600" />
-              <span>Copied!</span>
+              <Check className="w-4 h-4 mr-2" />
+              Copied to Clipboard
             </>
           ) : (
             <>
-              <Copy className="w-4 h-4" />
-              <span>Copy for AI</span>
+              <Sparkles className="w-4 h-4 mr-2 animate-pulse" />
+              Copy for AI
             </>
           )}
-        </button>
+        </Button>
       </div>
 
-      {/* Files */}
-      <div>
+      {/* Files List */}
+      <div className="space-y-8 pb-10">
         {files.map((file, fileIndex) => (
           <FileItem
             key={file.path}

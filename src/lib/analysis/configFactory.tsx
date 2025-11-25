@@ -38,6 +38,8 @@ interface AnalysisTypeConfig {
   getMetricColor?: (score: number) => string;
 }
 
+import { SlopMetrics } from "@/components/ai-slop/SlopMetrics";
+
 const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisTypeConfig> = {
   'scorecard': {
     title: 'Repository Scorecard',
@@ -68,43 +70,7 @@ const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisTypeConfig> = {
     showMetricsBar: true,
     useEffectiveRef: true,
     getMetricColor: (score) => score < 60 ? 'bg-red-500' : score < 80 ? 'bg-orange-500' : 'bg-green-500',
-    renderCustomMetrics: (data) => (
-      <div className="space-y-4">
-        <div className="flex gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">Code Slop:</span>
-            <span className={`font-bold ${
-              (data.aiGeneratedPercentage || 0) > 50 ? 'text-red-600' :
-              (data.aiGeneratedPercentage || 0) > 30 ? 'text-orange-600' :
-              'text-green-600'
-            }`}>
-              ~{data.aiGeneratedPercentage}%
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-medium">Quality Score:</span>
-            <span className={`font-bold ${
-              (data.overallScore || 0) < 60 ? 'text-red-600' :
-              (data.overallScore || 0) < 80 ? 'text-orange-600' :
-              'text-green-600'
-            }`}>
-              {data.overallScore}/100
-            </span>
-          </div>
-        </div>
-        {/* Detected Patterns */}
-        {data.detectedPatterns && data.detectedPatterns.length > 0 && (
-          <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-            <h3 className="text-md font-semibold mb-2 text-orange-900">Code Quality Issues Detected</h3>
-            <ul className="list-disc list-inside text-sm text-orange-800 space-y-1">
-              {data.detectedPatterns.map((pattern, i) => (
-                <li key={i}>{pattern}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-    ),
+    renderCustomMetrics: (data) => <SlopMetrics data={data} />,
   },
 };
 

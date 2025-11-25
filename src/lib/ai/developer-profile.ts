@@ -155,13 +155,18 @@ export type DeveloperProfileResult = {
   };
 };
 
-export async function generateDeveloperProfile({
+export async function* generateDeveloperProfileStreaming({
   username,
   repos,
   repoFiles,
   userId,
-  onProgress
-}: DeveloperProfileParams): Promise<DeveloperProfileResult> {
+}: Omit<DeveloperProfileParams, 'onProgress'>): AsyncGenerator<{
+  type: 'progress' | 'complete';
+  progress?: number;
+  message?: string;
+  metadata?: { current: number; total: number; repoName: string };
+  result?: DeveloperProfileResult;
+}> {
   // Filter out forked repositories - we only want to score based on user's original work
   const nonForkedRepos = repos.filter(repo => !repo.fork);
 
@@ -205,9 +210,14 @@ export async function generateDeveloperProfile({
       const repoData = topReposToAnalyze[i];
       const current = i + 1;
 
-      if (onProgress) {
-        onProgress(current, total, repoData.repoName);
-      }
+      // Yield progress
+      const progressPercentage = 10 + Math.round((current / total) * 70); // Map to 10-80% range
+      yield {
+        type: 'progress',
+        progress: progressPercentage,
+        message: `Analyzing repository ${current}/${total}: ${repoData.repoName}`,
+        metadata: { current, total, repoName: repoData.repoName }
+      };
 
       const repoKey = `${username}/${repoData.repoName}`;
 
@@ -302,6 +312,7 @@ export async function generateDeveloperProfile({
     });
   }
 
+  yield { type: 'progress', progress: 85, message: 'Generating final profile analysis...' };
   console.log(`🤖 Generating developer profile with AI...`);
 
   // Validate that we have actual non-forked repos
@@ -358,8 +369,11 @@ export async function generateDeveloperProfile({
       : [],
   };
 
-  return {
-    profile: patchedProfile,
-    usage: totalUsage,
+  yield {
+    type: 'complete',
+    result: {
+      profile: patchedProfile,
+      usage: totalUsage,
+    }
   };
-} 
+}

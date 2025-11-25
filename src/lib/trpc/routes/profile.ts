@@ -3,12 +3,11 @@ import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { developerProfileCache, tokenUsage, user, developerEmails } from '@/db/schema';
 import { eq, and, gte, desc, sql } from 'drizzle-orm';
-import { generateDeveloperProfile } from '@/lib/ai/developer-profile';
+import { generateDeveloperProfileStreaming, findAndStoreDeveloperEmail } from '@/lib/ai/developer-profile';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForUserOperations, createPublicGitHubService } from '@/lib/github';
 import type { DeveloperProfile } from '@/lib/types/profile';
-import { findAndStoreDeveloperEmail } from '@/lib/ai/developer-profile';
 import { Octokit } from '@octokit/rest';
 
 export const profileRouter = router({
@@ -338,17 +337,30 @@ export const profileRouter = router({
 
         console.log(`🎯 Generating profile for ${username} with ${repoFiles.length} analyzed repos`);
 
-        // Generate developer profile with optional code analysis
-        const result = await generateDeveloperProfile({
+        // Generate developer profile with optional code analysis and streaming progress
+        let result;
+        const generator = generateDeveloperProfileStreaming({
           username,
           repos: smartSortedRepos,
           repoFiles: input.includeCodeAnalysis ? repoFiles : undefined,
           userId: ctx.user.id
         });
 
+        for await (const update of generator) {
+          if (update.type === 'progress') {
+            yield { type: 'progress', progress: update.progress, message: update.message };
+          } else if (update.type === 'complete') {
+            result = update.result;
+          }
+        }
+
+        if (!result) {
+          throw new Error("Failed to generate profile");
+        }
+
         console.log(`✅ Profile generated successfully for ${username}`);
 
-        yield { type: 'progress', progress: 80, message: 'Profile generated, saving results...' };
+        yield { type: 'progress', progress: 90, message: 'Profile generated, saving results...' };
 
         // Get next version number
         const maxVersionResult = await db
@@ -578,4 +590,4 @@ export const profileRouter = router({
         b.updatedAt.getTime() - a.updatedAt.getTime()
       );
     }),
-}); 
+});

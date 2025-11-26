@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
-import { DollarSign, Users, RefreshCw, UserCheck, Download } from 'lucide-react';
+import { DollarSign, Users, RefreshCw, UserCheck, Download, Play } from 'lucide-react';
 import { formatCost, calculatePerUserCostAndUsage } from '@/lib/utils/cost-calculator';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Image from 'next/image';
@@ -25,6 +25,12 @@ export default function AdminDashboard() {
   const [dateRange] = useState(getCurrentMonthRange());
   const [userSortKey, setUserSortKey] = useState<string>('createdAt');
   const [userSortDirection, setUserSortDirection] = useState<'asc' | 'desc' | null>('desc');
+  
+  // New state for profile generation
+  const [generatingUser, setGeneratingUser] = useState<string | null>(null);
+  const [shouldGenerate, setShouldGenerate] = useState(false);
+  const [generateInput, setGenerateInput] = useState<{ username: string; targetUserId?: string } | null>(null);
+  const activeToastId = useState<string | number | null>(null);
 
   // tRPC queries
   const { data: usageStats, refetch: refetchUsage, isLoading: loadingUsage } = trpc.admin.getUsageStats.useQuery({
@@ -37,6 +43,86 @@ export default function AdminDashboard() {
     endDate: dateRange.endDate,
   });
   const { data: dailyStats, isLoading: loadingDailyStats } = trpc.admin.getDailyStats.useQuery();
+  const triggerAnalysisMutation = trpc.admin.triggerAnalysis.useMutation();
+
+  // Admin Profile Generation Subscription
+  trpc.admin.generateProfile.useSubscription(
+    generateInput || { username: '' },
+    {
+      enabled: shouldGenerate && !!generateInput,
+      onData: (event: any) => {
+        if (event.type === 'progress') {
+          const message = `${event.message} (${event.progress}%)`;
+          if (activeToastId[0]) {
+            toast.loading(message, { id: activeToastId[0] });
+          } else {
+            const id = toast.loading(message);
+            activeToastId[1](id);
+          }
+        } else if (event.type === 'complete') {
+          if (activeToastId[0]) {
+            toast.success(`Profile generated for ${event.data.username}`, { id: activeToastId[0] });
+            activeToastId[1](null);
+          } else {
+            toast.success(`Profile generated for ${event.data.username}`);
+          }
+          setGeneratingUser(null);
+          setShouldGenerate(false);
+          setGenerateInput(null);
+        } else if (event.type === 'error') {
+          if (activeToastId[0]) {
+            toast.error(event.message || 'Failed to generate profile', { id: activeToastId[0] });
+            activeToastId[1](null);
+          } else {
+            toast.error(event.message || 'Failed to generate profile');
+          }
+          setGeneratingUser(null);
+          setShouldGenerate(false);
+          setGenerateInput(null);
+        }
+      },
+      onError: (err) => {
+        if (activeToastId[0]) {
+          toast.error(err.message || 'Connection error', { id: activeToastId[0] });
+          activeToastId[1](null);
+        } else {
+          toast.error(err.message || 'Connection error');
+        }
+        setGeneratingUser(null);
+        setShouldGenerate(false);
+        setGenerateInput(null);
+      }
+    }
+  );
+
+  const handleTriggerAnalysis = async () => {
+    if (!sortedUsers || sortedUsers.length === 0) return;
+    
+    try {
+      const id = toast.loading('Triggering analysis refresh...');
+      const userIds = sortedUsers.map(u => u.id);
+      const result = await triggerAnalysisMutation.mutateAsync({ userIds });
+      toast.success(`Triggered analysis refresh for ${result.count} users`, { id });
+    } catch (error) {
+      toast.dismiss();
+      toast.error('Failed to trigger analysis');
+      console.error(error);
+    }
+  };
+
+  const handleGenerateProfile = (user: any) => {
+    if (!user.name) {
+      toast.error("User has no username to analyze");
+      return;
+    }
+    setGeneratingUser(user.id);
+    setGenerateInput({ username: user.name, targetUserId: user.id });
+    setShouldGenerate(true);
+    
+    // Start the toast immediately
+    const id = toast.loading(`Initializing analysis for ${user.name}...`);
+    activeToastId[1](id);
+  };
 
   // Calculate total cost for the month from dailyStats (for summary card)
   const totalMonthlyCost = dailyStats && dailyStats.length > 0
@@ -224,11 +310,21 @@ export default function AdminDashboard() {
               <Users className="h-5 w-5" />
               All Users ({allUsers?.length || 0})
             </CardTitle>
-            {sortedUsers && sortedUsers.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleTriggerAnalysis}
+                disabled={triggerAnalysisMutation.isPending || loadingUsers}
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${triggerAnalysisMutation.isPending ? 'animate-spin' : ''}`} />
+                Refresh Profiles
+              </Button>
+              {sortedUsers && sortedUsers.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
                   // Export users as CSV
                   const headers = ['Name', 'Email', 'Plan', 'Status', 'Joined'];
                   const rows = sortedUsers.map(user => [
@@ -256,9 +352,11 @@ export default function AdminDashboard() {
                   toast.success('User list exported!');
                 }}
               >
+                <Download className="mr-2 h-4 w-4" />
                 Export CSV
               </Button>
-            )}
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -324,6 +422,22 @@ export default function AdminDashboard() {
                     </span>
                   ),
                 },
+                {
+                  key: 'actions',
+                  header: 'Actions',
+                  sortable: false,
+                  render: (user) => (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleGenerateProfile(user)}
+                      disabled={generatingUser === user.id || !user.name}
+                      title="Run Profile Analysis"
+                    >
+                      <Play className={`h-4 w-4 ${generatingUser === user.id ? 'animate-spin text-blue-500' : 'text-gray-500'}`} />
+                    </Button>
+                  ),
+                }
               ]}
               rowKey={(user) => user.id}
               emptyMessage="No users found."
@@ -415,4 +529,4 @@ export default function AdminDashboard() {
       </div>
     </div>
   );
-} 
+}

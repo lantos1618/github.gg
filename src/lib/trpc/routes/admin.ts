@@ -2,9 +2,12 @@ import { z } from 'zod';
 import { router } from '@/lib/trpc/trpc';
 import { adminProcedure } from '@/lib/trpc/admin';
 import { db } from '@/db';
-import { tokenUsage, userSubscriptions, user } from '@/db/schema';
-import { eq, and, gte, lte, desc, inArray } from 'drizzle-orm';
+import { tokenUsage, userSubscriptions, user, developerProfileCache, developerEmails } from '@/db/schema';
+import { eq, and, gte, lte, desc, inArray, sql } from 'drizzle-orm';
 import { calculateTokenCost, calculateTotalCost, calculateDailyCostAndRevenue } from '@/lib/utils/cost-calculator';
+import { generateDeveloperProfileStreaming, findAndStoreDeveloperEmail } from '@/lib/ai/developer-profile';
+import { createGitHubServiceForUserOperations } from '@/lib/github';
+import { TRPCError } from '@trpc/server';
 
 export const adminRouter = router({
   // Admin check
@@ -16,6 +19,163 @@ export const adminRouter = router({
     const userEmail = ctx.user.email?.toLowerCase();
     return { isAdmin: !!userEmail && adminEmails.includes(userEmail) };
   }),
+
+  // Trigger mass analysis (currently clears cache to force refresh)
+  triggerAnalysis: adminProcedure
+    .input(z.object({
+      userIds: z.array(z.string()),
+    }))
+    .mutation(async ({ input }) => {
+      const users = await db.query.user.findMany({
+        where: inArray(user.id, input.userIds),
+        columns: { name: true },
+      });
+      
+      const usernames = users.map(u => u.name?.toLowerCase()).filter(Boolean) as string[];
+      
+      if (usernames.length > 0) {
+        await db.delete(developerProfileCache)
+          .where(inArray(developerProfileCache.username, usernames));
+      }
+      
+      return { success: true, count: usernames.length };
+    }),
+
+  // Admin Mass Generate Profile Subscription
+  generateProfile: adminProcedure
+    .input(z.object({
+      username: z.string(),
+      targetUserId: z.string().optional(), // Optional: if we want to attribute to a user
+    }))
+    .subscription(async function* ({ input, ctx }) {
+      const { username, targetUserId } = input;
+      const normalizedUsername = username.toLowerCase();
+
+      try {
+        yield { type: 'progress', progress: 0, message: `Starting admin generation for ${username}...` };
+
+        // Use Admin's session for GitHub access (Admin should have broad access or access to public repos)
+        // Ideally we'd use a system token, but user token works for public repos.
+        const githubService = await createGitHubServiceForUserOperations(ctx.session);
+        const repos = await githubService.getUserRepositories(username);
+
+        // Smart Sort Repos (Top 15)
+        const smartSortedRepos = repos
+          .filter(repo => !repo.fork)
+          .sort((a, b) => {
+            const starScore = (b.stargazersCount || 0) - (a.stargazersCount || 0);
+            if (Math.abs(starScore) > 5) return starScore;
+            return (b.description?.length || 0) - (a.description?.length || 0);
+          })
+          .slice(0, 15);
+
+        yield { type: 'progress', progress: 10, message: `Found ${smartSortedRepos.length} repositories` };
+
+        // Fetch files for top 5 repos for deep analysis
+        const repoFiles: Array<{
+          repoName: string;
+          files: Array<{ path: string; content: string }>;
+        }> = [];
+
+        const topRepos = smartSortedRepos.slice(0, 5);
+        
+        if (topRepos.length > 0) {
+          yield { type: 'progress', progress: 15, message: 'Fetching repository files...' };
+          
+          const fileFetchPromises = topRepos.map(async (repo) => {
+            try {
+              const files = await githubService.getRepositoryFiles(username, repo.name, 'main');
+              const importantFiles = files.files.filter((file: { path: string; size: number }) =>
+                !file.path.includes('node_modules') &&
+                !file.path.includes('.git') &&
+                file.size < 100000 &&
+                (file.path.endsWith('.ts') || file.path.endsWith('.tsx') || file.path.endsWith('.js') || 
+                 file.path.endsWith('.py') || file.path.endsWith('.go') || file.path.endsWith('.rs') ||
+                 file.path.endsWith('package.json') || file.path.endsWith('README.md'))
+              ).slice(0, 10);
+
+              const fileContents = await Promise.all(
+                importantFiles.map(async (file: { path: string; size: number }) => {
+                  try {
+                    const response = await githubService['octokit'].repos.getContent({
+                      owner: username,
+                      repo: repo.name,
+                      path: file.path,
+                    });
+                    if ('content' in response.data && !Array.isArray(response.data)) {
+                      const content = Buffer.from(response.data.content, 'base64').toString('utf-8');
+                      return { path: file.path, content };
+                    }
+                    return null;
+                  } catch { return null; }
+                })
+              );
+
+              const validFiles = fileContents.filter(Boolean) as Array<{ path: string; content: string }>;
+              if (validFiles.length > 0) return { repoName: repo.name, files: validFiles };
+              return null;
+            } catch { return null; }
+          });
+
+          const fileResults = await Promise.all(fileFetchPromises);
+          fileResults.forEach(r => { if (r) repoFiles.push(r); });
+        }
+
+        // Generate Profile
+        let result;
+        const generator = generateDeveloperProfileStreaming({
+          username,
+          repos: smartSortedRepos,
+          repoFiles: repoFiles.length > 0 ? repoFiles : undefined,
+          userId: targetUserId || ctx.user.id // Attribute analysis to target user or admin
+        });
+
+        for await (const update of generator) {
+          if (update.type === 'progress') {
+            yield { type: 'progress', progress: update.progress, message: update.message };
+          } else if (update.type === 'complete') {
+            result = update.result;
+          }
+        }
+
+        if (!result) throw new Error("Failed to generate profile");
+
+        // Save Profile
+        const maxVersionResult = await db
+          .select({ max: sql<number | null>`COALESCE(MAX(version), 0)` })
+          .from(developerProfileCache)
+          .where(eq(developerProfileCache.username, normalizedUsername));
+        const nextVersion = (maxVersionResult[0]?.max ?? 0) + 1;
+
+        await db
+          .insert(developerProfileCache)
+          .values({
+            username: normalizedUsername,
+            version: nextVersion,
+            profileData: result.profile,
+            updatedAt: new Date(),
+          });
+
+        // Log Token Usage (Attributed to SYSTEM/Admin)
+        await db.insert(tokenUsage).values({
+          userId: ctx.user.id, // Admin ID
+          feature: 'admin_mass_analysis',
+          repoOwner: username,
+          model: 'gemini-3-pro-preview',
+          inputTokens: result.usage.inputTokens,
+          outputTokens: result.usage.outputTokens,
+          totalTokens: result.usage.totalTokens,
+          isByok: false, // System cost
+          createdAt: new Date(),
+        });
+
+        yield { type: 'complete', data: { success: true, username } };
+
+      } catch (error) {
+        console.error(`Admin generation failed for ${username}:`, error);
+        yield { type: 'error', message: error instanceof Error ? error.message : 'Unknown error' };
+      }
+    }),
 
   // Get overall usage statistics
   getUsageStats: adminProcedure
@@ -350,4 +510,4 @@ export const adminRouter = router({
       });
       return stats;
     }),
-}); 
+});

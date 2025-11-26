@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
 import { SkillAssessment } from './SkillAssessment';
@@ -30,6 +30,11 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
   const [generateInput, setGenerateInput] = useState<{ username: string; includeCodeAnalysis?: boolean; selectedRepos?: string[] } | null>(null);
+  const toastIdRef = useCallback((id: string | number | null) => {
+    // Using a closure to hold the toast ID if we needed it outside effects, 
+    // but for now we just use a simple ref pattern if needed or just sonner's update mechanism
+  }, []);
+  const activeToastId = useState<string | number | null>(null);
 
   const router = useRouter();
   const utils = trpc.useUtils();
@@ -49,27 +54,60 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
       enabled: shouldGenerate && !!generateInput,
       onData: (event: any) => {
         if (event.type === 'progress') {
-          setProgress(event.progress || 0);
-          setProgressMessage(event.message || '');
+          const newProgress = event.progress || 0;
+          const newMessage = event.message || '';
+          setProgress(newProgress);
+          setProgressMessage(newMessage);
           setIsGenerating(true);
+          
+          // Responsive feedback via toast
+          if (activeToastId[0]) {
+            toast.loading(`${newMessage} (${newProgress}%)`, { id: activeToastId[0] });
+          } else {
+            const id = toast.loading(`${newMessage} (${newProgress}%)`);
+            activeToastId[1](id);
+          }
         } else if (event.type === 'complete') {
           setIsGenerating(false);
           setShouldGenerate(false);
           setProgress(0);
           setProgressMessage('');
+          
           // Invalidate queries to refresh the data
           utils.profile.publicGetProfile.invalidate({ username });
           utils.profile.getProfileVersions.invalidate({ username });
-          toast.success('Profile refreshed successfully!');
+          
+          if (activeToastId[0]) {
+            toast.success('Profile refreshed successfully!', { id: activeToastId[0] });
+            activeToastId[1](null);
+          } else {
+            toast.success('Profile refreshed successfully!');
+          }
         } else if (event.type === 'error') {
           setIsGenerating(false);
           setShouldGenerate(false);
           setProgress(0);
           setProgressMessage('');
           console.error('Profile generation error:', event.message);
-          toast.error(event.message || 'Failed to generate profile');
+          
+          if (activeToastId[0]) {
+            toast.error(event.message || 'Failed to generate profile', { id: activeToastId[0] });
+            activeToastId[1](null);
+          } else {
+            toast.error(event.message || 'Failed to generate profile');
+          }
         }
       },
+      onError: (err) => {
+        setIsGenerating(false);
+        setShouldGenerate(false);
+        if (activeToastId[0]) {
+          toast.error(err.message || 'Failed to connect to generation service', { id: activeToastId[0] });
+          activeToastId[1](null);
+        } else {
+          toast.error(err.message || 'Failed to connect to generation service');
+        }
+      }
     }
   );
 
@@ -123,7 +161,10 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     setProgressMessage('');
     setGenerateInput({ username, includeCodeAnalysis: true });
     setShouldGenerate(true);
-  }, [username]);
+    // Start toast immediately
+    const id = toast.loading("Initializing analysis...");
+    activeToastId[1](id);
+  }, [username, activeToastId]);
 
   // Handle profile generation with selected repos
   const handleGenerateWithSelectedRepos = useCallback((selectedRepoNames: string[]) => {
@@ -131,7 +172,10 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     setProgressMessage('');
     setGenerateInput({ username, includeCodeAnalysis: true, selectedRepos: selectedRepoNames });
     setShouldGenerate(true);
-  }, [username]);
+    // Start toast immediately
+    const id = toast.loading("Initializing analysis with selected repos...");
+    activeToastId[1](id);
+  }, [username, activeToastId]);
 
   const handleChallenge = useCallback(() => {
     router.push(`/arena?opponent=${username}`);
@@ -143,7 +187,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     if (!versions || versions.length === 0) return null;
     return (
       <select
-        className="ml-2 border-b border-gray-300 bg-transparent py-0.5 text-sm focus:border-black focus:outline-none"
+        className="ml-2 border-b border-gray-300 bg-transparent py-0.5 text-sm focus:border-black focus:outline-none cursor-pointer"
         value={selectedVersion ?? versions[0].version}
         onChange={e => setSelectedVersion(Number(e.target.value))}
       >
@@ -273,16 +317,19 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
           </div>
         </div>
 
-        {/* Progress Bar */}
+        {/* Progress Bar - Keep this for visual feedback in the UI in addition to toasts */}
         {progressMessage && (
-          <div className="w-full bg-gray-50 p-6 rounded-lg border border-gray-100">
+          <div className="w-full bg-gray-50 p-6 rounded-lg border border-gray-100 animate-in fade-in slide-in-from-top-2">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-900">{progressMessage}</span>
-              <span className="text-sm text-gray-500">{progress}%</span>
+              <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                {progressMessage}
+              </span>
+              <span className="text-sm text-gray-500 font-mono">{progress}%</span>
             </div>
-            <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden">
+            <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
               <div
-                className="h-full bg-black transition-all duration-300"
+                className="h-full bg-blue-600 transition-all duration-500 ease-out"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -386,6 +433,25 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
              <SubscriptionUpgrade />
         )}
       </div>
+      
+      {/* Progress Bar for Empty State */}
+      {progressMessage && (
+        <div className="w-full max-w-md mt-8 bg-gray-50 p-6 rounded-lg border border-gray-100 animate-in fade-in slide-in-from-top-2 text-left">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+              {progressMessage}
+            </span>
+            <span className="text-sm text-gray-500 font-mono">{progress}%</span>
+          </div>
+          <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-600 transition-all duration-500 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      )}
     </div>
     );
   };

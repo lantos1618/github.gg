@@ -161,20 +161,60 @@ export const profileRouter = router({
 
         // Check for active subscription
         const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
+        
+        let effectivePlan = plan;
+        let isStargazerPerk = false;
+
+        // If no active subscription, check for star credit
         if (!subscription || subscription.status !== 'active') {
-          yield { type: 'error', message: 'Active subscription required for AI features' };
-          return;
+          try {
+            const githubService = await createGitHubServiceForUserOperations(ctx.session);
+            const hasStarred = await githubService.hasStarredRepo('lantos1618', 'github.gg');
+            
+            if (hasStarred) {
+              // Check monthly usage
+              const oneMonthAgo = new Date();
+              oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+              
+              const monthlyUsage = await db
+                .select()
+                .from(tokenUsage)
+                .where(
+                  and(
+                    eq(tokenUsage.userId, ctx.user.id),
+                    eq(tokenUsage.feature, 'profile'),
+                    gte(tokenUsage.createdAt, oneMonthAgo)
+                  )
+                );
+                
+              // Allow 1 free analysis per month
+              if (monthlyUsage.length < 1) {
+                isStargazerPerk = true;
+                effectivePlan = 'pro'; // Grant temporary pro access for this run
+              } else {
+                yield { type: 'error', message: 'You have used your 1 free monthly analysis. Upgrade to Pro for more or wait until next month.' };
+                return;
+              }
+            } else {
+               yield { type: 'error', message: 'Active subscription required. Tip: Star our repo (lantos1618/github.gg) to get 1 free analysis/month!' };
+               return;
+            }
+          } catch (e) {
+            console.error('Failed to check stargazer status:', e);
+            yield { type: 'error', message: 'Active subscription required for AI features' };
+            return;
+          }
         }
 
         // Get appropriate API key
-        const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
+        const keyInfo = await getApiKeyForUser(ctx.user.id, effectivePlan as 'byok' | 'pro');
         if (!keyInfo) {
           yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
           return;
         }
 
-        // Check generation limits for BYOK users
-        if (plan === 'byok') {
+        // Check generation limits for BYOK users (if not using stargazer perk)
+        if (effectivePlan === 'byok' && !isStargazerPerk) {
           const today = new Date();
           today.setHours(0, 0, 0, 0);
 

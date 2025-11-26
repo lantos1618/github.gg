@@ -10,7 +10,6 @@ import { trpc } from '@/lib/trpc/client';
 import {
   Sword,
   User,
-  Sparkles,
   Trophy,
   X,
   Check,
@@ -20,6 +19,7 @@ import {
 import type { BattleCriteria } from '@/lib/types/arena';
 import { DEFAULT_BATTLE_CRITERIA } from '@/lib/constants/arena';
 import { sanitizeText, sanitizeArray } from '@/lib/utils/sanitize';
+import { toast } from 'sonner';
 
 const CRITERIA_LABELS: Record<BattleCriteria, { label: string; description: string }> = {
   code_quality: { 
@@ -100,6 +100,7 @@ export function ChallengeForm() {
   const [progress, setProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
   const eventSourceRef = useRef<EventSource | null>(null);
+  const activeToastId = useRef<string | number | null>(null);
 
   const challengeMutation = trpc.arena.challengeDeveloper.useMutation();
   const { data: currentUser } = trpc.me.useQuery(undefined, {
@@ -128,6 +129,9 @@ export function ChallengeForm() {
       setIsBattling(true);
       setProgress(0);
       setStatusMessage('Creating battle challenge...');
+      
+      const toastId = toast.loading('Creating battle challenge...');
+      activeToastId.current = toastId;
 
       // Create challenge
       const battle = await challengeMutation.mutateAsync({
@@ -143,7 +147,12 @@ export function ChallengeForm() {
         try {
           const data = JSON.parse(event.data);
           setProgress(data.progress || 0);
-          setStatusMessage(sanitizeText(data.message));
+          const message = sanitizeText(data.message);
+          setStatusMessage(message);
+          
+          if (activeToastId.current) {
+            toast.loading(`${message} (${data.progress || 0}%)`, { id: activeToastId.current });
+          }
         } catch (error) {
           console.error('Failed to parse progress event:', error);
         }
@@ -155,6 +164,11 @@ export function ChallengeForm() {
           setProgress(100);
           setIsBattling(false);
           eventSource.close();
+          
+          if (activeToastId.current) {
+            toast.success('Battle complete! Results ready.', { id: activeToastId.current });
+            activeToastId.current = null;
+          }
 
           setBattleResult({
             battle: {
@@ -180,6 +194,11 @@ export function ChallengeForm() {
           console.error('Failed to parse battle complete event:', error);
           setIsBattling(false);
           eventSource.close();
+          
+          if (activeToastId.current) {
+            toast.error('Failed to process results', { id: activeToastId.current });
+            activeToastId.current = null;
+          }
           setBattleResult({ error: 'Battle completed but failed to parse results' });
         }
       });
@@ -190,12 +209,23 @@ export function ChallengeForm() {
           const data = messageEvent.data ? JSON.parse(messageEvent.data) : {};
           setIsBattling(false);
           eventSource.close();
+          
+          const errorMsg = sanitizeText(data.message) || 'Battle failed. Please try again.';
+          if (activeToastId.current) {
+            toast.error(errorMsg, { id: activeToastId.current });
+            activeToastId.current = null;
+          }
 
-          setBattleResult({ error: sanitizeText(data.message) || 'Battle failed. Please try again.' });
+          setBattleResult({ error: errorMsg });
         } catch (error) {
           console.error('Failed to parse error event:', error);
           setIsBattling(false);
           eventSource.close();
+          
+          if (activeToastId.current) {
+            toast.error('An error occurred', { id: activeToastId.current });
+            activeToastId.current = null;
+          }
           setBattleResult({ error: 'An error occurred during the battle' });
         }
       });
@@ -203,12 +233,21 @@ export function ChallengeForm() {
       eventSource.onerror = () => {
         setIsBattling(false);
         eventSource.close();
+        
+        if (activeToastId.current) {
+          toast.error('Connection lost', { id: activeToastId.current });
+          activeToastId.current = null;
+        }
 
         setBattleResult({ error: 'Connection error. Please try again.' });
       };
 
     } catch (error) {
       console.error('Battle failed:', error);
+      if (activeToastId.current) {
+        toast.error(error instanceof Error ? error.message : 'Unknown error', { id: activeToastId.current });
+        activeToastId.current = null;
+      }
       setBattleResult({ error: error instanceof Error ? error.message : 'Unknown error' });
       setIsBattling(false);
     }
@@ -229,7 +268,7 @@ export function ChallengeForm() {
     <div className="space-y-8">
       {/* Battle Result */}
       {battleResult && (
-        <div className={`p-8 rounded-2xl border-2 ${battleResult.error ? "border-red-100 bg-red-50/50" : "border-yellow-100 bg-yellow-50/30"}`}>
+        <div className={`p-8 rounded-2xl border-2 ${battleResult.error ? "border-red-100 bg-red-50/50" : "border-yellow-100 bg-yellow-50/30"} animate-in fade-in zoom-in-95 duration-300`}>
           {battleResult.error ? (
             <div className="text-center space-y-4">
               <div className="flex items-center justify-center gap-2 text-red-600 font-bold text-xl">
@@ -422,7 +461,7 @@ export function ChallengeForm() {
 
             {/* Progress Indicator */}
             {isBattling && (
-              <div className="space-y-3 pt-4 text-center">
+              <div className="space-y-3 pt-4 text-center animate-in fade-in slide-in-from-top-2">
                 <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-blue-600 transition-all duration-500 ease-out" 

@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
-import { DollarSign, Users, RefreshCw, UserCheck, Download, Play } from 'lucide-react';
+import { DollarSign, Users, RefreshCw, UserCheck, Download, Play, ExternalLink } from 'lucide-react';
 import { formatCost, calculatePerUserCostAndUsage } from '@/lib/utils/cost-calculator';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Image from 'next/image';
 import { SortableTable } from '@/components/ui/sortable-table';
+import Link from 'next/link';
 
 function getCurrentMonthRange() {
   const now = new Date();
@@ -111,16 +112,17 @@ export default function AdminDashboard() {
   };
 
   const handleGenerateProfile = (user: any) => {
-    if (!user.name) {
+    const targetUsername = user.githubUsername || user.name;
+    if (!targetUsername) {
       toast.error("User has no username to analyze");
       return;
     }
     setGeneratingUser(user.id);
-    setGenerateInput({ username: user.name, targetUserId: user.id });
+    setGenerateInput({ username: targetUsername, targetUserId: user.id });
     setShouldGenerate(true);
     
     // Start the toast immediately
-    const id = toast.loading(`Initializing analysis for ${user.name}...`);
+    const id = toast.loading(`Initializing analysis for ${targetUsername}...`);
     activeToastId[1](id);
   };
 
@@ -135,6 +137,7 @@ export default function AdminDashboard() {
     name?: string;
     email?: string;
     image?: string;
+    githubUsername?: string | null;
     totalCost: number;
     totalTokens: number;
     byokTokens: number;
@@ -162,6 +165,7 @@ export default function AdminDashboard() {
         name: user?.name,
         email: user?.email,
         image: user?.image ?? undefined,
+        githubUsername: user?.githubUsername,
         totalCost: stats.totalCost,
         totalTokens: stats.totalTokens,
         byokTokens: stats.byokTokens,
@@ -326,10 +330,11 @@ export default function AdminDashboard() {
                   size="sm"
                   onClick={() => {
                   // Export users as CSV
-                  const headers = ['Name', 'Email', 'Plan', 'Status', 'Joined'];
+                  const headers = ['Name', 'Email', 'GitHub Username', 'Plan', 'Status', 'Joined'];
                   const rows = sortedUsers.map(user => [
                     user.name || 'Unknown',
                     user.email || '',
+                    user.githubUsername || '',
                     user.userSubscriptions?.plan || 'Free',
                     user.userSubscriptions?.status || 'none',
                     user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'
@@ -381,9 +386,26 @@ export default function AdminDashboard() {
                           height={32}
                         />
                       )}
-                      <div>
-                        <div className="font-medium">{user.name || 'Unknown'}</div>
+                      <div className="flex flex-col">
+                        <div className="font-medium flex items-center gap-2">
+                          {user.name || 'Unknown'}
+                          {user.githubUsername && (
+                            <Link 
+                              href={`/${user.githubUsername}`} 
+                              target="_blank"
+                              className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                              title="View Public Profile"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </Link>
+                          )}
+                        </div>
                         <div className="text-sm text-muted-foreground">{user.email}</div>
+                        {user.githubUsername && (
+                          <div className="text-xs text-muted-foreground font-mono bg-muted/50 px-1 rounded w-fit mt-0.5">
+                            @{user.githubUsername}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ),
@@ -431,7 +453,7 @@ export default function AdminDashboard() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleGenerateProfile(user)}
-                      disabled={generatingUser === user.id || !user.name}
+                      disabled={generatingUser === user.id || (!user.name && !user.githubUsername)}
                       title="Run Profile Analysis"
                     >
                       <Play className={`h-4 w-4 ${generatingUser === user.id ? 'animate-spin text-blue-500' : 'text-gray-500'}`} />
@@ -468,10 +490,11 @@ export default function AdminDashboard() {
           ) : (
             <div className="space-y-4">
               {topUsers.slice(0, 10).map((user) => (
-                <a
+                <Link
                   key={user.id}
-                  href={user.name ? `/${user.name}` : '#'}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                  href={user.githubUsername ? `/${user.githubUsername}` : (user.name ? `/${user.name}` : '#')}
+                  target="_blank"
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group"
                 >
                   <div className="flex items-center gap-3">
                     {user.image && (
@@ -484,7 +507,10 @@ export default function AdminDashboard() {
                       />
                     )}
                     <div>
-                      <h4 className="font-semibold">{user.name || 'Unknown'}</h4>
+                      <h4 className="font-semibold flex items-center gap-2">
+                        {user.name || 'Unknown'}
+                        <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
+                      </h4>
                       <div className="text-sm text-muted-foreground">{user.email}</div>
                       <div className="text-xs text-muted-foreground">
                         {user.totalTokens.toLocaleString()} tokens • {formatCost(user.totalCost)}
@@ -497,7 +523,7 @@ export default function AdminDashboard() {
                       {user.plan || 'Free'} plan
                     </div>
                   </div>
-                </a>
+                </Link>
               ))}
             </div>
           )}

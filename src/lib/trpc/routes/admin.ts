@@ -28,10 +28,15 @@ export const adminRouter = router({
     .mutation(async ({ input }) => {
       const users = await db.query.user.findMany({
         where: inArray(user.id, input.userIds),
-        columns: { name: true },
+        columns: { name: true, githubUsername: true },
       });
       
-      const usernames = users.map(u => u.name?.toLowerCase()).filter(Boolean) as string[];
+      // Prefer githubUsername, fallback to name if it looks like a username (no spaces), otherwise skip
+      const usernames = users.map(u => {
+        if (u.githubUsername) return u.githubUsername.toLowerCase();
+        if (u.name && !u.name.includes(' ')) return u.name.toLowerCase();
+        return null;
+      }).filter(Boolean) as string[];
       
       if (usernames.length > 0) {
         await db.delete(developerProfileCache)

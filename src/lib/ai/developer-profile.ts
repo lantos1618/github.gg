@@ -202,25 +202,13 @@ export async function* generateDeveloperProfileStreaming({
 
     console.log(`🔍 Found ${existingScorecards.length} existing scorecards`);
 
-    // Process scorecards sequentially with progress updates
-    const scorecardResults = [];
+    // Process scorecards in parallel for better performance
     const total = topReposToAnalyze.length;
+    let completed = 0;
 
-    for (let i = 0; i < topReposToAnalyze.length; i++) {
-      const repoData = topReposToAnalyze[i];
-      const current = i + 1;
-
-      // Yield progress
-      const progressPercentage = 10 + Math.round((current / total) * 70); // Map to 10-80% range
-      yield {
-        type: 'progress',
-        progress: progressPercentage,
-        message: `Analyzing repository ${current}/${total}: ${repoData.repoName}`,
-        metadata: { current, total, repoName: repoData.repoName }
-      };
-
+    // Create promises for all repos
+    const scorecardPromises = topReposToAnalyze.map(async (repoData) => {
       const repoKey = `${username}/${repoData.repoName}`;
-
       let result;
 
       // Check if we already have a recent scorecard for this repo
@@ -296,10 +284,43 @@ export async function* generateDeveloperProfileStreaming({
         }
       }
 
+      return result;
+    });
+
+    // Wait for all promises to resolve and yield progress as they complete
+    // We do this by creating a new set of promises that include the index/identifier
+    // but we can't easily yield from within the promise execution. 
+    // Instead, we'll start them all, then iterate through the array of promises. 
+    // While this yields sequentially in array order, the execution happens in parallel.
+    // To provide better visual feedback, we can just trust the total time reduction is enough.
+    // However, to provide *actual* "stream of updates", we can race them, but that's complex.
+    // Simple approach: wait for them in order. The delay will be mainly waiting for the longest one.
+    
+    const results = [];
+    for (let i = 0; i < scorecardPromises.length; i++) {
+      // Yield start message for this repo (even if it's already running/done)
+      const progressPercentage = 10 + Math.round(((i + 1) / total) * 70);
+      yield {
+        type: 'progress',
+        progress: progressPercentage,
+        message: `Analyzing repository ${topReposToAnalyze[i].repoName}...`,
+        metadata: { current: i + 1, total, repoName: topReposToAnalyze[i].repoName }
+      };
+      
+      const result = await scorecardPromises[i];
       if (result) {
-        scorecardResults.push(result);
+        results.push(result);
       }
+      
+      yield {
+        type: 'progress',
+        progress: progressPercentage,
+        message: `Completed analysis for ${topReposToAnalyze[i].repoName}`,
+        metadata: { current: i + 1, total, repoName: topReposToAnalyze[i].repoName }
+      };
     }
+    
+    const scorecardResults = results;
 
     // Aggregate results
     scorecardResults.forEach(result => {

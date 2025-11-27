@@ -28,7 +28,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   const [showRepoSelector, setShowRepoSelector] = useState(false);
   const [shouldGenerate, setShouldGenerate] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [progressMessage, setProgressMessage] = useState('');
+  const [logs, setLogs] = useState<string[]>([]);
   const [generateInput, setGenerateInput] = useState<{ username: string; includeCodeAnalysis?: boolean; selectedRepos?: string[] } | null>(null);
   const toastIdRef = useCallback((id: string | number | null) => {
     // Using a closure to hold the toast ID if we needed it outside effects, 
@@ -57,7 +57,13 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
           const newProgress = event.progress || 0;
           const newMessage = event.message || '';
           setProgress(newProgress);
-          setProgressMessage(newMessage);
+          if (newMessage) {
+            setLogs(prev => {
+              // Avoid duplicate consecutive logs
+              if (prev.length > 0 && prev[prev.length - 1] === newMessage) return prev;
+              return [...prev, newMessage];
+            });
+          }
           setIsGenerating(true);
           
           // Responsive feedback via toast
@@ -71,7 +77,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
           setIsGenerating(false);
           setShouldGenerate(false);
           setProgress(0);
-          setProgressMessage('');
+          setLogs([]);
           
           // Invalidate queries to refresh the data
           utils.profile.publicGetProfile.invalidate({ username });
@@ -87,7 +93,9 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
           setIsGenerating(false);
           setShouldGenerate(false);
           setProgress(0);
-          setProgressMessage('');
+          // Keep logs for debugging if needed, or clear them?
+          // Let's clear them after a delay or keep them visible until manual dismiss? 
+          // For now, keep them visible so user sees what happened.
           console.error('Profile generation error:', event.message);
           
           if (activeToastId[0]) {
@@ -159,7 +167,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   // Handle profile generation
   const handleGenerateProfile = useCallback(() => {
     setProgress(0);
-    setProgressMessage('');
+    setLogs([]);
     setGenerateInput({ username, includeCodeAnalysis: true });
     setShouldGenerate(true);
     // Start toast immediately
@@ -170,7 +178,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   // Handle profile generation with selected repos
   const handleGenerateWithSelectedRepos = useCallback((selectedRepoNames: string[]) => {
     setProgress(0);
-    setProgressMessage('');
+    setLogs([]);
     setGenerateInput({ username, includeCodeAnalysis: true, selectedRepos: selectedRepoNames });
     setShouldGenerate(true);
     // Start toast immediately
@@ -345,18 +353,37 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
         </div>
 
         {/* Progress Bar - Keep this for visual feedback in the UI in addition to toasts */}
-        {progressMessage && (
-          <div className="w-full bg-gray-50 p-6 rounded-lg border border-gray-100 animate-in fade-in slide-in-from-top-2">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                {progressMessage}
+        {logs.length > 0 && (
+          <div className="w-full bg-gray-950 p-6 rounded-lg border border-gray-800 animate-in fade-in slide-in-from-top-2 shadow-2xl">
+            <div className="flex items-center justify-between mb-4 border-b border-gray-800 pb-2">
+              <span className="text-sm font-medium text-gray-400 flex items-center gap-2 font-mono">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                System Status: {isGenerating ? 'PROCESSING' : 'COMPLETE'}
               </span>
-              <span className="text-sm text-gray-500 font-mono">{progress}%</span>
+              <span className="text-sm text-green-500 font-mono font-bold">{progress}%</span>
             </div>
-            <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+            
+            <div className="font-mono text-xs space-y-1.5 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+              {logs.map((log, i) => (
+                <div key={i} className="flex gap-2 text-gray-300 animate-in fade-in slide-in-from-left-1 duration-300">
+                  <span className="text-gray-600 shrink-0">[{new Date().toLocaleTimeString([], {hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit'})}]</span>
+                  <span className={i === logs.length - 1 ? 'text-green-400 font-bold' : ''}>
+                    {i === logs.length - 1 && isGenerating ? '> ' : '  '}
+                    {log}
+                  </span>
+                </div>
+              ))}
+              {isGenerating && (
+                <div className="flex gap-2 text-gray-500 animate-pulse">
+                  <span className="invisible">[{new Date().toLocaleTimeString([], {hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit'})}]</span>
+                  <span>_</span>
+                </div>
+              )}
+            </div>
+
+            <div className="w-full h-1 bg-gray-900 rounded-full overflow-hidden mt-4">
               <div
-                className="h-full bg-blue-600 transition-all duration-500 ease-out"
+                className="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-500 ease-out shadow-[0_0_10px_rgba(34,197,94,0.5)]"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -473,18 +500,37 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
       </div>
       
       {/* Progress Bar for Empty State */}
-      {progressMessage && (
-        <div className="w-full max-w-md mt-8 bg-gray-50 p-6 rounded-lg border border-gray-100 animate-in fade-in slide-in-from-top-2 text-left">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-900 flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-              {progressMessage}
+      {logs.length > 0 && (
+        <div className="w-full max-w-xl mt-8 bg-gray-950 p-6 rounded-lg border border-gray-800 animate-in fade-in slide-in-from-top-2 text-left shadow-2xl">
+          <div className="flex items-center justify-between mb-4 border-b border-gray-800 pb-2">
+            <span className="text-sm font-medium text-gray-400 flex items-center gap-2 font-mono">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              System Status: {isGenerating ? 'PROCESSING' : 'COMPLETE'}
             </span>
-            <span className="text-sm text-gray-500 font-mono">{progress}%</span>
+            <span className="text-sm text-green-500 font-mono font-bold">{progress}%</span>
           </div>
-          <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+          
+          <div className="font-mono text-xs space-y-1.5 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+            {logs.map((log, i) => (
+              <div key={i} className="flex gap-2 text-gray-300 animate-in fade-in slide-in-from-left-1 duration-300">
+                <span className="text-gray-600 shrink-0">[{new Date().toLocaleTimeString([], {hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit'})}]</span>
+                <span className={i === logs.length - 1 ? 'text-green-400 font-bold' : ''}>
+                  {i === logs.length - 1 && isGenerating ? '> ' : '  '}
+                  {log}
+                </span>
+              </div>
+            ))}
+            {isGenerating && (
+              <div className="flex gap-2 text-gray-500 animate-pulse">
+                <span className="invisible">[{new Date().toLocaleTimeString([], {hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit'})}]</span>
+                <span>_</span>
+              </div>
+            )}
+          </div>
+
+          <div className="w-full h-1 bg-gray-900 rounded-full overflow-hidden mt-4">
             <div
-              className="h-full bg-blue-600 transition-all duration-500 ease-out"
+              className="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-500 ease-out shadow-[0_0_10px_rgba(34,197,94,0.5)]"
               style={{ width: `${progress}%` }}
             />
           </div>

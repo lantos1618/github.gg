@@ -22,9 +22,14 @@ import solidity from 'refractor/solidity';
 import toml from 'refractor/toml';
 import jsx from 'refractor/jsx';
 import tsx from 'refractor/tsx';
+import typescript from 'refractor/typescript';
+import javascript from 'refractor/javascript';
+import css from 'refractor/css';
+import markup from 'refractor/markup';
+import json from 'refractor/json';
 
 import '@milkdown/theme-nord/style.css';
-import 'prismjs/themes/prism-tomorrow.css';
+import 'prismjs/themes/prism-okaidia.css';
 
 interface MilkdownEditorProps {
   content: string;
@@ -58,6 +63,11 @@ function MilkdownEditorInner({ content, onChange, placeholder }: MilkdownEditorP
             refractor.register(toml);
             refractor.register(jsx);
             refractor.register(tsx);
+            refractor.register(typescript);
+            refractor.register(javascript);
+            refractor.register(css);
+            refractor.register(markup);
+            refractor.register(json);
           },
         });
       })

@@ -159,6 +159,34 @@ export const profileRouter = router({
         const { username } = input;
         const normalizedUsername = username.toLowerCase();
 
+        // 1. Check for recently generated profile (within last 5 minutes) to prevent spam/retries
+        const recentProfile = await db
+          .select()
+          .from(developerProfileCache)
+          .where(eq(developerProfileCache.username, normalizedUsername))
+          .orderBy(desc(developerProfileCache.version))
+          .limit(1);
+
+        if (recentProfile.length > 0) {
+          const profile = recentProfile[0];
+          const timeSinceUpdate = new Date().getTime() - profile.updatedAt.getTime();
+          
+          // If generated less than 5 minutes ago, return it immediately
+          if (timeSinceUpdate < 5 * 60 * 1000) {
+            yield { type: 'progress', progress: 100, message: 'Profile was just generated! Loading results...' };
+            yield {
+              type: 'complete',
+              data: {
+                profile: profile.profileData,
+                cached: true,
+                stale: false,
+                lastUpdated: profile.updatedAt,
+              },
+            };
+            return;
+          }
+        }
+
         // Check for active subscription
         const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
         
@@ -442,38 +470,55 @@ export const profileRouter = router({
 
           if (email) {
             console.log(`✉️  Found email: ${email}`);
-
-            // Import the new email function
-            const { sendProfileAnalysisEmail } = await import('@/lib/email/resend');
-
-            // Get analyzer's username
-            const analyzerGithubUsername = ctx.user.name || 'Someone';
-
-            // Calculate average scorecard score if available
-            const scorecardScores = result.profile.topRepos
-              ?.map(repo => repo.significanceScore)
-              .filter(Boolean) || [];
-            const avgScore = scorecardScores.length > 0
-              ? Math.round(scorecardScores.reduce((a, b) => a + b, 0) / scorecardScores.length * 10)
-              : undefined;
-
-            console.log(`📤 Sending email to ${email}...`);
-
-            // Send professional email notification
-            await sendProfileAnalysisEmail({
-              recipientEmail: email,
-              recipientUsername: username,
-              analyzerUsername: analyzerGithubUsername,
-              analyzerEmail: ctx.user.email,
-              profileData: {
-                summary: result.profile.summary || 'Your profile has been analyzed!',
-                overallScore: avgScore,
-                topSkills: result.profile.techStack?.slice(0, 5).map(item => item.name) || [],
-                suggestions: result.profile.suggestions || [],
-              },
+            
+            // Check if we've already sent an email to this user recently (prevent spam)
+            const emailRecord = await db.query.developerEmails.findFirst({
+              where: eq(developerEmails.email, email)
             });
 
-            console.log(`✅ Successfully sent profile analysis email to ${email}`);
+            const ONE_HOUR = 60 * 60 * 1000;
+            const timeSinceLastEmail = emailRecord?.lastUsedAt ? new Date().getTime() - emailRecord.lastUsedAt.getTime() : Infinity;
+
+            if (timeSinceLastEmail < ONE_HOUR) {
+              console.log(`🚫 Skipping email: Already sent one to ${email} in the last hour.`);
+            } else {
+              // Import the new email function
+              const { sendProfileAnalysisEmail } = await import('@/lib/email/resend');
+
+              // Get analyzer's username
+              const analyzerGithubUsername = ctx.user.name || 'Someone';
+
+              // Calculate average scorecard score if available
+              const scorecardScores = result.profile.topRepos
+                ?.map(repo => repo.significanceScore)
+                .filter(Boolean) || [];
+              const avgScore = scorecardScores.length > 0
+                ? Math.round(scorecardScores.reduce((a, b) => a + b, 0) / scorecardScores.length * 10)
+                : undefined;
+
+              console.log(`📤 Sending email to ${email}...`);
+
+              // Send professional email notification
+              await sendProfileAnalysisEmail({
+                recipientEmail: email,
+                recipientUsername: username,
+                analyzerUsername: analyzerGithubUsername,
+                analyzerEmail: ctx.user.email,
+                profileData: {
+                  summary: result.profile.summary || 'Your profile has been analyzed!',
+                  overallScore: avgScore,
+                  topSkills: result.profile.techStack?.slice(0, 5).map(item => item.name) || [],
+                  suggestions: result.profile.suggestions || [],
+                },
+              });
+
+              // Update lastUsedAt
+              await db.update(developerEmails)
+                .set({ lastUsedAt: new Date() })
+                .where(eq(developerEmails.email, email));
+
+              console.log(`✅ Successfully sent profile analysis email to ${email}`);
+            }
           } else {
             console.log(`⚠️  No email found for ${username} in their commits`);
           }

@@ -124,7 +124,7 @@ export function MilkdownViewer({ content, className = '' }: MilkdownViewerProps)
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-50 group-hover:opacity-100 transition-opacity" />
         
         <div className="p-6 md:p-8">
-          <MilkdownViewerInner content={content} />
+        <MilkdownViewerInner content={content} />
         </div>
       </div>
     </MilkdownProvider>

@@ -9,7 +9,7 @@ import { TopRepos } from './TopRepos';
 import { TechStack } from './TechStack';
 import { RepoSelector } from './RepoSelector';
 import { trpc } from '@/lib/trpc/client';
-import { RefreshCw, Sword, Mail, FolderGit2, Trophy } from 'lucide-react';
+import { RefreshCw, Sword, Mail, FolderGit2, Trophy, Flame, Crown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { developerProfileSchema } from '@/lib/types/profile';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -81,7 +81,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
             toast.success('Profile refreshed successfully!', { id: activeToastId[0] });
             activeToastId[1](null);
           } else {
-            toast.success('Profile refreshed successfully!');
+          toast.success('Profile refreshed successfully!');
           }
         } else if (event.type === 'error') {
           setIsGenerating(false);
@@ -94,8 +94,8 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
             toast.error(event.message || 'Failed to generate profile', { id: activeToastId[0] });
             activeToastId[1](null);
           } else {
-            toast.error(event.message || 'Failed to generate profile');
-          }
+          toast.error(event.message || 'Failed to generate profile');
+        }
         }
       },
       onError: (err) => {
@@ -224,6 +224,12 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     return null;
   }
 
+  const calculateTotalScore = (profile: DeveloperProfile) => {
+    if (!profile.skillAssessment || profile.skillAssessment.length === 0) return 0;
+    const total = profile.skillAssessment.reduce((acc, skill) => acc + skill.score, 0);
+    return Math.round((total / profile.skillAssessment.length) * 10);
+  };
+
   const renderContent = () => {
     if (planLoading || publicLoading) {
       return <LoadingPage text="Loading profile..." />;
@@ -232,14 +238,29 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     const parsedProfile = developerProfileSchema.safeParse(getProfileData());
     if (parsedProfile.success) {
       const validProfile = parsedProfile.data;
+      const totalScore = calculateTotalScore(validProfile);
+      const isCracked = totalScore >= 90;
+
       return (
       <div className="max-w-[1200px] mx-auto px-4 py-16 space-y-16">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8 border-b border-gray-100 pb-12">
           <div className="flex gap-8">
-            <Avatar className="h-24 w-24 border border-gray-200 shadow-sm">
-              <AvatarImage src={`https://avatars.githubusercontent.com/${username}`} alt={username} />
-              <AvatarFallback className="text-2xl bg-gray-50 text-gray-500">{username?.[0]?.toUpperCase()}</AvatarFallback>
-            </Avatar>
+            <div className="relative">
+              {isCracked && (
+                <div className="absolute -top-6 -left-4 text-4xl animate-bounce z-10">
+                  👑
+                </div>
+              )}
+              <Avatar className={`h-24 w-24 border-2 shadow-sm ${isCracked ? 'border-yellow-400 ring-4 ring-yellow-400/20' : 'border-gray-200'}`}>
+                <AvatarImage src={`https://avatars.githubusercontent.com/${username}`} alt={username} />
+                <AvatarFallback className="text-2xl bg-gray-50 text-gray-500">{username?.[0]?.toUpperCase()}</AvatarFallback>
+              </Avatar>
+              {isCracked && (
+                <div className="absolute -bottom-2 -right-2 bg-yellow-400 text-white p-1.5 rounded-full border-2 border-white shadow-md">
+                  <Flame className="h-4 w-4 fill-current" />
+                </div>
+              )}
+            </div>
             <div>
               <div className="flex items-baseline gap-4 flex-wrap">
                 <a
@@ -250,6 +271,15 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
                 >
                   {username}
                 </a>
+                {isCracked && (
+                  <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-white border-none px-3 py-1 text-sm font-bold uppercase tracking-wider shadow-md flex items-center gap-1.5">
+                    <Flame className="h-3.5 w-3.5 fill-current" />
+                    CRACKED
+                  </Badge>
+                )}
+                <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${isCracked ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 'bg-gray-50 border-gray-200 text-gray-900'}`}>
+                   <span className="text-sm font-medium">Score: {totalScore}</span>
+                </div>
                 {arenaRanking && (
                   <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-200">
                     <Trophy className="h-3.5 w-3.5 text-yellow-600" />

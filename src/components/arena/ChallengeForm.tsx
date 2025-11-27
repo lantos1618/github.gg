@@ -209,7 +209,7 @@ export function ChallengeForm() {
           const data = messageEvent.data ? JSON.parse(messageEvent.data) : {};
           setIsBattling(false);
           eventSource.close();
-          
+
           const errorMsg = sanitizeText(data.message) || 'Battle failed. Please try again.';
           if (activeToastId.current) {
             toast.error(errorMsg, { id: activeToastId.current });

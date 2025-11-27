@@ -82,6 +82,9 @@ export function WikiGenerationButton({ owner, repo, hideViewButton = false }: Wi
       setProgress(newProgress);
       setCurrentStep(message);
       setLogs(prev => [...prev, { message, timestamp: new Date() }]);
+    } else if (event.type === 'ping') {
+      // Keep-alive ping, just log it internally if needed
+      console.debug('Wiki generation heartbeat');
     } else if (event.type === 'complete') {
       setStatus('complete');
       setProgress(100);

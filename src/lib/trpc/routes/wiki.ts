@@ -93,6 +93,8 @@ export const wikiRouter = router({
             yield { type: 'progress', progress: update.progress, message: update.message };
           } else if (update.type === 'complete') {
             wikiResult = update.result;
+          } else if (update.type === 'ping') {
+            yield { type: 'ping' };
           }
         }
 

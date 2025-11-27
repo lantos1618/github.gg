@@ -46,6 +46,36 @@ async function retryWithBackoff<T>(
   throw lastError;
 }
 
+// Helper for long running promises with heartbeat
+async function* awaitWithHeartbeat<T>(
+  promise: Promise<T>,
+  heartbeatInterval = 2000,
+  message?: string
+): AsyncGenerator<{ type: 'ping', message?: string }, T, unknown> {
+  let done = false;
+  
+  // Wrap promise to catch errors
+  const wrappedPromise = promise
+    .then(v => ({ status: 'resolved' as const, value: v }))
+    .catch(e => ({ status: 'rejected' as const, error: e }));
+
+  while (!done) {
+    const raceResult = await Promise.race([
+      wrappedPromise,
+      new Promise<{ status: 'timeout' }>(resolve => setTimeout(resolve, heartbeatInterval).then(() => ({ status: 'timeout' })))
+    ]);
+
+    if (raceResult.status === 'resolved') {
+      return raceResult.value;
+    } else if (raceResult.status === 'rejected') {
+      throw raceResult.error;
+    } else {
+      yield { type: 'ping', message };
+    }
+  }
+  throw new Error('Unreachable');
+}
+
 // Example page types to guide AI planning
 const EXAMPLE_PAGE_TYPES = `
 Common wiki page types you might want to create:
@@ -236,17 +266,25 @@ Return ONLY valid JSON matching this structure:
     })
   );
   const responseText = result.text || '';
+  console.log('🔍 Plan Wiki Response:', responseText.substring(0, 500) + '...');
 
   // Extract JSON from response (handle markdown code blocks)
   const jsonMatch = responseText.match(/```json\n?([\s\S]*?)\n?```/) ||
                    responseText.match(/\{[\s\S]*\}/);
 
   if (!jsonMatch) {
-    throw new Error('Failed to extract JSON from AI response');
+    console.error('❌ Failed to extract JSON from response:', responseText);
+    throw new Error('Failed to extract JSON from AI response. The model output was not valid JSON.');
   }
 
-  const plan = JSON.parse(jsonMatch[1] || jsonMatch[0]) as WikiPlan;
-  return plan;
+  try {
+    const plan = JSON.parse(jsonMatch[1] || jsonMatch[0]) as WikiPlan;
+    return plan;
+  } catch (e) {
+    console.error('❌ Failed to parse JSON:', e);
+    console.error('Raw JSON string:', jsonMatch[1] || jsonMatch[0]);
+    throw new Error('Failed to parse wiki plan JSON.');
+  }
 }
 
 /**
@@ -486,7 +524,7 @@ export async function generateWikiWithCache(
  */
 export async function* generateWikiWithCacheStreaming(
   params: Omit<WikiGeneratorParams, 'onProgress'>
-): AsyncGenerator<{ type: 'progress' | 'complete', progress?: number, message?: string, result?: WikiGeneratorResult }> {
+): AsyncGenerator<{ type: 'progress' | 'complete' | 'ping', progress?: number, message?: string, result?: WikiGeneratorResult }> {
   const { owner, repo } = params;
 
   let totalInputTokens = 0;
@@ -496,7 +534,17 @@ export async function* generateWikiWithCacheStreaming(
   try {
     // Step 1: Cache the entire codebase
     yield { type: 'progress', progress: 40, message: 'Analyizing codebase context & creating cache...' };
-    const cacheId = await createCodebaseCache(params);
+    
+    // Use heartbeat for long running cache creation
+    let cacheId = '';
+    const cachePromise = createCodebaseCache(params);
+    
+    for await (const ping of awaitWithHeartbeat(cachePromise)) {
+      if (ping.type === 'ping') {
+        yield { type: 'ping' };
+      }
+    }
+    cacheId = await cachePromise;
 
     // Estimate cache size (rough)
     const codebaseSize = params.files.reduce((sum, f) => sum + f.content.length, 0);
@@ -505,7 +553,18 @@ export async function* generateWikiWithCacheStreaming(
 
     // Step 2: Plan wiki pages
     yield { type: 'progress', progress: 50, message: 'Designing wiki structure & pages...' };
-    const plan = await planWikiPages(cacheId, owner, repo);
+    
+    // Use heartbeat for long running planning
+    let plan: WikiPlan | null = null;
+    const planPromise = planWikiPages(cacheId, owner, repo);
+    
+    for await (const ping of awaitWithHeartbeat(planPromise)) {
+      if (ping.type === 'ping') {
+        yield { type: 'ping' };
+      }
+    }
+    plan = await planPromise;
+    
     console.log(`📋 Planned ${plan.pages.length} pages:`, plan.pages.map(p => p.title).join(', '));
 
     // Step 3: Group pages by dependency level for parallel generation
@@ -533,9 +592,17 @@ export async function* generateWikiWithCacheStreaming(
       };
 
       // Generate all pages in this level in parallel
-      const levelResults = await Promise.all(
+      // Use heartbeat for generation too
+      const generationPromise = Promise.all(
         level.map(page => generateWikiPage(cacheId, page, generatedPages))
       );
+      
+      for await (const ping of awaitWithHeartbeat(generationPromise)) {
+        if (ping.type === 'ping') {
+          yield { type: 'ping' };
+        }
+      }
+      const levelResults = await generationPromise;
 
       // Store results
       levelResults.forEach((generated) => {

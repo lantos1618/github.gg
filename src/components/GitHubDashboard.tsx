@@ -290,7 +290,7 @@ export const GitHubDashboard = () => {
       {/* Mobile Sidebar Drawers */}
       <div className="lg:hidden">
         {/* Left Sidebar Overlay & Drawer */}
-        <div 
+        <div
           className={cn(
             "fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300",
             showLeftSidebar ? "opacity-100" : "opacity-0 pointer-events-none"
@@ -316,7 +316,7 @@ export const GitHubDashboard = () => {
         </div>
 
         {/* Right Sidebar Overlay & Drawer */}
-        <div 
+        <div
           className={cn(
             "fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300",
             showRightSidebar ? "opacity-100" : "opacity-0 pointer-events-none"
@@ -341,16 +341,16 @@ export const GitHubDashboard = () => {
             </Button>
           </div>
           <div className="flex-1 overflow-y-auto">
-            <ActivityFeed
-              activities={activities}
-              isLoading={activitiesLoading}
-              currentPageActivities={currentPageActivities}
-              pageSize={pageSize}
-              activitiesPage={activitiesPage}
-              maxPages={5}
-              loadMoreRef={loadMoreMobileRef}
-              isMobile={true}
-            />
+          <ActivityFeed
+            activities={activities}
+            isLoading={activitiesLoading}
+            currentPageActivities={currentPageActivities}
+            pageSize={pageSize}
+            activitiesPage={activitiesPage}
+            maxPages={5}
+            loadMoreRef={loadMoreMobileRef}
+            isMobile={true}
+          />
           </div>
         </div>
       </div>

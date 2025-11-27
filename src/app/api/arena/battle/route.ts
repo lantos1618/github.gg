@@ -189,20 +189,20 @@ export async function GET(req: NextRequest) {
               // Opponent: 40-60 (range size 20)
               
               if (update.metadata) {
-                const baseProgress = role === 'challenger' ? 20 : 40;
+              const baseProgress = role === 'challenger' ? 20 : 40;
                 const rangeSize = 20;
                 const { current, total, repoName } = update.metadata;
-                const progressIncrement = Math.floor((current / total) * rangeSize);
+              const progressIncrement = Math.floor((current / total) * rangeSize);
 
-                sendEvent('progress', {
-                  status: 'analyzing_repo',
-                  progress: baseProgress + progressIncrement,
-                  message: `Analyzing repo ${current}/${total}: ${repoName}`,
-                  repoName,
-                  current,
-                  total
-                });
-              }
+              sendEvent('progress', {
+                status: 'analyzing_repo',
+                progress: baseProgress + progressIncrement,
+                message: `Analyzing repo ${current}/${total}: ${repoName}`,
+                repoName,
+                current,
+                total
+              });
+            }
             } else if (update.type === 'complete' && update.result) {
               profileResult = update.result;
             }

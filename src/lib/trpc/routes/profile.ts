@@ -201,8 +201,8 @@ export const profileRouter = router({
             }
           } catch (e) {
             console.error('Failed to check stargazer status:', e);
-            yield { type: 'error', message: 'Active subscription required for AI features' };
-            return;
+          yield { type: 'error', message: 'Active subscription required for AI features' };
+          return;
           }
         }
 
@@ -630,4 +630,4 @@ export const profileRouter = router({
         b.updatedAt.getTime() - a.updatedAt.getTime()
       );
     }),
-});
+}); 

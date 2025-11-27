@@ -372,8 +372,8 @@ export async function* generateDeveloperProfileStreaming({
   yield {
     type: 'complete',
     result: {
-      profile: patchedProfile,
-      usage: totalUsage,
+    profile: patchedProfile,
+    usage: totalUsage,
     }
   };
-}
+} 

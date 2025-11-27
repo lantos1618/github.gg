@@ -27,7 +27,7 @@ import markup from 'refractor/markup';
 import json from 'refractor/json';
 
 import '@milkdown/theme-nord/style.css';
-import 'prismjs/themes/prism-okaidia.css';
+import 'prismjs/themes/prism-coy.css';
 
 import { cn } from '@/lib/utils';
 

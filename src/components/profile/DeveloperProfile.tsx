@@ -247,17 +247,12 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8 border-b border-gray-100 pb-12">
           <div className="flex gap-8">
             <div className="relative">
-              {isCracked && (
-                <div className="absolute -top-6 -left-4 text-4xl animate-bounce z-10">
-                  👑
-                </div>
-              )}
-              <Avatar className={`h-24 w-24 border-2 shadow-sm ${isCracked ? 'border-yellow-400 ring-4 ring-yellow-400/20' : 'border-gray-200'}`}>
+              <Avatar className={`h-24 w-24 border-2 shadow-sm ${isCracked ? 'border-yellow-500 ring-4 ring-yellow-500/20' : 'border-gray-200'}`}>
                 <AvatarImage src={`https://avatars.githubusercontent.com/${username}`} alt={username} />
                 <AvatarFallback className="text-2xl bg-gray-50 text-gray-500">{username?.[0]?.toUpperCase()}</AvatarFallback>
               </Avatar>
               {isCracked && (
-                <div className="absolute -bottom-2 -right-2 bg-yellow-400 text-white p-1.5 rounded-full border-2 border-white shadow-md">
+                <div className="absolute -bottom-2 -right-2 bg-yellow-500 text-white p-1.5 rounded-full border-2 border-white shadow-md">
                   <Flame className="h-4 w-4 fill-current" />
                 </div>
               )}
@@ -273,7 +268,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
                   {username}
                 </a>
                 {isCracked && (
-                  <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-white border-none px-3 py-1 text-sm font-bold uppercase tracking-wider shadow-md flex items-center gap-1.5">
+                  <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white border-none px-3 py-1 text-sm font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5">
                     <Flame className="h-3.5 w-3.5 fill-current" />
                     CRACKED
                   </Badge>

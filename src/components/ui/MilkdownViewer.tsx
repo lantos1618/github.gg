@@ -22,6 +22,7 @@ import jsx from 'refractor/jsx';
 import tsx from 'refractor/tsx';
 
 import '@milkdown/theme-nord/style.css';
+import 'prismjs/themes/prism-tomorrow.css';
 
 import { cn } from '@/lib/utils';
 

@@ -322,28 +322,28 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
                 Challenge
               </Button>
             )}
-            {currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro') && (
-              <>
-                {isOwnProfile && (
-                  <Button
-                    onClick={() => setShowRepoSelector(true)}
-                    disabled={isGenerating || shouldGenerate || reposLoading}
-                    variant="outline"
-                    className="h-12 px-6 border-gray-200 hover:border-black transition-colors"
-                  >
-                    <FolderGit2 className="h-4 w-4 mr-2" />
-                    Configure
-                  </Button>
-                )}
-                <Button
-                  onClick={handleGenerateProfile}
-                  disabled={isGenerating || shouldGenerate}
-                  className="h-12 px-6 bg-black hover:bg-gray-800 text-white shadow-none rounded-lg"
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating || shouldGenerate ? 'animate-spin' : ''}`} />
-                  {isGenerating || shouldGenerate ? 'Analyzing...' : 'Refresh Analysis'}
-                </Button>
-              </>
+            
+            {isOwnProfile && (
+              <Button
+                onClick={() => setShowRepoSelector(true)}
+                disabled={isGenerating || shouldGenerate || reposLoading}
+                variant="outline"
+                className="h-12 px-6 border-gray-200 hover:border-black transition-colors"
+              >
+                <FolderGit2 className="h-4 w-4 mr-2" />
+                Configure
+              </Button>
+            )}
+
+            {(isOwnProfile || (currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro'))) && (
+              <Button
+                onClick={handleGenerateProfile}
+                disabled={isGenerating || shouldGenerate}
+                className="h-12 px-6 bg-black hover:bg-gray-800 text-white shadow-none rounded-lg"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating || shouldGenerate ? 'animate-spin' : ''}`} />
+                {isGenerating || shouldGenerate ? 'Analyzing...' : 'Refresh Analysis'}
+              </Button>
             )}
           </div>
         </div>
@@ -451,7 +451,18 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
         Generate an AI-powered analysis to uncover insights about {username}.
       </p>
       <div className="flex justify-center items-center gap-4">
-        {currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro') ? (
+        {isOwnProfile && (
+          <Button
+            onClick={() => setShowRepoSelector(true)}
+            disabled={isGenerating || shouldGenerate || reposLoading}
+            variant="outline"
+            className="h-14 px-8 border-gray-200 hover:border-black transition-colors text-lg rounded-xl"
+          >
+            <FolderGit2 className="h-5 w-5 mr-2" />
+            Configure
+          </Button>
+        )}
+        {(isOwnProfile || (currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro'))) ? (
           <Button
             onClick={handleGenerateProfile}
             disabled={isGenerating || shouldGenerate}

@@ -122,8 +122,9 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   });
 
   // Check if viewing own profile
-  const isOwnProfile = currentUser?.user?.githubUsername
-    ? currentUser.user.githubUsername.toLowerCase() === username.toLowerCase()
+  const isOwnProfile = currentUser?.user
+    ? (currentUser.user.githubUsername?.toLowerCase() === username.toLowerCase() || 
+       currentUser.user.name?.toLowerCase() === username.toLowerCase())
     : false;
 
   // Fetch user repos if viewing own profile

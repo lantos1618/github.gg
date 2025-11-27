@@ -182,11 +182,9 @@ export function UsersClientView({ initialProfiles, initialLeaderboard }: UsersCl
                   {paginatedProfiles.map((profile) => {
                     const profileData = profile.profileData as DeveloperProfile;
                     const topSkills = profileData.techStack?.slice(0, 3) || [];
-                    const avgScore = profileData.topRepos?.length
+                    const avgScore = profileData.skillAssessment?.length
                       ? Math.round(
-                          profileData.topRepos
-                            .map(r => r.significanceScore || 0)
-                            .reduce((a, b) => a + b, 0) / profileData.topRepos.length * 10
+                          (profileData.skillAssessment.reduce((acc, skill) => acc + skill.score, 0) / profileData.skillAssessment.length) * 10
                         )
                       : null;
 

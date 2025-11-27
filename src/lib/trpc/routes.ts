@@ -38,13 +38,16 @@ export const appRouter = router({
           where: eq(githubAppInstallations.installationId, userAccount.installationId),
           columns: { accountLogin: true },
         });
-        githubUsername = installation?.accountLogin;
+        if (installation?.accountLogin) {
+          githubUsername = installation.accountLogin;
+        }
       }
 
       return {
         user: {
           ...ctx.user,
-          githubUsername,
+          // Prefer installation username, fallback to DB username (if available in ctx.user)
+          githubUsername: githubUsername || (ctx.user as any).githubUsername,
         },
         message: 'You are authenticated!',
       };

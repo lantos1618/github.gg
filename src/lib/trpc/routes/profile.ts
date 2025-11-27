@@ -598,7 +598,18 @@ export const profileRouter = router({
       offset: z.number().optional().default(0),
     }))
     .query(async ({ input }) => {
-      // Get all profiles with their latest version
+      // 1. Get the maximum version for each username (subquery)
+      const maxVersions = db
+        .select({
+          username: developerProfileCache.username,
+          maxVersion: sql<number>`MAX(${developerProfileCache.version})`.as('max_version')
+        })
+        .from(developerProfileCache)
+        .groupBy(developerProfileCache.username)
+        .as('max_versions');
+
+      // 2. Join with the cache table to get the full profile for that version
+      // This ensures we paginate over unique users (latest version) rather than all versions
       const profiles = await db
         .select({
           username: developerProfileCache.username,
@@ -607,20 +618,19 @@ export const profileRouter = router({
           version: developerProfileCache.version,
         })
         .from(developerProfileCache)
+        .innerJoin(
+          maxVersions,
+          and(
+            eq(developerProfileCache.username, maxVersions.username),
+            eq(developerProfileCache.version, maxVersions.maxVersion)
+          )
+        )
         .orderBy(desc(developerProfileCache.updatedAt))
         .limit(input.limit)
         .offset(input.offset);
 
-      // Group by username and take the latest version
-      const latestProfiles = new Map<string, typeof profiles[0]>();
-      for (const profile of profiles) {
-        const existing = latestProfiles.get(profile.username);
-        if (!existing || profile.version > existing.version) {
-          latestProfiles.set(profile.username, profile);
-        }
-      }
-
-      const profilesArray = Array.from(latestProfiles.values());
+      // No need for further deduping since we joined on max version
+      const profilesArray = profiles;
 
       // Early return if no profiles
       if (profilesArray.length === 0) {

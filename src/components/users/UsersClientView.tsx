@@ -58,12 +58,15 @@ export function UsersClientView({ initialProfiles, initialLeaderboard }: UsersCl
     if (sortField === 'date') {
       comparison = new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     } else if (sortField === 'score') {
-      const aScore = aProfile.topRepos?.length
-        ? aProfile.topRepos.map(r => r.significanceScore || 0).reduce((a, b) => a + b, 0) / aProfile.topRepos.length
-        : 0;
-      const bScore = bProfile.topRepos?.length
-        ? bProfile.topRepos.map(r => r.significanceScore || 0).reduce((a, b) => a + b, 0) / bProfile.topRepos.length
-        : 0;
+      const getScore = (profile: DeveloperProfile) => {
+        if (!profile.skillAssessment?.length) return 0;
+        return Math.round(
+          (profile.skillAssessment.reduce((acc, skill) => acc + skill.score, 0) / profile.skillAssessment.length) * 10
+        );
+      };
+      
+      const aScore = getScore(aProfile);
+      const bScore = getScore(bProfile);
       comparison = bScore - aScore;
     } else if (sortField === 'username') {
       comparison = a.username.localeCompare(b.username);

@@ -213,6 +213,7 @@ export async function* generateDeveloperProfileStreaming({
 
       // Check if we already have a recent scorecard for this repo
       if (existingScorecardMap.has(repoKey)) {
+        // ... existing cache logic ...
         console.log(`✅ Using cached scorecard for ${repoData.repoName}`);
         const existing = existingScorecards.find(sc =>
           sc.repoOwner === username && sc.repoName === repoData.repoName
@@ -284,43 +285,54 @@ export async function* generateDeveloperProfileStreaming({
         }
       }
 
-      return result;
+      return { repoName: repoData.repoName, result };
     });
 
-    // Wait for all promises to resolve and yield progress as they complete
-    // We do this by creating a new set of promises that include the index/identifier
-    // but we can't easily yield from within the promise execution. 
-    // Instead, we'll start them all, then iterate through the array of promises. 
-    // While this yields sequentially in array order, the execution happens in parallel.
-    // To provide better visual feedback, we can just trust the total time reduction is enough.
-    // However, to provide *actual* "stream of updates", we can race them, but that's complex.
-    // Simple approach: wait for them in order. The delay will be mainly waiting for the longest one.
-    
-    const results = [];
-    for (let i = 0; i < scorecardPromises.length; i++) {
-      // Yield start message for this repo (even if it's already running/done)
-      const progressPercentage = 10 + Math.round(((i + 1) / total) * 70);
-      yield {
-        type: 'progress',
-        progress: progressPercentage,
-        message: `Analyzing repository ${topReposToAnalyze[i].repoName}...`,
-        metadata: { current: i + 1, total, repoName: topReposToAnalyze[i].repoName }
-      };
+    // Use a set of pending promises to race them
+    const pending = new Set(scorecardPromises);
+    const resultsMap = new Map();
+    let completedCount = 0;
+
+    while (pending.size > 0) {
+      // Race pending promises against a heartbeat timeout
+      const heartbeatPromise = new Promise<{ type: 'heartbeat' }>(resolve => setTimeout(() => resolve({ type: 'heartbeat' }), 3000));
       
-      const result = await scorecardPromises[i];
-      if (result) {
-        results.push(result);
+      // Create a race where we also identify WHICH promise finished
+      const racePromise = Promise.race([
+        ...Array.from(pending).map(p => p.then(res => ({ type: 'result', ...res, promise: p }))),
+        heartbeatPromise
+      ]);
+
+      const winner: any = await racePromise;
+
+      if (winner.type === 'heartbeat') {
+        yield {
+          type: 'progress',
+          progress: 10 + Math.round((completedCount / total) * 70),
+          message: `Analyzing repositories... (${completedCount}/${total} complete)`
+        };
+        continue;
       }
-      
-      yield {
-        type: 'progress',
-        progress: progressPercentage,
-        message: `Completed analysis for ${topReposToAnalyze[i].repoName}`,
-        metadata: { current: i + 1, total, repoName: topReposToAnalyze[i].repoName }
-      };
+
+      // A promise finished
+      pending.delete(winner.promise);
+      if (winner.result) {
+        resultsMap.set(winner.repoName, winner.result);
+        completedCount++;
+        
+        yield {
+          type: 'progress',
+          progress: 10 + Math.round((completedCount / total) * 70),
+          message: `Completed analysis for ${winner.repoName}`,
+          metadata: { current: completedCount, total, repoName: winner.repoName }
+        };
+      } else {
+          // Failed result
+          completedCount++; // Still count as processed
+      }
     }
     
-    const scorecardResults = results;
+    const scorecardResults = Array.from(resultsMap.values());
 
     // Aggregate results
     scorecardResults.forEach(result => {

@@ -239,7 +239,8 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     if (parsedProfile.success) {
       const validProfile = parsedProfile.data;
       const totalScore = calculateTotalScore(validProfile);
-      const isCracked = totalScore >= 90;
+      // "Cracked" threshold lowered to 80 based on user feedback (90 was too exclusive)
+      const isCracked = totalScore >= 80;
 
       return (
       <div className="max-w-[1200px] mx-auto px-4 py-16 space-y-16">

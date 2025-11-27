@@ -62,7 +62,7 @@ async function* awaitWithHeartbeat<T>(
   while (!done) {
     const raceResult = await Promise.race([
       wrappedPromise,
-      new Promise<{ status: 'timeout' }>(resolve => setTimeout(resolve, heartbeatInterval).then(() => ({ status: 'timeout' })))
+      new Promise<{ status: 'timeout' }>(resolve => setTimeout(() => resolve({ status: 'timeout' }), heartbeatInterval))
     ]);
 
     if (raceResult.status === 'resolved') {

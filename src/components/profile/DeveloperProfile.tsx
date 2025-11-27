@@ -11,7 +11,7 @@ import { RepoSelector } from './RepoSelector';
 import { trpc } from '@/lib/trpc/client';
 import { RefreshCw, Sword, Mail, FolderGit2, Trophy, Flame, Crown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { developerProfileSchema } from '@/lib/types/profile';
+import { developerProfileSchema, type DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useRouter } from 'next/navigation';
 import { ScoreHistory } from '@/components/ScoreHistory';
@@ -224,7 +224,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
     return null;
   }
 
-  const calculateTotalScore = (profile: DeveloperProfile) => {
+  const calculateTotalScore = (profile: DeveloperProfileType) => {
     if (!profile.skillAssessment || profile.skillAssessment.length === 0) return 0;
     const total = profile.skillAssessment.reduce((acc, skill) => acc + skill.score, 0);
     return Math.round((total / profile.skillAssessment.length) * 10);

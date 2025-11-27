@@ -6,20 +6,23 @@ import { commonmark } from '@milkdown/preset-commonmark';
 import { gfm } from '@milkdown/preset-gfm';
 import { nord } from '@milkdown/theme-nord';
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
-import { prism } from '@milkdown/plugin-prism';
+import { prism, prismConfig } from '@milkdown/plugin-prism';
+
+import zig from 'refractor/zig';
+import docker from 'refractor/docker';
+import graphql from 'refractor/graphql';
+import lua from 'refractor/lua';
+import makefile from 'refractor/makefile';
+import csharp from 'refractor/csharp';
+import elixir from 'refractor/elixir';
+import scala from 'refractor/scala';
+import solidity from 'refractor/solidity';
+import toml from 'refractor/toml';
+import jsx from 'refractor/jsx';
+import tsx from 'refractor/tsx';
 
 import '@milkdown/theme-nord/style.css';
 import 'prismjs/themes/prism.css';
-import 'prismjs/components/prism-zig';
-import 'prismjs/components/prism-docker';
-import 'prismjs/components/prism-graphql';
-import 'prismjs/components/prism-lua';
-import 'prismjs/components/prism-makefile';
-import 'prismjs/components/prism-csharp';
-import 'prismjs/components/prism-elixir';
-import 'prismjs/components/prism-scala';
-import 'prismjs/components/prism-solidity';
-import 'prismjs/components/prism-toml';
 
 import { cn } from '@/lib/utils';
 
@@ -40,6 +43,23 @@ function MilkdownViewerInner({ content }: MilkdownViewerProps) {
           ...prev,
           editable: () => false,
         }));
+
+        ctx.set(prismConfig.key, {
+          configureRefractor: (refractor) => {
+            refractor.register(zig);
+            refractor.register(docker);
+            refractor.register(graphql);
+            refractor.register(lua);
+            refractor.register(makefile);
+            refractor.register(csharp);
+            refractor.register(elixir);
+            refractor.register(scala);
+            refractor.register(solidity);
+            refractor.register(toml);
+            refractor.register(jsx);
+            refractor.register(tsx);
+          },
+        });
       })
       .config(nord)
       .use(commonmark)

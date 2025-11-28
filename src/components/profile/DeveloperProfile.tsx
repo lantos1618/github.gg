@@ -22,6 +22,75 @@ interface DeveloperProfileProps {
   username: string;
 }
 
+// Add this component outside the main DeveloperProfile component
+function SparkleEffects() {
+  const [sparkles, setSparkles] = useState<{ id: number; style: any; char: string }[]>([]);
+
+  useEffect(() => {
+    const chars = ['✨', '💖', '🌸', '🧚', '⭐', '🎀'];
+    let count = 0;
+
+    const interval = setInterval(() => {
+      const id = count++;
+      const startX = Math.random() * 100; // % from left
+      const startY = -10; // Start above
+      const endX = startX + (Math.random() * 20 - 10); // Drift left/right
+      const duration = 3 + Math.random() * 4; // 3-7s
+      const scale = 0.5 + Math.random() * 1; // 0.5x - 1.5x
+      const char = chars[Math.floor(Math.random() * chars.length)];
+
+      const style = {
+        left: `${startX}%`,
+        top: `${startY}%`,
+        '--end-x': `${endX}%`,
+        '--duration': `${duration}s`,
+        '--scale': scale,
+      };
+
+      setSparkles(prev => [...prev.slice(-20), { id, style, char }]);
+    }, 800); // Add new sparkle every 800ms
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+      <style jsx>{`
+        @keyframes float-down {
+          0% {
+            transform: translate(0, 0) rotate(0deg) scale(var(--scale));
+            opacity: 0;
+          }
+          10% {
+            opacity: 1;
+          }
+          90% {
+            opacity: 1;
+          }
+          100% {
+            transform: translate(calc(var(--end-x) - var(--start-x)), 100vh) rotate(360deg) scale(var(--scale));
+            opacity: 0;
+          }
+        }
+      `}</style>
+      {sparkles.map(s => (
+        <div
+          key={s.id}
+          className="absolute text-2xl animate-float"
+          style={{
+            left: s.style.left,
+            top: s.style.top,
+            animation: `float-down ${s.style['--duration']} linear forwards`,
+            ...s.style
+          }}
+        >
+          {s.char}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function DeveloperProfile({ username }: DeveloperProfileProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
@@ -253,8 +322,9 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
       const isCracked = totalScore >= 80 || isKnottedBrains;
 
       return (
-      <div className="max-w-[1200px] mx-auto px-4 py-16 space-y-16">
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8 border-b border-gray-100 pb-12">
+      <div className="max-w-[1200px] mx-auto px-4 py-16 space-y-16 relative">
+        {isKnottedBrains && <SparkleEffects />}
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8 border-b border-gray-100 pb-12 relative z-10">
           <div className="flex gap-8">
             <div className="relative">
               <Avatar className={`h-24 w-24 border-2 shadow-sm ${
@@ -285,7 +355,7 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
                 </a>
                 {isCracked && (
                   <Badge className={`${isKnottedBrains ? 'bg-pink-400 hover:bg-pink-500' : 'bg-yellow-500 hover:bg-yellow-600'} text-white border-none px-3 py-1 text-sm font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5`}>
-                    {isKnottedBrains ? <Heart className="h-3.5 w-3.5 fill-current" /> : <Flame className="h-3.5 w-3.5 fill-current" />}
+                    {isKnottedBrains ? <Flame className="h-3.5 w-3.5 fill-current" /> : <Flame className="h-3.5 w-3.5 fill-current" />}
                     CRACKED
                   </Badge>
                 )}

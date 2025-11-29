@@ -100,7 +100,7 @@ function SparkleEffects({ chars = ['✨', '💖', '🌸', '🧚', '⭐', '🎀']
 
 type GenerationEvent = 
   | { type: 'progress'; progress: number; message: string }
-  | { type: 'complete'; data: { profile: DeveloperProfileType; cached: boolean; stale: boolean; lastUpdated: Date } }
+  | { type: 'complete'; data: { profile: DeveloperProfileType; cached: boolean; stale: boolean; lastUpdated: string } }
   | { type: 'error'; message: string };
 
 export function DeveloperProfile({ username, initialData }: DeveloperProfileProps) {
@@ -132,7 +132,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
 
   const queryInitialData = initialData ? {
     ...initialData,
-    lastUpdated: initialData.lastUpdated ? new Date(initialData.lastUpdated) : null
+    lastUpdated: initialData.lastUpdated
   } : undefined;
 
   // Use the new public endpoint for cached profile
@@ -148,7 +148,8 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     generateInput || { username, includeCodeAnalysis: false },
     {
       enabled: shouldGenerate && !!generateInput,
-      onData: (event: GenerationEvent) => {
+      onData: (data) => {
+        const event = data as unknown as GenerationEvent;
         if (event.type === 'progress') {
           const newProgress = event.progress || 0;
           const newMessage = event.message || '';

@@ -5,6 +5,7 @@ import { CACHED_REPOS } from '@/lib/constants';
 import { shuffleArray } from '@/lib/utils';
 import { parseError } from '@/lib/types/errors';
 import { Octokit } from '@octokit/rest';
+import { handleTRPCGitHubError } from '@/lib/github/error-handler';
 
 /**
  * Background function to refresh star counts
@@ -234,9 +235,7 @@ export const reposRouter = router({
 
         return userRepos;
       } catch (error: unknown) {
-        const errorMessage = parseError(error);
-        console.error('Failed to get user repos:', errorMessage);
-        return [];
+        handleTRPCGitHubError(error);
       }
     }),
 
@@ -348,8 +347,7 @@ export const reposRouter = router({
         const userRepos = await githubService.getUserRepositories(undefined, 100);
         return userRepos.map(repo => `${repo.owner}/${repo.name}`);
       } catch (error) {
-        console.error('Failed to get user repo names:', error);
-        return [];
+        handleTRPCGitHubError(error);
       }
     }),
 
@@ -367,8 +365,7 @@ export const reposRouter = router({
         const hasStarred = await githubService.hasStarredRepo(input.owner, input.repo);
         return { hasStarred };
       } catch (error) {
-        console.error('Failed to check if repo is starred:', error);
-        return { hasStarred: false };
+        handleTRPCGitHubError(error);
       }
     }),
 });

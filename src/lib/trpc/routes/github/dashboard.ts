@@ -1,6 +1,7 @@
 import { router, protectedProcedure } from '@/lib/trpc/trpc';
 import { z } from 'zod';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
+import { handleTRPCGitHubError } from '@/lib/github/error-handler';
 
 /**
  * GitHub Dashboard Router
@@ -42,8 +43,7 @@ export const dashboardRouter = router({
           state: pr.state,
         }));
       } catch (error) {
-        console.error('Failed to fetch user PRs:', error);
-        return [];
+        handleTRPCGitHubError(error);
       }
     }),
 
@@ -84,8 +84,7 @@ export const dashboardRouter = router({
           state: issue.state,
         }));
       } catch (error) {
-        console.error('Failed to fetch user issues:', error);
-        return [];
+        handleTRPCGitHubError(error);
       }
     }),
 
@@ -337,8 +336,7 @@ export const dashboardRouter = router({
           return activities;
         }
       } catch (error) {
-        console.error('Failed to fetch user activity:', error);
-        return [];
+        handleTRPCGitHubError(error);
       }
     }),
 
@@ -363,8 +361,7 @@ export const dashboardRouter = router({
           stargazersCount: repo.stargazersCount,
         }));
       } catch (error) {
-        console.error('Failed to fetch user repos:', error);
-        return [];
+        handleTRPCGitHubError(error);
       }
     }),
 });

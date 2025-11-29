@@ -1,13 +1,9 @@
 import { Metadata } from 'next';
 import { createCaller } from '@/lib/trpc/server';
-import { auth } from '@/lib/auth';
-import { createGitHubServiceForUserOperations } from '@/lib/github';
-import { headers } from 'next/headers';
 import { WikiIndexClient } from './WikiIndexClient';
-import { createLogger } from '@/lib/logging';
 
-const logger = createLogger('WikiPermissionCheck');
-
+// ISR: Revalidate every hour to keep wiki index fresh while reducing DB load
+export const revalidate = 3600;
 export const dynamicParams = true;
 
 interface WikiIndexProps {
@@ -68,22 +64,8 @@ export default async function WikiIndex({ params, searchParams }: WikiIndexProps
   const branches = branchesResult || [];
   const defaultBranch = repoInfoResult?.defaultBranch || 'main';
 
-  // Check if user has permission to edit/delete wiki
-  let canEditWiki = false;
-  try {
-    const headersList = await headers();
-    const session = await auth.api.getSession({ headers: headersList } as Request);
-    if (session?.user) {
-      const githubService = await createGitHubServiceForUserOperations(session);
-      const { data: repoData } = await githubService['octokit'].repos.get({
-        owner,
-        repo,
-      });
-      canEditWiki = !!(repoData.permissions?.admin || repoData.permissions?.push);
-    }
-  } catch (error) {
-    logger.error('Failed to check repository permissions', error);
-  }
+  // Auth check moved to client-side to allow static caching
+  const canEditWiki = false;
 
   const wikiPages = toc?.pages.map(p => ({ slug: p.slug, title: p.title })) || [];
 

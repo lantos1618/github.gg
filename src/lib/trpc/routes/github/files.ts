@@ -1,8 +1,7 @@
 import { router, publicProcedure } from '@/lib/trpc/trpc';
 import { z } from 'zod';
 import { createGitHubServiceFromSession, DEFAULT_MAX_FILES, GitHubFilesResponse } from '@/lib/github';
-import { TRPCError } from '@trpc/server';
-import { parseError } from '@/lib/types/errors';
+import { handleTRPCGitHubError } from '@/lib/github/error-handler';
 
 export const filesRouter = router({
   // Get repository files from tarball (requires GitHub authentication)
@@ -28,8 +27,7 @@ export const filesRouter = router({
 
         return result;
       } catch (error: unknown) {
-        const errorMessage = parseError(error);
-        throw new Error(`Failed to get repository files: ${errorMessage}`);
+        handleTRPCGitHubError(error);
       }
     }),
 
@@ -44,17 +42,7 @@ export const filesRouter = router({
         const repoInfo = await githubService.getRepositoryInfo(input.owner, input.repo);
         return repoInfo;
       } catch (error: unknown) {
-        const errorMessage = parseError(error);
-        if (errorMessage.includes('not found')) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: errorMessage,
-          });
-        }
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to get repository info',
-        });
+        handleTRPCGitHubError(error);
       }
     }),
 
@@ -69,19 +57,7 @@ export const filesRouter = router({
         const branches = await githubService.getBranches(input.owner, input.repo);
         return branches;
       } catch (error: unknown) {
-        const errorMessage = parseError(error);
-        if (errorMessage.includes('not found')) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: errorMessage,
-          });
-        }
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to get branches',
-        });
+        handleTRPCGitHubError(error);
       }
     }),
-
-
 }); 

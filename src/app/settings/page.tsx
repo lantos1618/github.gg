@@ -65,7 +65,6 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (Object.keys(debouncedStyles).length > 0 && JSON.stringify(debouncedStyles) !== JSON.stringify(profileStyles)) {
-      // @ts-expect-error - types for styles are flexible
       updateStylesMutation.mutate({ styles: debouncedStyles });
     }
   }, [debouncedStyles]);
@@ -156,7 +155,7 @@ export default function SettingsPage() {
                   <div className="flex gap-2 items-center">
                     <div 
                       className="w-10 h-10 rounded border cursor-pointer shadow-sm" 
-                      style={{ backgroundColor: localStyles.primaryColor || '#000000' }}
+                      style={{ backgroundColor: (localStyles.primaryColor as string) || '#000000' }}
                     >
                       <Popover>
                         <PopoverTrigger asChild>
@@ -164,14 +163,14 @@ export default function SettingsPage() {
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-3">
                           <HexColorPicker 
-                            color={localStyles.primaryColor || '#000000'} 
+                            color={(localStyles.primaryColor as string) || '#000000'} 
                             onChange={(color) => handleStyleChange('primaryColor', color)} 
                           />
                         </PopoverContent>
                       </Popover>
                     </div>
                     <Input 
-                      value={localStyles.primaryColor || ''} 
+                      value={(localStyles.primaryColor as string) || ''} 
                       placeholder="#000000" 
                       onChange={(e) => handleStyleChange('primaryColor', e.target.value)}
                       className="font-mono"
@@ -184,7 +183,7 @@ export default function SettingsPage() {
                    <div className="flex gap-2 items-center">
                     <div 
                       className="w-10 h-10 rounded border cursor-pointer shadow-sm" 
-                      style={{ backgroundColor: localStyles.textColor || '#000000' }}
+                      style={{ backgroundColor: (localStyles.textColor as string) || '#000000' }}
                     >
                       <Popover>
                         <PopoverTrigger asChild>
@@ -192,14 +191,14 @@ export default function SettingsPage() {
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-3">
                           <HexColorPicker 
-                            color={localStyles.textColor || '#000000'} 
+                            color={(localStyles.textColor as string) || '#000000'} 
                             onChange={(color) => handleStyleChange('textColor', color)} 
                           />
                         </PopoverContent>
                       </Popover>
                     </div>
                     <Input 
-                      value={localStyles.textColor || ''} 
+                      value={(localStyles.textColor as string) || ''} 
                       placeholder="#000000" 
                       onChange={(e) => handleStyleChange('textColor', e.target.value)}
                       className="font-mono"
@@ -212,7 +211,7 @@ export default function SettingsPage() {
                    <div className="flex gap-2 items-center">
                     <div 
                       className="w-10 h-10 rounded border cursor-pointer shadow-sm" 
-                      style={{ backgroundColor: localStyles.backgroundColor || '#ffffff' }}
+                      style={{ backgroundColor: (localStyles.backgroundColor as string) || '#ffffff' }}
                     >
                       <Popover>
                         <PopoverTrigger asChild>
@@ -220,14 +219,14 @@ export default function SettingsPage() {
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-3">
                           <HexColorPicker 
-                            color={localStyles.backgroundColor || '#ffffff'} 
+                            color={(localStyles.backgroundColor as string) || '#ffffff'} 
                             onChange={(color) => handleStyleChange('backgroundColor', color)} 
                           />
                         </PopoverContent>
                       </Popover>
                     </div>
                     <Input 
-                      value={localStyles.backgroundColor || ''} 
+                      value={(localStyles.backgroundColor as string) || ''} 
                       placeholder="#ffffff" 
                       onChange={(e) => handleStyleChange('backgroundColor', e.target.value)}
                       className="font-mono"
@@ -238,7 +237,7 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <Label>Sparkle Emoji</Label>
                   <Input 
-                    value={localStyles.emoji || ''} 
+                    value={(localStyles.emoji as string) || ''} 
                     placeholder="✨" 
                     maxLength={2}
                     onChange={(e) => handleStyleChange('emoji', e.target.value)}
@@ -256,7 +255,7 @@ export default function SettingsPage() {
                 </div>
                 <Switch
                   id="sparkles-enabled"
-                  checked={localStyles.sparkles ?? false}
+                  checked={(localStyles.sparkles as boolean) ?? false}
                   onCheckedChange={(checked) => handleStyleChange('sparkles', checked)}
                 />
               </div>

@@ -10,25 +10,30 @@ import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForUserOperations, createPublicGitHubService } from '@/lib/github';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import { Octokit } from '@octokit/rest';
+import { handleTRPCGitHubError } from '@/lib/github/error-handler';
 
 export const profileRouter = router({
   getUserRepositories: protectedProcedure
     .input(z.object({ username: z.string() }))
     .query(async ({ input, ctx }) => {
-      const githubService = await createGitHubServiceForUserOperations(ctx.session);
-      const repos = await githubService.getUserRepositories(input.username);
+      try {
+        const githubService = await createGitHubServiceForUserOperations(ctx.session);
+        const repos = await githubService.getUserRepositories(input.username);
 
-      // Return non-fork repos with essential info
-      return repos
-        .filter(repo => !repo.fork)
-        .map(repo => ({
-          name: repo.name,
-          description: repo.description || null,
-          language: repo.language || null,
-          stargazersCount: repo.stargazersCount,
-          forksCount: repo.forksCount,
-          fork: false, // Already filtered out forks above
-        }));
+        // Return non-fork repos with essential info
+        return repos
+          .filter(repo => !repo.fork)
+          .map(repo => ({
+            name: repo.name,
+            description: repo.description || null,
+            language: repo.language || null,
+            stargazersCount: repo.stargazersCount,
+            forksCount: repo.forksCount,
+            fork: false, // Already filtered out forks above
+          }));
+      } catch (error) {
+        handleTRPCGitHubError(error);
+      }
     }),
 
   getDeveloperEmail: publicProcedure

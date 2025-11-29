@@ -2,14 +2,10 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createCaller } from '@/lib/trpc/server';
 import { incrementViewCount } from './actions';
-import { auth } from '@/lib/auth';
-import { createGitHubServiceForUserOperations } from '@/lib/github';
-import { headers } from 'next/headers';
 import { WikiPageClient } from './WikiPageClient';
-import { createLogger } from '@/lib/logging';
 
-const logger = createLogger('WikiPermissionCheck');
-
+// Restore ISR: Revalidate every hour to keep content fresh while reducing DB load
+export const revalidate = 3600;
 export const dynamicParams = true;
 
 interface WikiPageProps {
@@ -103,22 +99,9 @@ export default async function WikiPage({ params, searchParams }: WikiPageProps) 
     notFound();
   }
 
-  // Check if user has permission to edit/delete wiki pages
-  let canEditWiki = false;
-  try {
-    const headersList = await headers();
-    const session = await auth.api.getSession({ headers: headersList } as Request);
-    if (session?.user) {
-      const githubService = await createGitHubServiceForUserOperations(session);
-      const { data: repoData } = await githubService['octokit'].repos.get({
-        owner,
-        repo,
-      });
-      canEditWiki = !!(repoData.permissions?.admin || repoData.permissions?.push);
-    }
-  } catch (error) {
-    logger.error('Failed to check repository permissions', error);
-  }
+  // Auth check moved to client-side to allow static caching of the page content
+  // The WikiPageClient (or a wrapper) should check for permissions if needed
+  const canEditWiki = false;
 
   // Increment view count (server action)
   await incrementViewCount({ owner, repo, slug, version: page.version });

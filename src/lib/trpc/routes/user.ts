@@ -1,11 +1,57 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from '@/lib/trpc/trpc';
+import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
-import { userApiKeys, tokenUsage, userSubscriptions } from '@/db/schema';
+import { userApiKeys, tokenUsage, userSubscriptions, user } from '@/db/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import { encryptApiKey } from '@/lib/utils/encryption';
+import { TRPCError } from '@trpc/server';
 
 export const userRouter = router({
+  // Profile Customization
+  updateProfileStyles: protectedProcedure
+    .input(z.object({
+      styles: z.object({
+        theme: z.enum(['light', 'dark', 'system', 'custom']).optional(),
+        primaryColor: z.string().optional(),
+        backgroundColor: z.string().optional(),
+        accentColor: z.string().optional(),
+        textColor: z.string().optional(),
+        sparkles: z.boolean().optional(),
+        emoji: z.string().optional(),
+        backgroundPattern: z.enum(['none', 'dots', 'grid']).optional(),
+      })
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // Check subscription status
+      const subscription = await db.query.userSubscriptions.findFirst({
+        where: eq(userSubscriptions.userId, ctx.user.id)
+      });
+      
+      if (!subscription || subscription.status !== 'active') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You must have an active subscription to customize your profile.'
+        });
+      }
+
+      await db.update(user)
+        .set({ profileStyles: input.styles })
+        .where(eq(user.id, ctx.user.id));
+
+      return { success: true };
+    }),
+
+  getProfileStyles: publicProcedure
+    .input(z.object({ username: z.string() }))
+    .query(async ({ input }) => {
+      const targetUser = await db.query.user.findFirst({
+        where: eq(user.githubUsername, input.username),
+        columns: { profileStyles: true }
+      });
+
+      return targetUser?.profileStyles || null;
+    }),
+
   // API Key Management
   saveApiKey: protectedProcedure
     .input(z.object({ 

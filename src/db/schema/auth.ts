@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, uniqueIndex, integer } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, uniqueIndex, integer, json } from 'drizzle-orm/pg-core';
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
@@ -9,6 +9,16 @@ export const user = pgTable('user', {
   githubUsername: text('github_username'),
   vmTier: text('vm_tier').default('free'), // 'free', 'pro', 'unlimited'
   role: text('role').default('user'), // 'user', 'admin'
+  profileStyles: json('profile_styles').$type<{
+    theme?: 'light' | 'dark' | 'system' | 'custom';
+    primaryColor?: string;
+    backgroundColor?: string;
+    accentColor?: string;
+    textColor?: string;
+    sparkles?: boolean;
+    emoji?: string;
+    backgroundPattern?: 'none' | 'dots' | 'grid';
+  }>(),
   createdAt: timestamp('createdAt').defaultNow(),
   updatedAt: timestamp('updatedAt').defaultNow(),
 });

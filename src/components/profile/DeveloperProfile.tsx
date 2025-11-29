@@ -23,11 +23,10 @@ interface DeveloperProfileProps {
 }
 
 // Add this component outside the main DeveloperProfile component
-function SparkleEffects() {
+function SparkleEffects({ chars = ['✨', '💖', '🌸', '🧚', '⭐', '🎀'] }: { chars?: string[] }) {
   const [sparkles, setSparkles] = useState<{ id: number; style: any; char: string }[]>([]);
 
   useEffect(() => {
-    const chars = ['✨', '💖', '🌸', '🧚', '⭐', '🎀'];
     let count = 0;
 
     const interval = setInterval(() => {
@@ -51,7 +50,7 @@ function SparkleEffects() {
     }, 800); // Add new sparkle every 800ms
 
     return () => clearInterval(interval);
-  }, []);
+  }, [chars]);
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
@@ -99,6 +98,13 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   const [progress, setProgress] = useState(0);
   const [logs, setLogs] = useState<string[]>([]);
   const [generateInput, setGenerateInput] = useState<{ username: string; includeCodeAnalysis?: boolean; selectedRepos?: string[] } | null>(null);
+  
+  // Fetch profile styles
+  const { data: profileStyles } = trpc.user.getProfileStyles.useQuery({ username }, {
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const toastIdRef = useCallback((id: string | number | null) => {
     // Using a closure to hold the toast ID if we needed it outside effects, 
     // but for now we just use a simple ref pattern if needed or just sonner's update mechanism
@@ -320,25 +326,43 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
       const isKnottedBrains = username.toLowerCase() === 'knottedbrains';
       // "Cracked" threshold lowered to 80 based on user feedback (90 was too exclusive)
       const isCracked = totalScore >= 80 || isKnottedBrains;
+      
+      // Use custom styles or defaults (keeping knottedbrains hardcoded overrides for now as well)
+      const showSparkles = isKnottedBrains || profileStyles?.sparkles;
+      const sparkleChars = profileStyles?.emoji ? [profileStyles.emoji] : undefined;
+      
+      const primaryColor = profileStyles?.primaryColor;
 
       return (
-      <div className="max-w-[1200px] mx-auto px-4 py-16 space-y-16 relative">
-        {isKnottedBrains && <SparkleEffects />}
+      <div 
+        className="max-w-[1200px] mx-auto px-4 py-16 space-y-16 relative"
+        style={{
+          backgroundColor: profileStyles?.backgroundColor || undefined,
+          color: profileStyles?.textColor || undefined,
+        }}
+      >
+        {showSparkles && <SparkleEffects chars={sparkleChars} />}
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8 border-b border-gray-100 pb-12 relative z-10">
           <div className="flex gap-8">
             <div className="relative">
-              <Avatar className={`h-24 w-24 border-2 shadow-sm ${
-                isKnottedBrains 
-                  ? 'border-pink-400 ring-4 ring-pink-400/30' 
-                  : isCracked 
-                    ? 'border-yellow-500 ring-4 ring-yellow-500/20' 
-                    : 'border-gray-200'
-              }`}>
+              <Avatar 
+                className={`h-24 w-24 border-2 shadow-sm ${
+                  isKnottedBrains 
+                    ? 'border-pink-400 ring-4 ring-pink-400/30' 
+                    : isCracked 
+                      ? 'border-yellow-500 ring-4 ring-yellow-500/20' 
+                      : 'border-gray-200'
+                }`}
+                style={profileStyles?.primaryColor ? { borderColor: profileStyles.primaryColor } : undefined}
+              >
                 <AvatarImage src={`https://avatars.githubusercontent.com/${username}`} alt={username} />
                 <AvatarFallback className="text-2xl bg-gray-50 text-gray-500">{username?.[0]?.toUpperCase()}</AvatarFallback>
               </Avatar>
               {isCracked && (
-                <div className={`absolute -bottom-2 -right-2 ${isKnottedBrains ? 'bg-pink-400' : 'bg-yellow-500'} text-white p-1.5 rounded-full border-2 border-white shadow-md`}>
+                <div 
+                  className={`absolute -bottom-2 -right-2 ${isKnottedBrains ? 'bg-pink-400' : 'bg-yellow-500'} text-white p-1.5 rounded-full border-2 border-white shadow-md`}
+                  style={profileStyles?.primaryColor ? { backgroundColor: profileStyles.primaryColor } : undefined}
+                >
                   {isKnottedBrains ? <Heart className="h-4 w-4 fill-current" /> : <Flame className="h-4 w-4 fill-current" />}
                 </div>
               )}
@@ -350,22 +374,29 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-4xl font-bold tracking-tight text-black hover:text-blue-600 transition-colors"
+                  style={profileStyles?.textColor ? { color: profileStyles.textColor } : undefined}
                 >
                   {username}
                 </a>
                 {isCracked && (
-                  <Badge className={`${isKnottedBrains ? 'bg-pink-400 hover:bg-pink-500' : 'bg-yellow-500 hover:bg-yellow-600'} text-white border-none px-3 py-1 text-sm font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5`}>
+                  <Badge 
+                    className={`${isKnottedBrains ? 'bg-pink-400 hover:bg-pink-500' : 'bg-yellow-500 hover:bg-yellow-600'} text-white border-none px-3 py-1 text-sm font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5`}
+                    style={profileStyles?.primaryColor ? { backgroundColor: profileStyles.primaryColor } : undefined}
+                  >
                     {isKnottedBrains ? <Flame className="h-3.5 w-3.5 fill-current" /> : <Flame className="h-3.5 w-3.5 fill-current" />}
                     CRACKED
                   </Badge>
                 )}
-                <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${
+                <div 
+                  className={`flex items-center gap-2 px-3 py-1 rounded-full border ${
                   isKnottedBrains
                     ? 'bg-pink-50 border-pink-200 text-pink-800'
                     : isCracked 
                       ? 'bg-yellow-50 border-yellow-200 text-yellow-800' 
                       : 'bg-gray-50 border-gray-200 text-gray-900'
-                }`}>
+                  }`}
+                  style={profileStyles?.primaryColor ? { borderColor: profileStyles.primaryColor, color: profileStyles.primaryColor, backgroundColor: `${profileStyles.primaryColor}10` } : undefined}
+                >
                    <span className="text-sm font-medium">Score: {totalScore}</span>
                 </div>
                 {arenaRanking && (

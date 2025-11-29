@@ -1,14 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Key, Trash2, BarChart3, Webhook } from 'lucide-react';
+import { Eye, EyeOff, Key, Trash2, BarChart3, Webhook, Palette } from 'lucide-react';
 import { PageHeader, CardWithHeader } from '@/components/common';
+import { HexColorPicker } from 'react-colorful';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
+// Add this simple debounce hook if not already available
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
 
 export default function SettingsPage() {
   const [apiKey, setApiKey] = useState('');
@@ -22,7 +36,43 @@ export default function SettingsPage() {
   const { data: currentPlan } = trpc.user.getCurrentPlan.useQuery();
   const { data: webhookPrefs, refetch: refetchWebhookPrefs } = trpc.webhooks.getPreferences.useQuery();
   const { data: installationInfo } = trpc.webhooks.getInstallationInfo.useQuery();
+
+  // Profile Customization State
+  const { data: currentUser } = trpc.me.useQuery();
+  const { data: profileStyles, isLoading: stylesLoading } = trpc.user.getProfileStyles.useQuery(
+    { username: currentUser?.user?.githubUsername || '' },
+    { enabled: !!currentUser?.user?.githubUsername }
+  );
+
+  const [localStyles, setLocalStyles] = useState<any>({});
   
+  useEffect(() => {
+    if (profileStyles) {
+      setLocalStyles(profileStyles);
+    }
+  }, [profileStyles]);
+
+  const updateStylesMutation = trpc.user.updateProfileStyles.useMutation({
+    onSuccess: () => {
+      // toast.success('Profile styles updated!'); // Silent update for smoother UX
+    },
+    onError: (err) => {
+      toast.error(err.message);
+    }
+  });
+
+  const debouncedStyles = useDebounce(localStyles, 1000);
+
+  useEffect(() => {
+    if (Object.keys(debouncedStyles).length > 0 && JSON.stringify(debouncedStyles) !== JSON.stringify(profileStyles)) {
+      updateStylesMutation.mutate({ styles: debouncedStyles });
+    }
+  }, [debouncedStyles]);
+
+  const handleStyleChange = (key: string, value: any) => {
+    setLocalStyles((prev: any) => ({ ...prev, [key]: value }));
+  };
+
   const saveApiKey = trpc.user.saveApiKey.useMutation({
     onSuccess: () => {
       toast.success('API Key saved successfully!');
@@ -32,6 +82,7 @@ export default function SettingsPage() {
       toast.error(err.message);
     }
   });
+
 
   const deleteApiKey = trpc.user.deleteApiKey.useMutation({
     onSuccess: () => {
@@ -90,6 +141,141 @@ export default function SettingsPage() {
       <PageHeader title="Settings" description="Manage your account settings and preferences" />
 
       <div className="grid gap-8">
+        {/* Profile Customization */}
+        <CardWithHeader
+          title="Profile Customization"
+          description="Personalize your developer profile with custom colors and effects."
+          icon={Palette}
+        >
+          {currentPlan?.plan === 'pro' || currentPlan?.plan === 'byok' ? (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>Primary Color</Label>
+                  <div className="flex gap-2 items-center">
+                    <div 
+                      className="w-10 h-10 rounded border cursor-pointer shadow-sm" 
+                      style={{ backgroundColor: localStyles.primaryColor || '#000000' }}
+                    >
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <div className="w-full h-full" />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-3">
+                          <HexColorPicker 
+                            color={localStyles.primaryColor || '#000000'} 
+                            onChange={(color) => handleStyleChange('primaryColor', color)} 
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <Input 
+                      value={localStyles.primaryColor || ''} 
+                      placeholder="#000000" 
+                      onChange={(e) => handleStyleChange('primaryColor', e.target.value)}
+                      className="font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Text Color</Label>
+                   <div className="flex gap-2 items-center">
+                    <div 
+                      className="w-10 h-10 rounded border cursor-pointer shadow-sm" 
+                      style={{ backgroundColor: localStyles.textColor || '#000000' }}
+                    >
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <div className="w-full h-full" />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-3">
+                          <HexColorPicker 
+                            color={localStyles.textColor || '#000000'} 
+                            onChange={(color) => handleStyleChange('textColor', color)} 
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <Input 
+                      value={localStyles.textColor || ''} 
+                      placeholder="#000000" 
+                      onChange={(e) => handleStyleChange('textColor', e.target.value)}
+                      className="font-mono"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Background Color</Label>
+                   <div className="flex gap-2 items-center">
+                    <div 
+                      className="w-10 h-10 rounded border cursor-pointer shadow-sm" 
+                      style={{ backgroundColor: localStyles.backgroundColor || '#ffffff' }}
+                    >
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <div className="w-full h-full" />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-3">
+                          <HexColorPicker 
+                            color={localStyles.backgroundColor || '#ffffff'} 
+                            onChange={(color) => handleStyleChange('backgroundColor', color)} 
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <Input 
+                      value={localStyles.backgroundColor || ''} 
+                      placeholder="#ffffff" 
+                      onChange={(e) => handleStyleChange('backgroundColor', e.target.value)}
+                      className="font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Sparkle Emoji</Label>
+                  <Input 
+                    value={localStyles.emoji || ''} 
+                    placeholder="✨" 
+                    maxLength={2}
+                    onChange={(e) => handleStyleChange('emoji', e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Emoji to use for sparkle effects</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t">
+                <div className="space-y-0.5">
+                  <Label htmlFor="sparkles-enabled">Enable Sparkle Effects</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Show floating animations on your profile
+                  </p>
+                </div>
+                <Switch
+                  id="sparkles-enabled"
+                  checked={localStyles.sparkles ?? false}
+                  onCheckedChange={(checked) => handleStyleChange('sparkles', checked)}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="bg-gray-50 p-6 rounded-lg text-center space-y-4">
+              <Palette className="h-12 w-12 text-gray-400 mx-auto" />
+              <div>
+                <h3 className="font-semibold text-lg">Unlock Profile Customization</h3>
+                <p className="text-muted-foreground max-w-md mx-auto mt-2">
+                  Upgrade to Pro to customize your profile colors, add sparkle effects, and make your developer identity truly yours.
+                </p>
+              </div>
+              <Button onClick={handleManageBilling} variant="default">
+                Upgrade to Customize
+              </Button>
+            </div>
+          )}
+        </CardWithHeader>
+
         {/* Current Plan */}
         <CardWithHeader
           title="Your Plan"

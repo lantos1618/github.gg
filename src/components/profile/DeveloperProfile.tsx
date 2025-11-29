@@ -18,13 +18,21 @@ import { ScoreHistory } from '@/components/ScoreHistory';
 import { toast } from 'sonner';
 import { LoadingPage, LoadingInline } from '@/components/common';
 
+interface SerializableInitialProfileData {
+  profile: DeveloperProfileType | null;
+  cached: boolean;
+  stale: boolean;
+  lastUpdated: string | null;
+}
+
 interface DeveloperProfileProps {
   username: string;
+  initialData?: SerializableInitialProfileData;
 }
 
 // Add this component outside the main DeveloperProfile component
 function SparkleEffects({ chars = ['✨', '💖', '🌸', '🧚', '⭐', '🎀'] }: { chars?: string[] }) {
-  const [sparkles, setSparkles] = useState<{ id: number; style: any; char: string }[]>([]);
+  const [sparkles, setSparkles] = useState<{ id: number; style: React.CSSProperties & Record<string, string | number>; char: string }[]>([]);
 
   useEffect(() => {
     let count = 0;
@@ -90,7 +98,12 @@ function SparkleEffects({ chars = ['✨', '💖', '🌸', '🧚', '⭐', '🎀']
   );
 }
 
-export function DeveloperProfile({ username }: DeveloperProfileProps) {
+type GenerationEvent = 
+  | { type: 'progress'; progress: number; message: string }
+  | { type: 'complete'; data: { profile: DeveloperProfileType; cached: boolean; stale: boolean; lastUpdated: Date } }
+  | { type: 'error'; message: string };
+
+export function DeveloperProfile({ username, initialData }: DeveloperProfileProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [showRepoSelector, setShowRepoSelector] = useState(false);
@@ -117,17 +130,25 @@ export function DeveloperProfile({ username }: DeveloperProfileProps) {
   // Fetch all available versions
   const { data: versions, isLoading: versionsLoading } = trpc.profile.getProfileVersions.useQuery({ username });
 
+  const queryInitialData = initialData ? {
+    ...initialData,
+    lastUpdated: initialData.lastUpdated ? new Date(initialData.lastUpdated) : null
+  } : undefined;
+
   // Use the new public endpoint for cached profile
   const { data: publicProfile, isLoading: publicLoading } = selectedVersion !== null
     ? trpc.profile.getProfileByVersion.useQuery({ username, version: selectedVersion }, { enabled: !!username && selectedVersion !== null })
-    : trpc.profile.publicGetProfile.useQuery({ username }, { enabled: !!username });
+    : trpc.profile.publicGetProfile.useQuery({ username }, { 
+        enabled: !!username,
+        initialData: queryInitialData
+      });
 
   // Generate profile subscription
   trpc.profile.generateProfileMutation.useSubscription(
     generateInput || { username, includeCodeAnalysis: false },
     {
       enabled: shouldGenerate && !!generateInput,
-      onData: (event: any) => {
+      onData: (event: GenerationEvent) => {
         if (event.type === 'progress') {
           const newProgress = event.progress || 0;
           const newMessage = event.message || '';

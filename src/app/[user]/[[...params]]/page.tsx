@@ -12,6 +12,8 @@ import { createGitHubServiceFromSession } from '@/lib/github';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
+import { getProfileData } from '@/lib/profile/service';
+import type { DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
 
 interface PageProps {
   params: Promise<{
@@ -20,10 +22,17 @@ interface PageProps {
   }>;
 }
 
+interface SerializableInitialProfileData {
+  profile: DeveloperProfileType | null;
+  cached: boolean;
+  stale: boolean;
+  lastUpdated: string | null;
+}
+
 import { DeveloperProfile } from '@/components/profile';
 
-function UserClientView({ user }: { user: string }) {
-  return <DeveloperProfile username={user} />;
+function UserClientView({ user, initialProfile }: { user: string, initialProfile?: SerializableInitialProfileData }) {
+  return <DeveloperProfile username={user} initialData={initialProfile} />;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -42,10 +51,30 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     }
   }
 
+  const { profile } = await getProfileData(user);
+
+  const title = profile ? `${user} | GitHub.gg Profile` : `${user} - GitHub Developer Analysis`;
+  const description = profile?.summary 
+    ? `${profile.summary.slice(0, 150)}...` 
+    : `Generate an AI-powered analysis to uncover insights about ${user}. View coding style, skills, and top repositories.`;
+
   return {
+    title,
+    description,
     alternates: {
       canonical: `https://github.gg${canonicalPath}`,
     },
+    openGraph: {
+      title,
+      description,
+      images: [{ url: `https://avatars.githubusercontent.com/${user}` }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [`https://avatars.githubusercontent.com/${user}`],
+    }
   };
 }
 
@@ -54,10 +83,18 @@ export default async function Page({ params }: PageProps) {
   const { user, params: rest = [] } = awaitedParams;
   
   if (!user) return notFound();
-  if (!rest || rest.length === 0) return <UserClientView user={user} />;
+
+  // Fetch initial profile data for SSR
+  const data = await getProfileData(user);
+  const initialProfile: SerializableInitialProfileData = {
+    ...data,
+    lastUpdated: data.lastUpdated?.toISOString() ?? null,
+  };
+
+  if (!rest || rest.length === 0) return <UserClientView user={user} initialProfile={initialProfile} />;
   
   const repo = rest[0];
-  if (!repo) return <UserClientView user={user} />;
+  if (!repo) return <UserClientView user={user} initialProfile={initialProfile} />;
 
   // Try to get branch names for enhanced parsing
   let branchNames: string[] = [];

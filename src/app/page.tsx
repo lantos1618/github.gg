@@ -1,7 +1,6 @@
 'use client';
 
-import { HeroSection } from '@/components/home';
-import { FeatureGrid } from '@/components/home/FeatureGrid';
+import { HeroSection, FeatureGrid, CallToAction } from '@/components/home';
 import { GitHubDashboard } from '@/components/GitHubDashboard';
 import { useAuth } from '@/lib/auth/client';
 
@@ -26,6 +25,7 @@ export default function Home() {
     <div className="min-h-screen bg-white selection:bg-black selection:text-white">
       <HeroSection />
       <FeatureGrid />
+      <CallToAction />
     </div>
   );
 }

@@ -47,6 +47,7 @@ export function HeroSection() {
 
   return (
     <div className="relative bg-white overflow-hidden min-h-[80vh] flex flex-col justify-center">
+      <div className="absolute inset-0 bg-gradient-to-b from-blue-50/40 via-white to-white pointer-events-none" />
       <div className="container mx-auto px-4 relative z-10">
         <motion.div
           className="max-w-4xl mx-auto text-center"
@@ -59,21 +60,17 @@ export function HeroSection() {
 
 
           <motion.h1
-            className="text-6xl md:text-8xl font-bold text-black mb-8 tracking-tighter leading-[0.9] select-none"
+            className="text-7xl md:text-9xl font-bold text-black mb-8 tracking-tighter leading-[0.9] select-none"
             variants={fadeUpVariants}
           >
-            Stop reading code.
-            <br />
-            <span className="text-gray-400">
-              Start understanding.
-            </span>
+            Git <span className="text-gray-400">Good.</span>
           </motion.h1>
 
           <motion.p
             className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto font-light tracking-wide"
             variants={fadeUpVariants}
           >
-            Instant architectural diagrams, quality scores, and AI documentation.
+            The missing intelligence layer for your code.
           </motion.p>
 
           {/* The Value Interface */}
@@ -82,23 +79,23 @@ export function HeroSection() {
             className="max-w-xl mx-auto mb-12"
           >
             <form onSubmit={handleAnalyze} className="relative group">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-black">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-black z-10">
                 <Github className="h-6 w-6" />
               </div>
               <Input
                 type="text"
                 placeholder="github.com/owner/repo"
-                className="pl-14 h-16 text-lg border-2 border-gray-100 bg-white rounded-2xl focus:border-black focus:ring-0 transition-all duration-300 placeholder:text-gray-300 font-mono shadow-sm group-hover:shadow-md"
+                className="pl-14 h-16 text-lg border border-gray-200 bg-white/50 backdrop-blur-sm rounded-2xl focus:border-black focus:ring-1 focus:ring-black/5 transition-all duration-300 placeholder:text-gray-400 font-mono shadow-sm group-hover:shadow-lg"
                 value={repoUrl}
                 onChange={(e) => setRepoUrl(e.target.value)}
                 autoFocus
               />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
                 <Button 
                   size="lg" 
                   type="submit"
                   disabled={isAnalyzing}
-                  className="h-12 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all hover:scale-105 active:scale-95"
+                  className="h-12 px-6 bg-black hover:bg-gray-800 text-white rounded-xl font-medium transition-all hover:scale-105 active:scale-95 shadow-lg shadow-black/10"
                 >
                   {isAnalyzing ? (
                     <span className="animate-pulse">Analyzing...</span>
@@ -110,11 +107,13 @@ export function HeroSection() {
             </form>
           </motion.div>
 
-          <motion.div variants={fadeUpVariants} className="flex flex-wrap justify-center gap-6 text-sm text-gray-400 font-mono">
-            <span className="text-gray-300">Try:</span>
-            <button onClick={() => { setRepoUrl('facebook/react'); }} className="hover:text-black transition-colors border-b border-transparent hover:border-black">facebook/react</button>
-            <button onClick={() => { setRepoUrl('vercel/next.js'); }} className="hover:text-black transition-colors border-b border-transparent hover:border-black">vercel/next.js</button>
-            <button onClick={() => { setRepoUrl('lantos1618/github.gg'); }} className="hover:text-black transition-colors border-b border-transparent hover:border-black">this repo</button>
+          <motion.div variants={fadeUpVariants} className="flex flex-col items-center gap-8">
+            <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-400 font-mono">
+              <span className="text-gray-300">Try:</span>
+              <button onClick={() => { setRepoUrl('browser-use/browser-use'); }} className="hover:text-black transition-colors border-b border-transparent hover:border-black">browser-use/browser-use</button>
+              <button onClick={() => { setRepoUrl('shadcn-ui/ui'); }} className="hover:text-black transition-colors border-b border-transparent hover:border-black">shadcn-ui/ui</button>
+              <button onClick={() => { setRepoUrl('lantos1618/github.gg'); }} className="hover:text-black transition-colors border-b border-transparent hover:border-black">this repo</button>
+            </div>
           </motion.div>
 
         </motion.div>

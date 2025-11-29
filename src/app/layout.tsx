@@ -20,8 +20,37 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GG",
-  description: "GG - The missing intelligence layer for GitHub",
+  title: {
+    default: "GG | The Missing Intelligence Layer for GitHub",
+    template: "%s | GG"
+  },
+  description: "Instant architectural diagrams, quality scores, and AI documentation for any GitHub repository. Stop reading code, start understanding.",
+  keywords: ["GitHub analysis", "code visualization", "architectural diagrams", "code quality metrics", "AI documentation", "developer tools", "repo visualization"],
+  authors: [{ name: "GG Team" }],
+  creator: "GG Team",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://github.gg",
+    title: "GG | The Missing Intelligence Layer for GitHub",
+    description: "Instant architectural diagrams, quality scores, and AI documentation for any GitHub repository.",
+    siteName: "GG",
+    images: [
+      {
+        url: "/og-image.png", // We'll need to ensure this exists or use a fallback
+        width: 1200,
+        height: 630,
+        alt: "GG - GitHub Intelligence Layer",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GG | The Missing Intelligence Layer for GitHub",
+    description: "Instant architectural diagrams, quality scores, and AI documentation for any GitHub repository.",
+    images: ["/og-image.png"],
+    creator: "@github_gg", // Placeholder handle
+  },
   icons: {
     icon: [
       { url: '/favicon/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
@@ -46,6 +75,24 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
       >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              "name": "GG",
+              "applicationCategory": "DeveloperApplication",
+              "operatingSystem": "Web",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+              },
+              "description": "Instant architectural diagrams, quality scores, and AI documentation for any GitHub repository."
+            })
+          }}
+        />
         <PostHogProvider>
           <TRPCProvider>
             <NavbarServer />

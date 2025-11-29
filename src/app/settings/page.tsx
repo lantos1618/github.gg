@@ -44,7 +44,7 @@ export default function SettingsPage() {
     { enabled: !!currentUser?.user?.githubUsername }
   );
 
-  const [localStyles, setLocalStyles] = useState<any>({});
+  const [localStyles, setLocalStyles] = useState<Record<string, string | boolean | undefined>>({});
   
   useEffect(() => {
     if (profileStyles) {
@@ -65,12 +65,13 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (Object.keys(debouncedStyles).length > 0 && JSON.stringify(debouncedStyles) !== JSON.stringify(profileStyles)) {
+      // @ts-expect-error - types for styles are flexible
       updateStylesMutation.mutate({ styles: debouncedStyles });
     }
   }, [debouncedStyles]);
 
-  const handleStyleChange = (key: string, value: any) => {
-    setLocalStyles((prev: any) => ({ ...prev, [key]: value }));
+  const handleStyleChange = (key: string, value: string | boolean) => {
+    setLocalStyles((prev) => ({ ...prev, [key]: value }));
   };
 
   const saveApiKey = trpc.user.saveApiKey.useMutation({

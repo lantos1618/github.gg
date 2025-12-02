@@ -103,14 +103,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description,
       images: [`https://avatars.githubusercontent.com/${user}`],
     },
-    robots: isComingSoon
-      ? {
-          index: false,
-          follow: false,
-          noindex: true,
-          nofollow: true,
-        }
-      : undefined,
+    robots: isComingSoon ? 'noindex, nofollow' : undefined,
   };
 }
 

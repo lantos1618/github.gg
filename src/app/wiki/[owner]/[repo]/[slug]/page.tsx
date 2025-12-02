@@ -36,12 +36,7 @@ export async function generateMetadata({ params, searchParams }: WikiPageProps):
   if (!page) {
     return {
       title: 'Wiki Page Not Found',
-      robots: {
-        index: false,
-        follow: false,
-        noindex: true,
-        nofollow: true,
-      },
+      robots: 'noindex, nofollow',
     };
   }
 

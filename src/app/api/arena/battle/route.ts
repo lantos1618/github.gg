@@ -21,11 +21,17 @@ import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { createLogger } from '@/lib/logging';
+import {
+  checkAIRateLimit,
+  acquireGenerationLock,
+  releaseGenerationLock,
+} from '@/lib/rate-limit';
 
 const logger = createLogger('ArenaBattle');
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minutes
+const HEARTBEAT_INTERVAL_MS = 5000; // Send heartbeat every 5 seconds
 
 function isProfileStale(updatedAt: Date): boolean {
   return new Date().getTime() - updatedAt.getTime() > 24 * 60 * 60 * 1000;
@@ -45,16 +51,65 @@ export async function GET(req: NextRequest) {
     return new Response('Unauthorized', { status: 401 });
   }
 
+  // Rate limiting
+  const rateLimit = await checkAIRateLimit(session.user.id);
+  if (!rateLimit.success) {
+    return new Response(
+      JSON.stringify({
+        error: 'Rate limit exceeded. Please wait before starting another battle.',
+        retryAfter: Math.ceil((rateLimit.reset - Date.now()) / 1000),
+      }),
+      {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-RateLimit-Limit': String(rateLimit.limit),
+          'X-RateLimit-Remaining': String(rateLimit.remaining),
+          'X-RateLimit-Reset': String(rateLimit.reset),
+          'Retry-After': String(Math.ceil((rateLimit.reset - Date.now()) / 1000)),
+        },
+      }
+    );
+  }
+
   const encoder = new TextEncoder();
+  const lockKey = `battle:${battleId}`;
+  let isAborted = false;
+  let heartbeatInterval: NodeJS.Timeout | null = null;
+  let lockAcquired = false;
+
   const stream = new ReadableStream({
     async start(controller) {
       const sendEvent = (event: string, data: unknown) => {
-        controller.enqueue(
-          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
-        );
+        if (isAborted) return;
+        try {
+          controller.enqueue(
+            encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+          );
+        } catch {
+          isAborted = true;
+        }
       };
 
+      // Start heartbeat to keep connection alive during long operations
+      heartbeatInterval = setInterval(() => {
+        if (!isAborted) {
+          sendEvent('heartbeat', { timestamp: Date.now() });
+        }
+      }, HEARTBEAT_INTERVAL_MS);
+
       try {
+        // Try to acquire battle lock to prevent duplicate execution
+        lockAcquired = await acquireGenerationLock(lockKey, 300);
+        if (!lockAcquired) {
+          sendEvent('error', {
+            status: 'error',
+            message: 'This battle is already being processed. Please wait.',
+          });
+          controller.close();
+          return;
+        }
+
         sendEvent('progress', { status: 'initializing', progress: 0, message: 'Initializing battle...' });
 
         // Get battle
@@ -440,7 +495,26 @@ export async function GET(req: NextRequest) {
           message: error instanceof Error ? error.message : 'Unknown error',
         });
         controller.close();
+      } finally {
+        // Cleanup: stop heartbeat and release lock
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval);
+        }
+        if (lockAcquired) {
+          await releaseGenerationLock(lockKey);
+        }
       }
+    },
+    cancel() {
+      // Client disconnected - cleanup resources
+      isAborted = true;
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+      }
+      if (lockAcquired) {
+        releaseGenerationLock(lockKey).catch(console.error);
+      }
+      logger.info('SSE: Client disconnected from battle, resources cleaned up');
     },
   });
 

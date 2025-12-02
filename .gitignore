@@ -54,3 +54,4 @@ docker-compose.override.yml
 # OVH credentials
 ovh.conf
 *.ovh
+.env*.local

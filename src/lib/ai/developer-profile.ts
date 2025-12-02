@@ -46,24 +46,53 @@ function extractEmailFromPatch(patchText: string): string | null {
 /**
  * Find the real email of a GitHub user by scanning their commits in public repos.
  * Returns the most frequent non-noreply email, or null if none found.
- * Fallback: If API doesn't return emails, fetch commit patches to extract them.
+ *
+ * IMPORTANT: This function is rate-limited to prevent self-DDoS:
+ * - Max 3 repos scanned
+ * - Max 10 commits per repo
+ * - Max 3 patch fetches total (expensive fallback)
  */
+const MAX_REPOS_TO_SCAN = 3;
+const MAX_COMMITS_PER_REPO = 10;
+const MAX_PATCH_FETCHES = 3;
+
 export async function findAndStoreDeveloperEmail(octokit: Octokit, username: string, repos: { name: string }[]): Promise<string | null> {
   const emailCounts: Record<string, number> = {};
   let bestEmail: string | null = null;
   let bestRepo: string | null = null;
+  let patchFetchCount = 0;
 
-  for (const repo of repos) {
+  // Only scan top 3 repos (sorted by stars if available, otherwise take first 3)
+  const reposToScan = repos.slice(0, MAX_REPOS_TO_SCAN);
+  console.log(`📧 Scanning ${reposToScan.length} repos for email (max ${MAX_REPOS_TO_SCAN})`);
+
+  for (const repo of reposToScan) {
+    // Early exit if we already found a good email
+    if (bestEmail && emailCounts[bestEmail] >= 3) {
+      console.log(`📧 Found confident email (${emailCounts[bestEmail]} occurrences), stopping scan`);
+      break;
+    }
+
     try {
-      const { data: commits } = await octokit.repos.listCommits({ owner: username, repo: repo.name, per_page: 30 });
+      const { data: commits } = await octokit.repos.listCommits({
+        owner: username,
+        repo: repo.name,
+        per_page: MAX_COMMITS_PER_REPO
+      });
 
       for (const commit of commits) {
         const login = commit.author?.login;
         let email = commit.commit?.author?.email;
 
         // If no email in API response or it's a noreply email, try fetching the patch as fallback
-        if (login === username && (!email || email.includes('noreply.github.com') || email.endsWith('@github.com'))) {
+        // But limit patch fetches to avoid too many requests
+        if (
+          login === username &&
+          (!email || email.includes('noreply.github.com') || email.endsWith('@github.com')) &&
+          patchFetchCount < MAX_PATCH_FETCHES
+        ) {
           try {
+            patchFetchCount++;
             // Fetch commit patch to extract real email
             const patchResponse = await fetch(`https://github.com/${username}/${repo.name}/commit/${commit.sha}.patch`);
             if (patchResponse.ok) {

@@ -11,7 +11,8 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
       queries: {
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
-        retry: 1,
+        // IMPORTANT: our backend work is expensive; never auto-retry API calls
+        retry: false,
         staleTime: 5 * 60 * 1000, // 5 minutes
       },
     },

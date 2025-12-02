@@ -11,6 +11,7 @@ import { createGitHubServiceForUserOperations, createPublicGitHubService } from 
 import type { DeveloperProfile } from '@/lib/types/profile';
 import { Octokit } from '@octokit/rest';
 import { handleTRPCGitHubError } from '@/lib/github/error-handler';
+import { getCachedStargazerStatus, setCachedStargazerStatus } from '@/lib/rate-limit';
 
 export const profileRouter = router({
   getUserRepositories: protectedProcedure
@@ -177,9 +178,18 @@ export const profileRouter = router({
         // If no active subscription, check for star credit
         if (!subscription || subscription.status !== 'active') {
           try {
-            const githubService = await createGitHubServiceForUserOperations(ctx.session);
-            const hasStarred = await githubService.hasStarredRepo('lantos1618', 'github.gg');
-            
+            // Check cached stargazer status first to reduce GitHub API calls
+            const STARGAZER_REPO = 'lantos1618/github.gg';
+            let hasStarred = await getCachedStargazerStatus(ctx.user.id, STARGAZER_REPO);
+
+            // If not cached, fetch from GitHub and cache
+            if (hasStarred === null) {
+              const githubService = await createGitHubServiceForUserOperations(ctx.session);
+              hasStarred = await githubService.hasStarredRepo('lantos1618', 'github.gg');
+              // Cache the result for 1 hour
+              await setCachedStargazerStatus(ctx.user.id, STARGAZER_REPO, hasStarred);
+            }
+
             if (hasStarred) {
               // Check monthly usage
               const oneMonthAgo = new Date();

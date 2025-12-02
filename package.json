@@ -63,6 +63,8 @@
     "@trpc/server": "^11.6.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "@upstash/ratelimit": "^2.0.7",
+    "@upstash/redis": "^1.35.7",
     "@vercel/analytics": "^1.5.0",
     "@vercel/kv": "^3.0.0",
     "@xterm/addon-fit": "^0.10.0",

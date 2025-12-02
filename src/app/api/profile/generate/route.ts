@@ -15,11 +15,17 @@ import {
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import type { DeveloperProfile } from '@/lib/types/profile';
+import {
+  checkAIRateLimit,
+  acquireGenerationLock,
+  releaseGenerationLock,
+} from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minutes
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
+const HEARTBEAT_INTERVAL_MS = 5000; // Send heartbeat every 5 seconds
 
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
@@ -38,20 +44,71 @@ export async function GET(req: NextRequest) {
     return new Response('Unauthorized', { status: 401 });
   }
 
+  // Rate limiting
+  const rateLimit = await checkAIRateLimit(session.user.id);
+  if (!rateLimit.success) {
+    return new Response(
+      JSON.stringify({
+        error: 'Rate limit exceeded. Please wait before generating another profile.',
+        retryAfter: Math.ceil((rateLimit.reset - Date.now()) / 1000),
+      }),
+      {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-RateLimit-Limit': String(rateLimit.limit),
+          'X-RateLimit-Remaining': String(rateLimit.remaining),
+          'X-RateLimit-Reset': String(rateLimit.reset),
+          'Retry-After': String(Math.ceil((rateLimit.reset - Date.now()) / 1000)),
+        },
+      }
+    );
+  }
+
   const encoder = new TextEncoder();
+  const normalizedUsername = username.toLowerCase();
+  const lockKey = `profile:${normalizedUsername}`;
+
+  // Create an AbortController to detect client disconnect
+  const abortController = new AbortController();
+  let isAborted = false;
+  let heartbeatInterval: NodeJS.Timeout | null = null;
+  let lockAcquired = false;
 
   const stream = new ReadableStream({
     async start(controller) {
       const sendEvent = (event: string, data: unknown) => {
-        controller.enqueue(
-          encoder.encode(
-            `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`,
-          ),
-        );
+        if (isAborted) return;
+        try {
+          controller.enqueue(
+            encoder.encode(
+              `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`,
+            ),
+          );
+        } catch {
+          // Controller may be closed
+          isAborted = true;
+        }
       };
 
+      // Start heartbeat to keep connection alive during long operations
+      heartbeatInterval = setInterval(() => {
+        if (!isAborted) {
+          sendEvent('heartbeat', { timestamp: Date.now() });
+        }
+      }, HEARTBEAT_INTERVAL_MS);
+
       try {
-        const normalizedUsername = username.toLowerCase();
+        // Try to acquire generation lock to prevent duplicate concurrent requests
+        lockAcquired = await acquireGenerationLock(lockKey, 300);
+        if (!lockAcquired) {
+          sendEvent('error', {
+            type: 'error',
+            message: 'Profile generation already in progress for this user. Please wait.',
+          });
+          controller.close();
+          return;
+        }
 
         sendEvent('progress', {
           type: 'progress',
@@ -511,7 +568,27 @@ export async function GET(req: NextRequest) {
           message,
         });
         controller.close();
+      } finally {
+        // Cleanup: stop heartbeat and release lock
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval);
+        }
+        if (lockAcquired) {
+          await releaseGenerationLock(lockKey);
+        }
       }
+    },
+    cancel() {
+      // Client disconnected - cleanup resources
+      isAborted = true;
+      abortController.abort();
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+      }
+      if (lockAcquired) {
+        releaseGenerationLock(lockKey).catch(console.error);
+      }
+      console.log('SSE: Client disconnected, resources cleaned up');
     },
   });
 

@@ -24,17 +24,6 @@
       ],
       "destination": "https://github.gg/:path*",
       "permanent": true
-    },
-    {
-      "source": "/(.*)",
-      "has": [
-        {
-          "type": "scheme",
-          "value": "http"
-        }
-      ],
-      "destination": "https://github.gg/:path*",
-      "permanent": true
     }
   ],
   "rewrites": [

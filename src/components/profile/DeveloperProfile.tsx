@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
 import { SkillAssessment } from './SkillAssessment';
@@ -107,10 +107,10 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [showRepoSelector, setShowRepoSelector] = useState(false);
-  const [shouldGenerate, setShouldGenerate] = useState(false);
   const [progress, setProgress] = useState(0);
   const [logs, setLogs] = useState<string[]>([]);
   const [generateInput, setGenerateInput] = useState<{ username: string; includeCodeAnalysis?: boolean; selectedRepos?: string[] } | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
   
   // Fetch profile styles
   const { data: profileStyles } = trpc.user.getProfileStyles.useQuery({ username }, {
@@ -143,78 +143,15 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
         initialData: queryInitialData
       });
 
-  // Generate profile subscription
-  trpc.profile.generateProfileMutation.useSubscription(
-    generateInput || { username, includeCodeAnalysis: false },
-    {
-      enabled: shouldGenerate && !!generateInput,
-      onData: (data) => {
-        const event = data as unknown as GenerationEvent;
-        if (event.type === 'progress') {
-          const newProgress = event.progress || 0;
-          const newMessage = event.message || '';
-          setProgress(newProgress);
-          if (newMessage) {
-            setLogs(prev => {
-              // Avoid duplicate consecutive logs
-              if (prev.length > 0 && prev[prev.length - 1] === newMessage) return prev;
-              return [...prev, newMessage];
-            });
-          }
-          setIsGenerating(true);
-          
-          // Responsive feedback via toast
-          if (activeToastId[0]) {
-            toast.loading(`${newMessage} (${newProgress}%)`, { id: activeToastId[0] });
-          } else {
-            const id = toast.loading(`${newMessage} (${newProgress}%)`);
-            activeToastId[1](id);
-          }
-        } else if (event.type === 'complete') {
-          setIsGenerating(false);
-          setShouldGenerate(false);
-          setProgress(0);
-          setLogs([]);
-          
-          // Invalidate queries to refresh the data
-          utils.profile.publicGetProfile.invalidate({ username });
-          utils.profile.getProfileVersions.invalidate({ username });
-          
-          if (activeToastId[0]) {
-            toast.success('Profile refreshed successfully!', { id: activeToastId[0] });
-            activeToastId[1](null);
-          } else {
-          toast.success('Profile refreshed successfully!');
-          }
-        } else if (event.type === 'error') {
-          setIsGenerating(false);
-          setShouldGenerate(false);
-          setProgress(0);
-          // Keep logs for debugging if needed, or clear them?
-          // Let's clear them after a delay or keep them visible until manual dismiss? 
-          // For now, keep them visible so user sees what happened.
-          console.error('Profile generation error:', event.message);
-          
-          if (activeToastId[0]) {
-            toast.error(event.message || 'Failed to generate profile', { id: activeToastId[0] });
-            activeToastId[1](null);
-          } else {
-          toast.error(event.message || 'Failed to generate profile');
-        }
-        }
-      },
-      onError: (err) => {
-        setIsGenerating(false);
-        setShouldGenerate(false);
-        if (activeToastId[0]) {
-          toast.error(err.message || 'Failed to connect to generation service', { id: activeToastId[0] });
-          activeToastId[1](null);
-        } else {
-          toast.error(err.message || 'Failed to connect to generation service');
-        }
+  // Cleanup EventSource on unmount
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
       }
-    }
-  );
+    };
+  }, []);
 
   // Check user plan and current user
   const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery(undefined, {
@@ -263,25 +200,243 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
 
   // Handle profile generation
   const handleGenerateProfile = useCallback(() => {
+    if (isGenerating) return;
+
     setProgress(0);
     setLogs([]);
     setGenerateInput({ username, includeCodeAnalysis: true });
-    setShouldGenerate(true);
-    // Start toast immediately
-    const id = toast.loading("Initializing analysis...");
+
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+
+    const id = toast.loading('Initializing analysis...');
     activeToastId[1](id);
-  }, [username, activeToastId]);
+
+    const params = new URLSearchParams({
+      username,
+      includeCodeAnalysis: 'true',
+    });
+
+    const eventSource = new EventSource(
+      `/api/profile/generate?${params.toString()}`,
+    );
+    eventSourceRef.current = eventSource;
+    setIsGenerating(true);
+
+    eventSource.addEventListener('progress', (rawEvent) => {
+      try {
+        const messageEvent = rawEvent as MessageEvent;
+        const event = JSON.parse(
+          messageEvent.data,
+        ) as unknown as GenerationEvent;
+
+        if (event.type === 'progress') {
+          const newProgress = event.progress || 0;
+          const newMessage = event.message || '';
+          setProgress(newProgress);
+          if (newMessage) {
+            setLogs((prev) => {
+              if (prev.length > 0 && prev[prev.length - 1] === newMessage) {
+                return prev;
+              }
+              return [...prev, newMessage];
+            });
+          }
+
+          if (activeToastId[0]) {
+            toast.loading(`${newMessage} (${newProgress}%)`, {
+              id: activeToastId[0],
+            });
+          } else {
+            const loadingId = toast.loading(
+              `${newMessage} (${newProgress}%)`,
+            );
+            activeToastId[1](loadingId);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to parse progress event:', error);
+      }
+    });
+
+    eventSource.addEventListener('complete', (rawEvent) => {
+      try {
+        const messageEvent = rawEvent as MessageEvent;
+        const event = JSON.parse(
+          messageEvent.data,
+        ) as unknown as GenerationEvent;
+
+        if (event.type === 'complete') {
+          setIsGenerating(false);
+          setProgress(0);
+          setLogs([]);
+          eventSource.close();
+          eventSourceRef.current = null;
+
+          utils.profile.publicGetProfile.invalidate({ username });
+          utils.profile.getProfileVersions.invalidate({ username });
+
+          if (activeToastId[0]) {
+            toast.success('Profile refreshed successfully!', {
+              id: activeToastId[0],
+            });
+            activeToastId[1](null);
+          } else {
+            toast.success('Profile refreshed successfully!');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to parse complete event:', error);
+      }
+    });
+
+    const handleError = (rawEvent: Event) => {
+      console.error('Profile generation SSE error:', rawEvent);
+      setIsGenerating(false);
+      setProgress(0);
+
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+
+      if (activeToastId[0]) {
+        toast.error('Failed to generate profile', {
+          id: activeToastId[0],
+        });
+        activeToastId[1](null);
+      } else {
+        toast.error('Failed to generate profile');
+      }
+    };
+
+    eventSource.addEventListener('error', handleError);
+    eventSource.onerror = handleError;
+  }, [username, activeToastId, utils, isGenerating]);
 
   // Handle profile generation with selected repos
   const handleGenerateWithSelectedRepos = useCallback((selectedRepoNames: string[]) => {
+    if (isGenerating) return;
+
     setProgress(0);
     setLogs([]);
     setGenerateInput({ username, includeCodeAnalysis: true, selectedRepos: selectedRepoNames });
-    setShouldGenerate(true);
-    // Start toast immediately
-    const id = toast.loading("Initializing analysis with selected repos...");
+
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+
+    const id = toast.loading('Initializing analysis with selected repos...');
     activeToastId[1](id);
-  }, [username, activeToastId]);
+
+    const params = new URLSearchParams({
+      username,
+      includeCodeAnalysis: 'true',
+    });
+
+    selectedRepoNames.forEach((name) => {
+      params.append('selectedRepo', name);
+    });
+
+    const eventSource = new EventSource(
+      `/api/profile/generate?${params.toString()}`,
+    );
+    eventSourceRef.current = eventSource;
+    setIsGenerating(true);
+
+    eventSource.addEventListener('progress', (rawEvent) => {
+      try {
+        const messageEvent = rawEvent as MessageEvent;
+        const event = JSON.parse(
+          messageEvent.data,
+        ) as unknown as GenerationEvent;
+
+        if (event.type === 'progress') {
+          const newProgress = event.progress || 0;
+          const newMessage = event.message || '';
+          setProgress(newProgress);
+          if (newMessage) {
+            setLogs((prev) => {
+              if (prev.length > 0 && prev[prev.length - 1] === newMessage) {
+                return prev;
+              }
+              return [...prev, newMessage];
+            });
+          }
+
+          if (activeToastId[0]) {
+            toast.loading(`${newMessage} (${newProgress}%)`, {
+              id: activeToastId[0],
+            });
+          } else {
+            const loadingId = toast.loading(
+              `${newMessage} (${newProgress}%)`,
+            );
+            activeToastId[1](loadingId);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to parse progress event:', error);
+      }
+    });
+
+    eventSource.addEventListener('complete', (rawEvent) => {
+      try {
+        const messageEvent = rawEvent as MessageEvent;
+        const event = JSON.parse(
+          messageEvent.data,
+        ) as unknown as GenerationEvent;
+
+        if (event.type === 'complete') {
+          setIsGenerating(false);
+          setProgress(0);
+          setLogs([]);
+          eventSource.close();
+          eventSourceRef.current = null;
+
+          utils.profile.publicGetProfile.invalidate({ username });
+          utils.profile.getProfileVersions.invalidate({ username });
+
+          if (activeToastId[0]) {
+            toast.success('Profile refreshed successfully!', {
+              id: activeToastId[0],
+            });
+            activeToastId[1](null);
+          } else {
+            toast.success('Profile refreshed successfully!');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to parse complete event:', error);
+      }
+    });
+
+    const handleError = (rawEvent: Event) => {
+      console.error('Profile generation SSE error (selected repos):', rawEvent);
+      setIsGenerating(false);
+      setProgress(0);
+
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+
+      if (activeToastId[0]) {
+        toast.error('Failed to generate profile', {
+          id: activeToastId[0],
+        });
+        activeToastId[1](null);
+      } else {
+        toast.error('Failed to generate profile');
+      }
+    };
+
+    eventSource.addEventListener('error', handleError);
+    eventSource.onerror = handleError;
+  }, [username, activeToastId, utils, isGenerating]);
 
   const handleChallenge = useCallback(() => {
     router.push(`/arena?opponent=${username}`);
@@ -466,7 +621,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
             {isOwnProfile && (
               <Button
                 onClick={() => setShowRepoSelector(true)}
-                disabled={isGenerating || shouldGenerate || reposLoading}
+                disabled={isGenerating || reposLoading}
                 variant="outline"
                 className="h-12 px-6 border-gray-200 hover:border-black transition-colors"
               >
@@ -478,11 +633,11 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
             {(isOwnProfile || (currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro'))) && (
               <Button
                 onClick={handleGenerateProfile}
-                disabled={isGenerating || shouldGenerate}
+                disabled={isGenerating}
                 className="h-12 px-6 bg-black hover:bg-gray-800 text-white shadow-none rounded-lg"
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating || shouldGenerate ? 'animate-spin' : ''}`} />
-                {isGenerating || shouldGenerate ? 'Analyzing...' : 'Refresh Analysis'}
+                <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+                {isGenerating ? 'Analyzing...' : 'Refresh Analysis'}
               </Button>
             )}
           </div>
@@ -613,7 +768,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
         {isOwnProfile && (
           <Button
             onClick={() => setShowRepoSelector(true)}
-            disabled={isGenerating || shouldGenerate || reposLoading}
+            disabled={isGenerating || reposLoading}
             variant="outline"
             className="h-14 px-8 border-gray-200 hover:border-black transition-colors text-lg rounded-xl"
           >
@@ -624,11 +779,11 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
         {(isOwnProfile || (currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro'))) ? (
           <Button
             onClick={handleGenerateProfile}
-            disabled={isGenerating || shouldGenerate}
+            disabled={isGenerating}
             className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white text-lg rounded-xl shadow-lg hover:shadow-xl transition-all"
           >
-            <RefreshCw className={`h-5 w-5 mr-2 ${isGenerating || shouldGenerate ? 'animate-spin' : ''}`} />
-            {isGenerating || shouldGenerate ? 'Analyzing...' : 'Generate Analysis'}
+            <RefreshCw className={`h-5 w-5 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+            {isGenerating ? 'Analyzing...' : 'Generate Analysis'}
           </Button>
         ) : (
              <SubscriptionUpgrade />

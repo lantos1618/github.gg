@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { createCaller } from '@/lib/trpc/server';
 import { incrementViewCount } from './actions';
 import { WikiPageClient } from './WikiPageClient';
+import { buildCanonicalUrl } from '@/lib/utils/seo';
 
 // Restore ISR: Revalidate every hour to keep content fresh while reducing DB load
 export const revalidate = 3600;
@@ -35,6 +36,12 @@ export async function generateMetadata({ params, searchParams }: WikiPageProps):
   if (!page) {
     return {
       title: 'Wiki Page Not Found',
+      robots: {
+        index: false,
+        follow: false,
+        noindex: true,
+        nofollow: true,
+      },
     };
   }
 
@@ -46,13 +53,13 @@ export async function generateMetadata({ params, searchParams }: WikiPageProps):
     description,
     keywords: (page.metadata as { keywords?: string[] })?.keywords || [owner, repo, 'documentation', 'wiki'],
     alternates: {
-      canonical: `https://github.gg/wiki/${owner}/${repo}/${slug}`,
+      canonical: buildCanonicalUrl(`/wiki/${owner}/${repo}/${slug}`),
     },
     openGraph: {
       title,
       description,
       type: 'article',
-      url: `https://github.gg/wiki/${owner}/${repo}/${slug}`,
+      url: buildCanonicalUrl(`/wiki/${owner}/${repo}/${slug}`),
       siteName: 'gh.gg',
     },
     twitter: {

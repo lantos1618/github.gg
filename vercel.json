@@ -13,6 +13,30 @@
       "maxDuration": 30
     }
   },
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.github.gg"
+        }
+      ],
+      "destination": "https://github.gg/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "scheme",
+          "value": "http"
+        }
+      ],
+      "destination": "https://github.gg/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/:path*",

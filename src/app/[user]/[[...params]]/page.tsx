@@ -14,6 +14,7 @@ import { headers } from 'next/headers';
 import type { Metadata } from 'next';
 import { getProfileData } from '@/lib/profile/service';
 import type { DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
+import { buildCanonicalUrl, isInvalidTab } from '@/lib/utils/seo';
 
 interface PageProps {
   params: Promise<{
@@ -41,7 +42,34 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!user) return {};
 
-  // Build canonical URL - remove 'tree/' prefix if present
+  // Try to get branch names for enhanced parsing
+  let branchNames: string[] = [];
+  try {
+    const headersList = await headers();
+    const session = await auth.api.getSession({ headers: headersList } as Request);
+    const githubService = await createGitHubServiceFromSession(session);
+    if (rest && rest.length > 0) {
+      branchNames = await githubService.getBranches(user, rest[0]);
+    }
+  } catch (error) {
+    // Silently fail - we'll use basic canonical logic
+  }
+
+  // Parse the path to determine if it's a coming soon page
+  const parsed = parseRepoPath(awaitedParams, branchNames);
+  const { tab } = parsed;
+
+  // Validate tab - invalid tabs should return 404
+  if (isInvalidTab(tab)) {
+    return {};
+  }
+
+  // Coming soon features - should not be indexed
+  const COMING_SOON_FEATURES = ['dependencies', 'architecture', 'components', 'data-flow', 'automations'];
+  const isComingSoon = tab && COMING_SOON_FEATURES.includes(tab);
+
+  // Build canonical URL - normalize by removing 'tree/' prefix
+  // For default branch paths, canonicalize to the simpler form
   let canonicalPath = `/${user}`;
   if (rest && rest.length > 0) {
     // Filter out 'tree' from the path segments
@@ -62,7 +90,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title,
     description,
     alternates: {
-      canonical: `https://github.gg${canonicalPath}`,
+      canonical: buildCanonicalUrl(canonicalPath),
     },
     openGraph: {
       title,
@@ -74,7 +102,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       images: [`https://avatars.githubusercontent.com/${user}`],
-    }
+    },
+    robots: isComingSoon
+      ? {
+          index: false,
+          follow: false,
+          noindex: true,
+          nofollow: true,
+        }
+      : undefined,
   };
 }
 
@@ -112,6 +148,11 @@ export default async function Page({ params }: PageProps) {
   const parsed = parseRepoPath(awaitedParams, branchNames);
 
   const { ref, path, tab } = parsed;
+
+  // Return 404 for invalid tabs (actions, security, settings, etc.)
+  if (isInvalidTab(tab)) {
+    notFound();
+  }
 
   // Handle pulls routes
   if (tab === 'pulls') {

@@ -50,17 +50,15 @@ export const auth = betterAuth({
                 ),
             });
 
-            if (githubAccount && githubAccount.accountId) {
-              // Fetch GitHub username from API
+            if (githubAccount && githubAccount.accessToken) {
+              // Fetch GitHub username from API using authenticated endpoint
               const response = await fetch(
-                `https://api.github.com/user/${githubAccount.accountId}`,
+                'https://api.github.com/user',
                 {
                   headers: {
                     Accept: 'application/vnd.github.v3+json',
                     'User-Agent': 'github.gg',
-                    ...(githubAccount.accessToken && {
-                      Authorization: `token ${githubAccount.accessToken}`,
-                    }),
+                    Authorization: `token ${githubAccount.accessToken}`,
                   },
                 }
               );

@@ -226,6 +226,19 @@ export async function GET(req: NextRequest) {
           await createGitHubServiceForUserOperations(session);
         const repos = await githubService.getUserRepositories(username);
 
+        // If there are no accessible public repositories, fail fast with a clear message
+        if (!repos || repos.length === 0) {
+          sendEvent('error', {
+            type: 'error',
+            message:
+              `No public repositories found for ${username}. ` +
+              'We can only generate profiles from public GitHub activity. ' +
+              'Ask them to make at least one repo public or connect a different account.',
+          });
+          controller.close();
+          return;
+        }
+
         let smartSortedRepos = repos;
 
         // If user provided specific repos, use those

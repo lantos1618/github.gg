@@ -165,11 +165,6 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     refetchOnWindowFocus: false,
     staleTime: 5 * 60 * 1000,
   });
-
-  const toastIdRef = useCallback((id: string | number | null) => {
-    // Using a closure to hold the toast ID if we needed it outside effects, 
-    // but for now we just use a simple ref pattern if needed or just sonner's update mechanism
-  }, []);
   const activeToastId = useState<string | number | null>(null);
 
   const router = useRouter();
@@ -326,13 +321,17 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
           utils.profile.publicGetProfile.invalidate({ username });
           utils.profile.getProfileVersions.invalidate({ username });
 
-          if (activeToastId[0]) {
+          if (activeToastId[0] !== null) {
+            // Convert the long-lived loading toast into a short-lived success toast,
+            // then immediately clear our local reference so it doesn't get reused.
             toast.success('Profile refreshed successfully!', {
               id: activeToastId[0],
             });
+            toast.dismiss(activeToastId[0]);
             activeToastId[1](null);
           } else {
-            toast.success('Profile refreshed successfully!');
+            const id = toast.success('Profile refreshed successfully!');
+            toast.dismiss(id);
           }
         }
       } catch (error) {
@@ -350,13 +349,15 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
         eventSourceRef.current = null;
       }
 
-      if (activeToastId[0]) {
+      if (activeToastId[0] !== null) {
         toast.error('Failed to generate profile', {
           id: activeToastId[0],
         });
+        toast.dismiss(activeToastId[0]);
         activeToastId[1](null);
       } else {
-        toast.error('Failed to generate profile');
+        const id = toast.error('Failed to generate profile');
+        toast.dismiss(id);
       }
     };
 
@@ -448,13 +449,15 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
           utils.profile.publicGetProfile.invalidate({ username });
           utils.profile.getProfileVersions.invalidate({ username });
 
-          if (activeToastId[0]) {
+          if (activeToastId[0] !== null) {
             toast.success('Profile refreshed successfully!', {
               id: activeToastId[0],
             });
+            toast.dismiss(activeToastId[0]);
             activeToastId[1](null);
           } else {
-            toast.success('Profile refreshed successfully!');
+            const id = toast.success('Profile refreshed successfully!');
+            toast.dismiss(id);
           }
         }
       } catch (error) {
@@ -472,13 +475,15 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
         eventSourceRef.current = null;
       }
 
-      if (activeToastId[0]) {
+      if (activeToastId[0] !== null) {
         toast.error('Failed to generate profile', {
           id: activeToastId[0],
         });
+        toast.dismiss(activeToastId[0]);
         activeToastId[1](null);
       } else {
-        toast.error('Failed to generate profile');
+        const id = toast.error('Failed to generate profile');
+        toast.dismiss(id);
       }
     };
 

@@ -9,7 +9,7 @@ import { TopRepos } from './TopRepos';
 import { TechStack } from './TechStack';
 import { RepoSelector } from './RepoSelector';
 import { trpc } from '@/lib/trpc/client';
-import { RefreshCw, Sword, Mail, FolderGit2, Trophy, Flame, Crown, Heart } from 'lucide-react';
+import { RefreshCw, Sword, Mail, FolderGit2, Trophy, Flame, Crown, Heart, FlaskConical, Rocket, GitPullRequest, Layers, Target, Sprout, Info } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { developerProfileSchema, type DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -98,10 +98,58 @@ function SparkleEffects({ chars = ['✨', '💖', '🌸', '🧚', '⭐', '🎀']
   );
 }
 
-type GenerationEvent = 
+type GenerationEvent =
   | { type: 'progress'; progress: number; message: string }
   | { type: 'complete'; data: { profile: DeveloperProfileType; cached: boolean; stale: boolean; lastUpdated: string } }
   | { type: 'error'; message: string };
+
+// Helper to get archetype display info
+function getArchetypeInfo(archetype: string) {
+  const archetypes: Record<string, { icon: React.ReactNode; color: string; bgColor: string; label: string }> = {
+    'Research & Innovation': {
+      icon: <FlaskConical className="h-3 w-3" />,
+      color: 'text-purple-700',
+      bgColor: 'bg-purple-50 border-purple-200',
+      label: 'Researcher'
+    },
+    'Production Builder': {
+      icon: <Rocket className="h-3 w-3" />,
+      color: 'text-green-700',
+      bgColor: 'bg-green-50 border-green-200',
+      label: 'Builder'
+    },
+    'Open Source Contributor': {
+      icon: <GitPullRequest className="h-3 w-3" />,
+      color: 'text-blue-700',
+      bgColor: 'bg-blue-50 border-blue-200',
+      label: 'OSS Contributor'
+    },
+    'Full-Stack Generalist': {
+      icon: <Layers className="h-3 w-3" />,
+      color: 'text-orange-700',
+      bgColor: 'bg-orange-50 border-orange-200',
+      label: 'Generalist'
+    },
+    'Domain Specialist': {
+      icon: <Target className="h-3 w-3" />,
+      color: 'text-indigo-700',
+      bgColor: 'bg-indigo-50 border-indigo-200',
+      label: 'Specialist'
+    },
+    'Early Career Explorer': {
+      icon: <Sprout className="h-3 w-3" />,
+      color: 'text-teal-700',
+      bgColor: 'bg-teal-50 border-teal-200',
+      label: 'Explorer'
+    },
+  };
+  return archetypes[archetype] || {
+    icon: <Info className="h-3 w-3" />,
+    color: 'text-gray-700',
+    bgColor: 'bg-gray-50 border-gray-200',
+    label: archetype
+  };
+}
 
 export function DeveloperProfile({ username, initialData }: DeveloperProfileProps) {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -582,8 +630,32 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
                     <span className="text-sm font-medium text-gray-900">{arenaRanking.eloRating} ELO</span>
                   </div>
                 )}
+                {validProfile.developerArchetype && (() => {
+                  const archetypeInfo = getArchetypeInfo(validProfile.developerArchetype);
+                  return (
+                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border ${archetypeInfo.bgColor} ${archetypeInfo.color}`}>
+                      {archetypeInfo.icon}
+                      <span className="text-sm font-medium">{archetypeInfo.label}</span>
+                    </div>
+                  );
+                })()}
+                {validProfile.profileConfidence !== undefined && (
+                  <div
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full border ${
+                      validProfile.profileConfidence >= 70
+                        ? 'bg-green-50 border-green-200 text-green-700'
+                        : validProfile.profileConfidence >= 40
+                          ? 'bg-yellow-50 border-yellow-200 text-yellow-700'
+                          : 'bg-orange-50 border-orange-200 text-orange-700'
+                    }`}
+                    title={validProfile.confidenceReason || 'How representative this GitHub profile is of true capabilities'}
+                  >
+                    <Info className="h-3 w-3" />
+                    <span className="text-sm font-medium">{validProfile.profileConfidence}% confidence</span>
+                  </div>
+                )}
               </div>
-              
+
               <div className="mt-2 space-y-1">
                 {currentUser?.user ? (
                   emailLoading ? (
@@ -688,6 +760,13 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
              <section>
                <h3 className="text-2xl font-bold text-black mb-6">Executive Summary</h3>
                <p className="text-lg text-gray-600 leading-relaxed font-light">{validProfile.summary}</p>
+               {validProfile.scoreInterpretation && (
+                 <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                   <p className="text-sm text-blue-800 leading-relaxed">
+                     <span className="font-medium">Score Context:</span> {validProfile.scoreInterpretation}
+                   </p>
+                 </div>
+               )}
              </section>
 
              <section>

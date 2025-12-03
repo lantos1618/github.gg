@@ -31,6 +31,19 @@ export const techStackItemSchema = z.object({
 
 export type TechStackItem = z.infer<typeof techStackItemSchema>;
 
+// Developer archetype enum - classifies the developer's primary working style
+export const developerArchetypeEnum = z.enum([
+  'Research & Innovation',    // Explores cutting-edge problems, many experimental/incomplete repos, prioritizes learning over polish
+  'Production Builder',       // Ships complete, polished projects with good docs and testing
+  'Open Source Contributor',  // Major work appears to be contributions to other projects
+  'Full-Stack Generalist',    // Covers many areas, jack of multiple trades
+  'Domain Specialist',        // Deep expertise in specific area (AI, systems, web, etc.)
+  'Early Career Explorer'     // Newer to development, building portfolio
+]);
+
+export type DeveloperArchetype = z.infer<typeof developerArchetypeEnum>;
+
+
 // Complete developer profile schema
 export const developerProfileSchema = z.object({
   summary: z.string().describe("A 2-3 sentence professional summary of the developer's profile and expertise."),
@@ -39,6 +52,12 @@ export const developerProfileSchema = z.object({
   developmentStyle: z.array(scoredMetricSchema).describe("An analysis of the developer's coding habits and contribution patterns."),
   topRepos: z.array(scoredRepoSchema).describe("The developer's 5 most notable or representative repositories."),
   suggestions: z.array(z.string()).describe("Concrete suggestions for improvement or next steps for the developer."),
+
+  // New fields for contextualizing the score
+  developerArchetype: developerArchetypeEnum.describe("The developer's primary working style based on their repository patterns."),
+  profileConfidence: z.number().min(1).max(100).describe("How confidently this GitHub profile represents the developer's true capabilities (1-100). Higher = more complete picture. Lower = likely has significant work not visible on GitHub."),
+  confidenceReason: z.string().describe("Brief explanation of why the profile confidence is at this level."),
+  scoreInterpretation: z.string().describe("1-2 sentences helping users interpret the overall score in context of this developer's archetype and work style."),
 });
 
 export type DeveloperProfile = z.infer<typeof developerProfileSchema>; 

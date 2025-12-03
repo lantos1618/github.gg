@@ -398,6 +398,48 @@ export async function* generateDeveloperProfileStreaming({
     4. Include up to 5 repositories in the topRepos array (or fewer if less than 5 exist)
     5. For significanceScore, use ONLY whole numbers from 1-10 (no decimals)
 
+    DEVELOPER ARCHETYPE CLASSIFICATION:
+    Classify this developer into ONE of these archetypes based on their repository patterns:
+    - "Research & Innovation": Explores cutting-edge problems (AI, ML, novel algorithms), many experimental or incomplete repos, prioritizes learning and exploration over polish. Look for: academic/research topics, benchmark repos, proof-of-concepts, cutting-edge tech experiments.
+    - "Production Builder": Ships complete, polished projects with good documentation and testing. Look for: comprehensive READMEs, CI/CD configs, test directories, versioned releases.
+    - "Open Source Contributor": Profile suggests major work is in contributions to other projects (few original repos, or repos that are utilities/tools for contributing elsewhere).
+    - "Full-Stack Generalist": Covers many different areas and technologies, jack of multiple trades. Look for: diverse language usage, both frontend and backend projects, varied domains.
+    - "Domain Specialist": Deep expertise in a specific area (e.g., systems programming, web development, data engineering, mobile). Look for: concentrated focus in one domain across multiple repos.
+    - "Early Career Explorer": Newer to development, building their portfolio. Look for: tutorial-style projects, learning exercises, bootcamp projects, limited commit history.
+
+    PROFILE CONFIDENCE ASSESSMENT:
+    Assess how well this GitHub profile represents the developer's TRUE capabilities on a scale of 1-100:
+    - 80-100: Complete picture - multiple substantial repos with meaningful code, active history, clear skill patterns demonstrated.
+    - 50-79: Partial picture - some good repos but gaps, inconsistencies, or signs that significant work may exist elsewhere.
+    - 1-49: Incomplete picture - signs this developer likely has significant work not visible here.
+
+    Factors that LOWER confidence:
+    * Research-focused developer (high innovation/complexity but low completeness/docs) - they're likely skilled but GitHub doesn't show it
+    * Very few repos relative to apparent skill level
+    * Many placeholder/empty repos alongside sophisticated ones
+    * Enterprise developer pattern (polished small utilities, no major projects visible)
+    * Recent GitHub account with advanced code quality
+
+    Factors that RAISE confidence:
+    * Multiple complete projects with docs, tests, and active maintenance
+    * Consistent commit history over time
+    * Clear progression of skills visible in repo history
+    * Projects that match the developer's apparent skill level
+
+    Provide a brief confidenceReason explaining your assessment.
+
+    SCORE INTERPRETATION:
+    Write 1-2 sentences in scoreInterpretation that help users correctly interpret the overall score for THIS specific developer. Consider:
+    - If archetype is "Research & Innovation" and score is moderate: Acknowledge that research developers often prioritize exploration over polish, and highlight their technical strengths.
+    - If confidence is "Low": Note that the score reflects GitHub profile completeness, not necessarily full capabilities.
+    - If archetype is "Production Builder" and score is high: The score accurately reflects production-ready development skills.
+    - Be specific about what the score DOES and DOES NOT capture for this particular developer.
+
+    Example interpretations:
+    - For a researcher with 55 score: "Score reflects GitHub profile completeness rather than research capability. Strong technical innovation (9/10) and domain expertise are evident despite incomplete project packaging."
+    - For a builder with 85 score: "Score accurately reflects production-ready development skills with consistent delivery of well-documented, tested projects."
+    - For early career with 45 score: "Score reflects current portfolio maturity. Fundamentals are solid; continued project completion will improve this assessment."
+
     Your entire output must be a single, valid JSON object that strictly adheres to the provided Zod schema.
 
     Repository Metadata (${nonForkedRepos.length} original repositories available):

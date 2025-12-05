@@ -17,13 +17,11 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 function DashboardContent({
-  user,
   pullRequests,
   issues,
   prsLoading,
   issuesLoading
 }: {
-  user: any,
   pullRequests: any[],
   issues: any[],
   prsLoading: boolean,
@@ -38,20 +36,8 @@ function DashboardContent({
   };
 
   return (
-    <div className="flex-1 p-6 lg:p-12 space-y-10 max-w-5xl mx-auto w-full animate-in fade-in duration-500">
-      <div className="space-y-3 mb-8">
-        <div className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-2">
-          Beta Dashboard
-        </div>
-        <h1 className="text-3xl lg:text-4xl font-bold tracking-tight text-foreground">
-          Welcome back, <span className="text-primary">{user?.name?.split(' ')[0] || 'Developer'}</span>
-        </h1>
-        <p className="text-base lg:text-lg text-muted-foreground max-w-2xl leading-relaxed">
-          Your development activity and pending tasks across repositories.
-        </p>
-      </div>
-
-      <section className="space-y-6">
+    <div className="flex-1 p-4 lg:p-8 space-y-6 max-w-5xl mx-auto w-full">
+      <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-foreground flex items-center gap-3">
             <div className="p-2 bg-blue-500/10 rounded-lg">
@@ -111,7 +97,7 @@ function DashboardContent({
         </div>
       </section>
 
-      <section className="space-y-6">
+      <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-foreground flex items-center gap-3">
             <div className="p-2 bg-purple-500/10 rounded-lg">
@@ -257,8 +243,10 @@ export const GitHubDashboard = () => {
               <Menu className="w-5 h-5" />
             </Button>
             <div className="flex flex-col items-center">
-              <h1 className="text-base font-semibold">Dashboard</h1>
-              <span className="text-[10px] text-muted-foreground">Welcome back</span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Dashboard</span>
+              <h1 className="text-sm font-semibold">
+                {user?.name?.split(' ')[0] || 'Welcome'}
+              </h1>
             </div>
             <Button
               variant="ghost"
@@ -376,7 +364,6 @@ export const GitHubDashboard = () => {
         {/* Main Content */}
         <main className="flex flex-col overflow-y-auto flex-1 bg-background">
           <DashboardContent
-            user={user}
             pullRequests={pullRequests || []}
             issues={issues || []}
             prsLoading={prsLoading}
@@ -445,7 +432,6 @@ export const GitHubDashboard = () => {
       {/* Main content */}
       <main className="flex-1 flex flex-col overflow-y-auto min-w-0 bg-background">
         <DashboardContent
-          user={user}
           pullRequests={pullRequests || []}
           issues={issues || []}
           prsLoading={prsLoading}

@@ -53,11 +53,11 @@ export const developerProfileSchema = z.object({
   topRepos: z.array(scoredRepoSchema).describe("The developer's 5 most notable or representative repositories."),
   suggestions: z.array(z.string()).describe("Concrete suggestions for improvement or next steps for the developer."),
 
-  // New fields for contextualizing the score
-  developerArchetype: developerArchetypeEnum.describe("The developer's primary working style based on their repository patterns."),
-  profileConfidence: z.number().min(1).max(100).describe("How confidently this GitHub profile represents the developer's true capabilities (1-100). Higher = more complete picture. Lower = likely has significant work not visible on GitHub."),
-  confidenceReason: z.string().describe("Brief explanation of why the profile confidence is at this level."),
-  scoreInterpretation: z.string().describe("1-2 sentences helping users interpret the overall score in context of this developer's archetype and work style."),
+  // New fields for contextualizing the score (optional for backward compatibility with older profiles)
+  developerArchetype: developerArchetypeEnum.optional().describe("The developer's primary working style based on their repository patterns."),
+  profileConfidence: z.number().min(1).max(100).optional().describe("How confidently this GitHub profile represents the developer's true capabilities (1-100). Higher = more complete picture. Lower = likely has significant work not visible on GitHub."),
+  confidenceReason: z.string().optional().describe("Brief explanation of why the profile confidence is at this level."),
+  scoreInterpretation: z.string().optional().describe("1-2 sentences helping users interpret the overall score in context of this developer's archetype and work style."),
 });
 
 export type DeveloperProfile = z.infer<typeof developerProfileSchema>; 

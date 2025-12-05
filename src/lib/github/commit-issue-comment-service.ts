@@ -4,6 +4,7 @@ import { analyzeIssue } from '@/lib/ai/issue-analysis';
 import { db } from '@/db';
 import { tokenUsage, webhookPreferences } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 
 const COMMIT_COMMENT_MARKER = '<!-- gh.gg commit analysis -->';
 const ISSUE_COMMENT_MARKER = '<!-- gh.gg issue analysis -->';
@@ -44,6 +45,25 @@ export async function postCommitAnalysisComment({
   commitSha,
 }: CommitCommentParams) {
   try {
+    // Check if user has active subscription before processing
+    const user = await getUserFromInstallation(installationId);
+    if (!user) {
+      console.log(`Skipping commit analysis for ${commitSha}: no user associated with installation`);
+      return { success: false, skipped: true, reason: 'no_user' };
+    }
+
+    const { subscription, plan } = await getUserPlanAndKey(user.id);
+    if (!subscription || subscription.status !== 'active') {
+      console.log(`Skipping commit analysis for ${commitSha}: user ${user.id} has no active subscription`);
+      return { success: false, skipped: true, reason: 'no_subscription' };
+    }
+
+    const keyInfo = await getApiKeyForUser(user.id, plan as 'byok' | 'pro');
+    if (!keyInfo) {
+      console.log(`Skipping commit analysis for ${commitSha}: no API key available`);
+      return { success: false, skipped: true, reason: 'no_api_key' };
+    }
+
     const octokit = await getInstallationOctokit(installationId);
 
     // Get commit details
@@ -118,21 +138,18 @@ export async function postCommitAnalysisComment({
 
     // Log token usage
     try {
-      const user = await getUserFromInstallation(installationId);
-      if (user) {
-        await db.insert(tokenUsage).values({
-          userId: user.id,
-          feature: 'commit_analysis',
-          repoOwner: owner,
-          repoName: repo,
-          model: 'gemini-3-pro-preview',
-          inputTokens: analysisResult.usage.inputTokens,
-          outputTokens: analysisResult.usage.outputTokens,
-          totalTokens: analysisResult.usage.totalTokens,
-          isByok: false,
-          createdAt: new Date(),
-        });
-      }
+      await db.insert(tokenUsage).values({
+        userId: user.id,
+        feature: 'commit_analysis',
+        repoOwner: owner,
+        repoName: repo,
+        model: 'gemini-3-pro-preview',
+        inputTokens: analysisResult.usage.inputTokens,
+        outputTokens: analysisResult.usage.outputTokens,
+        totalTokens: analysisResult.usage.totalTokens,
+        isByok: keyInfo.isByok,
+        createdAt: new Date(),
+      });
     } catch (error) {
       console.error('Failed to log token usage:', error);
     }
@@ -159,6 +176,25 @@ export async function postIssueAnalysisComment({
   issueNumber,
 }: IssueCommentParams) {
   try {
+    // Check if user has active subscription before processing
+    const user = await getUserFromInstallation(installationId);
+    if (!user) {
+      console.log(`Skipping issue analysis for #${issueNumber}: no user associated with installation`);
+      return { success: false, skipped: true, reason: 'no_user' };
+    }
+
+    const { subscription, plan } = await getUserPlanAndKey(user.id);
+    if (!subscription || subscription.status !== 'active') {
+      console.log(`Skipping issue analysis for #${issueNumber}: user ${user.id} has no active subscription`);
+      return { success: false, skipped: true, reason: 'no_subscription' };
+    }
+
+    const keyInfo = await getApiKeyForUser(user.id, plan as 'byok' | 'pro');
+    if (!keyInfo) {
+      console.log(`Skipping issue analysis for #${issueNumber}: no API key available`);
+      return { success: false, skipped: true, reason: 'no_api_key' };
+    }
+
     const octokit = await getInstallationOctokit(installationId);
 
     // Get issue details
@@ -232,21 +268,18 @@ export async function postIssueAnalysisComment({
 
     // Log token usage
     try {
-      const user = await getUserFromInstallation(installationId);
-      if (user) {
-        await db.insert(tokenUsage).values({
-          userId: user.id,
-          feature: 'issue_analysis',
-          repoOwner: owner,
-          repoName: repo,
-          model: 'gemini-3-pro-preview',
-          inputTokens: analysisResult.usage.inputTokens,
-          outputTokens: analysisResult.usage.outputTokens,
-          totalTokens: analysisResult.usage.totalTokens,
-          isByok: false,
-          createdAt: new Date(),
-        });
-      }
+      await db.insert(tokenUsage).values({
+        userId: user.id,
+        feature: 'issue_analysis',
+        repoOwner: owner,
+        repoName: repo,
+        model: 'gemini-3-pro-preview',
+        inputTokens: analysisResult.usage.inputTokens,
+        outputTokens: analysisResult.usage.outputTokens,
+        totalTokens: analysisResult.usage.totalTokens,
+        isByok: keyInfo.isByok,
+        createdAt: new Date(),
+      });
     } catch (error) {
       console.error('Failed to log token usage:', error);
     }

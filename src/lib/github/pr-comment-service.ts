@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { tokenUsage, webhookPreferences } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { PR_REVIEW_CONFIG } from '@/lib/config/pr-review';
+import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 
 interface GitHubPRFile {
   filename: string;
@@ -85,6 +86,25 @@ export async function postPRReviewComment({
   headBranch,
 }: PRCommentParams) {
   try {
+    // Check if user has active subscription before processing
+    const user = await getUserFromInstallation(installationId);
+    if (!user) {
+      console.log(`Skipping PR review for PR #${prNumber}: no user associated with installation`);
+      return { success: false, skipped: true, reason: 'no_user' };
+    }
+
+    const { subscription, plan } = await getUserPlanAndKey(user.id);
+    if (!subscription || subscription.status !== 'active') {
+      console.log(`Skipping PR review for PR #${prNumber}: user ${user.id} has no active subscription`);
+      return { success: false, skipped: true, reason: 'no_subscription' };
+    }
+
+    const keyInfo = await getApiKeyForUser(user.id, plan as 'byok' | 'pro');
+    if (!keyInfo) {
+      console.log(`Skipping PR review for PR #${prNumber}: no API key available`);
+      return { success: false, skipped: true, reason: 'no_api_key' };
+    }
+
     const octokit = await getInstallationOctokit(installationId);
 
     // Get PR files with pagination support
@@ -180,23 +200,20 @@ export async function postPRReviewComment({
       console.log(`Created new comment for PR #${prNumber}`);
     }
 
-    // Log token usage (skip if no user associated with installation)
+    // Log token usage
     try {
-      const user = await getUserFromInstallation(installationId);
-      if (user) {
-        await db.insert(tokenUsage).values({
-          userId: user.id,
-          feature: 'pr_review',
-          repoOwner: owner,
-          repoName: repo,
-          model: PR_REVIEW_CONFIG.aiModel,
-          inputTokens: analysisResult.usage.inputTokens,
-          outputTokens: analysisResult.usage.outputTokens,
-          totalTokens: analysisResult.usage.totalTokens,
-          isByok: false,
-          createdAt: new Date(),
-        });
-      }
+      await db.insert(tokenUsage).values({
+        userId: user.id,
+        feature: 'pr_review',
+        repoOwner: owner,
+        repoName: repo,
+        model: PR_REVIEW_CONFIG.aiModel,
+        inputTokens: analysisResult.usage.inputTokens,
+        outputTokens: analysisResult.usage.outputTokens,
+        totalTokens: analysisResult.usage.totalTokens,
+        isByok: keyInfo.isByok,
+        createdAt: new Date(),
+      });
     } catch (error) {
       console.error('Failed to log token usage:', error);
     }

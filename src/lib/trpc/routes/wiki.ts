@@ -1,12 +1,15 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
-import { createGitHubServiceFromSession } from '@/lib/github';
+import { createGitHubServiceFromSession, createGitHubServiceForUserOperations } from '@/lib/github';
 import { generateWikiWithCacheStreaming } from '@/lib/ai/wiki-generator';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
 import { tokenUsage } from '@/db/schema';
+import { eq, and, gte } from 'drizzle-orm';
 import crypto from 'crypto';
 import { collectRepositoryFiles } from '@/lib/wiki/file-collector';
+import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { getCachedStargazerStatus, setCachedStargazerStatus } from '@/lib/rate-limit';
 import {
   insertWikiPages,
   getWikiPage,
@@ -38,6 +41,70 @@ export const wikiRouter = router({
 
       try {
         yield { type: 'progress', progress: 0, message: 'Starting wiki generation...' };
+
+        // Check for active subscription
+        const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
+
+        let effectivePlan = plan;
+        let isStargazerPerk = false;
+
+        // If no active subscription, check for star credit
+        if (!subscription || subscription.status !== 'active') {
+          try {
+            // Check cached stargazer status first to reduce GitHub API calls
+            const STARGAZER_REPO = 'lantos1618/github.gg';
+            let hasStarred = await getCachedStargazerStatus(ctx.user.id, STARGAZER_REPO);
+
+            // If not cached, fetch from GitHub and cache
+            if (hasStarred === null) {
+              const githubServiceForStar = await createGitHubServiceForUserOperations(ctx.session);
+              hasStarred = await githubServiceForStar.hasStarredRepo('lantos1618', 'github.gg');
+              // Cache the result for 1 hour
+              await setCachedStargazerStatus(ctx.user.id, STARGAZER_REPO, hasStarred);
+            }
+
+            if (hasStarred) {
+              // Check monthly usage for wiki_generation feature
+              const oneMonthAgo = new Date();
+              oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+              const monthlyUsage = await db
+                .select()
+                .from(tokenUsage)
+                .where(
+                  and(
+                    eq(tokenUsage.userId, ctx.user.id),
+                    eq(tokenUsage.feature, 'wiki_generation'),
+                    gte(tokenUsage.createdAt, oneMonthAgo)
+                  )
+                );
+
+              // Allow 1 free wiki generation per month for stargazers
+              if (monthlyUsage.length < 1) {
+                isStargazerPerk = true;
+                effectivePlan = 'pro';
+              } else {
+                yield { type: 'error', message: 'You have used your 1 free monthly wiki generation. Upgrade to Pro for unlimited access!' };
+                return;
+              }
+            } else {
+              yield { type: 'error', message: 'Active subscription required. Tip: Star our repo (lantos1618/github.gg) to get 1 free wiki generation/month!' };
+              return;
+            }
+          } catch (e) {
+            console.error('Failed to check stargazer status:', e);
+            yield { type: 'error', message: 'Active subscription required for AI features' };
+            return;
+          }
+        }
+
+        // Get appropriate API key
+        const keyInfo = await getApiKeyForUser(ctx.user.id, effectivePlan as 'byok' | 'pro');
+        if (!keyInfo) {
+          yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
+          return;
+        }
+
         yield { type: 'progress', progress: 5, message: 'Authenticating with GitHub...' };
 
         const githubService = await createGitHubServiceFromSession(ctx.session);
@@ -116,7 +183,7 @@ export const wikiRouter = router({
             inputTokens: wikiResult.usage.inputTokens,
             outputTokens: wikiResult.usage.outputTokens,
             totalTokens: wikiResult.usage.totalTokens,
-            isByok: false,
+            isByok: keyInfo.isByok,
           });
         } catch (dbError) {
           console.error('Failed to log token usage for wiki generation:', dbError);

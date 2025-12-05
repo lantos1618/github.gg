@@ -16,6 +16,10 @@ import { getProfileData } from '@/lib/profile/service';
 import type { DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
 import { buildCanonicalUrl, isInvalidTab } from '@/lib/utils/seo';
 
+// Force dynamic rendering to ensure fresh profile data on every request
+// This prevents Next.js from caching SSR responses that may have stale profile data
+export const dynamic = 'force-dynamic';
+
 interface PageProps {
   params: Promise<{
     user: string;

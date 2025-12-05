@@ -6,12 +6,14 @@ import type { DeveloperProfile } from '@/lib/types/profile';
 export async function getProfileData(username: string) {
   const normalizedUsername = username.toLowerCase();
 
-  // Find the most recent cached profile for this username (latest updatedAt)
+  // Find the most recent cached profile for this username (latest version)
+  // Note: We order by version DESC to be consistent with other profile queries
+  // and to ensure we always get the newest profile even if timestamps are slightly off
   const cached = await db
     .select()
     .from(developerProfileCache)
     .where(eq(developerProfileCache.username, normalizedUsername))
-    .orderBy(desc(developerProfileCache.updatedAt))
+    .orderBy(desc(developerProfileCache.version))
     .limit(1);
 
   if (cached.length > 0) {

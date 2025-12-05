@@ -47,10 +47,11 @@ export default function AdminDashboard() {
   const triggerAnalysisMutation = trpc.admin.triggerAnalysis.useMutation();
 
   // Admin Profile Generation Subscription
+  // Only subscribe when we have valid input to prevent hanging connections
   trpc.admin.generateProfile.useSubscription(
-    generateInput || { username: '' },
+    generateInput ?? { username: '', targetUserId: undefined },
     {
-      enabled: shouldGenerate && !!generateInput,
+      enabled: shouldGenerate && !!generateInput?.username,
       onData: (event: any) => {
         if (event.type === 'progress') {
           const message = `${event.message} (${event.progress}%)`;

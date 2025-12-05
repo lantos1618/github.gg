@@ -245,7 +245,7 @@ export const GitHubDashboard = () => {
             <div className="flex flex-col items-center">
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Dashboard</span>
               <h1 className="text-sm font-semibold">
-                {user?.name?.split(' ')[0] || 'Welcome'}
+                {user?.username || user?.name?.split(' ')[0] || 'Welcome'}
               </h1>
             </div>
             <Button

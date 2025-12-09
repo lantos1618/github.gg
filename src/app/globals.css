@@ -256,25 +256,12 @@ h1[id], h2[id], h3[id], h4[id], h5[id], h6[id],
   border-color: var(--border);
 }
 
-/* Override Milkdown and other editor border colors */
-.milkdown-viewer *,
-.milkdown-viewer *::before,
-.milkdown-viewer *::after,
+/* Override Milkdown editor border colors */
+.milkdown-editor *,
+.milkdown-editor *::before,
+.milkdown-editor *::after,
 .ProseMirror *,
 .ProseMirror *::before,
 .ProseMirror *::after {
   border-color: var(--border) !important;
-}
-
-/* Force white background for Milkdown code blocks as requested */
-.milkdown-theme-nord pre {
-  background-color: #ffffff !important;
-  border: 1px solid var(--border);
-}
-
-/* Override dark mode specific background from Nord theme */
-@media (prefers-color-scheme: dark) {
-  .milkdown-theme-nord pre {
-    background-color: #ffffff !important;
-  }
 }

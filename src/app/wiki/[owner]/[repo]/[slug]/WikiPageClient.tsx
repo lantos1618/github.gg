@@ -5,7 +5,7 @@ import { ArrowLeft, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { WikiPageMenu } from '@/components/wiki/WikiPageMenu';
 import { WikiPageViewers } from '@/components/wiki/WikiPageViewers';
 import { RepoSidebarLayout } from '@/components/layouts/RepoSidebarLayout';
-import { MilkdownViewer } from '@/components/ui/MilkdownViewer';
+import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer';
 import { TableOfContents } from '@/components/ui/TableOfContents';
 
 interface WikiPageClientProps {
@@ -100,7 +100,7 @@ export function WikiPageClient({
               </div>
 
             {/* Markdown Content */}
-            <MilkdownViewer content={page.content} />
+            <MarkdownRenderer content={page.content} />
 
             {/* Next/Previous Navigation */}
             {(previousPage || nextPage) && (

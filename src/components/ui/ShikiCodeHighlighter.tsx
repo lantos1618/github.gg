@@ -128,10 +128,10 @@ export function ShikiCodeHighlighter({ code, language, className = '' }: ShikiCo
   return (
     <div
       ref={ref}
-      className={`shiki-wrapper rounded-xl overflow-hidden border border-border my-6 ${className}`}
+      className={`shiki-wrapper rounded-lg overflow-hidden border border-border bg-[#f6f8fa] dark:bg-[#161b22] shadow-sm my-6 ${className}`}
     >
       {/* Fallback while loading */}
-      <pre className="p-4 bg-muted">
+      <pre className="p-4 bg-muted m-0">
         <code className={`language-${language}`}>{code}</code>
       </pre>
     </div>
@@ -159,7 +159,7 @@ export function useShikiHighlighting(containerRef: React.RefObject<HTMLElement |
 
         // Create a wrapper div
         const wrapper = document.createElement('div');
-        wrapper.className = 'shiki-wrapper rounded-xl overflow-hidden border border-border my-6';
+        wrapper.className = 'shiki-wrapper rounded-lg overflow-hidden border border-border bg-[#f6f8fa] dark:bg-[#161b22] shadow-sm my-6';
 
         try {
           wrapper.innerHTML = html;

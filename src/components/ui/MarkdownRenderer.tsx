@@ -11,13 +11,15 @@ interface MarkdownRendererProps {
 
 const CodeBlock = ({ lang, code }: { lang: string; code: string }) => {
   const highlighted = useShikiHighlighter(code, lang, {
-    light: 'vitesse-light',
-    dark: 'one-dark-pro',
+    light: 'github-light',
+    dark: 'github-dark',
   });
 
   return (
-    <div className="rounded-xl overflow-hidden border border-border shadow-lg my-6 text-sm">
-      {highlighted}
+    <div className="not-prose my-6 rounded-lg overflow-hidden border border-border bg-[#f6f8fa] dark:bg-[#161b22] shadow-sm">
+      <div className="overflow-x-auto [&_pre]:!m-0 [&_pre]:!p-4 [&_pre]:!bg-transparent [&_pre]:!text-sm">
+        {highlighted}
+      </div>
     </div>
   );
 };

@@ -1,24 +1,13 @@
 'use client';
 
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { Book, Loader2, ExternalLink, Settings, Zap, FileText, CheckCircle2, Terminal } from 'lucide-react';
+import { useState, useMemo, useCallback } from 'react';
+import { Book, ExternalLink, Settings, Zap, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Progress } from '@/components/ui/progress';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { sanitizeText } from '@/lib/utils/sanitize';
 import { trpc } from '@/lib/trpc/client';
+import { ReusableSSEFeedback, SSEStatus, SSELogItem } from '@/components/analysis/ReusableSSEFeedback';
 
 interface WikiGenerationButtonProps {
   owner: string;
@@ -26,47 +15,15 @@ interface WikiGenerationButtonProps {
   hideViewButton?: boolean;
 }
 
-type GenerationStatus = 'idle' | 'generating' | 'complete' | 'error';
-
 export function WikiGenerationButton({ owner, repo, hideViewButton = false }: WikiGenerationButtonProps) {
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
-  const [status, setStatus] = useState<GenerationStatus>('idle');
+  const [status, setStatus] = useState<SSEStatus>('idle');
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState('');
-  const [logs, setLogs] = useState<Array<{ message: string; timestamp: Date }>>([]);
+  const [logs, setLogs] = useState<SSELogItem[]>([]);
   const [generationConfig, setGenerationConfig] = useState<{ owner: string; repo: string; maxFiles: number; useChunking: boolean } | null>(null);
   const [resultStats, setResultStats] = useState<{ pages: number; tokens: number; version: number } | null>(null);
-  
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll logs
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      }
-    }
-  }, [logs]);
-
-  // Reset state when dialog closes
-  const handleOpenChange = (open: boolean) => {
-    if (!open && status === 'generating') {
-      // Prevent closing while generating
-      return;
-    }
-    setIsOpen(open);
-    if (!open && status === 'complete') {
-      // Reset on close if complete
-      setTimeout(() => {
-        setStatus('idle');
-        setProgress(0);
-        setLogs([]);
-        setResultStats(null);
-      }, 500);
-    }
-  };
+  const [showOptions, setShowOptions] = useState(false);
 
   // Memoize the subscription input
   const subscriptionInput = useMemo(() => {
@@ -78,10 +35,10 @@ export function WikiGenerationButton({ owner, repo, hideViewButton = false }: Wi
     if (event.type === 'progress') {
       const newProgress = event.progress || 0;
       const message = sanitizeText(event.message || '');
-      
+
       setProgress(newProgress);
       setCurrentStep(message);
-      setLogs(prev => [...prev, { message, timestamp: new Date() }]);
+      setLogs(prev => [...prev, { message, timestamp: new Date(), type: 'info' }]);
     } else if (event.type === 'ping') {
       // Keep-alive ping, just log it internally if needed
       console.debug('Wiki generation heartbeat');
@@ -93,17 +50,14 @@ export function WikiGenerationButton({ owner, repo, hideViewButton = false }: Wi
         tokens: event.data.usage?.totalTokens || 0,
         version: event.data.version,
       });
-      setLogs(prev => [...prev, { message: '✨ Wiki generation complete!', timestamp: new Date() }]);
-      
-      toast.success('Wiki generated successfully!');
-      
+      setLogs(prev => [...prev, { message: '✨ Wiki generation complete!', timestamp: new Date(), type: 'success' }]);
+
       // Refresh content in background
       router.refresh();
     } else if (event.type === 'error') {
       setStatus('error');
       const errorMsg = sanitizeText(event.message) || 'An unknown error occurred';
-      setLogs(prev => [...prev, { message: `❌ Error: ${errorMsg}`, timestamp: new Date() }]);
-      toast.error('Generation failed');
+      setLogs(prev => [...prev, { message: `Error: ${errorMsg}`, timestamp: new Date(), type: 'error' }]);
     }
   }, [router]);
 
@@ -111,21 +65,22 @@ export function WikiGenerationButton({ owner, repo, hideViewButton = false }: Wi
   trpc.wiki.generateWikiPages.useSubscription(
     subscriptionInput,
     {
-      enabled: status === 'generating' && !!generationConfig,
+      enabled: status === 'processing' && !!generationConfig,
       onData: handleSubscriptionData,
       onError: (err) => {
         setStatus('error');
-        setLogs(prev => [...prev, { message: `❌ Connection Error: ${err.message}`, timestamp: new Date() }]);
+        setLogs(prev => [...prev, { message: `Connection Error: ${err.message}`, timestamp: new Date(), type: 'error' }]);
       }
     }
   );
 
   const startGeneration = (chunking: boolean) => {
-    setStatus('generating');
+    setStatus('processing');
     setProgress(0);
-    setLogs([{ message: '🚀 Initializing generation sequence...', timestamp: new Date() }]);
+    setLogs([{ message: 'Initializing generation sequence...', timestamp: new Date(), type: 'info' }]);
     setCurrentStep('Initializing...');
-    
+    setShowOptions(false);
+
     setGenerationConfig({
       owner,
       repo,
@@ -134,167 +89,150 @@ export function WikiGenerationButton({ owner, repo, hideViewButton = false }: Wi
     });
   };
 
+  const resetState = () => {
+    setStatus('idle');
+    setProgress(0);
+    setLogs([]);
+    setResultStats(null);
+    setShowOptions(false);
+  };
+
   const handleViewWiki = () => {
-    setIsOpen(false);
     router.push(`/wiki/${owner}/${repo}`);
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-        <DialogTrigger asChild>
-          <Button size="sm" variant="outline" className="gap-2">
-            <Book className="h-4 w-4" />
-            Generate Wiki Docs
-          </Button>
-        </DialogTrigger>
-        
-        <DialogContent className="sm:max-w-md md:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>AI Wiki Generator</DialogTitle>
-            <DialogDescription>
-              Create comprehensive documentation for your repository using Gemini AI.
-            </DialogDescription>
-          </DialogHeader>
-
-          {status === 'idle' && (
-            <div className="grid gap-4 py-4">
-              <div 
-                className="flex flex-col gap-2 p-4 border rounded-lg hover:bg-accent cursor-pointer transition-colors"
-                onClick={() => startGeneration(false)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-semibold">
-                    <Zap className="h-5 w-5 text-yellow-500" />
-                    Standard Generation
-                  </div>
-                  <Badge variant="secondary">Fast</Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Best for small to medium repositories (up to 200 files). Uses a single high-context pass.
-                </p>
-              </div>
-
-              <div 
-                className="flex flex-col gap-2 p-4 border rounded-lg hover:bg-accent cursor-pointer transition-colors"
-                onClick={() => startGeneration(true)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-semibold">
-                    <Settings className="h-5 w-5 text-blue-500" />
-                    Deep Analysis (Chunking)
-                  </div>
-                  <Badge variant="secondary">Thorough</Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Best for massive repositories (500+ files). Analyzes code in chunks for maximum detail.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {status === 'generating' && (
-            <div className="py-6 space-y-6">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-primary">{currentStep}</span>
-                  <span className="text-muted-foreground">{Math.round(progress)}%</span>
-                </div>
-                <Progress value={progress} className="h-2" />
-              </div>
-
-              <div className="border rounded-md bg-muted/50">
-                <div className="flex items-center gap-2 px-3 py-2 border-b bg-muted/30 text-xs font-medium text-muted-foreground">
-                  <Terminal className="h-3 w-3" />
-                  Generation Log
-                </div>
-                <ScrollArea ref={scrollAreaRef} className="h-[200px] p-3">
-                  <div className="space-y-1.5">
-                    {logs.map((log, i) => (
-                      <div key={i} className="text-xs font-mono flex gap-2 text-muted-foreground">
-                        <span className="opacity-50 shrink-0">
-                          {log.timestamp.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                        </span>
-                        <span className={i === logs.length - 1 ? 'text-foreground font-medium' : ''}>
-                          {log.message}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </div>
-            </div>
-          )}
-
-          {status === 'complete' && (
-            <div className="py-6 text-center space-y-4">
-              <div className="mx-auto w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
-                <CheckCircle2 className="h-6 w-6" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-semibold text-lg">Wiki Generated!</h3>
-                <p className="text-sm text-muted-foreground">
-                  Your documentation is ready to view.
-                </p>
-              </div>
-              
-              {resultStats && (
-                <div className="grid grid-cols-2 gap-4 max-w-xs mx-auto pt-2">
-                  <div className="bg-muted/30 p-3 rounded-lg">
-                    <div className="text-2xl font-bold">{resultStats.pages}</div>
-                    <div className="text-xs text-muted-foreground">Pages Created</div>
-                  </div>
-                  <div className="bg-muted/30 p-3 rounded-lg">
-                    <div className="text-2xl font-bold">{(resultStats.tokens / 1000).toFixed(1)}k</div>
-                    <div className="text-xs text-muted-foreground">Tokens Used</div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {status === 'error' && (
-             <div className="py-6 text-center space-y-4">
-              <div className="mx-auto w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
-                <Settings className="h-6 w-6" />
-              </div>
-               <div className="space-y-1">
-                <h3 className="font-semibold text-lg">Generation Failed</h3>
-                <p className="text-sm text-muted-foreground">
-                  Something went wrong during the process.
-                </p>
-              </div>
-               <Button variant="outline" onClick={() => setStatus('idle')}>Try Again</Button>
-             </div>
-          )}
-
-          <DialogFooter>
-            {status === 'complete' ? (
-              <Button onClick={handleViewWiki} className="w-full sm:w-auto">
-                <ExternalLink className="h-4 w-4 mr-2" />
-                View Documentation
-              </Button>
-            ) : (
-              status === 'idle' && (
-                <Button variant="ghost" onClick={() => setIsOpen(false)}>
-                  Cancel
-                </Button>
-              )
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {!hideViewButton && (
+    <div className="space-y-4">
+      {/* Action buttons */}
+      <div className="flex items-center gap-2">
         <Button
-          onClick={() => router.push(`/wiki/${owner}/${repo}`)}
           size="sm"
-          variant="ghost"
+          variant="outline"
           className="gap-2"
+          onClick={() => setShowOptions(!showOptions)}
+          disabled={status === 'processing'}
         >
-          <ExternalLink className="h-4 w-4" />
-          View Wiki
+          <Book className="h-4 w-4" />
+          Generate Wiki Docs
         </Button>
+
+        {!hideViewButton && (
+          <Button
+            onClick={handleViewWiki}
+            size="sm"
+            variant="ghost"
+            className="gap-2"
+          >
+            <ExternalLink className="h-4 w-4" />
+            View Wiki
+          </Button>
+        )}
+      </div>
+
+      {/* Generation options - inline, not modal */}
+      {showOptions && status === 'idle' && (
+        <div className="grid gap-3 p-4 border rounded-lg bg-card">
+          <p className="text-sm text-muted-foreground">
+            Create comprehensive documentation for your repository using Gemini AI.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              className="flex flex-col gap-2 p-4 border rounded-lg hover:bg-accent cursor-pointer transition-colors text-left"
+              onClick={() => startGeneration(false)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-semibold">
+                  <Zap className="h-5 w-5 text-yellow-500" />
+                  Standard
+                </div>
+                <Badge variant="secondary">Fast</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Best for small to medium repos (up to 200 files).
+              </p>
+            </button>
+
+            <button
+              className="flex flex-col gap-2 p-4 border rounded-lg hover:bg-accent cursor-pointer transition-colors text-left"
+              onClick={() => startGeneration(true)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-semibold">
+                  <Settings className="h-5 w-5 text-blue-500" />
+                  Deep Analysis
+                </div>
+                <Badge variant="secondary">Thorough</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Best for massive repos (500+ files). Analyzes in chunks.
+              </p>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* SSE Feedback - inline using the reusable component */}
+      <ReusableSSEFeedback
+        status={status}
+        progress={progress}
+        currentStep={currentStep}
+        logs={logs}
+        title="Generating Wiki..."
+      />
+
+      {/* Completion state */}
+      {status === 'complete' && (
+        <div className="p-4 border rounded-lg bg-card space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-100 text-green-600 rounded-full flex items-center justify-center shrink-0">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-semibold">Wiki Generated!</h3>
+              <p className="text-sm text-muted-foreground">
+                Your documentation is ready to view.
+              </p>
+            </div>
+          </div>
+
+          {resultStats && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-muted/30 p-3 rounded-lg text-center">
+                <div className="text-2xl font-bold">{resultStats.pages}</div>
+                <div className="text-xs text-muted-foreground">Pages Created</div>
+              </div>
+              <div className="bg-muted/30 p-3 rounded-lg text-center">
+                <div className="text-2xl font-bold">{(resultStats.tokens / 1000).toFixed(1)}k</div>
+                <div className="text-xs text-muted-foreground">Tokens Used</div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Button onClick={handleViewWiki} className="flex-1">
+              <ExternalLink className="h-4 w-4 mr-2" />
+              View Documentation
+            </Button>
+            <Button variant="outline" onClick={resetState}>
+              Done
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Error state */}
+      {status === 'error' && (
+        <div className="p-4 border border-destructive/50 rounded-lg bg-destructive/10 space-y-3">
+          <div className="space-y-1">
+            <h3 className="font-semibold text-destructive">Generation Failed</h3>
+            <p className="text-sm text-muted-foreground">
+              Something went wrong during the process. Check the logs above for details.
+            </p>
+          </div>
+          <Button variant="outline" onClick={resetState}>
+            Try Again
+          </Button>
+        </div>
       )}
     </div>
   );

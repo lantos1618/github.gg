@@ -13,6 +13,7 @@ import { AnalysisContent } from './AnalysisContent';
 import { AnalysisStateHandler } from './AnalysisStateHandler';
 
 import { trpc } from '@/lib/trpc/client';
+import { isGitHubAuthError } from '@/lib/hooks/useGitHubAuthError';
 
 // Use tRPC's actual types - don't reinvent the wheel
 type TRPCUtils = ReturnType<typeof trpc.useUtils>;
@@ -82,6 +83,7 @@ interface GenericAnalysisViewInnerProps<TResponse> extends GenericAnalysisViewPr
   filesLoading: boolean;
   actualRef: string | undefined;
   totalFiles: number;
+  isFilesAuthError: boolean;
 }
 
 // Inner component that uses the context
@@ -95,10 +97,12 @@ function GenericAnalysisViewInner<TResponse>({
   filesLoading,
   actualRef,
   totalFiles,
+  isFilesAuthError,
 }: GenericAnalysisViewInnerProps<TResponse>) {
   const [analysisData, setAnalysisData] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSubscriptionAuthError, setIsSubscriptionAuthError] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [isFileExplorerOpen, setIsFileExplorerOpen] = useState(false);
   const [shouldAnalyze, setShouldAnalyze] = useState(false);
@@ -180,6 +184,12 @@ function GenericAnalysisViewInner<TResponse>({
         toast.success('Analysis complete!');
       }
     } else if (event.type === 'error') {
+      // Check if this is a GitHub auth error
+      const authError = isGitHubAuthError({ message: event.message });
+      if (authError) {
+        setIsSubscriptionAuthError(true);
+      }
+
       config.onMutationError({ message: event.message }, setError);
       setShouldAnalyze(false);
       setIsLoading(false);
@@ -240,10 +250,16 @@ function GenericAnalysisViewInner<TResponse>({
   const overallLoading = filesLoading || isLoading;
   const canAccess = currentPlan && currentPlan.plan !== 'free';
 
+  // Check for any auth errors (from file fetching or subscription)
+  const hasAuthError = isFilesAuthError || isSubscriptionAuthError;
+
   // Determine the current state
-  let currentState: 'loading' | 'error' | 'no-data' | 'ready' | 'private' | 'upgrade' = 'loading';
-  
-  if (isPrivateRepo) {
+  let currentState: 'loading' | 'error' | 'no-data' | 'ready' | 'private' | 'upgrade' | 'auth-error' = 'loading';
+
+  if (hasAuthError) {
+    // Auth errors take priority - user needs to re-authenticate
+    currentState = 'auth-error';
+  } else if (isPrivateRepo) {
     currentState = 'private';
   } else if (planLoading || publicLoading) {
     currentState = 'loading';
@@ -364,7 +380,7 @@ export function GenericAnalysisView<TResponse>(
   props: GenericAnalysisViewProps<TResponse>
 ) {
   // Fetch files once at the top level
-  const { files, isLoading: filesLoading, totalFiles, actualRef } = useRepoData({
+  const { files, isLoading: filesLoading, totalFiles, actualRef, isAuthError } = useRepoData({
     user: props.user,
     repo: props.repo,
     ref: props.refName,
@@ -385,6 +401,7 @@ export function GenericAnalysisView<TResponse>(
         filesLoading={filesLoading}
         actualRef={actualRef}
         totalFiles={totalFiles}
+        isFilesAuthError={isAuthError}
       />
     </RepoPageLayout>
   );

@@ -9,7 +9,7 @@ import { TopRepos } from './TopRepos';
 import { TechStack } from './TechStack';
 import { RepoSelector } from './RepoSelector';
 import { trpc } from '@/lib/trpc/client';
-import { RefreshCw, Sword, Mail, FolderGit2, Trophy, Flame, Crown, Heart, FlaskConical, Rocket, GitPullRequest, Layers, Target, Sprout, Info } from 'lucide-react';
+import { RefreshCw, Sword, Mail, FolderGit2, Trophy, Flame, Crown, Heart, FlaskConical, Rocket, GitPullRequest, Layers, Target, Sprout, Info, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { developerProfileSchema, type DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -158,6 +158,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   const [progress, setProgress] = useState(0);
   const [logs, setLogs] = useState<string[]>([]);
   const [generateInput, setGenerateInput] = useState<{ username: string; includeCodeAnalysis?: boolean; selectedRepos?: string[] } | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   
   // Fetch profile styles
@@ -247,6 +248,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
 
     setProgress(0);
     setLogs([]);
+    setGenerationError(null);
     setGenerateInput({ username, includeCodeAnalysis: true });
 
     if (eventSourceRef.current) {
@@ -349,14 +351,30 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
         eventSourceRef.current = null;
       }
 
+      // Try to extract error message from SSE event data
+      let errorMessage = 'Failed to generate profile';
+      try {
+        const messageEvent = rawEvent as MessageEvent;
+        if (messageEvent.data) {
+          const parsed = JSON.parse(messageEvent.data);
+          if (parsed.message) {
+            errorMessage = parsed.message;
+          }
+        }
+      } catch {
+        // Parsing failed, use default message
+      }
+
+      setGenerationError(errorMessage);
+
       if (activeToastId[0] !== null) {
-        toast.error('Failed to generate profile', {
+        toast.error(errorMessage, {
           id: activeToastId[0],
         });
         toast.dismiss(activeToastId[0]);
         activeToastId[1](null);
       } else {
-        const id = toast.error('Failed to generate profile');
+        const id = toast.error(errorMessage);
         toast.dismiss(id);
       }
     };
@@ -371,6 +389,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
 
     setProgress(0);
     setLogs([]);
+    setGenerationError(null);
     setGenerateInput({ username, includeCodeAnalysis: true, selectedRepos: selectedRepoNames });
 
     if (eventSourceRef.current) {
@@ -475,14 +494,30 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
         eventSourceRef.current = null;
       }
 
+      // Try to extract error message from SSE event data
+      let errorMessage = 'Failed to generate profile';
+      try {
+        const messageEvent = rawEvent as MessageEvent;
+        if (messageEvent.data) {
+          const parsed = JSON.parse(messageEvent.data);
+          if (parsed.message) {
+            errorMessage = parsed.message;
+          }
+        }
+      } catch {
+        // Parsing failed, use default message
+      }
+
+      setGenerationError(errorMessage);
+
       if (activeToastId[0] !== null) {
-        toast.error('Failed to generate profile', {
+        toast.error(errorMessage, {
           id: activeToastId[0],
         });
         toast.dismiss(activeToastId[0]);
         activeToastId[1](null);
       } else {
-        const id = toast.error('Failed to generate profile');
+        const id = toast.error(errorMessage);
         toast.dismiss(id);
       }
     };
@@ -884,7 +919,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
             </span>
             <span className="text-sm text-green-500 font-mono font-bold">{progress}%</span>
           </div>
-          
+
           <div className="font-mono text-xs space-y-1.5 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
             {logs.map((log, i) => (
               <div key={i} className="flex gap-2 text-gray-300 animate-in fade-in slide-in-from-left-1 duration-300">
@@ -908,6 +943,24 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
               className="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-500 ease-out shadow-[0_0_10px_rgba(34,197,94,0.5)]"
               style={{ width: `${progress}%` }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Error Display */}
+      {generationError && !isGenerating && (
+        <div className="w-full max-w-xl mt-8 bg-red-50 border border-red-200 rounded-xl p-6 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0">
+              <AlertCircle className="h-6 w-6 text-red-500" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-red-800 mb-2">Unable to Generate Profile</h3>
+              <p className="text-red-700 text-sm leading-relaxed">{generationError}</p>
+              <p className="text-red-600 text-xs mt-3">
+                This user may not have enough public activity on GitHub to generate a meaningful profile analysis.
+              </p>
+            </div>
           </div>
         </div>
       )}

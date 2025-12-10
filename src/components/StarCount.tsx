@@ -32,6 +32,7 @@ export function StarCount({ owner, repo, className = '' }: StarCountProps) {
       enabled: isSignedIn,
       staleTime: 1000 * 60 * 5, // 5 minutes
       refetchOnWindowFocus: false,
+      retry: false, // Don't retry on auth errors
     }
   );
 

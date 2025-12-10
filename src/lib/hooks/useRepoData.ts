@@ -6,6 +6,7 @@ import { trpc } from '@/lib/trpc/client';
 import { useAuth } from '@/lib/auth/client';
 import { RepoSummary } from '@/lib/github/types';
 import { useRepoStore } from '@/lib/store';
+import { isGitHubAuthError } from './useGitHubAuthError';
 
 export interface RepoParams {
   user: string;
@@ -50,10 +51,14 @@ export function useRepoData(overrideParams?: RepoParams) {
 
   const repoData = store.repos[repoId] || { files: [], totalFiles: 0 };
 
+  // Check if this is an auth error (expired/invalid token)
+  const isAuthError = isGitHubAuthError(error);
+
   return {
     params,
     isLoading,
     error,
+    isAuthError,
     files: repoData.files,
     totalFiles: repoData.totalFiles,
     actualRef: data?.ref, // Expose the actual ref used after any fallbacks

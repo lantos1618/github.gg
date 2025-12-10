@@ -4,9 +4,10 @@ import React, { ReactNode } from 'react';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
 import { LoadingPage } from '@/components/common';
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, LogIn } from 'lucide-react';
+import { useAuth } from '@/lib/auth/client';
 
-type AnalysisState = 'loading' | 'error' | 'no-data' | 'ready' | 'private' | 'upgrade';
+type AnalysisState = 'loading' | 'error' | 'no-data' | 'ready' | 'private' | 'upgrade' | 'auth-error';
 
 interface AnalysisStateHandlerProps {
   state: AnalysisState;
@@ -31,6 +32,13 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
   filesSelected,
   children,
 }) => {
+  const { signIn } = useAuth();
+
+  const handleReSignIn = () => {
+    const currentUrl = typeof window !== 'undefined' ? window.location.href : '/';
+    signIn(currentUrl);
+  };
+
   switch (state) {
     case 'loading':
       return <LoadingPage text={message || 'Loading analysis...'} />;
@@ -87,6 +95,27 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
 
     case 'ready':
       return <>{children}</>;
+
+    case 'auth-error':
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <h2 className="text-xl font-semibold text-gray-600 mb-2">
+            GitHub Authentication Expired
+          </h2>
+          <p className="text-gray-500 mb-6 text-center max-w-md">
+            Your GitHub session has expired or your access token is no longer valid.
+            Please sign in again to continue.
+          </p>
+          <Button
+            onClick={handleReSignIn}
+            className="flex items-center gap-2"
+            size="lg"
+          >
+            <LogIn className="h-4 w-4" />
+            Sign in with GitHub
+          </Button>
+        </div>
+      );
 
     default:
       return null;

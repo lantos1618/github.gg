@@ -15,8 +15,8 @@ import { developerProfileSchema, type DeveloperProfile as DeveloperProfileType }
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useRouter } from 'next/navigation';
 import { ScoreHistory } from '@/components/ScoreHistory';
-import { toast } from 'sonner';
 import { LoadingPage, LoadingInline } from '@/components/common';
+import { ReusableSSEFeedback, type SSEStatus, type SSELogItem } from '@/components/analysis/ReusableSSEFeedback';
 
 interface SerializableInitialProfileData {
   profile: DeveloperProfileType | null;
@@ -156,7 +156,9 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [showRepoSelector, setShowRepoSelector] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<SSELogItem[]>([]);
+  const [sseStatus, setSseStatus] = useState<SSEStatus>('idle');
+  const [currentStep, setCurrentStep] = useState<string>('');
   const [generateInput, setGenerateInput] = useState<{ username: string; includeCodeAnalysis?: boolean; selectedRepos?: string[] } | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -166,7 +168,6 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     refetchOnWindowFocus: false,
     staleTime: 5 * 60 * 1000,
   });
-  const activeToastId = useState<string | number | null>(null);
 
   const router = useRouter();
   const utils = trpc.useUtils();
@@ -249,15 +250,14 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     setProgress(0);
     setLogs([]);
     setGenerationError(null);
+    setSseStatus('connecting');
+    setCurrentStep('Initializing analysis...');
     setGenerateInput({ username, includeCodeAnalysis: true });
 
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
     }
-
-    const id = toast.loading('Initializing analysis...');
-    activeToastId[1](id);
 
     const params = new URLSearchParams({
       username,
@@ -269,6 +269,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     );
     eventSourceRef.current = eventSource;
     setIsGenerating(true);
+    setSseStatus('processing');
 
     eventSource.addEventListener('progress', (rawEvent) => {
       try {
@@ -282,23 +283,18 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
           const newMessage = event.message || '';
           setProgress(newProgress);
           if (newMessage) {
-            setLogs((prev) => {
-              if (prev.length > 0 && prev[prev.length - 1] === newMessage) {
+            setCurrentStep(newMessage);
+            setLogs((prev: SSELogItem[]) => {
+              // Avoid duplicate consecutive messages
+              if (prev.length > 0 && prev[prev.length - 1].message === newMessage) {
                 return prev;
               }
-              return [...prev, newMessage];
+              return [...prev, {
+                message: newMessage,
+                timestamp: new Date(),
+                type: 'info' as const,
+              }];
             });
-          }
-
-          if (activeToastId[0]) {
-            toast.loading(`${newMessage} (${newProgress}%)`, {
-              id: activeToastId[0],
-            });
-          } else {
-            const loadingId = toast.loading(
-              `${newMessage} (${newProgress}%)`,
-            );
-            activeToastId[1](loadingId);
           }
         }
       } catch (error) {
@@ -315,26 +311,19 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
 
         if (event.type === 'complete') {
           setIsGenerating(false);
-          setProgress(0);
-          setLogs([]);
+          setProgress(100);
+          setSseStatus('complete');
+          setCurrentStep('Profile generated successfully');
+          setLogs((prev: SSELogItem[]) => [...prev, {
+            message: 'Profile generated successfully',
+            timestamp: new Date(),
+            type: 'success' as const,
+          }]);
           eventSource.close();
           eventSourceRef.current = null;
 
           utils.profile.publicGetProfile.invalidate({ username });
           utils.profile.getProfileVersions.invalidate({ username });
-
-          if (activeToastId[0] !== null) {
-            // Convert the long-lived loading toast into a short-lived success toast,
-            // then immediately clear our local reference so it doesn't get reused.
-            toast.success('Profile refreshed successfully!', {
-              id: activeToastId[0],
-            });
-            toast.dismiss(activeToastId[0]);
-            activeToastId[1](null);
-          } else {
-            const id = toast.success('Profile refreshed successfully!');
-            toast.dismiss(id);
-          }
         }
       } catch (error) {
         console.error('Failed to parse complete event:', error);
@@ -344,7 +333,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     const handleError = (rawEvent: Event) => {
       console.error('Profile generation SSE error:', rawEvent);
       setIsGenerating(false);
-      setProgress(0);
+      setSseStatus('error');
 
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
@@ -365,23 +354,18 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
         // Parsing failed, use default message
       }
 
+      setCurrentStep(errorMessage);
       setGenerationError(errorMessage);
-
-      if (activeToastId[0] !== null) {
-        toast.error(errorMessage, {
-          id: activeToastId[0],
-        });
-        toast.dismiss(activeToastId[0]);
-        activeToastId[1](null);
-      } else {
-        const id = toast.error(errorMessage);
-        toast.dismiss(id);
-      }
+      setLogs((prev: SSELogItem[]) => [...prev, {
+        message: errorMessage,
+        timestamp: new Date(),
+        type: 'error' as const,
+      }]);
     };
 
     eventSource.addEventListener('error', handleError);
     eventSource.onerror = handleError;
-  }, [username, activeToastId, utils, isGenerating]);
+  }, [username, utils, isGenerating]);
 
   // Handle profile generation with selected repos
   const handleGenerateWithSelectedRepos = useCallback((selectedRepoNames: string[]) => {
@@ -390,15 +374,14 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     setProgress(0);
     setLogs([]);
     setGenerationError(null);
+    setSseStatus('connecting');
+    setCurrentStep('Initializing analysis with selected repos...');
     setGenerateInput({ username, includeCodeAnalysis: true, selectedRepos: selectedRepoNames });
 
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
     }
-
-    const id = toast.loading('Initializing analysis with selected repos...');
-    activeToastId[1](id);
 
     const params = new URLSearchParams({
       username,
@@ -414,6 +397,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     );
     eventSourceRef.current = eventSource;
     setIsGenerating(true);
+    setSseStatus('processing');
 
     eventSource.addEventListener('progress', (rawEvent) => {
       try {
@@ -427,23 +411,18 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
           const newMessage = event.message || '';
           setProgress(newProgress);
           if (newMessage) {
-            setLogs((prev) => {
-              if (prev.length > 0 && prev[prev.length - 1] === newMessage) {
+            setCurrentStep(newMessage);
+            setLogs((prev: SSELogItem[]) => {
+              // Avoid duplicate consecutive messages
+              if (prev.length > 0 && prev[prev.length - 1].message === newMessage) {
                 return prev;
               }
-              return [...prev, newMessage];
+              return [...prev, {
+                message: newMessage,
+                timestamp: new Date(),
+                type: 'info' as const,
+              }];
             });
-          }
-
-          if (activeToastId[0]) {
-            toast.loading(`${newMessage} (${newProgress}%)`, {
-              id: activeToastId[0],
-            });
-          } else {
-            const loadingId = toast.loading(
-              `${newMessage} (${newProgress}%)`,
-            );
-            activeToastId[1](loadingId);
           }
         }
       } catch (error) {
@@ -460,24 +439,19 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
 
         if (event.type === 'complete') {
           setIsGenerating(false);
-          setProgress(0);
-          setLogs([]);
+          setProgress(100);
+          setSseStatus('complete');
+          setCurrentStep('Profile generated successfully');
+          setLogs((prev: SSELogItem[]) => [...prev, {
+            message: 'Profile generated successfully',
+            timestamp: new Date(),
+            type: 'success' as const,
+          }]);
           eventSource.close();
           eventSourceRef.current = null;
 
           utils.profile.publicGetProfile.invalidate({ username });
           utils.profile.getProfileVersions.invalidate({ username });
-
-          if (activeToastId[0] !== null) {
-            toast.success('Profile refreshed successfully!', {
-              id: activeToastId[0],
-            });
-            toast.dismiss(activeToastId[0]);
-            activeToastId[1](null);
-          } else {
-            const id = toast.success('Profile refreshed successfully!');
-            toast.dismiss(id);
-          }
         }
       } catch (error) {
         console.error('Failed to parse complete event:', error);
@@ -487,7 +461,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     const handleError = (rawEvent: Event) => {
       console.error('Profile generation SSE error (selected repos):', rawEvent);
       setIsGenerating(false);
-      setProgress(0);
+      setSseStatus('error');
 
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
@@ -508,23 +482,18 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
         // Parsing failed, use default message
       }
 
+      setCurrentStep(errorMessage);
       setGenerationError(errorMessage);
-
-      if (activeToastId[0] !== null) {
-        toast.error(errorMessage, {
-          id: activeToastId[0],
-        });
-        toast.dismiss(activeToastId[0]);
-        activeToastId[1](null);
-      } else {
-        const id = toast.error(errorMessage);
-        toast.dismiss(id);
-      }
+      setLogs((prev: SSELogItem[]) => [...prev, {
+        message: errorMessage,
+        timestamp: new Date(),
+        type: 'error' as const,
+      }]);
     };
 
     eventSource.addEventListener('error', handleError);
     eventSource.onerror = handleError;
-  }, [username, activeToastId, utils, isGenerating]);
+  }, [username, utils, isGenerating]);
 
   const handleChallenge = useCallback(() => {
     router.push(`/arena?opponent=${username}`);
@@ -755,43 +724,15 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
           </div>
         </div>
 
-        {/* Progress Bar - Keep this for visual feedback in the UI in addition to toasts */}
-        {logs.length > 0 && (
-          <div className="w-full bg-gray-950 p-6 rounded-lg border border-gray-800 animate-in fade-in slide-in-from-top-2 shadow-2xl">
-            <div className="flex items-center justify-between mb-4 border-b border-gray-800 pb-2">
-              <span className="text-sm font-medium text-gray-400 flex items-center gap-2 font-mono">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                System Status: {isGenerating ? 'PROCESSING' : 'COMPLETE'}
-              </span>
-              <span className="text-sm text-green-500 font-mono font-bold">{progress}%</span>
-            </div>
-            
-            <div className="font-mono text-xs space-y-1.5 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-              {logs.map((log, i) => (
-                <div key={i} className="flex gap-2 text-gray-300 animate-in fade-in slide-in-from-left-1 duration-300">
-                  <span className="text-gray-600 shrink-0">[{new Date().toLocaleTimeString([], {hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit'})}]</span>
-                  <span className={i === logs.length - 1 ? 'text-green-400 font-bold' : ''}>
-                    {i === logs.length - 1 && isGenerating ? '> ' : '  '}
-                    {log}
-                  </span>
-                </div>
-              ))}
-              {isGenerating && (
-                <div className="flex gap-2 text-gray-500 animate-pulse">
-                  <span className="invisible">[{new Date().toLocaleTimeString([], {hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit'})}]</span>
-                  <span>_</span>
-                </div>
-              )}
-            </div>
-
-            <div className="w-full h-1 bg-gray-900 rounded-full overflow-hidden mt-4">
-              <div
-                className="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-500 ease-out shadow-[0_0_10px_rgba(34,197,94,0.5)]"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-        )}
+        {/* Progress Bar - Terminal-style logger for real-time generation feedback */}
+        <ReusableSSEFeedback
+          status={sseStatus}
+          progress={progress}
+          currentStep={currentStep}
+          logs={logs}
+          title="Profile Generation"
+          className="w-full"
+        />
 
         {/* Profile Content */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-12">
@@ -910,42 +851,15 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
       </div>
       
       {/* Progress Bar for Empty State */}
-      {logs.length > 0 && (
-        <div className="w-full max-w-xl mt-8 bg-gray-950 p-6 rounded-lg border border-gray-800 animate-in fade-in slide-in-from-top-2 text-left shadow-2xl">
-          <div className="flex items-center justify-between mb-4 border-b border-gray-800 pb-2">
-            <span className="text-sm font-medium text-gray-400 flex items-center gap-2 font-mono">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              System Status: {isGenerating ? 'PROCESSING' : 'COMPLETE'}
-            </span>
-            <span className="text-sm text-green-500 font-mono font-bold">{progress}%</span>
-          </div>
-
-          <div className="font-mono text-xs space-y-1.5 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-            {logs.map((log, i) => (
-              <div key={i} className="flex gap-2 text-gray-300 animate-in fade-in slide-in-from-left-1 duration-300">
-                <span className="text-gray-600 shrink-0">[{new Date().toLocaleTimeString([], {hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit'})}]</span>
-                <span className={i === logs.length - 1 ? 'text-green-400 font-bold' : ''}>
-                  {i === logs.length - 1 && isGenerating ? '> ' : '  '}
-                  {log}
-                </span>
-              </div>
-            ))}
-            {isGenerating && (
-              <div className="flex gap-2 text-gray-500 animate-pulse">
-                <span className="invisible">[{new Date().toLocaleTimeString([], {hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit'})}]</span>
-                <span>_</span>
-              </div>
-            )}
-          </div>
-
-          <div className="w-full h-1 bg-gray-900 rounded-full overflow-hidden mt-4">
-            <div
-              className="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-500 ease-out shadow-[0_0_10px_rgba(34,197,94,0.5)]"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-      )}
+      <div className="w-full max-w-xl mt-8">
+        <ReusableSSEFeedback
+          status={sseStatus}
+          progress={progress}
+          currentStep={currentStep}
+          logs={logs}
+          title="Profile Generation"
+        />
+      </div>
 
       {/* Error Display */}
       {generationError && !isGenerating && (

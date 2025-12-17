@@ -10,7 +10,7 @@ export default async function AdminPage() {
   const headersList = await headers();
   const session = await auth.api.getSession({ headers: headersList } as Request);
   if (!session?.user) {
-    redirect('/api/auth/signin');
+    redirect('/api/auth/sign-in');
   }
   return <AdminDashboard />;
 } 

@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ExternalLink, AlertCircle, Sparkles, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { toast } from 'sonner';
 import { MarkdownCardRenderer } from '@/components/MarkdownCardRenderer';
 import RepoPageLayout from '@/components/layouts/RepoPageLayout';
 import { trpc } from '@/lib/trpc/client';
+import { ReusableSSEFeedback, type SSELogItem, type SSEStatus } from '@/components/analysis/ReusableSSEFeedback';
+import { sanitizeText } from '@/lib/utils/sanitize';
 
 // Use tRPC's actual types - don't reinvent them
 type TRPCQueryResult<TData> = { data: TData | undefined; isLoading: boolean; error: { message: string } | null };
@@ -88,6 +89,8 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
   const [shouldAnalyze, setShouldAnalyze] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
+  const [sseStatus, setSseStatus] = useState<SSEStatus>('idle');
+  const [logs, setLogs] = useState<SSELogItem[]>([]);
 
   const { data: item, isLoading, error } = useGetDetails({
     owner: user,
@@ -112,16 +115,26 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
       enabled: shouldAnalyze,
       onData: (event) => {
         if (event.type === 'progress') {
-          setProgress(event.progress);
-          setProgressMessage(event.message);
+          const pct = event.progress || 0;
+          const message = sanitizeText(event.message || 'Analyzing...');
+          setSseStatus('processing');
+          setProgress(pct);
+          setProgressMessage(message);
+          setLogs((prev: SSELogItem[]) => [...prev, { message: `${message} (${pct}%)`, timestamp: new Date(), type: 'info' }]);
         } else if (event.type === 'complete') {
-          toast.success(`${resourceType.charAt(0).toUpperCase() + resourceType.slice(1)} analysis complete!`);
+          setSseStatus('complete');
+          setProgress(100);
+          setProgressMessage(`${resourceType} analysis complete`);
+          setLogs((prev: SSELogItem[]) => [...prev, { message: `✅ ${resourceType} analysis complete`, timestamp: new Date(), type: 'success' }]);
           utils.invalidate();
           setShouldAnalyze(false);
           setProgress(0);
           setProgressMessage('');
         } else if (event.type === 'error') {
-          toast.error(`Analysis failed: ${event.message}`);
+          const message = sanitizeText(event.message || 'Analysis failed');
+          setSseStatus('error');
+          setProgressMessage(message);
+          setLogs((prev: SSELogItem[]) => [...prev, { message, timestamp: new Date(), type: 'error' }]);
           setShouldAnalyze(false);
           setProgress(0);
           setProgressMessage('');
@@ -133,6 +146,8 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
   const handleAnalyze = () => {
     setProgress(0);
     setProgressMessage('');
+    setSseStatus('processing');
+    setLogs([{ message: `Initializing ${resourceType} analysis...`, timestamp: new Date(), type: 'info' }]);
     setShouldAnalyze(true);
   };
 
@@ -175,7 +190,7 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
 
   return (
     <RepoPageLayout user={user} repo={repo} files={[]} totalFiles={0}>
-      <div className="container py-8 max-w-6xl">
+      <div className="container py-8 max-w-6xl space-y-6">
         {/* Breadcrumb */}
         <div className="mb-4">
           <Link href={`/${user}/${repo}/${resourceTypePlural}`} className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
@@ -183,6 +198,14 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
             {backLinkText}
           </Link>
         </div>
+
+        <ReusableSSEFeedback
+          status={sseStatus}
+          progress={progress}
+          currentStep={progressMessage}
+          logs={logs}
+          title="Analyzing..."
+        />
 
         {/* Resource Header */}
         <div className="mb-6">

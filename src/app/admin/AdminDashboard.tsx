@@ -4,13 +4,14 @@ import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc/client';
-import { toast } from 'sonner';
 import { DollarSign, Users, RefreshCw, UserCheck, Download, Play, ExternalLink } from 'lucide-react';
 import { formatCost, calculatePerUserCostAndUsage } from '@/lib/utils/cost-calculator';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Image from 'next/image';
 import { SortableTable } from '@/components/ui/sortable-table';
 import Link from 'next/link';
+import { ReusableSSEFeedback, type SSELogItem, type SSEStatus } from '@/components/analysis/ReusableSSEFeedback';
+import { sanitizeText } from '@/lib/utils/sanitize';
 
 function getCurrentMonthRange() {
   const now = new Date();
@@ -31,7 +32,10 @@ export default function AdminDashboard() {
   const [generatingUser, setGeneratingUser] = useState<string | null>(null);
   const [shouldGenerate, setShouldGenerate] = useState(false);
   const [generateInput, setGenerateInput] = useState<{ username: string; targetUserId?: string } | null>(null);
-  const activeToastId = useState<string | number | null>(null);
+  const [sseStatus, setSseStatus] = useState<SSEStatus>('idle');
+  const [progress, setProgress] = useState(0);
+  const [currentStep, setCurrentStep] = useState('');
+  const [logs, setLogs] = useState<SSELogItem[]>([]);
 
   // tRPC queries
   const { data: usageStats, refetch: refetchUsage, isLoading: loadingUsage } = trpc.admin.getUsageStats.useQuery({
@@ -54,42 +58,36 @@ export default function AdminDashboard() {
       enabled: shouldGenerate && !!generateInput?.username,
       onData: (event: any) => {
         if (event.type === 'progress') {
-          const message = `${event.message} (${event.progress}%)`;
-          if (activeToastId[0]) {
-            toast.loading(message, { id: activeToastId[0] });
-          } else {
-            const id = toast.loading(message);
-            activeToastId[1](id);
-          }
+          const pct = event.progress || 0;
+          const message = sanitizeText(event.message || 'Processing...');
+          setSseStatus('processing');
+          setProgress(pct);
+          setCurrentStep(message);
+          setLogs((prev: SSELogItem[]) => [...prev, { message: `${message} (${pct}%)`, timestamp: new Date(), type: 'info' }]);
         } else if (event.type === 'complete') {
-          if (activeToastId[0]) {
-            toast.success(`Profile generated for ${event.data.username}`, { id: activeToastId[0] });
-            activeToastId[1](null);
-          } else {
-            toast.success(`Profile generated for ${event.data.username}`);
-          }
+          setSseStatus('complete');
+          setProgress(100);
+          const message = `Profile generated for ${event.data.username}`;
+          setCurrentStep(message);
+          setLogs((prev: SSELogItem[]) => [...prev, { message: `✅ ${message}`, timestamp: new Date(), type: 'success' }]);
           setGeneratingUser(null);
           setShouldGenerate(false);
           setGenerateInput(null);
         } else if (event.type === 'error') {
-          if (activeToastId[0]) {
-            toast.error(event.message || 'Failed to generate profile', { id: activeToastId[0] });
-            activeToastId[1](null);
-          } else {
-            toast.error(event.message || 'Failed to generate profile');
-          }
+          const message = sanitizeText(event.message || 'Failed to generate profile');
+          setSseStatus('error');
+          setCurrentStep(message);
+          setLogs((prev: SSELogItem[]) => [...prev, { message, timestamp: new Date(), type: 'error' }]);
           setGeneratingUser(null);
           setShouldGenerate(false);
           setGenerateInput(null);
         }
       },
       onError: (err) => {
-        if (activeToastId[0]) {
-          toast.error(err.message || 'Connection error', { id: activeToastId[0] });
-          activeToastId[1](null);
-        } else {
-          toast.error(err.message || 'Connection error');
-        }
+        const message = err.message || 'Connection error';
+        setSseStatus('error');
+        setCurrentStep(message);
+        setLogs((prev: SSELogItem[]) => [...prev, { message, timestamp: new Date(), type: 'error' }]);
         setGeneratingUser(null);
         setShouldGenerate(false);
         setGenerateInput(null);
@@ -101,13 +99,11 @@ export default function AdminDashboard() {
     if (!sortedUsers || sortedUsers.length === 0) return;
     
     try {
-      const id = toast.loading('Triggering analysis refresh...');
       const userIds = sortedUsers.map(u => u.id);
       const result = await triggerAnalysisMutation.mutateAsync({ userIds });
-      toast.success(`Triggered analysis refresh for ${result.count} users`, { id });
+      setLogs((prev: SSELogItem[]) => [...prev, { message: `Triggered analysis refresh for ${result.count} users`, timestamp: new Date(), type: 'success' }]);
     } catch (error) {
-      toast.dismiss();
-      toast.error('Failed to trigger analysis');
+      setLogs((prev: SSELogItem[]) => [...prev, { message: 'Failed to trigger analysis', timestamp: new Date(), type: 'error' }]);
       console.error(error);
     }
   };
@@ -115,16 +111,18 @@ export default function AdminDashboard() {
   const handleGenerateProfile = (user: any) => {
     const targetUsername = user.githubUsername || user.name;
     if (!targetUsername) {
-      toast.error("User has no username to analyze");
+      setLogs((prev: SSELogItem[]) => [...prev, { message: 'User has no username to analyze', timestamp: new Date(), type: 'error' }]);
       return;
     }
     setGeneratingUser(user.id);
     setGenerateInput({ username: targetUsername, targetUserId: user.id });
     setShouldGenerate(true);
     
-    // Start the toast immediately
-    const id = toast.loading(`Initializing analysis for ${targetUsername}...`);
-    activeToastId[1](id);
+    setSseStatus('processing');
+    setProgress(0);
+    const initMessage = `Initializing analysis for ${targetUsername}...`;
+    setCurrentStep(initMessage);
+    setLogs((prev: SSELogItem[]) => [...prev, { message: initMessage, timestamp: new Date(), type: 'info' }]);
   };
 
   // Calculate total cost for the month from dailyStats (for summary card)
@@ -180,7 +178,7 @@ export default function AdminDashboard() {
     refetchUsage();
     refetchSubscriptions();
     refetchUsers();
-    toast.success('Data refreshed!');
+    setLogs((prev: SSELogItem[]) => [...prev, { message: 'Admin data refreshed', timestamp: new Date(), type: 'success' }]);
   };
 
   const handleExportDeveloperProfiles = async () => {
@@ -199,9 +197,9 @@ export default function AdminDashboard() {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      toast.success('Developer profiles exported!');
+      setLogs((prev: SSELogItem[]) => [...prev, { message: 'Developer profiles exported', timestamp: new Date(), type: 'success' }]);
     } catch (error) {
-      toast.error('Failed to export developer profiles');
+      setLogs((prev: SSELogItem[]) => [...prev, { message: 'Failed to export developer profiles', timestamp: new Date(), type: 'error' }]);
       console.error(error);
     }
   };
@@ -252,7 +250,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="container py-8 max-w-3xl px-4 md:px-8">
+    <div className="container py-8 max-w-3xl px-4 md:px-8 space-y-6">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
         <div className="flex gap-2">
@@ -266,6 +264,14 @@ export default function AdminDashboard() {
           </Button>
         </div>
       </div>
+
+      <ReusableSSEFeedback
+        status={sseStatus}
+        progress={progress}
+        currentStep={currentStep}
+        logs={logs}
+        title="Profile generation"
+      />
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

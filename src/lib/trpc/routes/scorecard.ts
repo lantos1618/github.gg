@@ -72,6 +72,14 @@ export const scorecardRouter = router({
           files,
           repoName: input.repo,
         });
+
+        // Stream token usage to the client as soon as it's known
+        if (result?.usage) {
+          yield {
+            type: 'tokens',
+            usage: result.usage,
+          };
+        }
         const parsedData = scorecardSchema.parse(result.scorecard);
 
         // Check if content is identical to the most recent version

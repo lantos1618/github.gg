@@ -1,12 +1,12 @@
 "use client";
 import RepoPageLayout from "@/components/layouts/RepoPageLayout";
-import { useEffect, useState, ReactNode, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import { useSelectedFiles } from '@/contexts/SelectedFilesContext';
 import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
 import { FolderTree } from 'lucide-react';
-import { toast } from 'sonner';
 import { FileExplorerDrawer } from '@/components/FileExplorerDrawer';
+import { ReusableSSEFeedback, type SSELogItem, type SSEStatus } from '@/components/analysis/ReusableSSEFeedback';
 
 import { AnalysisHeader } from './AnalysisHeader';
 import { AnalysisContent } from './AnalysisContent';
@@ -14,6 +14,7 @@ import { AnalysisStateHandler } from './AnalysisStateHandler';
 
 import { trpc } from '@/lib/trpc/client';
 import { isGitHubAuthError } from '@/lib/hooks/useGitHubAuthError';
+import { sanitizeText } from '@/lib/utils/sanitize';
 
 // Use tRPC's actual types - don't reinvent the wheel
 type TRPCUtils = ReturnType<typeof trpc.useUtils>;
@@ -106,6 +107,10 @@ function GenericAnalysisViewInner<TResponse>({
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [isFileExplorerOpen, setIsFileExplorerOpen] = useState(false);
   const [shouldAnalyze, setShouldAnalyze] = useState(false);
+  const [sseStatus, setSseStatus] = useState<SSEStatus>('idle');
+  const [progress, setProgress] = useState(0);
+  const [currentStep, setCurrentStep] = useState('');
+  const [logs, setLogs] = useState<SSELogItem[]>([]);
   // Store stable params for the duration of the analysis to prevent re-triggers
   const [analysisParams, setAnalysisParams] = useState<{
     user: string;
@@ -113,7 +118,6 @@ function GenericAnalysisViewInner<TResponse>({
     ref: string;
     filePaths: string[];
   } | null>(null);
-  const toastIdRef = useRef<string | number | null>(null);
 
   const planResult = config.usePlan() as { data: { plan: string } | undefined; isLoading: boolean };
   const { data: currentPlan, isLoading: planLoading } = planResult;
@@ -154,35 +158,40 @@ function GenericAnalysisViewInner<TResponse>({
     if (user || repo) {
       setAnalysisData(null);
       setError(null);
+      setSseStatus('idle');
+      setProgress(0);
+      setCurrentStep('');
+      setLogs([]);
+      setShouldAnalyze(false);
+      setAnalysisParams(null);
+      setIsSubscriptionAuthError(false);
     }
   }, [user, repo]);
 
   // Memoize the subscription data handler to prevent recreating on every render
   const handleSubscriptionData = useCallback((event: any) => {
     if (event.type === 'progress') {
-      const progress = event.progress || 0;
-      const message = event.message || '';
+      const nextProgress = event.progress || 0;
+      const message = sanitizeText(event.message || config.generatingMessage || 'Analyzing repository...');
       setIsLoading(true);
-
-      // Update or create toast with progress
-      if (toastIdRef.current) {
-        toast.loading(`${message} (${progress}%)`, { id: toastIdRef.current });
-      } else {
-        const id = toast.loading(`${message} (${progress}%)`);
-        toastIdRef.current = id;
+      setSseStatus('processing');
+      setProgress(nextProgress);
+      setCurrentStep(message);
+      setLogs((prev: SSELogItem[]) => [...prev, { message, timestamp: new Date(), type: 'info' }]);
+    } else if (event.type === 'tokens') {
+      const usage = event.usage;
+      if (usage) {
+        const tokenMessage = `Tokens — in: ${usage.inputTokens}, out: ${usage.outputTokens}, total: ${usage.totalTokens}`;
+        setLogs((prev: SSELogItem[]) => [...prev, { message: tokenMessage, timestamp: new Date(), type: 'info' }]);
       }
     } else if (event.type === 'complete') {
       config.onMutationSuccess(event.data, setAnalysisData, utils);
       setShouldAnalyze(false);
       setIsLoading(false);
-
-      // Replace loading toast with success
-      if (toastIdRef.current) {
-        toast.success('Analysis complete!', { id: toastIdRef.current });
-        toastIdRef.current = null;
-      } else {
-        toast.success('Analysis complete!');
-      }
+      setSseStatus('complete');
+      setProgress(100);
+      setCurrentStep('Analysis complete');
+      setLogs((prev: SSELogItem[]) => [...prev, { message: '✅ Analysis complete', timestamp: new Date(), type: 'success' }]);
     } else if (event.type === 'error') {
       // Check if this is a GitHub auth error
       const authError = isGitHubAuthError({ message: event.message });
@@ -190,15 +199,13 @@ function GenericAnalysisViewInner<TResponse>({
         setIsSubscriptionAuthError(true);
       }
 
-      config.onMutationError({ message: event.message }, setError);
+      const message = sanitizeText(event.message || 'Failed to generate analysis');
+      config.onMutationError({ message }, setError);
       setShouldAnalyze(false);
       setIsLoading(false);
-
-      // Replace loading toast with error (error toast will be shown by onMutationError)
-      if (toastIdRef.current) {
-        toast.dismiss(toastIdRef.current);
-        toastIdRef.current = null;
-      }
+      setSseStatus('error');
+      setCurrentStep(message);
+      setLogs((prev: SSELogItem[]) => [...prev, { message, timestamp: new Date(), type: 'error' }]);
     }
   }, [config, utils]);
 
@@ -219,10 +226,11 @@ function GenericAnalysisViewInner<TResponse>({
   // Add regenerate handler
   const handleRegenerate = () => {
     setError(null);
-    if (toastIdRef.current) {
-      toast.dismiss(toastIdRef.current);
-      toastIdRef.current = null;
-    }
+    setIsSubscriptionAuthError(false);
+    setSseStatus('processing');
+    setProgress(0);
+    setCurrentStep(config.generatingMessage || 'Initializing analysis...');
+    setLogs([{ message: 'Initializing analysis...', timestamp: new Date(), type: 'info' }]);
     
     // Lock in the current parameters for this analysis run
     setAnalysisParams({
@@ -237,14 +245,9 @@ function GenericAnalysisViewInner<TResponse>({
 
   const handleCopyMarkdown = (markdown: string | null | undefined) => {
     if (!markdown) {
-      toast.error('No markdown to copy');
       return;
     }
-    navigator.clipboard.writeText(markdown).then(() => {
-      toast.success('Markdown copied to clipboard');
-    }).catch(() => {
-      toast.error('Failed to copy markdown');
-    });
+    navigator.clipboard.writeText(markdown);
   };
 
   const overallLoading = filesLoading || isLoading;
@@ -304,6 +307,16 @@ function GenericAnalysisViewInner<TResponse>({
             canAccess={canAccess}
             showCopyButton={config.showCopyButton === true}
           />
+
+          <div className="mt-4 mb-8">
+            <ReusableSSEFeedback
+              status={sseStatus}
+              progress={progress}
+              currentStep={currentStep}
+              logs={logs}
+              title={config.generatingMessage}
+            />
+          </div>
 
           {analysisDataObj && (
             <AnalysisContent

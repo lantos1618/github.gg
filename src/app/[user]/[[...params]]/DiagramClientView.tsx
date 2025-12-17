@@ -111,6 +111,10 @@ function DiagramClientView({
     previousDiagramCode,
     handleRetry,
     handleRetryWithContext,
+    sseStatus,
+    progress,
+    currentStep,
+    logs,
   } = useDiagramGeneration({
     user,
     repo,
@@ -206,7 +210,15 @@ function DiagramClientView({
   } else {
     // Main diagram interface
     mainContent = (
-      <div className="max-w-screen-xl w-full mx-auto px-4 pt-4">
+      <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 space-y-6">
+        <ReusableSSEFeedback
+          status={sseStatus}
+          progress={progress}
+          currentStep={currentStep}
+          logs={logs}
+          title="Generating diagram..."
+        />
+
         {/* Header Controls */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">

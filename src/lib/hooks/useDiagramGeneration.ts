@@ -3,6 +3,8 @@ import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import { DiagramType } from '@/lib/types/diagram';
 import { DiagramOptions } from '@/lib/types/errors';
+import { sanitizeText } from '@/lib/utils/sanitize';
+import { type SSELogItem, type SSEStatus } from '@/components/analysis/ReusableSSEFeedback';
 
 interface UseDiagramGenerationProps {
   user: string;
@@ -31,6 +33,10 @@ export function useDiagramGeneration({
   const [shouldGenerate, setShouldGenerate] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [generateInput, setGenerateInput] = useState<any>(null);
+  const [sseStatus, setSseStatus] = useState<SSEStatus>('idle');
+  const [progress, setProgress] = useState(0);
+  const [currentStep, setCurrentStep] = useState('');
+  const [logs, setLogs] = useState<SSELogItem[]>([]);
 
   // Use ref to track hasAccess without causing re-renders
   const hasAccessRef = useRef(hasAccess);
@@ -69,6 +75,7 @@ export function useDiagramGeneration({
       setIsPending(false);
       setShouldGenerate(false);
       setGenerateInput(null);
+      setProgress(0);
     }
   }, []);
 
@@ -80,12 +87,22 @@ export function useDiagramGeneration({
 
       if (event.type === 'progress') {
         setIsPending(true);
+        setSseStatus('processing');
+        const pct = event.progress || 0;
+        const message = sanitizeText(event.message || 'Generating diagram...');
+        setProgress(pct);
+        setCurrentStep(message);
+        setLogs((prev: SSELogItem[]) => [...prev, { message: `${message} (${pct}%)`, timestamp: new Date(), type: 'info' }]);
       } else if (event.type === 'heartbeat') {
         // Heartbeat received - connection is alive, no action needed
       } else if (event.type === 'complete') {
         setDiagramCode(event.data.diagramCode);
         setError(null);
         setLastError('');
+        setSseStatus('complete');
+        setProgress(100);
+        setCurrentStep('Diagram generated');
+        setLogs((prev: SSELogItem[]) => [...prev, { message: '✅ Diagram generated', timestamp: new Date(), type: 'success' }]);
         cleanupSubscription();
         setLastInput({
           diagramType,
@@ -99,6 +116,9 @@ export function useDiagramGeneration({
         const errorMessage = event.message || 'Failed to generate diagram';
         setError(errorMessage);
         setLastError(errorMessage);
+        setSseStatus('error');
+        setCurrentStep(errorMessage);
+        setLogs((prev: SSELogItem[]) => [...prev, { message: errorMessage, timestamp: new Date(), type: 'error' }]);
         cleanupSubscription();
       }
     },
@@ -106,7 +126,11 @@ export function useDiagramGeneration({
       // Handle subscription errors (connection issues, etc.)
       if (!isMountedRef.current) return;
       console.error('Diagram subscription error:', err);
-      setError(err?.message || 'Connection error. Please try again.');
+      const message = err?.message || 'Connection error. Please try again.';
+      setError(message);
+      setSseStatus('error');
+      setCurrentStep(message);
+      setLogs((prev: SSELogItem[]) => [...prev, { message, timestamp: new Date(), type: 'error' }]);
       cleanupSubscription();
     },
   });
@@ -126,6 +150,10 @@ export function useDiagramGeneration({
       diagramType,
       options,
     });
+    setSseStatus('processing');
+    setProgress(0);
+    setCurrentStep('Initializing diagram generation...');
+    setLogs([{ message: 'Initializing diagram generation...', timestamp: new Date(), type: 'info' }]);
     setShouldGenerate(true);
   };
 
@@ -148,6 +176,10 @@ export function useDiagramGeneration({
       lastError: errorToSend,
       isRetry: true,
     });
+    setSseStatus('processing');
+    setProgress(0);
+    setCurrentStep('Retrying diagram generation...');
+    setLogs([{ message: 'Retrying diagram generation...', timestamp: new Date(), type: 'info' }]);
     setShouldGenerate(true);
   };
 
@@ -158,5 +190,9 @@ export function useDiagramGeneration({
     previousDiagramCode,
     handleRetry,
     handleRetryWithContext,
+    sseStatus,
+    progress,
+    currentStep,
+    logs,
   };
 }

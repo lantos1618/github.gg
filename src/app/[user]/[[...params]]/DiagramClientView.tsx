@@ -17,6 +17,7 @@ import { trpc } from '@/lib/trpc/client';
 import { VersionDropdown } from '@/components/VersionDropdown';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
+import { ReusableSSEFeedback } from '@/components/analysis/ReusableSSEFeedback';
 
 // Type definitions for diagram responses
 type DiagramResponse = {

@@ -361,7 +361,7 @@ export default function AdminDashboard() {
                   a.click();
                   document.body.removeChild(a);
                   window.URL.revokeObjectURL(url);
-                  toast.success('User list exported!');
+                  setLogs(prev => [...prev, { message: 'User list exported!', timestamp: new Date(), type: 'success' }]);
                 }}
               >
                 <Download className="mr-2 h-4 w-4" />

@@ -212,6 +212,7 @@ export async function* generateDeveloperProfileStreaming({
 
   const totalUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
   let scorecardInsights = '';
+  let scorecardResults: Array<{ repoName: string; scorecard: ScorecardAnalysisResult['scorecard']; usage: ScorecardAnalysisResult['usage'] }> = [];
 
   if (repoFiles && repoFiles.length > 0) {
     const topReposToAnalyze = repoFiles.slice(0, 5);
@@ -375,7 +376,7 @@ export async function* generateDeveloperProfileStreaming({
       };
     }
     
-    const scorecardResults = Array.from(resultsMap.values());
+    scorecardResults = Array.from(resultsMap.values());
 
     // Aggregate results
     scorecardResults.forEach(result => {

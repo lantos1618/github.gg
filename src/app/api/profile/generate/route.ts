@@ -532,22 +532,27 @@ export async function GET(req: NextRequest) {
           }
         }
         if (!profileInserted) {
-          console.warn(`Failed to insert profile cache for ${normalizedUsername} after 3 retries`);
+          console.warn(`⚠️ Failed to insert profile cache for ${normalizedUsername} after 3 retries - profile will still be returned to user`);
         }
 
-        // 9. Log token usage
-        await db.insert(tokenUsage).values({
-          userId: session.user.id,
-          feature: 'profile',
-          repoOwner: username,
-          repoName: null,
-          model: 'gemini-3-pro-preview',
-          inputTokens: result.usage.inputTokens,
-          outputTokens: result.usage.outputTokens,
-          totalTokens: result.usage.totalTokens,
-          isByok: keyInfo.isByok,
-          createdAt: new Date(),
-        });
+        // 9. Log token usage (don't fail if this errors)
+        try {
+          await db.insert(tokenUsage).values({
+            userId: session.user.id,
+            feature: 'profile',
+            repoOwner: username,
+            repoName: null,
+            model: 'gemini-3-pro-preview',
+            inputTokens: result.usage.inputTokens,
+            outputTokens: result.usage.outputTokens,
+            totalTokens: result.usage.totalTokens,
+            isByok: keyInfo.isByok,
+            createdAt: new Date(),
+          });
+        } catch (tokenError) {
+          console.error('❌ Failed to log token usage (non-critical):', tokenError);
+          // Don't throw - token logging is not critical
+        }
 
         // 10. Try to find developer email and send profile analysis email
         try {

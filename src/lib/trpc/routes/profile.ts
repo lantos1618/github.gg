@@ -452,8 +452,14 @@ export const profileRouter = router({
         }
 
         console.log(`✅ Profile generated successfully for ${username}`);
+        console.log(`📊 Profile data keys:`, result.profile ? Object.keys(result.profile) : 'null');
 
         yield { type: 'progress', progress: 90, message: 'Profile generated, saving results...' };
+
+        // Validate profile data before saving
+        if (!result.profile) {
+          throw new Error('Generated profile is null or undefined');
+        }
 
         // Get next version number (retry logic handles race conditions)
         let profileInserted = false;
@@ -467,6 +473,7 @@ export const profileRouter = router({
           console.log(`📝 Attempting to save profile version ${nextVersion} for ${username} (attempt ${retryCount + 1})`);
 
           try {
+            console.log(`💾 Attempting to insert profile for ${username}, version ${nextVersion}`);
             const [insertResult] = await db
               .insert(developerProfileCache)
               .values({
@@ -479,33 +486,43 @@ export const profileRouter = router({
               .returning();
             
             if (insertResult) {
+              console.log(`✅ Successfully inserted profile version ${nextVersion} for ${username}`);
               profileInserted = true;
               break;
+            } else {
+              console.warn(`⚠️ Insert returned no result (likely conflict) for ${username}, version ${nextVersion}`);
             }
           } catch (e) {
+            console.error(`❌ Database insert error for ${username}, version ${nextVersion}:`, e);
             if (isPgErrorWithCode(e) && e.code === '23505') {
+              console.log(`🔄 Retrying with new version due to conflict...`);
               continue; // Retry with recalculated version
             }
             throw e;
           }
         }
         if (!profileInserted) {
-          console.warn(`Failed to insert profile cache for ${normalizedUsername} after 3 retries`);
+          console.warn(`⚠️ Failed to insert profile cache for ${normalizedUsername} after 3 retries - profile will still be returned to user`);
         }
 
-        // Log token usage
-        await db.insert(tokenUsage).values({
-          userId: ctx.user.id,
-          feature: 'profile',
-          repoOwner: username,
-          repoName: null,
-          model: 'gemini-3-pro-preview',
-          inputTokens: result.usage.inputTokens,
-          outputTokens: result.usage.outputTokens,
-          totalTokens: result.usage.totalTokens,
-          isByok: keyInfo.isByok,
-          createdAt: new Date(),
-        });
+        // Log token usage (don't fail if this errors)
+        try {
+          await db.insert(tokenUsage).values({
+            userId: ctx.user.id,
+            feature: 'profile',
+            repoOwner: username,
+            repoName: null,
+            model: 'gemini-3-pro-preview',
+            inputTokens: result.usage.inputTokens,
+            outputTokens: result.usage.outputTokens,
+            totalTokens: result.usage.totalTokens,
+            isByok: keyInfo.isByok,
+            createdAt: new Date(),
+          });
+        } catch (tokenError) {
+          console.error('❌ Failed to log token usage (non-critical):', tokenError);
+          // Don't throw - token logging is not critical
+        }
 
         // Extract and email developer using Resend
         try {

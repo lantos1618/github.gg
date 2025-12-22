@@ -129,6 +129,39 @@ export const profileRouter = router({
       return getProfileData(input.username);
     }),
 
+  // Check generation status (lock + recent profile)
+  checkGenerationStatus: protectedProcedure
+    .input(z.object({
+      username: z.string().min(1, 'Username is required'),
+    }))
+    .query(async ({ input, ctx }) => {
+      const { username } = input;
+      const normalizedUsername = username.toLowerCase();
+      const lockKey = `profile:${normalizedUsername}`;
+
+      // Check for recent profile first
+      const recentProfile = await db
+        .select()
+        .from(developerProfileCache)
+        .where(eq(developerProfileCache.username, normalizedUsername))
+        .orderBy(desc(developerProfileCache.version))
+        .limit(1);
+
+      const hasRecentProfile = recentProfile.length > 0 && 
+        (new Date().getTime() - recentProfile[0].updatedAt.getTime() < 5 * 60 * 1000);
+
+      // Check if lock exists
+      const { isGenerationInProgress } = await import('@/lib/rate-limit');
+      const lockExists = await isGenerationInProgress(lockKey);
+
+      return {
+        hasRecentProfile,
+        profile: hasRecentProfile ? recentProfile[0].profileData : null,
+        lockExists,
+        canReconnect: lockExists && !hasRecentProfile, // Can reconnect if lock exists but no recent profile
+      };
+    }),
+
   generateProfileMutation: protectedProcedure
     .input(z.object({
       username: z.string().min(1, 'Username is required'),

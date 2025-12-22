@@ -176,6 +176,12 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   // Fetch all available versions
   const { data: versions, isLoading: versionsLoading } = trpc.profile.getProfileVersions.useQuery({ username });
 
+  // Check generation status when error occurs with "already in progress" message
+  const { data: generationStatus, refetch: checkGenerationStatus } = trpc.profile.checkGenerationStatus.useQuery(
+    { username },
+    { enabled: false } // Only fetch manually
+  );
+
   const queryInitialData = initialData ? {
     ...initialData,
     lastUpdated: initialData.lastUpdated
@@ -333,7 +339,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
       }
     });
 
-    const handleError = (rawEvent: Event) => {
+    const handleError = async (rawEvent: Event) => {
       console.error('Profile generation SSE error:', rawEvent);
       // If we've already processed a successful completion, treat this as a normal close
       if (hasCompletedRef.current) {
@@ -361,6 +367,31 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
         // Parsing failed, use default message
       }
 
+      // If "already in progress" error, check for recent profile that might have completed
+      if (errorMessage.includes('already in progress')) {
+        try {
+          const result = await checkGenerationStatus();
+          const status = result.data;
+          if (status?.hasRecentProfile && status.profile) {
+            // Profile was generated, just load it
+            setProgress(100);
+            setSseStatus('complete');
+            setCurrentStep('Profile generated successfully');
+            setGenerationError(null);
+            setLogs((prev: SSELogItem[]) => [...prev, {
+              message: '✅ Profile generated successfully',
+              timestamp: new Date(),
+              type: 'success' as const,
+            }]);
+            utils.profile.publicGetProfile.invalidate({ username });
+            utils.profile.getProfileVersions.invalidate({ username });
+            return;
+          }
+        } catch (err) {
+          console.error('Failed to check generation status:', err);
+        }
+      }
+
       // Provide a more helpful message for low-activity users
       if (errorMessage.includes('No original (non-forked) public repositories')) {
         errorMessage = "This user doesn't have enough original public repositories to generate a meaningful profile yet.";
@@ -376,7 +407,38 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     };
 
     eventSource.addEventListener('error', handleError);
-  }, [username, utils, isGenerating]);
+  }, [username, utils, isGenerating, checkGenerationStatus]);
+
+  // Reconnect handler - checks for recent profile or allows retry
+  const handleReconnect = useCallback(async () => {
+    try {
+      const result = await checkGenerationStatus();
+      const status = result.data;
+      if (status?.hasRecentProfile && status.profile) {
+        // Profile exists, just refresh
+        setProgress(100);
+        setSseStatus('complete');
+        setCurrentStep('Profile loaded');
+        setGenerationError(null);
+        setLogs((prev: SSELogItem[]) => [...prev, {
+          message: '✅ Profile loaded successfully',
+          timestamp: new Date(),
+          type: 'success' as const,
+        }]);
+        utils.profile.publicGetProfile.invalidate({ username });
+        utils.profile.getProfileVersions.invalidate({ username });
+      } else if (status?.lockExists) {
+        // Lock exists but no profile - generation might still be running
+        setGenerationError('Generation is still in progress. Please wait a moment and try again.');
+      } else {
+        // No lock, can start new generation
+        handleGenerateProfile();
+      }
+    } catch (err) {
+      console.error('Failed to reconnect:', err);
+      setGenerationError('Failed to check generation status. Please try again.');
+    }
+  }, [username, utils, checkGenerationStatus, handleGenerateProfile]);
 
   // Handle profile generation with selected repos
   const handleGenerateWithSelectedRepos = useCallback((selectedRepoNames: string[]) => {
@@ -891,9 +953,22 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-red-800 mb-2">Unable to Generate Profile</h3>
               <p className="text-red-700 text-sm leading-relaxed">{generationError}</p>
-              <p className="text-red-600 text-xs mt-3">
-                This user may not have enough public activity on GitHub to generate a meaningful profile analysis.
-              </p>
+              {generationError.includes('already in progress') ? (
+                <div className="mt-4">
+                  <Button
+                    onClick={handleReconnect}
+                    variant="outline"
+                    className="border-red-300 text-red-700 hover:bg-red-100"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Reconnect
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-red-600 text-xs mt-3">
+                  This user may not have enough public activity on GitHub to generate a meaningful profile analysis.
+                </p>
+              )}
             </div>
           </div>
         </div>

@@ -100,7 +100,40 @@ export async function GET(req: NextRequest) {
       }, HEARTBEAT_INTERVAL_MS);
 
       try {
-        // Try to acquire generation lock to prevent duplicate concurrent requests
+        // 1. Check for very recent profile FIRST (within last 5 minutes) - if exists, return immediately without lock
+        const recentProfile = await db
+          .select()
+          .from(developerProfileCache)
+          .where(eq(developerProfileCache.username, normalizedUsername))
+          .orderBy(desc(developerProfileCache.version))
+          .limit(1);
+
+        if (recentProfile.length > 0) {
+          const profile = recentProfile[0];
+          const timeSinceUpdate = new Date().getTime() - profile.updatedAt.getTime();
+          
+          // If generated less than 5 minutes ago, return it immediately without acquiring lock
+          if (timeSinceUpdate < 5 * 60 * 1000) {
+            sendEvent('progress', {
+              type: 'progress',
+              progress: 100,
+              message: 'Profile was just generated! Loading results...',
+            });
+            sendEvent('complete', {
+              type: 'complete',
+              data: {
+                profile: profile.profileData,
+                cached: true,
+                stale: false,
+                lastUpdated: profile.updatedAt,
+              },
+            });
+            controller.close();
+            return;
+          }
+        }
+
+        // 2. Try to acquire generation lock to prevent duplicate concurrent requests
         lockAcquired = await acquireGenerationLock(lockKey, 300);
         if (!lockAcquired) {
           sendEvent('error', {
@@ -117,20 +150,23 @@ export async function GET(req: NextRequest) {
           message: 'Starting profile generation...',
         });
 
-        // 1. Check for very recent profile (within last 5 minutes) to avoid duplicate work
-        const recentProfile = await db
+        // 3. Double-check for profile after acquiring lock (in case it was generated while we waited)
+        const doubleCheckProfile = await db
           .select()
           .from(developerProfileCache)
           .where(eq(developerProfileCache.username, normalizedUsername))
           .orderBy(desc(developerProfileCache.version))
           .limit(1);
 
-        if (recentProfile.length > 0) {
-          const profile = recentProfile[0];
+        if (doubleCheckProfile.length > 0) {
+          const profile = doubleCheckProfile[0];
           const timeSinceUpdate =
             Date.now() - profile.updatedAt.getTime();
 
+          // If profile was generated while we waited for lock, return it and release lock
           if (timeSinceUpdate < FIVE_MINUTES_MS) {
+            await releaseGenerationLock(lockKey);
+            lockAcquired = false;
             sendEvent('progress', {
               type: 'progress',
               progress: 100,

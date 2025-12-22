@@ -11,7 +11,6 @@ import { StarGate, useWrappedGeneration } from '@/components/wrapped';
 import { useAuth } from '@/lib/auth/factory';
 import { trpc } from '@/lib/trpc/client';
 
-
 export default function WrappedLandingPage() {
   const router = useRouter();
   const { user, isSignedIn, isLoading: authLoading, signIn } = useAuth();
@@ -28,6 +27,12 @@ export default function WrappedLandingPage() {
     { enabled: isSignedIn }
   );
   const hasExistingWrapped = existsData?.exists ?? false;
+
+  const { data: subscription } = trpc.billing.getSubscription.useQuery(
+    undefined,
+    { enabled: isSignedIn }
+  );
+  const isPaidUser = subscription?.status === 'active' && subscription?.plan === 'pro';
   
   const {
     progress,
@@ -55,12 +60,21 @@ export default function WrappedLandingPage() {
 
   const handleStartGeneration = () => {
     setHasStarted(true);
-    startGeneration({ apiKey: apiKey || undefined });
+    if (isPaidUser) {
+      startGeneration({ withAI: true, includeRoast: true });
+    } else {
+      startGeneration({ apiKey: apiKey || undefined });
+    }
   };
 
   const handleUnlocked = () => {
     setStarCheckPassed(true);
-    setShowApiKeyInput(true);
+    if (isPaidUser) {
+      setHasStarted(true);
+      startGeneration({ withAI: true, includeRoast: true });
+    } else {
+      setShowApiKeyInput(true);
+    }
   };
 
   const handleSkipAI = () => {

@@ -13,7 +13,7 @@ import {
   acquireGenerationLock,
   releaseGenerationLock,
 } from '@/lib/rate-limit';
-import { getApiKeyForUser } from '@/lib/utils/user-plan';
+import { getApiKeyForUser, getUserSubscription } from '@/lib/utils/user-plan';
 import { generateWrappedInsights } from '@/lib/ai/wrapped-insights';
 import type { WrappedAIInsights } from '@/db/schema/wrapped';
 
@@ -157,7 +157,10 @@ export async function GET(req: NextRequest) {
         if (withAI) {
           sendEvent('progress', { type: 'progress', progress: 75, message: 'Checking for AI key...' });
           
-          const userKey = await getApiKeyForUser(session.user.id);
+          // Check subscription to determine if user is paid (pro) or needs BYOK
+          const subscription = await getUserSubscription(session.user.id);
+          const isPro = subscription?.status === 'active' && subscription?.plan === 'pro';
+          const userKey = await getApiKeyForUser(session.user.id, isPro ? 'pro' : 'byok');
           
           if (userKey) {
             sendEvent('progress', { type: 'progress', progress: 78, message: 'Generating AI personality analysis...' });

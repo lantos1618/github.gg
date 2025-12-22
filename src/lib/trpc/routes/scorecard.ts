@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { repositoryScorecards, tokenUsage } from '@/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { generateScorecardAnalysis } from '@/lib/ai/scorecard';
 import { TRPCError } from '@trpc/server';
 import { scorecardSchema } from '@/lib/types/scorecard';
@@ -228,8 +228,9 @@ export const scorecardRouter = router({
         };
       }
       
+      // Use case-insensitive comparison for repoOwner to handle existing records with different casing
       const baseConditions = [
-        eq(repositoryScorecards.repoOwner, normalizedUser),
+        sql`LOWER(${repositoryScorecards.repoOwner}) = LOWER(${normalizedUser})`,
         eq(repositoryScorecards.repoName, repo),
         eq(repositoryScorecards.ref, ref),
       ];
@@ -268,7 +269,7 @@ export const scorecardRouter = router({
         .select()
         .from(repositoryScorecards)
         .where(and(
-          eq(repositoryScorecards.repoOwner, normalizedUser),
+          sql`LOWER(${repositoryScorecards.repoOwner}) = LOWER(${normalizedUser})`,
           eq(repositoryScorecards.repoName, repo)
         ))
         .limit(5);
@@ -290,12 +291,13 @@ export const scorecardRouter = router({
   getScorecardVersions: publicProcedure
     .input(z.object({ user: z.string(), repo: z.string(), ref: z.string().optional().default('main') }))
     .query(async ({ input }) => {
+      const normalizedUser = input.user.toLowerCase();
       return await db
         .select({ version: repositoryScorecards.version, updatedAt: repositoryScorecards.updatedAt })
         .from(repositoryScorecards)
         .where(
           and(
-            eq(repositoryScorecards.repoOwner, input.user),
+            sql`LOWER(${repositoryScorecards.repoOwner}) = LOWER(${normalizedUser})`,
             eq(repositoryScorecards.repoName, input.repo),
             eq(repositoryScorecards.ref, input.ref)
           )

@@ -193,6 +193,9 @@ export const scorecardRouter = router({
     .query(async ({ input, ctx }) => {
       const { user, repo, ref, version } = input;
       
+      // Normalize username to lowercase for consistency (GitHub usernames are case-insensitive)
+      const normalizedUser = user.toLowerCase();
+      
       // Check repository access and privacy
       try {
         const githubService = await createGitHubServiceFromSession(ctx.session);
@@ -226,21 +229,26 @@ export const scorecardRouter = router({
       }
       
       const baseConditions = [
-        eq(repositoryScorecards.repoOwner, user),
+        eq(repositoryScorecards.repoOwner, normalizedUser),
         eq(repositoryScorecards.repoName, repo),
         eq(repositoryScorecards.ref, ref),
       ];
       if (version !== undefined) {
         baseConditions.push(eq(repositoryScorecards.version, version));
       }
+      
+      console.log(`🔍 Querying scorecards for ${normalizedUser}/${repo}@${ref}${version !== undefined ? ` version ${version}` : ' (latest)'}`);
+      
       const cached = await db
         .select()
         .from(repositoryScorecards)
         .where(and(...baseConditions))
         .orderBy(desc(repositoryScorecards.updatedAt))
         .limit(1);
+      
       if (cached.length > 0) {
         const scorecard = cached[0];
+        console.log(`✅ Found scorecard for ${normalizedUser}/${repo}@${ref}, version ${scorecard.version}, userId: ${scorecard.userId}, updatedAt: ${scorecard.updatedAt}`);
         const isStale = new Date().getTime() - scorecard.updatedAt.getTime() > 24 * 60 * 60 * 1000; // 24 hours
         return {
           scorecard: {
@@ -253,6 +261,24 @@ export const scorecardRouter = router({
           lastUpdated: scorecard.updatedAt,
         };
       }
+      
+      // Log when no scorecard is found for debugging
+      console.warn(`⚠️ No scorecard found for ${normalizedUser}/${repo}@${ref}. Checking if any scorecards exist for this repo...`);
+      const anyScorecard = await db
+        .select()
+        .from(repositoryScorecards)
+        .where(and(
+          eq(repositoryScorecards.repoOwner, normalizedUser),
+          eq(repositoryScorecards.repoName, repo)
+        ))
+        .limit(5);
+      if (anyScorecard.length > 0) {
+        console.warn(`⚠️ Found ${anyScorecard.length} scorecard(s) for ${normalizedUser}/${repo} but with different refs/versions:`, 
+          anyScorecard.map(s => ({ ref: s.ref, version: s.version, userId: s.userId, updatedAt: s.updatedAt })));
+      } else {
+        console.warn(`⚠️ No scorecards found at all for ${normalizedUser}/${repo}`);
+      }
+      
       return {
         scorecard: null,
         cached: false,

@@ -286,41 +286,56 @@ export async function* generateDeveloperProfileStreaming({
           // Retry logic handles race conditions by recalculating version on each attempt
           let inserted = null;
           for (let retryCount = 0; retryCount < 3; retryCount++) {
+            // Normalize username to lowercase for consistency
+            const normalizedUsername = username.toLowerCase();
             // Recalculate version on each retry to handle concurrent inserts
             const maxVersionResult = await db
               .select({ max: sql<number>`COALESCE(MAX(version), 0)` })
               .from(repositoryScorecards)
               .where(and(
                 eq(repositoryScorecards.userId, userId),
-                eq(repositoryScorecards.repoOwner, username),
+                eq(repositoryScorecards.repoOwner, normalizedUsername),
                 eq(repositoryScorecards.repoName, repoData.repoName)
               ));
             const nextVersion = (maxVersionResult[0]?.max || 0) + 1;
 
             try {
-              const [insertResult] = await db.insert(repositoryScorecards).values({
+              // Normalize username to lowercase for consistency (GitHub usernames are case-insensitive)
+              const normalizedUsername = username.toLowerCase();
+              console.log(`💾 Saving scorecard for ${normalizedUsername}/${repoData.repoName}, version ${nextVersion}, userId: ${userId}`);
+              const insertValues = {
                 userId,
-                repoOwner: username,
+                repoOwner: normalizedUsername,
                 repoName: repoData.repoName,
                 ref: 'main',
                 version: nextVersion,
-                ...scorecardResult.scorecard,
-              }).onConflictDoNothing().returning();
+                overallScore: scorecardResult.scorecard.overallScore,
+                metrics: scorecardResult.scorecard.metrics,
+                markdown: scorecardResult.scorecard.markdown,
+              };
+              const [insertResult] = await db.insert(repositoryScorecards).values(insertValues).onConflictDoNothing().returning();
               
               if (insertResult) {
+                console.log(`✅ Successfully saved scorecard for ${username}/${repoData.repoName}, id: ${insertResult.id}`);
                 inserted = insertResult;
                 break;
+              } else {
+                console.warn(`⚠️ Insert returned no result (conflict) for ${username}/${repoData.repoName}, version ${nextVersion}, retry ${retryCount + 1}`);
               }
               // If insertResult is null, onConflictDoNothing prevented insert - retry with new version
             } catch (e) {
+              console.error(`❌ Database insert error for ${username}/${repoData.repoName}:`, e);
               if (isPgErrorWithCode(e) && e.code === '23505') {
                 // Unique constraint violation - retry with recalculated version
+                console.log(`🔄 Retrying with new version due to conflict...`);
                 continue;
               }
               throw e;
             }
           }
-          if (!inserted) console.warn(`Failed to insert scorecard for ${repoData.repoName} after 3 retries`);
+          if (!inserted) {
+            console.error(`❌ Failed to insert scorecard for ${repoData.repoName} after 3 retries - scorecard will not be available on individual repo page`);
+          }
 
           result = {
             repoName: repoData.repoName,

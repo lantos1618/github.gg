@@ -461,37 +461,54 @@ export async function* generateDeveloperProfileStreaming({
     ${scorecardInsights ? `\nDetailed Code Analysis from Scorecards:\n${scorecardInsights}` : ''}
   `;
 
-  const { object, usage } = await generateObject({
-    model: google('models/gemini-3-pro-preview'),
-    schema: developerProfileSchema,
-    messages: [{ role: 'user', content: prompt }],
-  });
-  
-  console.log(`✅ AI profile generation completed`);
+  try {
+    console.log(`📊 Prompt length: ${prompt.length} characters, Repos: ${nonForkedRepos.length}, Scorecards: ${scorecardResults.length}`);
+    
+    // Add timeout wrapper (120 seconds for AI generation)
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`AI profile generation timed out after 120 seconds`)), 120000)
+    );
 
-  totalUsage.inputTokens += usage.inputTokens || 0;
-  totalUsage.outputTokens += usage.outputTokens || 0;
-  totalUsage.totalTokens += (usage.inputTokens || 0) + (usage.outputTokens || 0);
+    console.log(`🚀 Calling AI model...`);
+    const { object, usage } = await Promise.race([
+      generateObject({
+        model: google('models/gemini-3-pro-preview'),
+        schema: developerProfileSchema,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      timeoutPromise,
+    ]);
+    
+    console.log(`✅ AI profile generation completed`);
 
-  const patchedProfile = {
-    ...object,
-    topRepos: Array.isArray(object.topRepos)
-      ? object.topRepos.map((r: ScoredRepo) => {
-          const match = nonForkedRepos.find(repo => repo.name === r.name || repo.url === r.url);
-          return {
-            ...r,
-            owner: match?.owner || username,
-            repo: match?.name || r.name,
-          };
-        })
-      : [],
-  };
+    totalUsage.inputTokens += usage.inputTokens || 0;
+    totalUsage.outputTokens += usage.outputTokens || 0;
+    totalUsage.totalTokens += (usage.inputTokens || 0) + (usage.outputTokens || 0);
 
-  yield {
-    type: 'complete',
-    result: {
-    profile: patchedProfile,
-    usage: totalUsage,
-    }
-  };
+    const patchedProfile = {
+      ...object,
+      topRepos: Array.isArray(object.topRepos)
+        ? object.topRepos.map((r: ScoredRepo) => {
+            const match = nonForkedRepos.find(repo => repo.name === r.name || repo.url === r.url);
+            return {
+              ...r,
+              owner: match?.owner || username,
+              repo: match?.name || r.name,
+            };
+          })
+        : [],
+    };
+
+    yield {
+      type: 'complete',
+      result: {
+        profile: patchedProfile,
+        usage: totalUsage,
+      }
+    };
+  } catch (error) {
+    console.error(`❌ Error generating AI profile for ${username}:`, error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error during AI profile generation';
+    throw new Error(`Failed to generate profile: ${errorMessage}`);
+  }
 } 

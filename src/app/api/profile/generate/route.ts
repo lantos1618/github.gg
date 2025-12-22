@@ -601,7 +601,25 @@ export async function GET(req: NextRequest) {
 
         controller.close();
       } catch (error) {
-        console.error('Error generating developer profile via SSE:', error);
+        // Log full error details for Vercel error tracking
+        const errorDetails = {
+          username,
+          userId: session?.user?.id,
+          error: error instanceof Error ? {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+          } : error,
+        };
+        
+        console.error('❌ Error generating developer profile via SSE:', JSON.stringify(errorDetails, null, 2));
+        
+        // Log the raw error object for Vercel's error tracking
+        if (error instanceof Error) {
+          console.error('Error stack trace:', error.stack);
+        }
+        console.error('Raw error:', error);
+        
         const message =
           error instanceof Error
             ? error.message

@@ -547,12 +547,33 @@ export const profileRouter = router({
           },
         };
       } catch (error) {
-        console.error('Error generating developer profile:', error);
+        // Log full error details for Vercel error tracking
+        const errorDetails = {
+          username: input.username,
+          userId: ctx.user.id,
+          error: error instanceof Error ? {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+          } : error,
+        };
+        
+        console.error('❌ Error generating developer profile:', JSON.stringify(errorDetails, null, 2));
+        
+        // Log the raw error object for Vercel's error tracking
+        if (error instanceof Error) {
+          console.error('Error stack trace:', error.stack);
+        }
+        console.error('Raw error:', error);
+        
         const userFriendlyMessage = error instanceof Error ? error.message : 'Failed to generate developer profile';
         yield { type: 'error', message: userFriendlyMessage };
+        
+        // Re-throw with full context for Vercel to catch
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: userFriendlyMessage
+          message: userFriendlyMessage,
+          cause: error instanceof Error ? error : undefined,
         });
       }
     }),

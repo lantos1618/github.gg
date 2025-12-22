@@ -507,8 +507,27 @@ export async function* generateDeveloperProfileStreaming({
       }
     };
   } catch (error) {
-    console.error(`❌ Error generating AI profile for ${username}:`, error);
+    // Log full error details for Vercel error tracking
+    const errorDetails = {
+      username,
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      } : error,
+      promptLength: prompt.length,
+      repoCount: nonForkedRepos.length,
+      scorecardCount: scorecardResults.length,
+    };
+    
+    console.error(`❌ Error generating AI profile for ${username}:`, JSON.stringify(errorDetails, null, 2));
+    
+    // Re-throw with full context for Vercel to catch
     const errorMessage = error instanceof Error ? error.message : 'Unknown error during AI profile generation';
-    throw new Error(`Failed to generate profile: ${errorMessage}`);
+    const enhancedError = new Error(`Failed to generate profile for ${username}: ${errorMessage}`);
+    if (error instanceof Error && error.stack) {
+      enhancedError.stack = error.stack;
+    }
+    throw enhancedError;
   }
 } 

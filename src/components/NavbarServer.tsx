@@ -42,6 +42,12 @@ export function NavbarServer() {
           >
             Dev Rank
           </Link>
+          <Link
+            href="/wrapped"
+            className="text-sm font-medium text-gray-500 hover:text-black transition-colors"
+          >
+            Wrapped
+          </Link>
         </div>
 
         {/* Navigation Actions - Right side */}

@@ -31,4 +31,7 @@ export * from './dev-environments';
 // User VMs tables
 export * from './user-vms';
 
+// Wrapped tables
+export * from './wrapped';
+
 // Do NOT import or export relations here. Only table definitions.

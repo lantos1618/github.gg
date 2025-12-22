@@ -20,6 +20,7 @@ import {
   acquireGenerationLock,
   releaseGenerationLock,
 } from '@/lib/rate-limit';
+import { isPgErrorWithCode } from '@/lib/db/utils';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minutes
@@ -304,12 +305,19 @@ export async function GET(req: NextRequest) {
 
           const fileFetchPromises = topRepos.map(async (repo) => {
             try {
-              const files =
-                await githubService.getRepositoryFiles(
+              // Add timeout wrapper (30 seconds for file list fetch)
+              const timeoutPromise = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error(`Timeout fetching file list for ${repo.name}`)), 30000)
+              );
+
+              const files = await Promise.race([
+                githubService.getRepositoryFiles(
                   username,
                   repo.name,
                   'main',
-                );
+                ),
+                timeoutPromise,
+              ]);
 
               const importantFiles = files.files
                 .filter(
@@ -338,16 +346,21 @@ export async function GET(req: NextRequest) {
                 importantFiles.map(
                   async (file: { path: string; size: number }) => {
                     try {
-                      const response =
-                        await githubService['octokit'].repos.getContent(
-                          {
-                            owner: username,
-                            repo: repo.name,
-                            path: file.path,
-                          },
-                        );
+                      // Add timeout wrapper (10 seconds per file)
+                      const timeoutPromise = new Promise<null>((_, reject) =>
+                        setTimeout(() => reject(new Error(`Timeout fetching ${file.path}`)), 10000)
+                      );
 
-                      if (Array.isArray(response.data)) {
+                      const response = await Promise.race([
+                        githubService['octokit'].repos.getContent({
+                          owner: username,
+                          repo: repo.name,
+                          path: file.path,
+                        }),
+                        timeoutPromise,
+                      ]) as Awaited<ReturnType<typeof githubService['octokit']['repos']['getContent']>> | null;
+
+                      if (!response || Array.isArray(response.data)) {
                         return null;
                       }
 
@@ -369,7 +382,7 @@ export async function GET(req: NextRequest) {
                     } catch (error) {
                       console.warn(
                         `Failed to fetch ${file.path}:`,
-                        error,
+                        error instanceof Error ? error.message : error,
                       );
                       return null;
                     }
@@ -451,22 +464,40 @@ export async function GET(req: NextRequest) {
           message: 'Profile generated, saving results...',
         });
 
-        // 8. Cache result with versioning
-        const maxVersionResult = await db
-          .select({
-            max: sql<number | null>`COALESCE(MAX(version), 0)`,
-          })
-          .from(developerProfileCache)
-          .where(eq(developerProfileCache.username, normalizedUsername));
+        // 8. Cache result with versioning (retry logic handles race conditions)
+        let profileInserted = false;
+        for (let retryCount = 0; retryCount < 3; retryCount++) {
+          const maxVersionResult = await db
+            .select({
+              max: sql<number | null>`COALESCE(MAX(version), 0)`,
+            })
+            .from(developerProfileCache)
+            .where(eq(developerProfileCache.username, normalizedUsername));
 
-        const nextVersion = (maxVersionResult[0]?.max ?? 0) + 1;
+          const nextVersion = (maxVersionResult[0]?.max ?? 0) + 1;
 
-        await db.insert(developerProfileCache).values({
-          username: normalizedUsername,
-          version: nextVersion,
-          profileData: result.profile,
-          updatedAt: new Date(),
-        });
+          try {
+            const [insertResult] = await db.insert(developerProfileCache).values({
+              username: normalizedUsername,
+              version: nextVersion,
+              profileData: result.profile,
+              updatedAt: new Date(),
+            }).onConflictDoNothing().returning();
+            
+            if (insertResult) {
+              profileInserted = true;
+              break;
+            }
+          } catch (e) {
+            if (isPgErrorWithCode(e) && e.code === '23505') {
+              continue; // Retry with recalculated version
+            }
+            throw e;
+          }
+        }
+        if (!profileInserted) {
+          console.warn(`Failed to insert profile cache for ${normalizedUsername} after 3 retries`);
+        }
 
         // 9. Log token usage
         await db.insert(tokenUsage).values({

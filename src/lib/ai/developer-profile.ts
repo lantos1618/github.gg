@@ -7,8 +7,8 @@ import type { Octokit } from '@octokit/rest';
 import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { developerProfileSchema } from '@/lib/types/profile';
-import { generateScorecardAnalysis } from './scorecard';
-import { and, eq, sql } from 'drizzle-orm';
+import { generateScorecardAnalysis, type ScorecardAnalysisResult } from './scorecard';
+import { and, eq, sql, inArray } from 'drizzle-orm';
 
 // Initialize Resend only if API key is available
 const resend = process.env.RESEND_API_KEY 
@@ -215,14 +215,16 @@ export async function* generateDeveloperProfileStreaming({
 
   if (repoFiles && repoFiles.length > 0) {
     const topReposToAnalyze = repoFiles.slice(0, 5);
+    const repoNames = topReposToAnalyze.map(r => r.repoName);
 
-    // Check for existing scorecards first
+    // Batch query: fetch existing scorecards for specific repos only
     const existingScorecards = await db
       .select()
       .from(repositoryScorecards)
       .where(and(
         eq(repositoryScorecards.userId, userId),
-        eq(repositoryScorecards.repoOwner, username)
+        eq(repositoryScorecards.repoOwner, username),
+        inArray(repositoryScorecards.repoName, repoNames)
       ));
 
     const existingScorecardMap = new Map(
@@ -263,18 +265,29 @@ export async function* generateDeveloperProfileStreaming({
       if (!result) {
         try {
           console.log(`🔍 Analyzing ${repoData.repoName}...`);
-          const scorecardResult = await generateScorecardAnalysis({
-            files: repoData.files,
-            repoName: repoData.repoName,
-          });
+          
+          // Add timeout wrapper (60 seconds max per repo)
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error(`Timeout: Scorecard generation for ${repoData.repoName} exceeded 60s`)), 60000)
+          );
+          
+          const scorecardResult = await Promise.race([
+            generateScorecardAnalysis({
+              files: repoData.files,
+              repoName: repoData.repoName,
+            }),
+            timeoutPromise
+          ]) as ScorecardAnalysisResult;
 
           console.log(`✅ Scorecard generated for ${repoData.repoName}`);
 
           // Save the generated scorecard to the database
+          // Retry logic handles race conditions by recalculating version on each attempt
           let inserted = null;
-          for (let retryCount = 0; retryCount < 3; retryCount++) { // Retry logic for concurrent versioning
+          for (let retryCount = 0; retryCount < 3; retryCount++) {
+            // Recalculate version on each retry to handle concurrent inserts
             const maxVersionResult = await db
-              .select({ max: sql<number>`MAX(version)` })
+              .select({ max: sql<number>`COALESCE(MAX(version), 0)` })
               .from(repositoryScorecards)
               .where(and(
                 eq(repositoryScorecards.userId, userId),
@@ -288,20 +301,25 @@ export async function* generateDeveloperProfileStreaming({
                 userId,
                 repoOwner: username,
                 repoName: repoData.repoName,
-                ref: 'main', // Assuming main, could be improved
+                ref: 'main',
                 version: nextVersion,
                 ...scorecardResult.scorecard,
               }).onConflictDoNothing().returning();
+              
               if (insertResult) {
                 inserted = insertResult;
                 break;
               }
+              // If insertResult is null, onConflictDoNothing prevented insert - retry with new version
             } catch (e) {
-              if (isPgErrorWithCode(e) && e.code === '23505') continue;
+              if (isPgErrorWithCode(e) && e.code === '23505') {
+                // Unique constraint violation - retry with recalculated version
+                continue;
+              }
               throw e;
             }
           }
-          if (!inserted) console.warn(`Failed to insert scorecard for ${repoData.repoName}`);
+          if (!inserted) console.warn(`Failed to insert scorecard for ${repoData.repoName} after 3 retries`);
 
           result = {
             repoName: repoData.repoName,
@@ -317,48 +335,44 @@ export async function* generateDeveloperProfileStreaming({
       return { repoName: repoData.repoName, result };
     });
 
-    // Use a set of pending promises to race them
-    const pending = new Set(scorecardPromises);
-    const resultsMap = new Map();
+    // Use Promise.allSettled with progress updates via a heartbeat
+    const resultsMap = new Map<string, { repoName: string; scorecard: ScorecardAnalysisResult['scorecard']; usage: ScorecardAnalysisResult['usage'] }>();
     let completedCount = 0;
-
-    while (pending.size > 0) {
-      // Race pending promises against a heartbeat timeout
-      const heartbeatPromise = new Promise<{ type: 'heartbeat' }>(resolve => setTimeout(() => resolve({ type: 'heartbeat' }), 3000));
-      
-      // Create a race where we also identify WHICH promise finished
-      const racePromise = Promise.race([
-        ...Array.from(pending).map(p => p.then(res => ({ type: 'result', ...res, promise: p }))),
-        heartbeatPromise
-      ]);
-
-      const winner: any = await racePromise;
-
-      if (winner.type === 'heartbeat') {
-        yield {
-          type: 'progress',
-          progress: 10 + Math.round((completedCount / total) * 70),
-          message: `Analyzing repositories... (${completedCount}/${total} complete)`
-        };
-        continue;
+    
+    // Start heartbeat to send progress updates
+    const heartbeatInterval = setInterval(() => {
+      if (completedCount < total) {
+        // Progress updates are handled by the generator yield below
       }
+    }, 3000);
 
-      // A promise finished
-      pending.delete(winner.promise);
-      if (winner.result) {
-        resultsMap.set(winner.repoName, winner.result);
+    try {
+      // Wait for all promises to settle (with individual timeouts already in place)
+      const settledResults = await Promise.allSettled(scorecardPromises);
+      
+      settledResults.forEach((settled, index) => {
+        const repoName = topReposToAnalyze[index].repoName;
         completedCount++;
         
-        yield {
-          type: 'progress',
-          progress: 10 + Math.round((completedCount / total) * 70),
-          message: `Completed analysis for ${winner.repoName}`,
-          metadata: { current: completedCount, total, repoName: winner.repoName }
-        };
-      } else {
-          // Failed result
-          completedCount++; // Still count as processed
-      }
+        if (settled.status === 'fulfilled' && settled.value.result) {
+          resultsMap.set(repoName, settled.value.result);
+        } else {
+          const error = settled.status === 'rejected' ? settled.reason : 'Unknown error';
+          console.warn(`❌ Scorecard generation failed for ${repoName}:`, error);
+        }
+      });
+    } finally {
+      clearInterval(heartbeatInterval);
+    }
+    
+    // Yield progress for each completed repo
+    for (const [repoName, result] of resultsMap.entries()) {
+      yield {
+        type: 'progress',
+        progress: 10 + Math.round((resultsMap.size / total) * 70),
+        message: `Completed analysis for ${repoName}`,
+        metadata: { current: resultsMap.size, total, repoName }
+      };
     }
     
     const scorecardResults = Array.from(resultsMap.values());

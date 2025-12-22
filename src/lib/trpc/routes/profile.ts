@@ -12,6 +12,7 @@ import type { DeveloperProfile } from '@/lib/types/profile';
 import { Octokit } from '@octokit/rest';
 import { handleTRPCGitHubError } from '@/lib/github/error-handler';
 import { getCachedStargazerStatus, setCachedStargazerStatus } from '@/lib/rate-limit';
+import { isPgErrorWithCode } from '@/lib/db/utils';
 
 export const profileRouter = router({
   getUserRepositories: protectedProcedure
@@ -421,24 +422,43 @@ export const profileRouter = router({
 
         yield { type: 'progress', progress: 90, message: 'Profile generated, saving results...' };
 
-        // Get next version number
-        const maxVersionResult = await db
-          .select({ max: sql<number | null>`COALESCE(MAX(version), 0)` })
-          .from(developerProfileCache)
-          .where(eq(developerProfileCache.username, normalizedUsername));
-        const nextVersion = (maxVersionResult[0]?.max ?? 0) + 1;
+        // Get next version number (retry logic handles race conditions)
+        let profileInserted = false;
+        for (let retryCount = 0; retryCount < 3; retryCount++) {
+          const maxVersionResult = await db
+            .select({ max: sql<number | null>`COALESCE(MAX(version), 0)` })
+            .from(developerProfileCache)
+            .where(eq(developerProfileCache.username, normalizedUsername));
+          const nextVersion = (maxVersionResult[0]?.max ?? 0) + 1;
 
-        console.log(`📝 Saving profile version ${nextVersion} for ${username}`);
+          console.log(`📝 Attempting to save profile version ${nextVersion} for ${username} (attempt ${retryCount + 1})`);
 
-        // Cache the result with proper versioning
-        await db
-          .insert(developerProfileCache)
-          .values({
-            username: normalizedUsername,
-            version: nextVersion,
-            profileData: result.profile,
-            updatedAt: new Date(),
-          });
+          try {
+            const [insertResult] = await db
+              .insert(developerProfileCache)
+              .values({
+                username: normalizedUsername,
+                version: nextVersion,
+                profileData: result.profile,
+                updatedAt: new Date(),
+              })
+              .onConflictDoNothing()
+              .returning();
+            
+            if (insertResult) {
+              profileInserted = true;
+              break;
+            }
+          } catch (e) {
+            if (isPgErrorWithCode(e) && e.code === '23505') {
+              continue; // Retry with recalculated version
+            }
+            throw e;
+          }
+        }
+        if (!profileInserted) {
+          console.warn(`Failed to insert profile cache for ${normalizedUsername} after 3 retries`);
+        }
 
         // Log token usage
         await db.insert(tokenUsage).values({

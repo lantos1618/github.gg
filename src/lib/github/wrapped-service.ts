@@ -2,6 +2,39 @@ import { Octokit } from '@octokit/rest';
 import type { WrappedStats } from '@/db/schema/wrapped';
 import { getLanguageColor, GITHUB_GG_REPO } from '@/lib/types/wrapped';
 
+type ContributionsResponse = {
+  user: {
+    contributionsCollection: {
+      totalCommitContributions: number;
+      totalPullRequestContributions: number;
+      totalPullRequestReviewContributions: number;
+      totalIssueContributions: number;
+      restrictedContributionsCount: number;
+      contributionCalendar: {
+        totalContributions: number;
+        weeks: Array<{
+          contributionDays: Array<{
+            date: string;
+            contributionCount: number;
+            weekday: number;
+          }>;
+        }>;
+      };
+      commitContributionsByRepository: Array<{
+        repository: {
+          name: string;
+          owner: { login: string };
+          primaryLanguage: { name: string; color: string } | null;
+          stargazerCount: number;
+        };
+        contributions: {
+          totalCount: number;
+        };
+      }>;
+    };
+  };
+};
+
 type GitHubEvent = {
   type: string;
   created_at: string;
@@ -53,7 +86,8 @@ export class WrappedService {
     const startDate = new Date(`${this.year}-01-01T00:00:00Z`);
     const endDate = new Date(`${this.year}-12-31T23:59:59Z`);
 
-    const [events, repos, commitStats] = await Promise.all([
+    const [contributions, events, repos, commitStats] = await Promise.all([
+      this.fetchYearContributions(username),
       this.fetchYearEvents(username, startDate, endDate),
       this.fetchUserRepos(username),
       this.fetchCommitStats(username, startDate, endDate),
@@ -67,11 +101,36 @@ export class WrappedService {
     const repoCommitCounts = new Map<string, number>();
     const languageCounts = new Map<string, number>();
 
-    let totalCommits = 0;
-    let totalPRs = 0;
+    // GraphQL contributionsCollection returns full year; Events API only has 90 days
+    let totalCommits = contributions?.totalCommitContributions || 0;
+    let totalPRs = contributions?.totalPullRequestContributions || 0;
     let totalPRsMerged = 0;
-    let totalIssues = 0;
-    let totalReviews = 0;
+    let totalIssues = contributions?.totalIssueContributions || 0;
+    let totalReviews = contributions?.totalPullRequestReviewContributions || 0;
+
+    if (contributions?.contributionCalendar) {
+      for (const week of contributions.contributionCalendar.weeks) {
+        for (const day of week.contributionDays) {
+          if (day.contributionCount > 0) {
+            const date = new Date(day.date);
+            const month = date.getMonth();
+            commitsByDay[day.weekday] += day.contributionCount;
+            commitsByMonth[month] += day.contributionCount;
+          }
+        }
+      }
+    }
+
+    if (contributions?.commitContributionsByRepository) {
+      for (const repoContrib of contributions.commitContributionsByRepository) {
+        const repoName = repoContrib.repository.name;
+        repoCommitCounts.set(repoName, repoContrib.contributions.totalCount);
+        if (repoContrib.repository.primaryLanguage) {
+          const lang = repoContrib.repository.primaryLanguage.name;
+          languageCounts.set(lang, (languageCounts.get(lang) || 0) + repoContrib.contributions.totalCount);
+        }
+      }
+    }
     let linesAdded = 0;
     let linesDeleted = 0;
     let lateNightCommits = 0;
@@ -83,23 +142,18 @@ export class WrappedService {
     for (const event of events) {
       const eventDate = new Date(event.created_at);
       const hour = eventDate.getHours();
-      const day = eventDate.getDay();
-      const month = eventDate.getMonth();
 
       switch (event.type) {
         case 'PushEvent':
           const commits = event.payload.commits || [];
-          totalCommits += commits.length;
           
           for (const commit of commits) {
             commitMessages.push(commit.message);
             commitsByHour[hour]++;
-            commitsByDay[day]++;
-            commitsByMonth[month]++;
 
             if (hour >= 0 && hour < 5) lateNightCommits++;
-            if (day === 0 || day === 6) weekendCommits++;
-            if (day === 1) mondayCommits++;
+            if (eventDate.getDay() === 0 || eventDate.getDay() === 6) weekendCommits++;
+            if (eventDate.getDay() === 1) mondayCommits++;
 
             if (!firstCommitDate || event.created_at < firstCommitDate) {
               firstCommitDate = event.created_at;
@@ -108,28 +162,12 @@ export class WrappedService {
               lastCommitDate = event.created_at;
             }
           }
-
-          const repoName = event.repo.name.split('/')[1];
-          repoCommitCounts.set(repoName, (repoCommitCounts.get(repoName) || 0) + commits.length);
           break;
 
         case 'PullRequestEvent':
-          if (event.payload.action === 'opened') {
-            totalPRs++;
-          }
           if (event.payload.pull_request?.merged) {
             totalPRsMerged++;
           }
-          break;
-
-        case 'IssuesEvent':
-          if (event.payload.action === 'opened') {
-            totalIssues++;
-          }
-          break;
-
-        case 'PullRequestReviewEvent':
-          totalReviews++;
           break;
       }
     }
@@ -156,17 +194,33 @@ export class WrappedService {
       .sort((a, b) => b.percentage - a.percentage)
       .slice(0, 8);
 
-    const topRepos = repos
-      .filter(repo => repoCommitCounts.has(repo.name))
-      .map(repo => ({
-        name: repo.name,
-        owner: repo.owner?.login || username,
-        commits: repoCommitCounts.get(repo.name) || 0,
-        stars: repo.stargazers_count || 0,
-        language: repo.language ?? null,
-      }))
-      .sort((a, b) => b.commits - a.commits)
-      .slice(0, 5);
+    let topRepos: Array<{ name: string; owner: string; commits: number; stars: number; language: string | null }> = [];
+    
+    if (contributions?.commitContributionsByRepository) {
+      topRepos = contributions.commitContributionsByRepository
+        .map(repoContrib => ({
+          name: repoContrib.repository.name,
+          owner: repoContrib.repository.owner.login,
+          commits: repoContrib.contributions.totalCount,
+          stars: repoContrib.repository.stargazerCount,
+          language: repoContrib.repository.primaryLanguage?.name ?? null,
+        }))
+        .sort((a, b) => b.commits - a.commits)
+        .slice(0, 5);
+    } else {
+      for (const repo of repos) {
+        if (repoCommitCounts.has(repo.name)) {
+          topRepos.push({
+            name: repo.name,
+            owner: repo.owner?.login || username,
+            commits: repoCommitCounts.get(repo.name) || 0,
+            stars: repo.stargazers_count || 0,
+            language: repo.language ?? null,
+          });
+        }
+      }
+      topRepos = topRepos.sort((a, b) => b.commits - a.commits).slice(0, 5);
+    }
 
     const peakHour = commitsByHour.indexOf(Math.max(...commitsByHour));
     const peakDayIndex = commitsByDay.indexOf(Math.max(...commitsByDay));
@@ -335,6 +389,55 @@ export class WrappedService {
       fridayDeploys,
       biggestCommitDay: biggestDay ? { date: biggestDay[0], count: biggestDay[1] } : null,
     };
+  }
+
+  private async fetchYearContributions(username: string): Promise<ContributionsResponse['user']['contributionsCollection'] | null> {
+    const query = `
+      query($username: String!, $from: DateTime!, $to: DateTime!) {
+        user(login: $username) {
+          contributionsCollection(from: $from, to: $to) {
+            totalCommitContributions
+            totalPullRequestContributions
+            totalPullRequestReviewContributions
+            totalIssueContributions
+            restrictedContributionsCount
+            contributionCalendar {
+              totalContributions
+              weeks {
+                contributionDays {
+                  date
+                  contributionCount
+                  weekday
+                }
+              }
+            }
+            commitContributionsByRepository(maxRepositories: 20) {
+              repository {
+                name
+                owner { login }
+                primaryLanguage { name color }
+                stargazerCount
+              }
+              contributions {
+                totalCount
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await this.octokit.graphql<ContributionsResponse>(query, {
+        username,
+        from: `${this.year}-01-01T00:00:00Z`,
+        to: `${this.year}-12-31T23:59:59Z`,
+      });
+      return response.user?.contributionsCollection || null;
+    } catch (error) {
+      console.warn('Failed to fetch contributions via GraphQL:', error);
+      return null;
+    }
   }
 
   private async fetchYearEvents(

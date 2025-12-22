@@ -162,6 +162,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   const [generateInput, setGenerateInput] = useState<{ username: string; includeCodeAnalysis?: boolean; selectedRepos?: string[] } | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const hasCompletedRef = useRef(false);
   
   // Fetch profile styles
   const { data: profileStyles } = trpc.user.getProfileStyles.useQuery({ username }, {
@@ -253,6 +254,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     setSseStatus('connecting');
     setCurrentStep('Initializing analysis...');
     setGenerateInput({ username, includeCodeAnalysis: true });
+    hasCompletedRef.current = false;
 
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
@@ -319,6 +321,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
             timestamp: new Date(),
             type: 'success' as const,
           }]);
+          hasCompletedRef.current = true;
           eventSource.close();
           eventSourceRef.current = null;
 
@@ -332,6 +335,10 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
 
     const handleError = (rawEvent: Event) => {
       console.error('Profile generation SSE error:', rawEvent);
+      // If we've already processed a successful completion, treat this as a normal close
+      if (hasCompletedRef.current) {
+        return;
+      }
       setIsGenerating(false);
       setSseStatus('error');
 
@@ -354,6 +361,11 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
         // Parsing failed, use default message
       }
 
+      // Provide a more helpful message for low-activity users
+      if (errorMessage.includes('No original (non-forked) public repositories')) {
+        errorMessage = "This user doesn't have enough original public repositories to generate a meaningful profile yet.";
+      }
+
       setCurrentStep(errorMessage);
       setGenerationError(errorMessage);
       setLogs((prev: SSELogItem[]) => [...prev, {
@@ -364,7 +376,6 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     };
 
     eventSource.addEventListener('error', handleError);
-    eventSource.onerror = handleError;
   }, [username, utils, isGenerating]);
 
   // Handle profile generation with selected repos
@@ -377,6 +388,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     setSseStatus('connecting');
     setCurrentStep('Initializing analysis with selected repos...');
     setGenerateInput({ username, includeCodeAnalysis: true, selectedRepos: selectedRepoNames });
+    hasCompletedRef.current = false;
 
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
@@ -447,6 +459,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
             timestamp: new Date(),
             type: 'success' as const,
           }]);
+          hasCompletedRef.current = true;
           eventSource.close();
           eventSourceRef.current = null;
 
@@ -460,6 +473,10 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
 
     const handleError = (rawEvent: Event) => {
       console.error('Profile generation SSE error (selected repos):', rawEvent);
+      // If we've already processed a successful completion, treat this as a normal close
+      if (hasCompletedRef.current) {
+        return;
+      }
       setIsGenerating(false);
       setSseStatus('error');
 
@@ -482,6 +499,10 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
         // Parsing failed, use default message
       }
 
+      if (errorMessage.includes('No original (non-forked) public repositories')) {
+        errorMessage = "This user doesn't have enough original public repositories to generate a meaningful profile yet.";
+      }
+
       setCurrentStep(errorMessage);
       setGenerationError(errorMessage);
       setLogs((prev: SSELogItem[]) => [...prev, {
@@ -492,7 +513,6 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     };
 
     eventSource.addEventListener('error', handleError);
-    eventSource.onerror = handleError;
   }, [username, utils, isGenerating]);
 
   const handleChallenge = useCallback(() => {

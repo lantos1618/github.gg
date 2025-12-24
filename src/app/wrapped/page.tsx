@@ -338,7 +338,13 @@ export default function WrappedLandingPage() {
                 className="w-full h-12 border-gray-300 text-gray-700 hover:bg-gray-100"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
-                Regenerate {cacheStatus && 'hoursAgo' in cacheStatus && `(last: ${cacheStatus.hoursAgo}h ago)`}
+                Regenerate {cacheStatus && 'hoursAgo' in cacheStatus && (() => {
+                  const hours = cacheStatus.hoursAgo;
+                  const mins = 'minutesAgo' in cacheStatus ? cacheStatus.minutesAgo : 0;
+                  if (hours > 0) return `(last: ${hours}h ago)`;
+                  if (mins > 0) return `(last: ${mins}m ago)`;
+                  return '(last: just now)';
+                })()}
               </Button>
             </>
           ) : (

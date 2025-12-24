@@ -28,6 +28,9 @@ const EXTERNAL_ERROR_PATTERNS = {
     'subscription required',
     'please add your gemini api key',
     'requires a paid plan',
+    'need a subscription',
+    'forbidden',
+    '403',
   ],
 } as const;
 

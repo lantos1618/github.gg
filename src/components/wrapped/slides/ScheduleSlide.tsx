@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { WrappedSlide } from '../WrappedSlide';
-import { Clock, Flame, Moon, Calendar } from 'lucide-react';
+import { Flame, Moon, Calendar } from 'lucide-react';
 
 interface ScheduleSlideProps {
   commitsByHour: number[];
@@ -65,8 +65,12 @@ function getScheduleRoast(peakHour: number, lateNight: number, weekend: number):
   };
 }
 
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const DAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function getTimePeriod(hour: number): { period: string; icon: string } {
+  if (hour >= 5 && hour < 12) return { period: 'morning', icon: '🌅' };
+  if (hour >= 12 && hour < 17) return { period: 'afternoon', icon: '☀️' };
+  if (hour >= 17 && hour < 21) return { period: 'evening', icon: '🌆' };
+  return { period: 'night', icon: '🌙' };
+}
 
 export function ScheduleSlide({
   commitsByHour,
@@ -77,198 +81,335 @@ export function ScheduleSlide({
   weekendCommits,
   longestStreak,
 }: ScheduleSlideProps) {
-  const [showDetails, setShowDetails] = useState(false);
-  const [showActiveDays, setShowActiveDays] = useState(false);
+  const [phase, setPhase] = useState<'clock' | 'reveal' | 'details'>('clock');
   const maxCommits = Math.max(...commitsByHour, 1);
-  const maxDayCommits = Math.max(...commitsByDay, 1);
   const roast = getScheduleRoast(peakHour, lateNightCommits, weekendCommits);
-  const peakDayIndex = commitsByDay.indexOf(maxDayCommits);
+  const timePeriod = getTimePeriod(peakHour);
+
+  void commitsByDay;
 
   useEffect(() => {
     const timers = [
-      setTimeout(() => setShowDetails(true), 2000),
-      setTimeout(() => setShowActiveDays(true), 3500),
+      setTimeout(() => setPhase('reveal'), 1800),
+      setTimeout(() => setPhase('details'), 3200),
     ];
     return () => timers.forEach(clearTimeout);
   }, []);
 
   return (
-    <WrappedSlide variant="gradient">
-      <div className="space-y-6">
+    <WrappedSlide
+      gradientFrom="#0f0f1a"
+      gradientVia="#1a1a2e"
+      gradientTo="#16213e"
+    >
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.4 }}
+          transition={{ duration: 2 }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, rgba(139, 92, 246, 0.3) 0%, rgba(139, 92, 246, 0) 70%)',
+          }}
+        />
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.2 }}
+          transition={{ duration: 2, delay: 0.5 }}
+          className="absolute top-1/4 right-1/4 w-[300px] h-[300px] rounded-full"
+          style={{
+            background: 'radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, transparent 70%)',
+          }}
+        />
+      </div>
+
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-[500px] md:min-h-[600px]">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center"
+          transition={{ duration: 0.6 }}
+          className="text-center mb-6 md:mb-8"
         >
-          <p className="text-sm uppercase tracking-widest text-gray-500 mb-2">Your Coding Schedule</p>
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-900">When do you code?</h2>
+          <p className="text-xs md:text-sm uppercase tracking-[0.3em] text-purple-300/80 font-medium">
+            Your Coding Rhythm
+          </p>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="bg-white rounded-2xl p-4 md:p-6 border border-gray-200 shadow-sm"
-        >
-          <div className="flex items-end justify-between h-28 md:h-36 gap-px">
-            {commitsByHour.map((commits, hour) => {
-              const height = (commits / maxCommits) * 100;
-              const isPeak = hour === peakHour;
+        <div className="relative w-[280px] h-[280px] md:w-[340px] md:h-[340px]">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1 }}
+            className="absolute inset-0 rounded-full"
+            style={{
+              background: 'radial-gradient(circle, transparent 45%, rgba(139, 92, 246, 0.1) 50%, transparent 55%)',
+            }}
+          />
+
+          <svg viewBox="0 0 200 200" className="w-full h-full">
+            <circle
+              cx="100"
+              cy="100"
+              r="90"
+              fill="none"
+              stroke="rgba(255,255,255,0.05)"
+              strokeWidth="1"
+            />
+            
+            {Array.from({ length: 24 }).map((_, i) => {
+              const angle = (i * 15 - 90) * (Math.PI / 180);
+              const isMainHour = i % 6 === 0;
+              const innerR = isMainHour ? 78 : 82;
+              const outerR = 88;
+              const x1 = 100 + innerR * Math.cos(angle);
+              const y1 = 100 + innerR * Math.sin(angle);
+              const x2 = 100 + outerR * Math.cos(angle);
+              const y2 = 100 + outerR * Math.sin(angle);
               
               return (
-                <motion.div
-                  key={hour}
-                  className="flex-1 flex flex-col items-center"
-                  initial={{ height: 0 }}
-                  animate={{ height: 'auto' }}
-                >
-                  <div className="relative w-full flex justify-center" style={{ height: '100%' }}>
-                    {isPeak && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 1.5, type: 'spring' }}
-                        className="absolute -top-6 left-1/2 -translate-x-1/2 z-10"
-                      >
-                        <div className="bg-purple-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                          PEAK
-                        </div>
-                        <div className="w-0 h-0 border-l-[4px] border-r-[4px] border-t-[4px] border-l-transparent border-r-transparent border-t-purple-600 mx-auto" />
-                      </motion.div>
-                    )}
-                    <motion.div
-                      className={`w-full max-w-[10px] md:max-w-[12px] rounded-t-sm ${
-                        isPeak 
-                          ? 'bg-purple-600' 
-                          : 'bg-gray-300 hover:bg-gray-400'
-                      } transition-colors`}
-                      initial={{ height: 0 }}
-                      animate={{ height: `${Math.max(height, 4)}%` }}
-                      transition={{
-                        duration: 0.4,
-                        delay: 0.4 + hour * 0.03,
-                        ease: 'easeOut',
-                      }}
-                      style={{ minHeight: '2px' }}
-                    />
-                  </div>
-                </motion.div>
+                <motion.line
+                  key={i}
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke={isMainHour ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.15)'}
+                  strokeWidth={isMainHour ? 2 : 1}
+                  strokeLinecap="round"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.1 + i * 0.02 }}
+                />
               );
             })}
-          </div>
-          
-          <div className="flex justify-between text-[9px] md:text-[10px] text-gray-400 mt-3 px-0">
-            <span>12am</span>
-            <span>6am</span>
-            <span>12pm</span>
-            <span>6pm</span>
-            <span>11pm</span>
-          </div>
-        </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.2 }}
-          className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm text-center"
-        >
-          <div className="flex items-center justify-center gap-2 text-gray-500 mb-3">
-            <Clock className="w-4 h-4" />
-            <span className="text-sm">Peak productivity</span>
-          </div>
-          <div className="flex items-baseline justify-center gap-2">
-            <span className="text-4xl md:text-5xl font-black text-purple-600">
-              {HOUR_LABELS_FULL[peakHour]}
-            </span>
-            <span className="text-gray-400 text-lg">on</span>
-            <span className="text-4xl md:text-5xl font-black text-gray-900">
-              {peakDay}s
-            </span>
-          </div>
-        </motion.div>
+            {[0, 6, 12, 18].map((hour) => {
+              const angle = (hour * 15 - 90) * (Math.PI / 180);
+              const r = 70;
+              const x = 100 + r * Math.cos(angle);
+              const y = 100 + r * Math.sin(angle);
+              const labels = ['12a', '6a', '12p', '6p'];
+              
+              return (
+                <motion.text
+                  key={hour}
+                  x={x}
+                  y={y}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="rgba(255,255,255,0.5)"
+                  fontSize="8"
+                  fontWeight="500"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 + hour * 0.05 }}
+                >
+                  {labels[hour / 6]}
+                </motion.text>
+              );
+            })}
 
-        {showActiveDays && (
+            {commitsByHour.map((commits, hour) => {
+              const intensity = commits / maxCommits;
+              if (intensity < 0.05) return null;
+              
+              const startAngle = (hour * 15 - 90 - 7) * (Math.PI / 180);
+              const endAngle = (hour * 15 - 90 + 7) * (Math.PI / 180);
+              const innerR = 42;
+              const outerR = 42 + intensity * 20;
+              const isPeak = hour === peakHour;
+              
+              const x1 = 100 + innerR * Math.cos(startAngle);
+              const y1 = 100 + innerR * Math.sin(startAngle);
+              const x2 = 100 + outerR * Math.cos(startAngle);
+              const y2 = 100 + outerR * Math.sin(startAngle);
+              const x3 = 100 + outerR * Math.cos(endAngle);
+              const y3 = 100 + outerR * Math.sin(endAngle);
+              const x4 = 100 + innerR * Math.cos(endAngle);
+              const y4 = 100 + innerR * Math.sin(endAngle);
+
+              return (
+                <motion.path
+                  key={hour}
+                  d={`M ${x1} ${y1} L ${x2} ${y2} A ${outerR} ${outerR} 0 0 1 ${x3} ${y3} L ${x4} ${y4} A ${innerR} ${innerR} 0 0 0 ${x1} ${y1}`}
+                  fill={isPeak 
+                    ? 'url(#peakGradient)' 
+                    : `rgba(139, 92, 246, ${0.3 + intensity * 0.5})`
+                  }
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ 
+                    opacity: 1, 
+                    scale: 1,
+                  }}
+                  transition={{ 
+                    delay: 0.3 + hour * 0.04,
+                    duration: 0.4,
+                    ease: 'easeOut'
+                  }}
+                  style={{ transformOrigin: 'center' }}
+                />
+              );
+            })}
+
+            <motion.circle
+              cx="100"
+              cy="100"
+              r="42"
+              fill="none"
+              stroke="rgba(139, 92, 246, 0.3)"
+              strokeWidth="1"
+              strokeDasharray="4 4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.2 }}
+            />
+
+            <defs>
+              <linearGradient id="peakGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#a855f7" />
+                <stop offset="50%" stopColor="#ec4899" />
+                <stop offset="100%" stopColor="#f97316" />
+              </linearGradient>
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                <feMerge>
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+          </svg>
+
+          <div className="absolute inset-0 flex items-center justify-center">
+            <AnimatePresence mode="wait">
+              {phase === 'clock' && (
+                <motion.div
+                  key="loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="text-center"
+                >
+                  <motion.div
+                    className="text-4xl"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                  >
+                    ⏰
+                  </motion.div>
+                </motion.div>
+              )}
+
+              {(phase === 'reveal' || phase === 'details') && (
+                <motion.div
+                  key="time"
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+                  className="text-center"
+                >
+                  <motion.div
+                    initial={{ y: 10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="text-3xl mb-1"
+                  >
+                    {timePeriod.icon}
+                  </motion.div>
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.3 }}
+                    className="text-4xl md:text-5xl font-black bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400 bg-clip-text text-transparent"
+                  >
+                    {HOUR_LABELS_FULL[peakHour]}
+                  </motion.div>
+                  <motion.div
+                    initial={{ y: 10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                    className="text-xs md:text-sm text-white/50 uppercase tracking-wider mt-1"
+                  >
+                    peak hour
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {phase !== 'clock' && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ 
+                opacity: [0, 0.5, 0],
+                scale: [0.9, 1.05, 0.9]
+              }}
+              transition={{ 
+                duration: 2,
+                repeat: Infinity,
+                ease: 'easeInOut'
+              }}
+              className="absolute inset-0 rounded-full border-2 border-purple-400/30"
+            />
+          )}
+        </div>
+
+        {(phase === 'reveal' || phase === 'details') && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl p-4 md:p-6 border border-gray-200 shadow-sm"
+            transition={{ delay: 0.6 }}
+            className="mt-6 md:mt-8 text-center"
           >
-            <div className="text-center mb-4">
-              <p className="text-sm uppercase tracking-widest text-gray-500 mb-2">Your Active Days</p>
-              <h3 className="text-lg font-bold text-gray-900">When do you commit?</h3>
-            </div>
-            
-            <div className="flex items-end justify-between h-24 gap-1">
-              {commitsByDay.map((commits, dayIndex) => {
-                const height = (commits / maxDayCommits) * 100;
-                const isPeak = dayIndex === peakDayIndex;
-                
-                return (
-                  <motion.div
-                    key={dayIndex}
-                    className="flex-1 flex flex-col items-center"
-                    initial={{ height: 0 }}
-                    animate={{ height: 'auto' }}
-                  >
-                    <div className="relative w-full flex justify-center" style={{ height: '100%' }}>
-                      {isPeak && (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: 0.5, type: 'spring' }}
-                          className="absolute -top-5 left-1/2 -translate-x-1/2 z-10"
-                        >
-                          <div className="bg-blue-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap">
-                            MOST
-                          </div>
-                          <div className="w-0 h-0 border-l-[3px] border-r-[3px] border-t-[3px] border-l-transparent border-r-transparent border-t-blue-600 mx-auto" />
-                        </motion.div>
-                      )}
-                      <motion.div
-                        className={`w-full max-w-[8px] md:max-w-[10px] rounded-t-sm ${
-                          isPeak 
-                            ? 'bg-blue-600' 
-                            : 'bg-gray-300 hover:bg-gray-400'
-                        } transition-colors`}
-                        initial={{ height: 0 }}
-                        animate={{ height: `${Math.max(height, 4)}%` }}
-                        transition={{
-                          duration: 0.4,
-                          delay: 0.6 + dayIndex * 0.05,
-                          ease: 'easeOut',
-                        }}
-                        style={{ minHeight: '2px' }}
-                      />
-                    </div>
-                    <div className="mt-2 text-[9px] md:text-[10px] text-gray-600 font-medium">
-                      {DAY_NAMES_SHORT[dayIndex]}
-                    </div>
-                    <div className="text-[8px] text-gray-400 mt-0.5">
-                      {commits}
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
+            <p className="text-white/40 text-sm mb-1">Most productive on</p>
+            <p className="text-2xl md:text-3xl font-bold text-white">
+              {peakDay}s
+            </p>
           </motion.div>
         )}
 
-        {showDetails && (
+        {phase === 'details' && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
+            transition={{ delay: 0.3 }}
+            className="mt-8 space-y-6 w-full max-w-sm"
           >
-            <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm text-center">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.5 }}
+              className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-4 text-center"
+            >
               <span className="text-2xl mr-2">{roast.emoji}</span>
-              <p className="text-gray-700 inline">{roast.message}</p>
-            </div>
+              <p className="text-white/80 text-sm inline">{roast.message}</p>
+            </motion.div>
 
-            <div className="grid grid-cols-3 gap-2">
-              <StatCard icon={<Flame className="w-4 h-4 text-orange-500" />} value={longestStreak} label="day streak" />
-              <StatCard icon={<Moon className="w-4 h-4 text-indigo-500" />} value={lateNightCommits} label="late night" />
-              <StatCard icon={<Calendar className="w-4 h-4 text-blue-500" />} value={weekendCommits} label="weekend" />
-            </div>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7 }}
+              className="flex justify-center gap-2 flex-wrap"
+            >
+              <StatPill 
+                icon={<Flame className="w-3.5 h-3.5 text-orange-400" />} 
+                value={longestStreak} 
+                label="day streak" 
+                delay={0.8}
+              />
+              <StatPill 
+                icon={<Moon className="w-3.5 h-3.5 text-indigo-400" />} 
+                value={lateNightCommits} 
+                label="late nights" 
+                delay={0.9}
+              />
+              <StatPill 
+                icon={<Calendar className="w-3.5 h-3.5 text-cyan-400" />} 
+                value={weekendCommits} 
+                label="weekends" 
+                delay={1.0}
+              />
+            </motion.div>
           </motion.div>
         )}
       </div>
@@ -276,20 +417,27 @@ export function ScheduleSlide({
   );
 }
 
-function StatCard({
+function StatPill({
   icon,
   value,
   label,
+  delay,
 }: {
   icon: React.ReactNode;
   value: number;
   label: string;
+  delay: number;
 }) {
   return (
-    <div className="bg-white rounded-xl p-3 border border-gray-200 text-center shadow-sm">
-      <div className="flex justify-center mb-1">{icon}</div>
-      <div className="text-lg font-bold text-gray-900">{value}</div>
-      <div className="text-[9px] text-gray-500 uppercase tracking-wide">{label}</div>
-    </div>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay }}
+      className="flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/10 rounded-full"
+    >
+      {icon}
+      <span className="text-white font-semibold text-sm">{value}</span>
+      <span className="text-white/50 text-xs">{label}</span>
+    </motion.div>
   );
 }

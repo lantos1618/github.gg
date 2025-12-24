@@ -91,9 +91,21 @@ describe('Score History Tests', () => {
       },
     ]);
 
+    const [challengerRanking] = await db
+      .select()
+      .from(developerRankings)
+      .where(eq(developerRankings.username, testUsername1))
+      .limit(1);
+    
+    const [opponentRanking] = await db
+      .select()
+      .from(developerRankings)
+      .where(eq(developerRankings.username, testUsername2))
+      .limit(1);
+
     await updateRankings(
-      testUserId1,
-      testUserId2,
+      challengerRanking,
+      opponentRanking,
       true,
       {
         challenger: { change: 16, newRating: 1216 },
@@ -147,9 +159,21 @@ describe('Score History Tests', () => {
       },
     ]);
 
+    const [challengerRanking] = await db
+      .select()
+      .from(developerRankings)
+      .where(eq(developerRankings.username, testUsername1))
+      .limit(1);
+    
+    const [opponentRanking] = await db
+      .select()
+      .from(developerRankings)
+      .where(eq(developerRankings.username, testUsername2))
+      .limit(1);
+
     await updateRankings(
-      testUserId1,
-      testUserId2,
+      challengerRanking,
+      opponentRanking,
       true,
       {
         challenger: { change: 16, newRating: 1216 },

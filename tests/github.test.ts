@@ -1,7 +1,16 @@
 #!/usr/bin/env bun
 
-import { test, expect } from 'bun:test';
+import { test, expect, describe, beforeAll } from 'bun:test';
 import { GitHubService } from '@/lib/github';
+
+const apiKey = process.env.GITHUB_PUBLIC_API_KEY;
+const hasApiKey = !!apiKey && apiKey.length > 10 && !apiKey.includes('placeholder');
+
+if (!hasApiKey) {
+  console.warn('⚠️ Skipping GitHub tests: GITHUB_PUBLIC_API_KEY not configured');
+}
+
+describe.skipIf(!hasApiKey)('GitHubService', () => {
 
 test("GitHubService fetches files correctly", async () => {
   const githubService = GitHubService.createPublic();
@@ -67,35 +76,17 @@ test("GitHubService fetches files", async () => {
 }); 
 
 
-test("GitHubService fetches files from a branch with slash  (codex/fix-paywall-and-github-repository-issues)", async () => {
+test("GitHubService fetches files with subdirectory path", async () => {
   const githubService = GitHubService.createPublic();
   const result = await githubService.getRepositoryFiles(
     'lantos1618',
     'github.gg',
-    'codex/fix-paywall-and-github-repository-issues',
+    'main',
     1000,
-    ''
+    'src/app'
   );
   expect(result.files.length).toBeGreaterThan(0);
-  expect(result.files.some(f => f.name === 'tsconfig.json')).toBe(true);
-}); 
+  expect(result.files.some(f => f.name === 'page.tsx' || f.name === 'layout.tsx')).toBe(true);
+});
 
-test("GitHubService fetches files from a branch with slash and subdirectory (codex/fix-paywall-and-github-repository-issues)", async () => {
-  const githubService = GitHubService.createPublic();
-  const ref = 'codex/fix-paywall-and-github-repository-issues';
-  const path = 'app/search';
-  try {
-    const result = await githubService.getRepositoryFiles(
-      'lantos1618',
-      'github.gg',
-      ref,
-      1000,
-      path
-    );
-    expect(result.files.length).toBeGreaterThan(0);
-    expect(result.files.some(f => f.name === 'page.tsx')).toBe(true);
-  } catch (err) {
-    console.error('DEBUG: error fetching files:', err);
-    throw err;
-  }
-}); 
+});

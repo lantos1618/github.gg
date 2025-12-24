@@ -516,11 +516,13 @@ export const wrappedRouter = router({
 
       const timeSinceUpdate = Date.now() - wrapped[0].updatedAt.getTime();
       const hoursAgo = Math.floor(timeSinceUpdate / (1000 * 60 * 60));
+      const minutesAgo = Math.floor(timeSinceUpdate / (1000 * 60));
       
       return {
         cached: timeSinceUpdate < CACHE_DURATION_MS,
         lastGenerated: wrapped[0].updatedAt,
         hoursAgo,
+        minutesAgo,
         canRegenerate: true,
         hasAiInsights: !!wrapped[0].hasAiInsights,
       };

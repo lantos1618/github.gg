@@ -243,3 +243,18 @@ export interface TRPCError {
 export function isTRPCError(err: unknown): err is TRPCError {
   return typeof err === 'object' && err !== null && 'message' in err && typeof (err as { message?: unknown }).message === 'string';
 }
+
+export function parseRepoPathWithBranches(
+  params: ParseRepoPathParams,
+  branchNames: string[] = []
+): ParseRepoPathResult {
+  const result = parseRepoPath(params, branchNames);
+  
+  if (result.ref) {
+    const encodedRef = encodeURIComponent(result.ref);
+    const pathPart = result.path ? `/${result.path}` : '';
+    result.currentPath = `/${result.user}/${result.repo}/tree/${encodedRef}${pathPart}`;
+  }
+  
+  return result;
+}

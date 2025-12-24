@@ -4,9 +4,16 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import type { WrappedData } from '@/lib/types/wrapped';
 
+export type LogEntry = {
+  message: string;
+  progress: number;
+  timestamp: number;
+};
+
 export type WrappedGenerationState = {
   progress: number;
   message: string;
+  logs: LogEntry[];
   data: WrappedData | null;
   error: string | null;
   isLoading: boolean;
@@ -34,6 +41,7 @@ export function useWrappedGeneration(year?: number) {
   const [state, setState] = useState<WrappedGenerationState>({
     progress: 0,
     message: '',
+    logs: [],
     data: null,
     error: null,
     isLoading: false,
@@ -62,6 +70,7 @@ export function useWrappedGeneration(year?: number) {
     setState({
       progress: 0,
       message: 'Starting generation...',
+      logs: [{ message: 'Starting generation...', progress: 0, timestamp: Date.now() }],
       data: null,
       error: null,
       isLoading: true,
@@ -84,16 +93,25 @@ export function useWrappedGeneration(year?: number) {
           const event = rawEvent as WrappedEvent;
           
           if (event.type === 'progress') {
-            setState((prev) => ({
-              ...prev,
-              progress: event.progress ?? prev.progress,
-              message: event.message ?? prev.message,
-            }));
+            setState((prev) => {
+              const newMessage = event.message ?? prev.message;
+              const newProgress = event.progress ?? prev.progress;
+              const shouldAddLog = newMessage !== prev.message;
+              return {
+                ...prev,
+                progress: newProgress,
+                message: newMessage,
+                logs: shouldAddLog 
+                  ? [...prev.logs, { message: newMessage, progress: newProgress, timestamp: Date.now() }]
+                  : prev.logs,
+              };
+            });
           } else if (event.type === 'complete') {
             setState((prev) => ({
               ...prev,
               progress: 100,
               message: 'Complete!',
+              logs: [...prev.logs, { message: 'Complete!', progress: 100, timestamp: Date.now() }],
               data: event.data as WrappedData,
               isLoading: false,
               cached: event.cached ?? false,
@@ -139,6 +157,7 @@ export function useWrappedGeneration(year?: number) {
     setState({
       progress: 0,
       message: '',
+      logs: [],
       data: null,
       error: null,
       isLoading: false,

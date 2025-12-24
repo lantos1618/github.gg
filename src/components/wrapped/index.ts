@@ -6,6 +6,7 @@ export {
   useGenerateForFriend,
   type GenerationOptions,
   type GenerateForFriendOptions,
+  type LogEntry,
 } from './hooks/useWrappedGeneration';
 
 export { IntroSlide } from './slides/IntroSlide';

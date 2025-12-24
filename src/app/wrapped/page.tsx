@@ -39,6 +39,7 @@ export default function WrappedLandingPage() {
   const {
     progress,
     message,
+    logs,
     data,
     error,
     cached,
@@ -223,25 +224,101 @@ export default function WrappedLandingPage() {
 
   if (generating || hasStarted) {
     return (
-      <div className="min-h-screen bg-gray-50 text-gray-900 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[#0a0a0f] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[120px] animate-pulse" />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-900/5 rounded-full blur-[100px]" />
+        </div>
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-md w-full text-center space-y-8"
+          className="max-w-2xl w-full space-y-8 relative z-10"
         >
-          <WrappedLoadingAnimation />
+          <motion.div 
+            className="text-center"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.1 }}
+          >
+            <h1 className="text-7xl md:text-8xl font-black tracking-tighter bg-gradient-to-r from-emerald-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent bg-[length:200%_auto] animate-[shimmer_3s_linear_infinite]">
+              {currentYear}
+            </h1>
+            <p className="text-gray-500 text-sm mt-2 font-mono uppercase tracking-widest">
+              GitHub Wrapped
+            </p>
+          </motion.div>
 
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-gray-900">
-              Generating Your Wrapped
-            </h2>
-            <p className="text-gray-600">{message || 'Preparing...'}</p>
-          </div>
+          <motion.div 
+            className="bg-[#0d1117] border border-gray-800/50 rounded-xl overflow-hidden shadow-2xl shadow-emerald-500/5"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <div className="flex items-center gap-2 px-4 py-3 bg-[#161b22] border-b border-gray-800/50">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                <div className="w-3 h-3 rounded-full bg-green-500/80" />
+              </div>
+              <div className="flex-1 text-center">
+                <span className="text-xs text-gray-500 font-mono">wrapped-generator</span>
+              </div>
+              <div className="w-16" />
+            </div>
 
-          <div className="space-y-2">
-            <Progress value={progress} className="h-2 bg-gray-200" />
-            <p className="text-sm text-gray-500">{progress}%</p>
-          </div>
+            <div className="p-4 font-mono text-sm h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+              <AnimatePresence mode="popLayout">
+                {logs.map((log, index) => (
+                  <motion.div
+                    key={log.timestamp}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeOut' }}
+                    className="flex items-start gap-2 mb-2"
+                  >
+                    <span className="text-emerald-500 select-none">$</span>
+                    <span className="text-gray-400">{log.message}</span>
+                    {index === logs.length - 1 && !error && progress < 100 && (
+                      <motion.span
+                        animate={{ opacity: [1, 0] }}
+                        transition={{ duration: 0.8, repeat: Infinity, repeatType: 'reverse' }}
+                        className="inline-block w-2 h-4 bg-emerald-400 ml-1"
+                      />
+                    )}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              {logs.length === 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-500">$</span>
+                  <span className="text-gray-500">Initializing...</span>
+                  <motion.span
+                    animate={{ opacity: [1, 0] }}
+                    transition={{ duration: 0.8, repeat: Infinity, repeatType: 'reverse' }}
+                    className="inline-block w-2 h-4 bg-emerald-400"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="px-4 py-3 bg-[#161b22] border-t border-gray-800/50">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progress}%` }}
+                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                  />
+                </div>
+                <span className="text-xs font-mono text-gray-500 min-w-[3ch] text-right">
+                  {progress}%
+                </span>
+              </div>
+            </div>
+          </motion.div>
 
           <AnimatePresence>
             {error && (
@@ -249,26 +326,32 @@ export default function WrappedLandingPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="p-4 bg-red-50 border border-red-200 rounded-lg"
+                className="p-4 bg-red-950/30 border border-red-900/50 rounded-lg backdrop-blur-sm"
               >
-                <p className="text-red-600 font-medium mb-2">Something went wrong</p>
-                <p className="text-red-500 text-sm mb-4">{error}</p>
-                <Button
-                  onClick={() => {
-                    reset();
-                    setHasStarted(false);
-                    setStarCheckPassed(false);
-                  }}
-                  variant="outline"
-                  className="border-red-300 text-red-600 hover:bg-red-50"
-                >
-                  Try Again
-                </Button>
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 mt-1.5 rounded-full bg-red-500 animate-pulse" />
+                  <div className="flex-1">
+                    <p className="text-red-400 font-medium mb-1">Error encountered</p>
+                    <p className="text-red-400/70 text-sm font-mono mb-4">{error}</p>
+                    <Button
+                      onClick={() => {
+                        reset();
+                        setHasStarted(false);
+                        setStarCheckPassed(false);
+                      }}
+                      variant="outline"
+                      className="border-red-800 text-red-400 hover:bg-red-950/50 hover:text-red-300"
+                    >
+                      Try Again
+                    </Button>
+                  </div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
         </motion.div>
-        <FloatingParticles />
+
+        <div className="absolute inset-0 pointer-events-none bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,rgba(0,0,0,0.03)_2px,rgba(0,0,0,0.03)_4px)] z-20" />
       </div>
     );
   }

@@ -11,6 +11,8 @@ interface HighlightsSlideProps {
   avatarUrl: string;
   aiInsights: WrappedAIInsights | null;
   stats: WrappedStats;
+  longestCommitMessage: string | null;
+  shortestCommitMessage: { message: string; length: number } | null;
 }
 
 function getShamefulHighlight(stats: WrappedStats): { title: string; value: string; emoji: string } | null {
@@ -42,8 +44,8 @@ function getShamefulHighlight(stats: WrappedStats): { title: string; value: stri
   return null;
 }
 
-export function HighlightsSlide({ username, avatarUrl, aiInsights, stats }: HighlightsSlideProps) {
-  const [phase, setPhase] = useState<'avatar' | 'cool' | 'dumb'>('avatar');
+export function HighlightsSlide({ username, avatarUrl, aiInsights, stats, longestCommitMessage, shortestCommitMessage }: HighlightsSlideProps) {
+  const [phase, setPhase] = useState<'avatar' | 'smart' | 'dumb'>('avatar');
 
   const coolestThing = aiInsights?.biggestWin;
   const dumbestThing = aiInsights?.traumaEvent;
@@ -51,8 +53,8 @@ export function HighlightsSlide({ username, avatarUrl, aiInsights, stats }: High
 
   useEffect(() => {
     const timers = [
-      setTimeout(() => setPhase('cool'), 1500),
-      setTimeout(() => setPhase('dumb'), 4000),
+      setTimeout(() => setPhase('smart'), 1500),
+      setTimeout(() => setPhase('dumb'), 5000),
     ];
     return () => timers.forEach(clearTimeout);
   }, []);
@@ -112,17 +114,17 @@ export function HighlightsSlide({ username, avatarUrl, aiInsights, stats }: High
             </motion.div>
           )}
 
-          {phase === 'cool' && coolestThing && (
+          {phase === 'smart' && (
             <motion.div
-              key="cool"
+              key="smart"
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -50 }}
               className="space-y-4"
             >
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-100 to-yellow-100 rounded-full border border-amber-200">
-                <Trophy className="w-5 h-5 text-amber-500" />
-                <span className="text-sm font-semibold text-amber-700 uppercase tracking-wide">Coolest Moment</span>
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-100 to-green-100 rounded-full border border-emerald-200">
+                <Trophy className="w-5 h-5 text-emerald-500" />
+                <span className="text-sm font-semibold text-emerald-700 uppercase tracking-wide">Smartest Commit</span>
               </div>
               
               <motion.div
@@ -130,8 +132,24 @@ export function HighlightsSlide({ username, avatarUrl, aiInsights, stats }: High
                 animate={{ scale: 1 }}
                 className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg max-w-md mx-auto"
               >
-                <div className="text-4xl mb-3">🏆</div>
-                <p className="text-lg text-gray-800 leading-relaxed">{coolestThing}</p>
+                {longestCommitMessage ? (
+                  <>
+                    <div className="text-4xl mb-3">🧠</div>
+                    <p className="text-xs text-gray-500 mb-2">Your longest commit message ({longestCommitMessage.length} chars):</p>
+                    <p className="text-base text-gray-800 leading-relaxed font-mono bg-gray-50 p-3 rounded border">
+                      {longestCommitMessage.length > 200 
+                        ? `${longestCommitMessage.slice(0, 200)}...` 
+                        : longestCommitMessage}
+                    </p>
+                  </>
+                ) : coolestThing ? (
+                  <>
+                    <div className="text-4xl mb-3">🏆</div>
+                    <p className="text-lg text-gray-800 leading-relaxed">{coolestThing}</p>
+                  </>
+                ) : (
+                  <p className="text-lg text-gray-800 leading-relaxed">Your commits are consistently thoughtful! 🎉</p>
+                )}
               </motion.div>
             </motion.div>
           )}
@@ -154,7 +172,17 @@ export function HighlightsSlide({ username, avatarUrl, aiInsights, stats }: High
                 className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg max-w-md mx-auto"
               >
                 <div className="text-4xl mb-3">💀</div>
-                {dumbestThing ? (
+                {shortestCommitMessage ? (
+                  <>
+                    <p className="text-xs text-gray-500 mb-2">Your shortest commit message ({shortestCommitMessage.length} chars):</p>
+                    <p className="text-lg text-gray-800 leading-relaxed font-mono bg-red-50 p-3 rounded border border-red-200">
+                      &quot;{shortestCommitMessage.message}&quot;
+                    </p>
+                    {shortestCommitMessage.length <= 1 && (
+                      <p className="text-sm text-red-600 mt-2">A single character. Really? 😅</p>
+                    )}
+                  </>
+                ) : dumbestThing ? (
                   <p className="text-lg text-gray-800 leading-relaxed">{dumbestThing}</p>
                 ) : shamefulHighlight ? (
                   <div className="space-y-2">

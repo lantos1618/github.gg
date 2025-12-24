@@ -8,6 +8,7 @@ import type {
   GitHubFilesResponse,
   BetterAuthSession
 } from './types';
+import { DEFAULT_MAX_FILES } from './types';
 import { SessionData } from '@/lib/types/errors';
 
 // Main GitHub service - simple facade that coordinates other services
@@ -35,7 +36,7 @@ export class GitHubService {
     owner: string,
     repo: string,
     ref?: string,
-    maxFiles: number = 1000,
+    maxFiles: number = DEFAULT_MAX_FILES,
     path?: string
   ): Promise<GitHubFilesResponse> {
     return this.repositoryService.getRepositoryFiles(owner, repo, ref, maxFiles, path);

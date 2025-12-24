@@ -43,7 +43,7 @@ export type BetterAuthSession = Awaited<ReturnType<typeof import('@/lib/auth').a
 export type FlexibleOctokit = import('@octokit/rest').Octokit;
 
 // Service configuration
-export const DEFAULT_MAX_FILES = 1000;
+export const DEFAULT_MAX_FILES = 5000;
 
 export interface GitHubFile {
   path: string;

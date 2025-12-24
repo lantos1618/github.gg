@@ -13,7 +13,7 @@ import {
   acquireGenerationLock,
   releaseGenerationLock,
 } from '@/lib/rate-limit';
-import { getApiKeyForUser, getUserSubscription } from '@/lib/utils/user-plan';
+import { getUserSubscription } from '@/lib/utils/user-plan';
 import { generateWrappedInsights } from '@/lib/ai/wrapped-insights';
 import type { WrappedAIInsights } from '@/db/schema/wrapped';
 
@@ -148,29 +148,25 @@ export async function GET(req: NextRequest) {
         
         sendEvent('progress', { type: 'progress', progress: 30, message: 'Analyzing commits...' });
         
-        const stats = await wrappedService.fetchWrappedStats(username);
+        const { stats, rawData } = await wrappedService.fetchWrappedStats(username);
 
         sendEvent('progress', { type: 'progress', progress: 70, message: 'Crunching the numbers...' });
 
         let aiInsights: WrappedAIInsights | null = null;
         
         if (withAI) {
-          sendEvent('progress', { type: 'progress', progress: 75, message: 'Checking for AI key...' });
-          
-          // Check subscription to determine if user is paid (pro) or needs BYOK
           const subscription = await getUserSubscription(session.user.id);
           const isPro = subscription?.status === 'active' && subscription?.plan === 'pro';
-          const userKey = await getApiKeyForUser(session.user.id, isPro ? 'pro' : 'byok');
           
-          if (userKey) {
+          if (isPro) {
             sendEvent('progress', { type: 'progress', progress: 78, message: 'Generating AI personality analysis...' });
             
             try {
               const result = await generateWrappedInsights({
                 username,
                 stats,
+                rawData,
                 year,
-                apiKey: userKey.apiKey,
                 includeRoast,
               });
               
@@ -183,7 +179,7 @@ export async function GET(req: NextRequest) {
                 outputTokens: result.usage.outputTokens,
                 totalTokens: result.usage.totalTokens,
                 model: 'gemini-2.0-flash',
-                isByok: userKey.isByok,
+                isByok: false,
               });
               
               sendEvent('progress', { type: 'progress', progress: 82, message: 'AI analysis complete!' });
@@ -199,7 +195,7 @@ export async function GET(req: NextRequest) {
             sendEvent('progress', { 
               type: 'progress', 
               progress: 82, 
-              message: 'No API key found. Skipping AI analysis...' 
+              message: 'AI features require Pro subscription' 
             });
           }
         }

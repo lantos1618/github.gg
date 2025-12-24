@@ -9,6 +9,7 @@ import { IntroSlide } from './slides/IntroSlide';
 import { CommitsSlide } from './slides/CommitsSlide';
 import { LanguagesSlide } from './slides/LanguagesSlide';
 import { ScheduleSlide } from './slides/ScheduleSlide';
+import { ContributionCalendarSlide } from './slides/ContributionCalendarSlide';
 import { HighlightsSlide } from './slides/HighlightsSlide';
 import { PersonalitySlide } from './slides/PersonalitySlide';
 import { ShareSlide } from './slides/ShareSlide';
@@ -19,7 +20,7 @@ interface WrappedStoryProps {
   onClose?: () => void;
 }
 
-const SLIDE_COUNT = 7;
+const SLIDE_COUNT = 8;
 
 export function WrappedStory({ data, onClose }: WrappedStoryProps) {
   const router = useRouter();
@@ -122,6 +123,7 @@ export function WrappedStory({ data, onClose }: WrappedStoryProps) {
         return (
           <ScheduleSlide
             commitsByHour={data.stats.commitsByHour}
+            commitsByDay={data.stats.commitsByDay}
             peakHour={data.stats.peakHour}
             peakDay={data.stats.peakDay}
             lateNightCommits={data.stats.lateNightCommits}
@@ -131,14 +133,23 @@ export function WrappedStory({ data, onClose }: WrappedStoryProps) {
         );
       case 4:
         return (
+          <ContributionCalendarSlide
+            contributionCalendar={data.stats.contributionCalendar || {}}
+            year={data.year}
+          />
+        );
+      case 5:
+        return (
           <HighlightsSlide
             username={data.username}
             avatarUrl={`https://github.com/${data.username}.png`}
             aiInsights={data.aiInsights}
             stats={data.stats}
+            longestCommitMessage={data.stats.longestCommitMessage}
+            shortestCommitMessage={data.stats.shamefulCommits?.shortestMessage}
           />
         );
-      case 5:
+      case 6:
         return (
           <PersonalitySlide
             aiInsights={data.aiInsights}
@@ -150,7 +161,7 @@ export function WrappedStory({ data, onClose }: WrappedStoryProps) {
             }}
           />
         );
-      case 6:
+      case 7:
         return <ShareSlide data={data} />;
       default:
         return null;

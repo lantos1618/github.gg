@@ -2,6 +2,7 @@ import { Octokit } from '@octokit/rest';
 import { extractTarball } from './extractor';
 import { RepoCache } from './cache';
 import type { RepositoryInfo, RepoSummary, GitHubFilesResponse, BetterAuthSession, GitHubFile } from './types';
+import { DEFAULT_MAX_FILES } from './types';
 import { getBestOctokitForRepo } from './app';
 import { parseError, isApiError } from '@/lib/types/errors';
 import { Readable } from 'stream';
@@ -200,7 +201,7 @@ export class RepositoryService {
     owner: string,
     repo: string,
     ref?: string,
-    maxFiles: number = 1000,
+    maxFiles: number = DEFAULT_MAX_FILES,
     path?: string
   ): Promise<GitHubFilesResponse> {
     try {

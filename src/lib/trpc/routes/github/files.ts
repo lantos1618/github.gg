@@ -11,7 +11,7 @@ export const filesRouter = router({
       repo: z.string(),
       ref: z.string().optional(),
       path: z.string().optional(),
-      maxFiles: z.number().min(1).max(1000).default(DEFAULT_MAX_FILES), // Limit to prevent abuse
+      maxFiles: z.number().min(1).max(5000).default(DEFAULT_MAX_FILES), // Limit to prevent abuse
     }))
     .query(async ({ input, ctx }): Promise<GitHubFilesResponse> => {
       try {

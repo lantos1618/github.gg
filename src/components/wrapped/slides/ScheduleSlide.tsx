@@ -7,6 +7,7 @@ import { Clock, Flame, Moon, Calendar } from 'lucide-react';
 
 interface ScheduleSlideProps {
   commitsByHour: number[];
+  commitsByDay: number[];
   peakHour: number;
   peakDay: string;
   lateNightCommits: number;
@@ -64,8 +65,12 @@ function getScheduleRoast(peakHour: number, lateNight: number, weekend: number):
   };
 }
 
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 export function ScheduleSlide({
   commitsByHour,
+  commitsByDay,
   peakHour,
   peakDay,
   lateNightCommits,
@@ -73,12 +78,18 @@ export function ScheduleSlide({
   longestStreak,
 }: ScheduleSlideProps) {
   const [showDetails, setShowDetails] = useState(false);
+  const [showActiveDays, setShowActiveDays] = useState(false);
   const maxCommits = Math.max(...commitsByHour, 1);
+  const maxDayCommits = Math.max(...commitsByDay, 1);
   const roast = getScheduleRoast(peakHour, lateNightCommits, weekendCommits);
+  const peakDayIndex = commitsByDay.indexOf(maxDayCommits);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowDetails(true), 2000);
-    return () => clearTimeout(timer);
+    const timers = [
+      setTimeout(() => setShowDetails(true), 2000),
+      setTimeout(() => setShowActiveDays(true), 3500),
+    ];
+    return () => timers.forEach(clearTimeout);
   }, []);
 
   return (
@@ -175,6 +186,72 @@ export function ScheduleSlide({
             </span>
           </div>
         </motion.div>
+
+        {showActiveDays && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-2xl p-4 md:p-6 border border-gray-200 shadow-sm"
+          >
+            <div className="text-center mb-4">
+              <p className="text-sm uppercase tracking-widest text-gray-500 mb-2">Your Active Days</p>
+              <h3 className="text-lg font-bold text-gray-900">When do you commit?</h3>
+            </div>
+            
+            <div className="flex items-end justify-between h-24 gap-1">
+              {commitsByDay.map((commits, dayIndex) => {
+                const height = (commits / maxDayCommits) * 100;
+                const isPeak = dayIndex === peakDayIndex;
+                
+                return (
+                  <motion.div
+                    key={dayIndex}
+                    className="flex-1 flex flex-col items-center"
+                    initial={{ height: 0 }}
+                    animate={{ height: 'auto' }}
+                  >
+                    <div className="relative w-full flex justify-center" style={{ height: '100%' }}>
+                      {isPeak && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: 0.5, type: 'spring' }}
+                          className="absolute -top-5 left-1/2 -translate-x-1/2 z-10"
+                        >
+                          <div className="bg-blue-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                            MOST
+                          </div>
+                          <div className="w-0 h-0 border-l-[3px] border-r-[3px] border-t-[3px] border-l-transparent border-r-transparent border-t-blue-600 mx-auto" />
+                        </motion.div>
+                      )}
+                      <motion.div
+                        className={`w-full max-w-[8px] md:max-w-[10px] rounded-t-sm ${
+                          isPeak 
+                            ? 'bg-blue-600' 
+                            : 'bg-gray-300 hover:bg-gray-400'
+                        } transition-colors`}
+                        initial={{ height: 0 }}
+                        animate={{ height: `${Math.max(height, 4)}%` }}
+                        transition={{
+                          duration: 0.4,
+                          delay: 0.6 + dayIndex * 0.05,
+                          ease: 'easeOut',
+                        }}
+                        style={{ minHeight: '2px' }}
+                      />
+                    </div>
+                    <div className="mt-2 text-[9px] md:text-[10px] text-gray-600 font-medium">
+                      {DAY_NAMES_SHORT[dayIndex]}
+                    </div>
+                    <div className="text-[8px] text-gray-400 mt-0.5">
+                      {commits}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
 
         {showDetails && (
           <motion.div

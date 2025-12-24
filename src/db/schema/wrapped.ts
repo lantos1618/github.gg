@@ -31,6 +31,9 @@ export type WrappedStats = {
   /** Array of 12 elements representing commits per month (Jan=0 to Dec=11) */
   commitsByMonth: number[];
   
+  /** Contribution calendar: object with date strings (YYYY-MM-DD) as keys and commit counts as values */
+  contributionCalendar: Record<string, number>;
+  
   longestStreak: number;
   currentStreak: number;
   
@@ -83,13 +86,22 @@ export type WrappedAIInsights = {
   personalityType: string;
   personalityDescription: string;
   personalityEmoji: string;
-  
+  yearSummary: string;
   biggestWin: string | null;
+  topProjects: Array<{
+    name: string;
+    description: string;
+    impact: string;
+  }> | null;
+  codingJourney: string | null;
+  commitMessageAnalysis: {
+    style: string;
+    commonThemes: string[];
+    funFact: string;
+  } | null;
   traumaEvent: string | null;
   roast: string | null;
   prediction2025: string | null;
-  
-  /** Grade: A, B, C, D, or F */
   overallGrade: string | null;
   gradeDescription: string | null;
 };

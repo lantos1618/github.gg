@@ -39,7 +39,7 @@ function getCommitMessage(commits: number): { message: string; subtext: string }
   }
   return {
     message: "Every journey starts somewhere.",
-    subtext: "2025 is your year. We believe in you.",
+    subtext: `${new Date().getFullYear() + 1} is your year. We believe in you.`,
   };
 }
 

@@ -1,12 +1,19 @@
 import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
-import { githubWrapped, wrappedInvites } from '@/db/schema';
+import { githubWrapped, wrappedInvites, tokenUsage, developerEmails } from '@/db/schema';
 import { and, eq, desc } from 'drizzle-orm';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import { GITHUB_GG_REPO } from '@/lib/types/wrapped';
 import { TRPCError } from '@trpc/server';
 import { nanoid } from 'nanoid';
+import { WrappedService } from '@/lib/github/wrapped-service';
+import { generateWrappedInsights } from '@/lib/ai/wrapped-insights';
+import { getUserSubscription } from '@/lib/utils/user-plan';
+import { sendWrappedGiftEmail } from '@/lib/email/resend';
+import type { WrappedAIInsights } from '@/db/schema/wrapped';
+
+const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export const wrappedRouter = router({
   exists: protectedProcedure
@@ -47,6 +54,372 @@ export const wrappedRouter = router({
     };
   }),
 
+  generateWrapped: protectedProcedure
+    .input(z.object({
+      year: z.number().optional(),
+      withAI: z.boolean().optional().default(false),
+      includeRoast: z.boolean().optional().default(false),
+      force: z.boolean().optional().default(false),
+    }))
+    .subscription(async function* ({ input, ctx }) {
+      const year = input.year || new Date().getFullYear();
+      const { withAI, includeRoast, force } = input;
+      const username = (ctx.user as { githubUsername?: string }).githubUsername || ctx.user.name || '';
+
+      try {
+        yield { type: 'progress', progress: 5, message: 'Checking star status...' };
+
+        const githubService = await createGitHubServiceForUserOperations(ctx.session);
+        const hasStarred = await githubService.hasStarredRepo(
+          GITHUB_GG_REPO.owner,
+          GITHUB_GG_REPO.repo
+        );
+
+        if (!hasStarred) {
+          yield {
+            type: 'star_required',
+            message: 'Please star github.gg to unlock your Wrapped!',
+            repoUrl: GITHUB_GG_REPO.url,
+          };
+          return;
+        }
+
+        yield { type: 'progress', progress: 10, message: 'Checking for existing wrapped...' };
+
+        if (!force) {
+          const existingWrapped = await db
+            .select()
+            .from(githubWrapped)
+            .where(
+              and(
+                eq(githubWrapped.userId, ctx.user.id),
+                eq(githubWrapped.year, year)
+              )
+            )
+            .limit(1);
+
+          if (existingWrapped.length > 0) {
+            const wrapped = existingWrapped[0];
+            const timeSinceUpdate = Date.now() - wrapped.updatedAt.getTime();
+
+            if (timeSinceUpdate < CACHE_DURATION_MS) {
+              yield { type: 'progress', progress: 100, message: 'Loading your cached wrapped...' };
+              yield {
+                type: 'complete',
+                data: {
+                  id: wrapped.id,
+                  userId: wrapped.userId,
+                  username: wrapped.username,
+                  year: wrapped.year,
+                  stats: wrapped.stats,
+                  aiInsights: wrapped.aiInsights,
+                  badgeTheme: wrapped.badgeTheme || 'dark',
+                  isPublic: wrapped.isPublic ?? true,
+                  shareCode: wrapped.shareCode,
+                  createdAt: wrapped.createdAt,
+                  updatedAt: wrapped.updatedAt,
+                },
+                cached: true,
+              };
+              return;
+            }
+          }
+        }
+
+        yield { type: 'progress', progress: 20, message: 'Fetching your GitHub activity...' };
+
+        const wrappedService = new WrappedService(githubService['octokit'], year);
+        
+        yield { type: 'progress', progress: 30, message: 'Analyzing commits...' };
+        
+        const { stats, rawData } = await wrappedService.fetchWrappedStats(username);
+
+        yield { type: 'progress', progress: 60, message: 'Crunching the numbers...' };
+
+        let aiInsights: WrappedAIInsights | null = null;
+        
+        if (withAI) {
+          const subscription = await getUserSubscription(ctx.user.id);
+          const isPro = subscription?.status === 'active' && subscription?.plan === 'pro';
+          
+          if (isPro) {
+            yield { type: 'progress', progress: 70, message: 'Generating AI personality analysis...' };
+            
+            try {
+              const result = await generateWrappedInsights({
+                username,
+                stats,
+                rawData,
+                year,
+                includeRoast,
+              });
+              
+              aiInsights = result.insights;
+              
+              await db.insert(tokenUsage).values({
+                userId: ctx.user.id,
+                feature: 'wrapped_insights',
+                inputTokens: result.usage.inputTokens,
+                outputTokens: result.usage.outputTokens,
+                totalTokens: result.usage.totalTokens,
+                model: 'gemini-2.0-flash',
+                isByok: false,
+              });
+              
+              yield { type: 'progress', progress: 80, message: 'AI analysis complete!' };
+            } catch (aiError) {
+              console.error('AI insights generation failed:', aiError);
+              yield { 
+                type: 'progress', 
+                progress: 80, 
+                message: 'AI analysis skipped (API error). Continuing...' 
+              };
+            }
+          } else {
+            yield { 
+              type: 'progress', 
+              progress: 80, 
+              message: 'AI features require Pro subscription. Continuing without AI...' 
+            };
+          }
+        }
+
+        const shareCode = nanoid(10);
+
+        yield { type: 'progress', progress: 85, message: 'Saving your wrapped...' };
+
+        const [insertedWrapped] = await db
+          .insert(githubWrapped)
+          .values({
+            userId: ctx.user.id,
+            username: username.toLowerCase(),
+            year,
+            stats,
+            aiInsights,
+            shareCode,
+            isPublic: true,
+            badgeTheme: 'dark',
+          })
+          .onConflictDoUpdate({
+            target: [githubWrapped.userId, githubWrapped.year],
+            set: {
+              stats,
+              aiInsights,
+              shareCode,
+              updatedAt: new Date(),
+            },
+          })
+          .returning();
+
+        yield { type: 'progress', progress: 100, message: 'Your wrapped is ready!' };
+
+        yield {
+          type: 'complete',
+          data: {
+            id: insertedWrapped.id,
+            userId: insertedWrapped.userId,
+            username: insertedWrapped.username,
+            year: insertedWrapped.year,
+            stats: insertedWrapped.stats,
+            aiInsights: insertedWrapped.aiInsights,
+            badgeTheme: insertedWrapped.badgeTheme || 'dark',
+            isPublic: insertedWrapped.isPublic ?? true,
+            shareCode: insertedWrapped.shareCode,
+            createdAt: insertedWrapped.createdAt,
+            updatedAt: insertedWrapped.updatedAt,
+          },
+          cached: false,
+        };
+      } catch (error) {
+        console.error('Error generating wrapped:', error);
+        yield {
+          type: 'error',
+          message: error instanceof Error ? error.message : 'Failed to generate wrapped',
+        };
+      }
+    }),
+
+  generateForFriend: protectedProcedure
+    .input(z.object({
+      friendUsername: z.string().min(1, 'Friend username is required'),
+      year: z.number().optional(),
+      personalMessage: z.string().optional(),
+    }))
+    .subscription(async function* ({ input, ctx }) {
+      const year = input.year || new Date().getFullYear();
+      const { friendUsername, personalMessage } = input;
+      const senderUsername = (ctx.user as { githubUsername?: string }).githubUsername || ctx.user.name || '';
+
+      try {
+        yield { type: 'progress', progress: 5, message: 'Checking star status...' };
+
+        const githubService = await createGitHubServiceForUserOperations(ctx.session);
+        const hasStarred = await githubService.hasStarredRepo(
+          GITHUB_GG_REPO.owner,
+          GITHUB_GG_REPO.repo
+        );
+
+        if (!hasStarred) {
+          yield {
+            type: 'star_required',
+            message: 'Please star github.gg to generate wrapped for friends!',
+            repoUrl: GITHUB_GG_REPO.url,
+          };
+          return;
+        }
+
+        yield { type: 'progress', progress: 10, message: `Checking if ${friendUsername} exists...` };
+
+        try {
+          await githubService['octokit'].rest.users.getByUsername({ username: friendUsername });
+        } catch {
+          yield { type: 'error', message: `GitHub user "${friendUsername}" not found` };
+          return;
+        }
+
+        yield { type: 'progress', progress: 20, message: `Fetching ${friendUsername}'s GitHub activity...` };
+
+        const wrappedService = new WrappedService(githubService['octokit'], year);
+        
+        yield { type: 'progress', progress: 30, message: 'Analyzing commits...' };
+        
+        const { stats, rawData } = await wrappedService.fetchWrappedStats(friendUsername);
+
+        if (stats.totalCommits === 0) {
+          yield { type: 'error', message: `${friendUsername} has no commits in ${year}` };
+          return;
+        }
+
+        yield { type: 'progress', progress: 60, message: 'Crunching the numbers...' };
+
+        const subscription = await getUserSubscription(ctx.user.id);
+        const isPro = subscription?.status === 'active' && subscription?.plan === 'pro';
+        
+        let aiInsights: WrappedAIInsights | null = null;
+        
+        if (isPro) {
+          yield { type: 'progress', progress: 70, message: 'Generating AI personality analysis...' };
+          
+          try {
+            const result = await generateWrappedInsights({
+              username: friendUsername,
+              stats,
+              rawData,
+              year,
+              includeRoast: true,
+            });
+            
+            aiInsights = result.insights;
+            
+            await db.insert(tokenUsage).values({
+              userId: ctx.user.id,
+              feature: 'wrapped_gift',
+              inputTokens: result.usage.inputTokens,
+              outputTokens: result.usage.outputTokens,
+              totalTokens: result.usage.totalTokens,
+              model: 'gemini-2.0-flash',
+              isByok: false,
+            });
+            
+            yield { type: 'progress', progress: 80, message: 'AI analysis complete!' };
+          } catch (aiError) {
+            console.error('AI insights generation failed:', aiError);
+            yield { type: 'progress', progress: 80, message: 'AI analysis skipped. Continuing...' };
+          }
+        }
+
+        const shareCode = nanoid(10);
+
+        yield { type: 'progress', progress: 85, message: 'Saving wrapped...' };
+
+        const [insertedWrapped] = await db
+          .insert(githubWrapped)
+          .values({
+            userId: ctx.user.id,
+            username: friendUsername.toLowerCase(),
+            year,
+            stats,
+            aiInsights,
+            shareCode,
+            isPublic: true,
+            badgeTheme: 'dark',
+          })
+          .onConflictDoUpdate({
+            target: [githubWrapped.userId, githubWrapped.year],
+            set: {
+              stats,
+              aiInsights,
+              shareCode,
+              updatedAt: new Date(),
+            },
+          })
+          .returning();
+
+        yield { type: 'progress', progress: 90, message: 'Sending email notification...' };
+
+        const friendEmail = await db
+          .select()
+          .from(developerEmails)
+          .where(eq(developerEmails.username, friendUsername.toLowerCase()))
+          .limit(1);
+
+        let emailSent = false;
+        if (friendEmail[0]?.email) {
+          try {
+            await sendWrappedGiftEmail({
+              recipientEmail: friendEmail[0].email,
+              recipientUsername: friendUsername,
+              senderUsername,
+              year,
+              personalMessage,
+              wrappedUrl: `https://github.gg/wrapped/${year}/${friendUsername}`,
+              stats: {
+                totalCommits: stats.totalCommits,
+                topLanguage: stats.languages[0]?.name || 'Code',
+                longestStreak: stats.longestStreak,
+              },
+            });
+            emailSent = true;
+          } catch (emailError) {
+            console.error('Failed to send wrapped gift email:', emailError);
+          }
+        }
+
+        const inviteCode = nanoid(10);
+        await db.insert(wrappedInvites).values({
+          inviterId: ctx.user.id,
+          inviterUsername: senderUsername,
+          inviteeUsername: friendUsername,
+          inviteCode,
+          message: personalMessage,
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        });
+
+        yield { type: 'progress', progress: 100, message: 'Wrapped gift ready!' };
+
+        yield {
+          type: 'complete',
+          data: {
+            id: insertedWrapped.id,
+            username: insertedWrapped.username,
+            year: insertedWrapped.year,
+            stats: insertedWrapped.stats,
+            aiInsights: insertedWrapped.aiInsights,
+            shareCode: insertedWrapped.shareCode,
+            wrappedUrl: `https://github.gg/wrapped/${year}/${friendUsername}`,
+            emailSent,
+            inviteCode,
+          },
+        };
+      } catch (error) {
+        console.error('Error generating wrapped for friend:', error);
+        yield {
+          type: 'error',
+          message: error instanceof Error ? error.message : 'Failed to generate wrapped for friend',
+        };
+      }
+    }),
+
   getMyWrapped: protectedProcedure
     .input(z.object({ year: z.number().optional() }))
     .query(async ({ ctx, input }) => {
@@ -61,6 +434,7 @@ export const wrappedRouter = router({
             eq(githubWrapped.year, year)
           )
         )
+        .orderBy(desc(githubWrapped.createdAt))
         .limit(1);
 
       if (wrapped.length === 0) {
@@ -117,80 +491,38 @@ export const wrappedRouter = router({
       return wrapped[0];
     }),
 
-  createInvite: protectedProcedure
-    .input(z.object({
-      inviteeUsername: z.string().optional(),
-      message: z.string().optional(),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      const inviteCode = nanoid(10);
-      const username = (ctx.user as { githubUsername?: string }).githubUsername || ctx.user.name || '';
+  getCacheStatus: protectedProcedure
+    .input(z.object({ year: z.number().optional() }))
+    .query(async ({ ctx, input }) => {
+      const year = input.year || new Date().getFullYear();
 
-      const [invite] = await db
-        .insert(wrappedInvites)
-        .values({
-          inviterId: ctx.user.id,
-          inviterUsername: username,
-          inviteeUsername: input.inviteeUsername,
-          inviteCode,
-          message: input.message,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      const wrapped = await db
+        .select({
+          updatedAt: githubWrapped.updatedAt,
+          hasAiInsights: githubWrapped.aiInsights,
         })
-        .returning();
-
-      return {
-        inviteCode,
-        inviteUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://github.gg'}/wrapped/invite/${inviteCode}`,
-        invite,
-      };
-    }),
-
-  acceptInvite: protectedProcedure
-    .input(z.object({ inviteCode: z.string() }))
-    .mutation(async ({ input }) => {
-      const invite = await db
-        .select()
-        .from(wrappedInvites)
-        .where(eq(wrappedInvites.inviteCode, input.inviteCode))
+        .from(githubWrapped)
+        .where(
+          and(
+            eq(githubWrapped.userId, ctx.user.id),
+            eq(githubWrapped.year, year)
+          )
+        )
         .limit(1);
 
-      if (invite.length === 0) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Invite not found',
-        });
+      if (wrapped.length === 0) {
+        return { cached: false, canRegenerate: true };
       }
 
-      if (invite[0].status !== 'pending') {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Invite already used or expired',
-        });
-      }
-
-      if (invite[0].expiresAt && invite[0].expiresAt < new Date()) {
-        await db
-          .update(wrappedInvites)
-          .set({ status: 'expired' })
-          .where(eq(wrappedInvites.id, invite[0].id));
-
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Invite has expired',
-        });
-      }
-
-      await db
-        .update(wrappedInvites)
-        .set({
-          status: 'accepted',
-          acceptedAt: new Date(),
-        })
-        .where(eq(wrappedInvites.id, invite[0].id));
-
+      const timeSinceUpdate = Date.now() - wrapped[0].updatedAt.getTime();
+      const hoursAgo = Math.floor(timeSinceUpdate / (1000 * 60 * 60));
+      
       return {
-        success: true,
-        inviterUsername: invite[0].inviterUsername,
+        cached: timeSinceUpdate < CACHE_DURATION_MS,
+        lastGenerated: wrapped[0].updatedAt,
+        hoursAgo,
+        canRegenerate: true,
+        hasAiInsights: !!wrapped[0].hasAiInsights,
       };
     }),
 

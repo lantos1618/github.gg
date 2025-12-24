@@ -4,6 +4,7 @@ import { renderProfileAnalysisEmail } from '@/lib/email/templates/profile-analys
 import { renderFeatureRequestEmail } from '@/lib/email/templates/feature-request';
 import { renderBattleChallengeEmail } from '@/lib/email/templates/battle-challenge';
 import { renderScorecardEmail } from '@/lib/email/templates/scorecard';
+import { renderWrappedReadyEmail, renderWrappedGiftEmail } from '@/lib/email/templates/wrapped';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -152,6 +153,68 @@ export async function sendScorecardEmail(data: {
     return response;
   } catch (error) {
     console.error('❌ Failed to send scorecard email:', error);
+    throw error;
+  }
+}
+
+export async function sendWrappedEmail(data: {
+  recipientEmail: string;
+  recipientUsername: string;
+  year: number;
+  wrappedUrl: string;
+  stats: {
+    totalCommits: number;
+    topLanguage: string;
+    longestStreak: number;
+  };
+}) {
+  const { recipientEmail, recipientUsername, year, wrappedUrl, stats } = data;
+  const html = renderWrappedReadyEmail({ recipientUsername, year, wrappedUrl, stats });
+
+  try {
+    const response = await resend.emails.send({
+      from: 'GitHub.gg <hello@github.gg>',
+      to: recipientEmail,
+      subject: `🎁 Your ${year} GitHub Wrapped is ready!`,
+      html,
+    });
+
+    console.log('✅ Wrapped email sent:', response);
+    return response;
+  } catch (error) {
+    console.error('❌ Failed to send wrapped email:', error);
+    throw error;
+  }
+}
+
+export async function sendWrappedGiftEmail(data: {
+  recipientEmail: string;
+  recipientUsername: string;
+  senderUsername: string;
+  year: number;
+  personalMessage?: string;
+  wrappedUrl: string;
+  stats: {
+    totalCommits: number;
+    topLanguage: string;
+    longestStreak: number;
+  };
+}) {
+  const { recipientEmail, recipientUsername, senderUsername, year, personalMessage, wrappedUrl, stats } = data;
+  const html = renderWrappedGiftEmail({ recipientUsername, senderUsername, year, personalMessage, wrappedUrl, stats });
+
+  try {
+    const response = await resend.emails.send({
+      from: 'GitHub.gg <hello@github.gg>',
+      to: recipientEmail,
+      subject: `🎁 ${senderUsername} created a ${year} Wrapped for you!`,
+      html,
+    });
+
+    console.log('✅ Wrapped gift email sent:', response);
+    return response;
+  } catch (error) {
+    console.error('❌ Failed to send wrapped gift email:', error);
     throw error;
   }
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { WrappedData } from '@/lib/types/wrapped';
 import { IntroSlide } from './slides/IntroSlide';
@@ -18,16 +18,27 @@ import { cn } from '@/lib/utils';
 interface WrappedStoryProps {
   data: WrappedData;
   onClose?: () => void;
+  autoAdvance?: boolean;
+  autoAdvanceInterval?: number;
 }
 
 const SLIDE_COUNT = 8;
+const DEFAULT_AUTO_ADVANCE_MS = 6000;
 
-export function WrappedStory({ data, onClose }: WrappedStoryProps) {
+export function WrappedStory({ 
+  data, 
+  onClose, 
+  autoAdvance = true,
+  autoAdvanceInterval = DEFAULT_AUTO_ADVANCE_MS,
+}: WrappedStoryProps) {
   const router = useRouter();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [progress, setProgress] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleClose = useCallback(() => {
     if (onClose) {
@@ -44,17 +55,56 @@ export function WrappedStory({ data, onClose }: WrappedStoryProps) {
       return;
     }
     setCurrentSlide(index);
+    setProgress(0);
   }, [handleClose]);
 
   const goNext = useCallback(() => goToSlide(currentSlide + 1), [currentSlide, goToSlide]);
   const goPrev = useCallback(() => goToSlide(currentSlide - 1), [currentSlide, goToSlide]);
+
+  const togglePause = useCallback(() => {
+    setIsPaused(prev => !prev);
+  }, []);
+
+  useEffect(() => {
+    if (!autoAdvance || isPaused || currentSlide >= SLIDE_COUNT - 1) {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      return;
+    }
+
+    const progressStep = 100 / (autoAdvanceInterval / 50);
+    
+    progressIntervalRef.current = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          goNext();
+          return 0;
+        }
+        return prev + progressStep;
+      });
+    }, 50);
+
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+    };
+  }, [autoAdvance, isPaused, currentSlide, autoAdvanceInterval, goNext]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       switch (e.key) {
         case 'ArrowRight':
         case ' ':
-          goNext();
+          if (e.key === ' ') {
+            e.preventDefault();
+            togglePause();
+          } else {
+            goNext();
+          }
           break;
         case 'ArrowLeft':
           goPrev();
@@ -67,7 +117,7 @@ export function WrappedStory({ data, onClose }: WrappedStoryProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goNext, goPrev, handleClose]);
+  }, [goNext, goPrev, handleClose, togglePause]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -90,6 +140,11 @@ export function WrappedStory({ data, onClose }: WrappedStoryProps) {
   }, [goNext, goPrev]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('a') || target.closest('[role="button"]')) {
+      return;
+    }
+    
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     
@@ -189,26 +244,45 @@ export function WrappedStory({ data, onClose }: WrappedStoryProps) {
                 width: index < currentSlide
                   ? '100%'
                   : index === currentSlide
-                  ? '100%'
+                  ? `${progress}%`
                   : '0%',
               }}
               transition={{
-                duration: index === currentSlide ? 0.3 : 0,
+                duration: 0.05,
+                ease: 'linear',
               }}
             />
           </div>
         ))}
       </div>
 
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          handleClose();
-        }}
-        className="absolute top-12 right-4 z-50 p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors"
-      >
-        <X className="w-5 h-5 text-gray-700" />
-      </button>
+      <div className="absolute top-12 right-4 z-50 flex gap-2">
+        {autoAdvance && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              togglePause();
+            }}
+            className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors"
+            title={isPaused ? 'Resume (Space)' : 'Pause (Space)'}
+          >
+            {isPaused ? (
+              <Play className="w-5 h-5 text-gray-700" />
+            ) : (
+              <Pause className="w-5 h-5 text-gray-700" />
+            )}
+          </button>
+        )}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleClose();
+          }}
+          className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors"
+        >
+          <X className="w-5 h-5 text-gray-700" />
+        </button>
+      </div>
 
       <div className="hidden md:flex absolute inset-y-0 left-4 z-50 items-center">
         <button

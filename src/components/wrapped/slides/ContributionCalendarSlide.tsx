@@ -10,7 +10,7 @@ interface ContributionCalendarSlideProps {
   year: number;
 }
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function getContributionLevel(count: number, maxCount: number): number {
@@ -34,29 +34,77 @@ function getContributionColor(level: number): string {
   }
 }
 
+type WeekData = {
+  weekIndex: number;
+  days: Array<{
+    date: Date;
+    count: number;
+    dayOfWeek: number;
+  } | null>;
+  monthStart?: number; // If this week contains first day of a month
+};
+
 export function ContributionCalendarSlide({ contributionCalendar, year }: ContributionCalendarSlideProps) {
   const [showCalendar, setShowCalendar] = useState(false);
-  const [animatedDays, setAnimatedDays] = useState(0);
+  const [animatedWeeks, setAnimatedWeeks] = useState(0);
 
-  // Build calendar data for the year
-  const calendarData = useMemo(() => {
+  // Build GitHub-style calendar: 7 rows (days), ~53 columns (weeks)
+  const { weeks, monthLabels } = useMemo(() => {
     const startDate = new Date(year, 0, 1);
     const endDate = new Date(year, 11, 31);
-    const days: Array<{ date: Date; count: number; dayOfWeek: number }> = [];
     
-    const currentDate = new Date(startDate);
-    while (currentDate <= endDate) {
-      const dateKey = currentDate.toISOString().split('T')[0];
-      const count = contributionCalendar[dateKey] || 0;
-      days.push({
-        date: new Date(currentDate),
-        count,
-        dayOfWeek: currentDate.getDay(),
-      });
-      currentDate.setDate(currentDate.getDate() + 1);
+    // Find the Sunday of the week containing Jan 1
+    const firstSunday = new Date(startDate);
+    firstSunday.setDate(firstSunday.getDate() - firstSunday.getDay());
+    
+    const weeksData: WeekData[] = [];
+    const monthLabelPositions: { month: number; weekIndex: number }[] = [];
+    let currentDate = new Date(firstSunday);
+    let weekIndex = 0;
+    let lastMonthSeen = -1;
+    
+    while (currentDate <= endDate || currentDate.getDay() !== 0) {
+      const week: WeekData = {
+        weekIndex,
+        days: [],
+      };
+      
+      for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+        const isInYear = currentDate.getFullYear() === year;
+        const dateKey = currentDate.toISOString().split('T')[0];
+        const count = contributionCalendar[dateKey] || 0;
+        
+        // Track month starts for labels
+        const currentMonth = currentDate.getMonth();
+        if (isInYear && currentMonth !== lastMonthSeen && currentDate.getDate() <= 7) {
+          monthLabelPositions.push({ month: currentMonth, weekIndex });
+          lastMonthSeen = currentMonth;
+        }
+        
+        if (isInYear) {
+          week.days.push({
+            date: new Date(currentDate),
+            count,
+            dayOfWeek,
+          });
+        } else {
+          week.days.push(null); // Empty cell for days outside the year
+        }
+        
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      // Only add week if it has at least one day in the year
+      if (week.days.some(d => d !== null)) {
+        weeksData.push(week);
+      }
+      weekIndex++;
+      
+      // Safety break
+      if (weekIndex > 60) break;
     }
     
-    return days;
+    return { weeks: weeksData, monthLabels: monthLabelPositions };
   }, [contributionCalendar, year]);
 
   const maxCount = useMemo(() => {
@@ -71,30 +119,19 @@ export function ContributionCalendarSlide({ contributionCalendar, year }: Contri
   useEffect(() => {
     if (!showCalendar) return;
     
-    const totalDays = calendarData.length;
+    const totalWeeks = weeks.length;
     const interval = setInterval(() => {
-      setAnimatedDays(prev => {
-        if (prev >= totalDays) {
+      setAnimatedWeeks(prev => {
+        if (prev >= totalWeeks) {
           clearInterval(interval);
-          return totalDays;
+          return totalWeeks;
         }
-        return prev + 10;
+        return prev + 2;
       });
-    }, 20);
+    }, 30);
     
     return () => clearInterval(interval);
-  }, [showCalendar, calendarData.length]);
-
-  // Group days by month for display
-  const months = useMemo(() => {
-    const grouped: Record<number, typeof calendarData> = {};
-    calendarData.forEach(day => {
-      const month = day.date.getMonth();
-      if (!grouped[month]) grouped[month] = [];
-      grouped[month].push(day);
-    });
-    return grouped;
-  }, [calendarData]);
+  }, [showCalendar, weeks.length]);
 
   const totalContributions = Object.values(contributionCalendar).reduce((sum, count) => sum + count, 0);
 
@@ -124,43 +161,48 @@ export function ContributionCalendarSlide({ contributionCalendar, year }: Contri
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.3 }}
-            className="bg-white rounded-2xl p-4 md:p-6 border border-gray-200 shadow-lg max-w-4xl mx-auto"
+            className="bg-white rounded-2xl p-4 md:p-6 border border-gray-200 shadow-lg mx-auto overflow-x-auto"
           >
-            {/* Calendar Grid */}
-            <div className="space-y-3">
-              {/* Day labels */}
-              <div className="flex gap-1 mb-2">
-                <div className="w-8"></div>
-                {DAY_NAMES.map(day => (
-                  <div key={day} className="flex-1 text-center text-[9px] text-gray-500 font-medium">
-                    {day}
-                  </div>
-                ))}
-              </div>
-
-              {/* Calendar squares */}
-              <div className="space-y-1">
-                {Object.entries(months).map(([monthIndex, days]) => {
-                  const monthNum = parseInt(monthIndex);
-                  const firstDayOfWeek = days[0]?.dayOfWeek ?? 0;
-                  
-                  return (
-                    <div key={monthNum} className="flex gap-1 items-start">
-                      {/* Month label */}
-                      <div className="w-8 text-[9px] text-gray-600 font-medium pt-1">
-                        {MONTH_NAMES[monthNum]}
+            {/* GitHub-style Calendar Grid */}
+            <div className="inline-block min-w-max">
+              {/* Month labels row */}
+              <div className="flex mb-1">
+                <div className="w-7 shrink-0" /> {/* Spacer for day labels */}
+                <div className="flex relative" style={{ gap: '3px' }}>
+                  {weeks.map((week, weekIdx) => {
+                    const monthLabel = monthLabels.find(m => m.weekIndex === week.weekIndex);
+                    return (
+                      <div key={`month-${weekIdx}`} className="w-[11px] text-[9px] text-gray-500 font-medium">
+                        {monthLabel ? MONTH_NAMES[monthLabel.month] : ''}
                       </div>
-                      
-                      {/* Days grid */}
-                      <div className="flex-1 flex gap-1 flex-wrap">
-                        {/* Empty cells for days before month starts */}
-                        {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-                          <div key={`empty-${i}`} className="w-3 h-3" />
-                        ))}
-                        
-                        {/* Actual days */}
-                        {days.map((day, idx) => {
-                          const isAnimated = idx < animatedDays;
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Calendar grid: 7 rows (days) x ~53 columns (weeks) */}
+              <div className="flex">
+                {/* Day labels column */}
+                <div className="flex flex-col shrink-0 mr-1" style={{ gap: '3px' }}>
+                  {DAY_LABELS.map((label, idx) => (
+                    <div key={`day-${idx}`} className="h-[11px] w-6 text-[9px] text-gray-500 font-medium flex items-center justify-end pr-1">
+                      {label}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Weeks columns */}
+                <div className="flex" style={{ gap: '3px' }}>
+                  {weeks.map((week, weekIdx) => {
+                    const isAnimated = weekIdx < animatedWeeks;
+                    
+                    return (
+                      <div key={`week-${weekIdx}`} className="flex flex-col" style={{ gap: '3px' }}>
+                        {week.days.map((day, dayIdx) => {
+                          if (!day) {
+                            return <div key={`empty-${dayIdx}`} className="w-[11px] h-[11px]" />;
+                          }
+                          
                           const level = getContributionLevel(day.count, maxCount);
                           const color = getContributionColor(level);
                           
@@ -169,16 +211,16 @@ export function ContributionCalendarSlide({ contributionCalendar, year }: Contri
                               key={day.date.toISOString()}
                               initial={{ opacity: 0, scale: 0 }}
                               animate={isAnimated ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0 }}
-                              transition={{ delay: idx * 0.001 }}
-                              className={`w-3 h-3 rounded-sm ${color} border border-gray-200 hover:scale-125 transition-transform cursor-pointer`}
+                              transition={{ delay: dayIdx * 0.02 }}
+                              className={`w-[11px] h-[11px] rounded-sm ${color} border border-gray-200/50 hover:scale-150 transition-transform cursor-pointer hover:border-gray-400`}
                               title={`${day.date.toLocaleDateString()}: ${day.count} ${day.count === 1 ? 'contribution' : 'contributions'}`}
                             />
                           );
                         })}
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Legend */}
@@ -188,7 +230,7 @@ export function ContributionCalendarSlide({ contributionCalendar, year }: Contri
                   {[0, 1, 2, 3, 4].map(level => (
                     <div
                       key={level}
-                      className={`w-3 h-3 rounded-sm ${getContributionColor(level)} border border-gray-200`}
+                      className={`w-[11px] h-[11px] rounded-sm ${getContributionColor(level)} border border-gray-200/50`}
                     />
                   ))}
                 </div>

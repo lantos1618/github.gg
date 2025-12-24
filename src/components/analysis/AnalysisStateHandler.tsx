@@ -6,6 +6,7 @@ import { LoadingPage } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, LogIn } from 'lucide-react';
 import { useAuth } from '@/lib/auth/client';
+import { ReusableSSEFeedback, type SSEStatus, type SSELogItem } from '@/components/analysis/ReusableSSEFeedback';
 
 type AnalysisState = 'loading' | 'error' | 'no-data' | 'ready' | 'private' | 'upgrade' | 'auth-error';
 
@@ -19,6 +20,12 @@ interface AnalysisStateHandlerProps {
   description?: string;
   filesSelected?: { selected: number; total: number };
   children?: ReactNode;
+  // SSE feedback props for showing logs during generation
+  sseStatus?: SSEStatus;
+  sseProgress?: number;
+  sseCurrentStep?: string;
+  sseLogs?: SSELogItem[];
+  sseTitle?: string;
 }
 
 export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
@@ -31,6 +38,11 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
   description,
   filesSelected,
   children,
+  sseStatus,
+  sseProgress,
+  sseCurrentStep,
+  sseLogs,
+  sseTitle,
 }) => {
   const { signIn } = useAuth();
 
@@ -53,27 +65,56 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
       );
 
     case 'no-data':
+      // Show SSE feedback when generating (similar to wiki page)
+      const showSSEFeedback = isRegenerating && sseStatus && sseStatus !== 'idle';
+      
       return (
-        <div className="flex flex-col items-center justify-center min-h-[400px]">
-          <h2 className="text-xl font-semibold text-gray-600 mb-2">
-            {title || 'No analysis available'}
-          </h2>
-          <p className="text-gray-500 mb-6 text-center max-w-md">
-            {description || 'Generate an analysis to get started'}
-          </p>
-          <Button
-            onClick={onRegenerate}
-            disabled={isRegenerating}
-            className="flex items-center gap-2"
-            size="lg"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
-            {isRegenerating ? 'Generating...' : 'Generate Analysis'}
-          </Button>
-          {filesSelected && (
-            <p className="text-sm text-gray-400 mt-4">
-              Files selected: {filesSelected.selected} of {filesSelected.total}
-            </p>
+        <div className="flex flex-col items-center justify-center min-h-[400px] px-4">
+          {!showSSEFeedback && (
+            <>
+              <h2 className="text-xl font-semibold text-gray-600 mb-2">
+                {title || 'No analysis available'}
+              </h2>
+              <p className="text-gray-500 mb-6 text-center max-w-md">
+                {description || 'Generate an analysis to get started'}
+              </p>
+              <Button
+                onClick={onRegenerate}
+                disabled={isRegenerating}
+                className="flex items-center gap-2"
+                size="lg"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
+                {isRegenerating ? 'Generating...' : 'Generate Analysis'}
+              </Button>
+              {filesSelected && (
+                <p className="text-sm text-gray-400 mt-4">
+                  Files selected: {filesSelected.selected} of {filesSelected.total}
+                </p>
+              )}
+            </>
+          )}
+          
+          {showSSEFeedback && (
+            <div className="w-full max-w-2xl space-y-6">
+              <div className="text-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-600 mb-2">
+                  {title || 'No analysis available'}
+                </h2>
+                {filesSelected && (
+                  <p className="text-sm text-gray-400">
+                    Files selected: {filesSelected.selected} of {filesSelected.total}
+                  </p>
+                )}
+              </div>
+              <ReusableSSEFeedback
+                status={sseStatus}
+                progress={sseProgress || 0}
+                currentStep={sseCurrentStep || ''}
+                logs={sseLogs || []}
+                title={sseTitle || 'Generating...'}
+              />
+            </div>
           )}
         </div>
       );

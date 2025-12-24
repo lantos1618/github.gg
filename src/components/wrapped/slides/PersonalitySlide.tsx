@@ -105,7 +105,7 @@ export function PersonalitySlide({ aiInsights, stats }: PersonalitySlideProps) {
                 transition={{ delay: 0.3 }}
                 className="text-sm uppercase tracking-widest text-purple-600"
               >
-                Your 2024 Developer Personality
+                Your {new Date().getFullYear()} Developer Personality
               </motion.div>
 
               <motion.div

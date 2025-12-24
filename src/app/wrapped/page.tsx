@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { Sparkles, ExternalLink, Key, ArrowRight, SkipForward, RefreshCw, Eye } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, RefreshCw, Eye, Gift, PartyPopper } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Input } from '@/components/ui/input';
-import { StarGate, useWrappedGeneration } from '@/components/wrapped';
+import { StarGate, useWrappedGeneration, Confetti } from '@/components/wrapped';
 import { useAuth } from '@/lib/auth/factory';
 import { trpc } from '@/lib/trpc/client';
 
@@ -15,20 +14,23 @@ export default function WrappedLandingPage() {
   const router = useRouter();
   const { user, isSignedIn, isLoading: authLoading, signIn } = useAuth();
   const [hasStarted, setHasStarted] = useState(false);
-
-  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
-  const [apiKey, setApiKey] = useState('');
   const [starCheckPassed, setStarCheckPassed] = useState(false);
+  const [showReveal, setShowReveal] = useState(false);
 
   const currentYear = new Date().getFullYear();
   
-  const { data: existsData } = trpc.wrapped.exists.useQuery(
+  const { data: existsData, isLoading: existsLoading } = trpc.wrapped.exists.useQuery(
     { year: currentYear },
     { enabled: isSignedIn }
   );
   const hasExistingWrapped = existsData?.exists ?? false;
 
-  const { data: subscription } = trpc.billing.getSubscription.useQuery(
+  const { data: cacheStatus } = trpc.wrapped.getCacheStatus.useQuery(
+    { year: currentYear },
+    { enabled: isSignedIn && hasExistingWrapped }
+  );
+
+  const { data: subscription, isLoading: subscriptionLoading } = trpc.billing.getSubscription.useQuery(
     undefined,
     { enabled: isSignedIn }
   );
@@ -39,6 +41,7 @@ export default function WrappedLandingPage() {
     message,
     data,
     error,
+    cached,
     isLoading: generating,
     starRequired,
     startGeneration,
@@ -48,45 +51,39 @@ export default function WrappedLandingPage() {
   useEffect(() => {
     reset();
     setHasStarted(false);
-    setShowApiKeyInput(false);
     setStarCheckPassed(false);
-  }, []);
+    setShowReveal(false);
+  }, [reset]);
 
   useEffect(() => {
-    if (data) {
-      router.push(`/wrapped/${data.year}/${data.username}`);
+    if (data && !showReveal) {
+      setShowReveal(true);
     }
-  }, [data, router]);
+  }, [data, showReveal]);
 
-  const handleStartGeneration = () => {
+  const handleStartGeneration = (force = false) => {
     setHasStarted(true);
-    if (isPaidUser) {
-      startGeneration({ withAI: true, includeRoast: true });
-    } else {
-      startGeneration({ apiKey: apiKey || undefined });
-    }
+    setShowReveal(false);
+    startGeneration({ 
+      withAI: isPaidUser, 
+      includeRoast: isPaidUser,
+      force,
+    });
   };
 
   const handleUnlocked = () => {
     setStarCheckPassed(true);
-    if (isPaidUser) {
-      setHasStarted(true);
-      startGeneration({ withAI: true, includeRoast: true });
-    } else {
-      setShowApiKeyInput(true);
+    setHasStarted(true);
+    startGeneration({ 
+      withAI: isPaidUser, 
+      includeRoast: isPaidUser,
+    });
+  };
+
+  const handleViewWrapped = () => {
+    if (data) {
+      router.push(`/wrapped/${data.year}/${data.username}`);
     }
-  };
-
-  const handleSkipAI = () => {
-    setShowApiKeyInput(false);
-    setHasStarted(true);
-    startGeneration({ withAI: false, includeRoast: false });
-  };
-
-  const handleContinueWithAI = () => {
-    setShowApiKeyInput(false);
-    setHasStarted(true);
-    startGeneration({ withAI: true, includeRoast: true, apiKey: apiKey || undefined });
   };
 
   if (authLoading) {
@@ -111,7 +108,7 @@ export default function WrappedLandingPage() {
               🎁
             </motion.div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-purple-600 to-cyan-600 bg-clip-text text-transparent">
-              GitHub Wrapped {new Date().getFullYear()}
+              GitHub Wrapped {currentYear}
             </h1>
             <p className="text-gray-600">
               Sign in with GitHub to see your year in code
@@ -123,7 +120,7 @@ export default function WrappedLandingPage() {
             size="lg"
             className="w-full h-14 text-lg bg-gray-900 text-white hover:bg-gray-800"
           >
-            <ExternalLink className="w-5 h-5 mr-2" />
+            <Gift className="w-5 h-5 mr-2" />
             Sign in with GitHub
           </Button>
 
@@ -145,83 +142,81 @@ export default function WrappedLandingPage() {
     );
   }
 
-  if (showApiKeyInput) {
+  if (showReveal && data) {
     return (
       <div className="min-h-screen bg-gray-50 text-gray-900 flex items-center justify-center p-6">
+        <Confetti />
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
           className="max-w-md w-full text-center space-y-8"
         >
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', delay: 0.1 }}
-            className="text-6xl"
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.2, type: 'spring' }}
           >
-            🤖
+            <PartyPopper className="w-20 h-20 mx-auto text-purple-500 mb-4" />
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">
+              Your Wrapped is Ready!
+            </h1>
+            <p className="text-gray-600">
+              {cached ? 'Loaded from cache' : 'Freshly generated just for you'}
+            </p>
           </motion.div>
 
-          <div className="space-y-3">
-            <h2 className="text-2xl font-bold text-gray-900">
-              Want AI Personality Insights?
-            </h2>
-            <p className="text-gray-600">
-              Enter your Gemini API key for personalized roasts and developer personality analysis
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <div className="relative">
-              <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <Input
-                type="password"
-                placeholder="Enter your Gemini API key (optional)"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                className="pl-10 h-12 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
-              />
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg"
+          >
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-purple-600">
+                  {data.stats.totalCommits.toLocaleString()}
+                </div>
+                <div className="text-xs text-gray-500 uppercase">Commits</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-cyan-600">
+                  {data.stats.languages[0]?.name || '—'}
+                </div>
+                <div className="text-xs text-gray-500 uppercase">Top Lang</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-orange-500">
+                  {data.stats.longestStreak}
+                </div>
+                <div className="text-xs text-gray-500 uppercase">Day Streak</div>
+              </div>
             </div>
-            <p className="text-xs text-gray-500">
-              Get your free API key at{' '}
-              <a
-                href="https://aistudio.google.com/app/apikey"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-purple-600 hover:underline"
-              >
-                aistudio.google.com
-              </a>
-            </p>
-          </div>
+            {data.aiInsights?.personalityType && (
+              <div className="pt-4 border-t border-gray-100">
+                <div className="text-sm text-gray-500">Your Personality</div>
+                <div className="text-lg font-bold text-gray-900 flex items-center justify-center gap-2">
+                  <span>{data.aiInsights.personalityEmoji}</span>
+                  <span>{data.aiInsights.personalityType}</span>
+                </div>
+              </div>
+            )}
+          </motion.div>
 
-          <div className="space-y-3">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8 }}
+          >
             <Button
-              onClick={handleContinueWithAI}
+              onClick={handleViewWrapped}
               size="lg"
-              className="w-full h-14 text-lg bg-gray-900 hover:bg-gray-800 text-white"
+              className="w-full h-16 text-xl font-bold bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white"
             >
-              <Sparkles className="w-5 h-5 mr-2" />
-              Continue with AI Insights
-              <ArrowRight className="w-5 h-5 ml-2" />
+              <Sparkles className="w-6 h-6 mr-2" />
+              Unwrap My Story
             </Button>
-
-            <Button
-              onClick={handleSkipAI}
-              variant="outline"
-              size="lg"
-              className="w-full h-12 border-gray-300 text-gray-600 hover:bg-gray-100"
-            >
-              <SkipForward className="w-4 h-4 mr-2" />
-              Skip AI Features
-            </Button>
-          </div>
-
-          <p className="text-xs text-gray-500">
-            Your API key is used only for this session and never stored
-          </p>
+          </motion.div>
         </motion.div>
-        <FloatingParticles />
       </div>
     );
   }
@@ -248,31 +243,37 @@ export default function WrappedLandingPage() {
             <p className="text-sm text-gray-500">{progress}%</p>
           </div>
 
-          {error && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="p-4 bg-red-50 border border-red-200 rounded-lg"
-            >
-              <p className="text-red-600">{error}</p>
-              <Button
-                onClick={() => {
-                  reset();
-                  setHasStarted(false);
-                  setStarCheckPassed(false);
-                }}
-                variant="outline"
-                className="mt-4 border-red-300 text-red-600 hover:bg-red-50"
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="p-4 bg-red-50 border border-red-200 rounded-lg"
               >
-                Try Again
-              </Button>
-            </motion.div>
-          )}
+                <p className="text-red-600 font-medium mb-2">Something went wrong</p>
+                <p className="text-red-500 text-sm mb-4">{error}</p>
+                <Button
+                  onClick={() => {
+                    reset();
+                    setHasStarted(false);
+                    setStarCheckPassed(false);
+                  }}
+                  variant="outline"
+                  className="border-red-300 text-red-600 hover:bg-red-50"
+                >
+                  Try Again
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
         <FloatingParticles />
       </div>
     );
   }
+
+  const isLoadingData = existsLoading || subscriptionLoading;
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 flex items-center justify-center p-6 overflow-hidden">
@@ -296,7 +297,7 @@ export default function WrappedLandingPage() {
             🎁
           </motion.div>
           <h1 className="text-5xl md:text-6xl font-black bg-gradient-to-r from-gray-900 via-purple-600 to-cyan-600 bg-clip-text text-transparent">
-            {new Date().getFullYear()}
+            {currentYear}
           </h1>
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
             GitHub Wrapped
@@ -318,7 +319,9 @@ export default function WrappedLandingPage() {
           transition={{ delay: 0.5 }}
           className="space-y-4"
         >
-          {hasExistingWrapped ? (
+          {isLoadingData ? (
+            <div className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+          ) : hasExistingWrapped ? (
             <>
               <Button
                 onClick={() => router.push(`/wrapped/${currentYear}/${user?.githubUsername}`)}
@@ -329,19 +332,19 @@ export default function WrappedLandingPage() {
                 View My Wrapped
               </Button>
               <Button
-                onClick={handleStartGeneration}
+                onClick={() => handleStartGeneration(true)}
                 variant="outline"
                 size="lg"
                 className="w-full h-12 border-gray-300 text-gray-700 hover:bg-gray-100"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
-                Generate Again
+                Regenerate {cacheStatus && 'hoursAgo' in cacheStatus && `(last: ${cacheStatus.hoursAgo}h ago)`}
               </Button>
             </>
           ) : (
             <>
               <Button
-                onClick={handleStartGeneration}
+                onClick={() => handleStartGeneration(false)}
                 size="lg"
                 className="w-full h-16 text-xl font-bold bg-gray-900 hover:bg-gray-800 text-white transition-all"
               >
@@ -365,6 +368,20 @@ export default function WrappedLandingPage() {
           <PreviewStat icon="💻" label="Languages" />
           <PreviewStat icon="🎭" label="Personality" />
         </motion.div>
+
+        {isPaidUser && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.9 }}
+            className="pt-4"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-100 to-cyan-100 rounded-full">
+              <Sparkles className="w-4 h-4 text-purple-600" />
+              <span className="text-sm font-medium text-purple-700">Pro: AI Insights Enabled</span>
+            </div>
+          </motion.div>
+        )}
       </motion.div>
 
       <FloatingParticles />
@@ -380,7 +397,7 @@ function WrappedLoadingAnimation() {
   ];
 
   const ringRadii = [90, 65, 40];
-  const yearDigits = ['2', '0', '2', '5'];
+  const yearDigits = String(new Date().getFullYear()).split('');
 
   return (
     <div className="relative w-48 h-48 flex items-center justify-center">

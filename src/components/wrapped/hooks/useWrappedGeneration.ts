@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { trpc } from '@/lib/trpc/client';
 import type { WrappedData } from '@/lib/types/wrapped';
 
 export type WrappedGenerationState = {
@@ -11,12 +12,22 @@ export type WrappedGenerationState = {
   isLoading: boolean;
   starRequired: boolean;
   repoUrl: string | null;
+  cached: boolean;
 };
 
 export type GenerationOptions = {
   withAI?: boolean;
   includeRoast?: boolean;
-  apiKey?: string;
+  force?: boolean;
+};
+
+type WrappedEvent = {
+  type: string;
+  progress?: number;
+  message?: string;
+  data?: unknown;
+  cached?: boolean;
+  repoUrl?: string;
 };
 
 export function useWrappedGeneration(year?: number) {
@@ -28,19 +39,16 @@ export function useWrappedGeneration(year?: number) {
     isLoading: false,
     starRequired: false,
     repoUrl: null,
+    cached: false,
   });
 
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+  const utils = trpc.useUtils();
 
   const cleanup = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
     }
   }, []);
 
@@ -48,7 +56,7 @@ export function useWrappedGeneration(year?: number) {
     return cleanup;
   }, [cleanup]);
 
-  const startGeneration = useCallback(async (options?: GenerationOptions) => {
+  const startGeneration = useCallback((options?: GenerationOptions) => {
     cleanup();
     
     setState({
@@ -59,114 +67,72 @@ export function useWrappedGeneration(year?: number) {
       isLoading: true,
       starRequired: false,
       repoUrl: null,
+      cached: false,
     });
 
     const targetYear = year || new Date().getFullYear();
-    const params = new URLSearchParams({ year: String(targetYear) });
-    if (options?.withAI) params.set('withAI', 'true');
-    if (options?.includeRoast) params.set('includeRoast', 'true');
-    if (options?.apiKey) params.set('apiKey', options.apiKey);
-    const url = `/api/wrapped/generate?${params.toString()}`;
-
-    try {
-      const eventSource = new EventSource(url);
-      eventSourceRef.current = eventSource;
-
-      eventSource.addEventListener('progress', (event) => {
-        try {
-          const data = JSON.parse(event.data) as { progress: number; message: string };
-          setState((prev) => ({
-            ...prev,
-            progress: data.progress,
-            message: data.message,
-          }));
-        } catch (e) {
-          console.error('Error parsing progress event:', e);
-        }
-      });
-
-      eventSource.addEventListener('complete', (event) => {
-        try {
-          const eventData = JSON.parse(event.data) as { data: WrappedData };
-          setState((prev) => ({
-            ...prev,
-            progress: 100,
-            message: 'Complete!',
-            data: eventData.data,
-            isLoading: false,
-          }));
-          eventSource.close();
-        } catch (e) {
-          console.error('Error parsing complete event:', e);
-        }
-      });
-
-      eventSource.addEventListener('star_required', (event) => {
-        try {
-          const data = JSON.parse(event.data) as { repoUrl: string; message: string };
-          setState((prev) => ({
-            ...prev,
-            starRequired: true,
-            repoUrl: data.repoUrl,
-            message: data.message,
-            isLoading: false,
-          }));
-          eventSource.close();
-        } catch (e) {
-          console.error('Error parsing star_required event:', e);
-        }
-      });
-
-      eventSource.addEventListener('error', (event) => {
-        if (event instanceof MessageEvent) {
-          try {
-            const data = JSON.parse(event.data) as { message: string };
+    
+    const subscription = utils.client.wrapped.generateWrapped.subscribe(
+      {
+        year: targetYear,
+        withAI: options?.withAI ?? false,
+        includeRoast: options?.includeRoast ?? false,
+        force: options?.force ?? false,
+      },
+      {
+        onData: (rawEvent) => {
+          const event = rawEvent as WrappedEvent;
+          
+          if (event.type === 'progress') {
             setState((prev) => ({
               ...prev,
-              error: data.message,
-              isLoading: false,
+              progress: event.progress ?? prev.progress,
+              message: event.message ?? prev.message,
             }));
-          } catch (e) {
+          } else if (event.type === 'complete') {
             setState((prev) => ({
               ...prev,
-              error: 'An unexpected error occurred',
+              progress: 100,
+              message: 'Complete!',
+              data: event.data as WrappedData,
+              isLoading: false,
+              cached: event.cached ?? false,
+            }));
+            cleanup();
+          } else if (event.type === 'star_required') {
+            setState((prev) => ({
+              ...prev,
+              starRequired: true,
+              repoUrl: event.repoUrl ?? null,
+              message: event.message ?? 'Star required',
               isLoading: false,
             }));
+            cleanup();
+          } else if (event.type === 'error') {
+            setState((prev) => ({
+              ...prev,
+              error: event.message ?? 'An error occurred',
+              isLoading: false,
+            }));
+            cleanup();
           }
-        } else {
+        },
+        onError: (error) => {
           setState((prev) => ({
             ...prev,
-            error: 'Connection error',
+            error: error.message || 'Failed to generate wrapped',
             isLoading: false,
           }));
-        }
-        eventSource.close();
-      });
+          cleanup();
+        },
+        onComplete: () => {
+          cleanup();
+        },
+      }
+    );
 
-      eventSource.addEventListener('heartbeat', () => {
-        // Just to keep connection alive, no state update needed
-      });
-
-      eventSource.onerror = () => {
-        if (eventSource.readyState === EventSource.CLOSED) {
-          // Connection was closed normally
-          return;
-        }
-        setState((prev) => ({
-          ...prev,
-          error: 'Connection lost. Please try again.',
-          isLoading: false,
-        }));
-        eventSource.close();
-      };
-    } catch (error) {
-      setState((prev) => ({
-        ...prev,
-        error: error instanceof Error ? error.message : 'Failed to start generation',
-        isLoading: false,
-      }));
-    }
-  }, [cleanup, year]);
+    unsubscribeRef.current = subscription.unsubscribe;
+  }, [cleanup, year, utils.client.wrapped.generateWrapped]);
 
   const reset = useCallback(() => {
     cleanup();
@@ -178,12 +144,168 @@ export function useWrappedGeneration(year?: number) {
       isLoading: false,
       starRequired: false,
       repoUrl: null,
+      cached: false,
     });
   }, [cleanup]);
 
   return {
     ...state,
     startGeneration,
+    reset,
+  };
+}
+
+export type GenerateForFriendOptions = {
+  friendUsername: string;
+  year?: number;
+  personalMessage?: string;
+};
+
+export type GenerateForFriendState = {
+  progress: number;
+  message: string;
+  data: {
+    username: string;
+    year: number;
+    wrappedUrl: string;
+    emailSent: boolean;
+    inviteCode: string;
+  } | null;
+  error: string | null;
+  isLoading: boolean;
+  starRequired: boolean;
+};
+
+type FriendWrappedEvent = {
+  type: string;
+  progress?: number;
+  message?: string;
+  data?: {
+    username: string;
+    year: number;
+    wrappedUrl: string;
+    emailSent: boolean;
+    inviteCode: string;
+  };
+  repoUrl?: string;
+};
+
+export function useGenerateForFriend() {
+  const [state, setState] = useState<GenerateForFriendState>({
+    progress: 0,
+    message: '',
+    data: null,
+    error: null,
+    isLoading: false,
+    starRequired: false,
+  });
+
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+  const utils = trpc.useUtils();
+
+  const cleanup = useCallback(() => {
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return cleanup;
+  }, [cleanup]);
+
+  const generate = useCallback((options: GenerateForFriendOptions) => {
+    cleanup();
+    
+    setState({
+      progress: 0,
+      message: 'Starting...',
+      data: null,
+      error: null,
+      isLoading: true,
+      starRequired: false,
+    });
+
+    const subscription = utils.client.wrapped.generateForFriend.subscribe(
+      {
+        friendUsername: options.friendUsername,
+        year: options.year || new Date().getFullYear(),
+        personalMessage: options.personalMessage,
+      },
+      {
+        onData: (rawEvent) => {
+          const event = rawEvent as FriendWrappedEvent;
+          
+          if (event.type === 'progress') {
+            setState((prev) => ({
+              ...prev,
+              progress: event.progress ?? prev.progress,
+              message: event.message ?? prev.message,
+            }));
+          } else if (event.type === 'complete' && event.data) {
+            setState((prev) => ({
+              ...prev,
+              progress: 100,
+              message: 'Complete!',
+              data: {
+                username: event.data!.username,
+                year: event.data!.year,
+                wrappedUrl: event.data!.wrappedUrl,
+                emailSent: event.data!.emailSent,
+                inviteCode: event.data!.inviteCode,
+              },
+              isLoading: false,
+            }));
+            cleanup();
+          } else if (event.type === 'star_required') {
+            setState((prev) => ({
+              ...prev,
+              starRequired: true,
+              message: event.message ?? 'Star required',
+              isLoading: false,
+            }));
+            cleanup();
+          } else if (event.type === 'error') {
+            setState((prev) => ({
+              ...prev,
+              error: event.message ?? 'An error occurred',
+              isLoading: false,
+            }));
+            cleanup();
+          }
+        },
+        onError: (error) => {
+          setState((prev) => ({
+            ...prev,
+            error: error.message || 'Failed to generate wrapped',
+            isLoading: false,
+          }));
+          cleanup();
+        },
+        onComplete: () => {
+          cleanup();
+        },
+      }
+    );
+
+    unsubscribeRef.current = subscription.unsubscribe;
+  }, [cleanup, utils.client.wrapped.generateForFriend]);
+
+  const reset = useCallback(() => {
+    cleanup();
+    setState({
+      progress: 0,
+      message: '',
+      data: null,
+      error: null,
+      isLoading: false,
+      starRequired: false,
+    });
+  }, [cleanup]);
+
+  return {
+    ...state,
+    generate,
     reset,
   };
 }

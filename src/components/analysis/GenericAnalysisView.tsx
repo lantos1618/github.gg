@@ -382,6 +382,11 @@ function GenericAnalysisViewInner<TResponse>({
           ? { selected: selectedFiles.length, total: files.length }
           : undefined
       }
+      sseStatus={sseStatus}
+      sseProgress={progress}
+      sseCurrentStep={currentStep}
+      sseLogs={logs}
+      sseTitle={config.generatingMessage}
     >
       {currentState === 'upgrade' ? <SubscriptionUpgrade /> : renderContent()}
     </AnalysisStateHandler>

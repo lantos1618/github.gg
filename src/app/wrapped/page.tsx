@@ -429,13 +429,16 @@ function WrappedLoadingAnimation() {
         Array.from({ length: orbit.count }).map((_, dotIndex) => {
           const angle = (360 / orbit.count) * dotIndex;
           const isPrimary = dotIndex % 3 === 0;
+          const size = isPrimary ? 8 : 5;
           return (
             <motion.div
               key={`orbit-${orbitIndex}-dot-${dotIndex}`}
-              className="absolute"
+              className="absolute left-1/2 top-1/2"
               style={{
-                width: isPrimary ? 8 : 5,
-                height: isPrimary ? 8 : 5,
+                width: size,
+                height: size,
+                marginLeft: -size / 2,
+                marginTop: -size / 2,
               }}
               animate={{
                 rotate: orbit.direction > 0 ? [angle, angle + 360] : [angle, angle - 360],

@@ -207,7 +207,7 @@ export class WrappedService {
     const languages = Array.from(languageCounts.entries())
       .map(([name, count]) => ({
         name,
-        percentage: Math.round((count / totalLanguageWeight) * 100),
+        percentage: (count / totalLanguageWeight) * 100,
         color: getLanguageColor(name),
       }))
       .sort((a, b) => b.percentage - a.percentage)

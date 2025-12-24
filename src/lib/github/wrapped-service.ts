@@ -260,6 +260,7 @@ export class WrappedService {
     const shamefulCommits = this.analyzeShamefulCommits(commitMessages);
     const commitPatterns = this.analyzeCommitPatterns(commitDates, commitsByMonth);
     const { longestStreak, currentStreak } = this.calculateStreaks(commitDates);
+    const codeQuality = this.analyzeCodeQuality(commitMessages, shamefulCommits);
 
     const richCommits: RichCommitData[] = commits.map(c => ({
       message: c.commit.message,
@@ -301,6 +302,7 @@ export class WrappedService {
       mondayCommits,
       shamefulCommits,
       commitPatterns,
+      codeQuality,
     };
 
     const rawData: WrappedRawData = {
@@ -576,5 +578,214 @@ export class WrappedService {
     }
 
     return { longestStreak, currentStreak };
+  }
+
+  private analyzeCodeQuality(
+    messages: string[],
+    shamefulCommits: WrappedStats['shamefulCommits']
+  ): WrappedStats['codeQuality'] {
+    const aiIndicators = this.detectAIPatterns(messages);
+    const envLeakWarnings = this.detectEnvLeaks(messages);
+    
+    const aiVibeScore = this.calculateAIVibeScore(aiIndicators, messages.length);
+    const slopScore = this.calculateSlopScore(shamefulCommits, messages.length);
+    const suggestions = this.generateSuggestions(aiIndicators, envLeakWarnings, shamefulCommits, slopScore);
+    const hygieneGrade = this.calculateHygieneGrade(aiVibeScore, slopScore, envLeakWarnings.length);
+
+    return {
+      aiVibeScore,
+      aiIndicators,
+      slopScore,
+      envLeakWarnings,
+      suggestions,
+      hygieneGrade,
+    };
+  }
+
+  private detectAIPatterns(messages: string[]): WrappedStats['codeQuality']['aiIndicators'] {
+    let genericMessages = 0;
+    let perfectFormatting = 0;
+    let longDescriptions = 0;
+    let buzzwordDensity = 0;
+
+    const genericPatterns = [
+      /^(update|add|fix|remove|refactor|improve|implement|create|delete|modify)\s+\w+/i,
+      /^(feat|fix|docs|style|refactor|test|chore)(\(.+\))?:/i,
+    ];
+    
+    const buzzwords = ['refactor', 'optimize', 'enhance', 'improve', 'streamline', 'modernize', 
+                       'implement', 'leverage', 'utilize', 'ensure', 'maintain', 'robust'];
+    
+    const conventionalCommitPattern = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?:\s+.+/;
+
+    for (const msg of messages) {
+      const trimmed = msg.trim();
+      const lower = trimmed.toLowerCase();
+      const firstLine = trimmed.split('\n')[0];
+      
+      if (genericPatterns.some(p => p.test(firstLine))) {
+        genericMessages++;
+      }
+      
+      if (conventionalCommitPattern.test(firstLine)) {
+        perfectFormatting++;
+      }
+      
+      if (trimmed.length > 200 || trimmed.split('\n').length > 3) {
+        longDescriptions++;
+      }
+      
+      const buzzwordCount = buzzwords.filter(bw => lower.includes(bw)).length;
+      if (buzzwordCount >= 2) {
+        buzzwordDensity++;
+      }
+    }
+
+    return { genericMessages, perfectFormatting, longDescriptions, buzzwordDensity };
+  }
+
+  private detectEnvLeaks(messages: string[]): WrappedStats['codeQuality']['envLeakWarnings'] {
+    const patterns: Array<{ type: 'api_key' | 'secret' | 'password' | 'token' | 'credential'; regex: RegExp }> = [
+      { type: 'api_key', regex: /api[_-]?key\s*[=:]\s*['"]?[\w-]{20,}/i },
+      { type: 'secret', regex: /secret\s*[=:]\s*['"]?[\w-]{16,}/i },
+      { type: 'password', regex: /password\s*[=:]\s*['"]?[^\s'"]{8,}/i },
+      { type: 'token', regex: /(access[_-]?token|auth[_-]?token|bearer)\s*[=:]\s*['"]?[\w.-]{20,}/i },
+      { type: 'credential', regex: /(aws|gcp|azure|stripe|twilio|sendgrid)[_-]?(key|secret|token)\s*[=:]/i },
+    ];
+
+    const warnings = new Map<string, { count: number; example?: string }>();
+
+    for (const msg of messages) {
+      for (const { type, regex } of patterns) {
+        if (regex.test(msg)) {
+          const existing = warnings.get(type) || { count: 0 };
+          existing.count++;
+          if (!existing.example) {
+            existing.example = msg.slice(0, 50).replace(/[\w-]{10,}/g, '***REDACTED***') + '...';
+          }
+          warnings.set(type, existing);
+        }
+      }
+    }
+
+    return Array.from(warnings.entries()).map(([type, data]) => ({
+      type: type as 'api_key' | 'secret' | 'password' | 'token' | 'credential',
+      count: data.count,
+      example: data.example,
+    }));
+  }
+
+  private calculateAIVibeScore(
+    indicators: WrappedStats['codeQuality']['aiIndicators'],
+    totalMessages: number
+  ): number {
+    if (totalMessages === 0) return 0;
+    
+    const genericRatio = indicators.genericMessages / totalMessages;
+    const formattingRatio = indicators.perfectFormatting / totalMessages;
+    const longRatio = indicators.longDescriptions / totalMessages;
+    const buzzwordRatio = indicators.buzzwordDensity / totalMessages;
+    
+    const score = (
+      (genericRatio * 25) +
+      (formattingRatio * 30) +
+      (longRatio * 20) +
+      (buzzwordRatio * 25)
+    );
+    
+    return Math.min(100, Math.round(score));
+  }
+
+  private calculateSlopScore(
+    shameful: WrappedStats['shamefulCommits'],
+    totalMessages: number
+  ): number {
+    if (totalMessages === 0) return 0;
+    
+    const singleCharRatio = shameful.singleCharCommits / totalMessages;
+    const fixOnlyRatio = shameful.fixOnlyCommits / totalMessages;
+    const wipRatio = shameful.wcCommits / totalMessages;
+    const emptyRatio = shameful.emptyishCommits / totalMessages;
+    
+    const score = (
+      (singleCharRatio * 40) +
+      (fixOnlyRatio * 25) +
+      (wipRatio * 20) +
+      (emptyRatio * 15)
+    ) * 100;
+    
+    return Math.min(100, Math.round(score));
+  }
+
+  private generateSuggestions(
+    aiIndicators: WrappedStats['codeQuality']['aiIndicators'],
+    envLeaks: WrappedStats['codeQuality']['envLeakWarnings'],
+    shameful: WrappedStats['shamefulCommits'],
+    slopScore: number
+  ): WrappedStats['codeQuality']['suggestions'] {
+    const suggestions: WrappedStats['codeQuality']['suggestions'] = [];
+
+    if (envLeaks.length > 0) {
+      suggestions.push({
+        category: 'security',
+        title: 'Potential credential exposure detected',
+        description: 'Some commit messages may contain API keys or secrets. Use environment variables and .gitignore.',
+        priority: 'high',
+      });
+    }
+
+    if (slopScore > 50) {
+      suggestions.push({
+        category: 'commit_messages',
+        title: 'Improve commit message quality',
+        description: 'Many commits have minimal messages. Descriptive messages help future debugging.',
+        priority: 'medium',
+      });
+    }
+
+    if (shameful.singleCharCommits > 10) {
+      suggestions.push({
+        category: 'commit_messages',
+        title: 'Avoid single-character commits',
+        description: `You had ${shameful.singleCharCommits} single-char commits. Each commit should explain the "why".`,
+        priority: 'medium',
+      });
+    }
+
+    if (aiIndicators.perfectFormatting > aiIndicators.genericMessages * 0.8) {
+      suggestions.push({
+        category: 'workflow',
+        title: 'Great commit formatting!',
+        description: 'Your conventional commit usage is excellent. Keep it up!',
+        priority: 'low',
+      });
+    }
+
+    if (shameful.cursingCommits > 5) {
+      suggestions.push({
+        category: 'consistency',
+        title: 'Keep it professional',
+        description: 'Some colorful language detected. Consider your commit history is public!',
+        priority: 'low',
+      });
+    }
+
+    return suggestions;
+  }
+
+  private calculateHygieneGrade(
+    aiVibeScore: number,
+    slopScore: number,
+    envLeakCount: number
+  ): 'A' | 'B' | 'C' | 'D' | 'F' {
+    if (envLeakCount > 0) return 'D';
+    
+    const combinedScore = (100 - slopScore) * 0.7 + (aiVibeScore > 50 ? 30 : aiVibeScore * 0.6);
+    
+    if (combinedScore >= 85) return 'A';
+    if (combinedScore >= 70) return 'B';
+    if (combinedScore >= 55) return 'C';
+    if (combinedScore >= 40) return 'D';
+    return 'F';
   }
 }

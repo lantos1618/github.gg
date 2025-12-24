@@ -12,6 +12,7 @@ import { ScheduleSlide } from './slides/ScheduleSlide';
 import { ContributionCalendarSlide } from './slides/ContributionCalendarSlide';
 import { HighlightsSlide } from './slides/HighlightsSlide';
 import { PersonalitySlide } from './slides/PersonalitySlide';
+import { CodeQualitySlide } from './slides/CodeQualitySlide';
 import { ShareSlide } from './slides/ShareSlide';
 import { cn } from '@/lib/utils';
 
@@ -22,7 +23,7 @@ interface WrappedStoryProps {
   autoAdvanceInterval?: number;
 }
 
-const SLIDE_COUNT = 8;
+const SLIDE_COUNT = 9;
 const DEFAULT_AUTO_ADVANCE_MS = 6000;
 
 export function WrappedStory({ 
@@ -217,6 +218,13 @@ export function WrappedStory({
           />
         );
       case 7:
+        return (
+          <CodeQualitySlide
+            codeQuality={data.stats.codeQuality}
+            username={data.username}
+          />
+        );
+      case 8:
         return <ShareSlide data={data} />;
       default:
         return null;

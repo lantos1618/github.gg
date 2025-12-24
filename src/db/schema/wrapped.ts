@@ -80,6 +80,29 @@ export type WrappedStats = {
     fridayDeploys: number;
     biggestCommitDay: { date: string; count: number } | null;
   };
+  
+  codeQuality: {
+    aiVibeScore: number;
+    aiIndicators: {
+      genericMessages: number;
+      perfectFormatting: number;
+      longDescriptions: number;
+      buzzwordDensity: number;
+    };
+    slopScore: number;
+    envLeakWarnings: Array<{
+      type: 'api_key' | 'secret' | 'password' | 'token' | 'credential';
+      count: number;
+      example?: string;
+    }>;
+    suggestions: Array<{
+      category: 'commit_messages' | 'security' | 'consistency' | 'workflow';
+      title: string;
+      description: string;
+      priority: 'low' | 'medium' | 'high';
+    }>;
+    hygieneGrade: 'A' | 'B' | 'C' | 'D' | 'F';
+  };
 };
 
 export type WrappedAIInsights = {

@@ -53,8 +53,8 @@ export function HighlightsSlide({ username, avatarUrl, aiInsights, stats, longes
 
   useEffect(() => {
     const timers = [
-      setTimeout(() => setPhase('smart'), 1500),
-      setTimeout(() => setPhase('dumb'), 5000),
+      setTimeout(() => setPhase('smart'), 1200),
+      setTimeout(() => setPhase('dumb'), 3200),
     ];
     return () => timers.forEach(clearTimeout);
   }, []);

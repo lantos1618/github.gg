@@ -49,9 +49,9 @@ export function LanguagesSlide({ languages }: LanguagesSlideProps) {
         <motion.p
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-lg text-gray-600 text-center"
+          className="text-xs uppercase tracking-[0.3em] text-gray-500 text-center font-medium"
         >
-          Now let&apos;s see what you actually wrote...
+          Your Languages
         </motion.p>
 
         <div className="relative w-full max-w-sm mx-auto aspect-square">

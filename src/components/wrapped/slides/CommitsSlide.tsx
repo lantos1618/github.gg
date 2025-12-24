@@ -94,9 +94,9 @@ export function CommitsSlide({
         <motion.p
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-lg text-gray-600"
+          className="text-xs uppercase tracking-[0.3em] text-gray-500 font-medium"
         >
-          First, the raw numbers...
+          Your Commits
         </motion.p>
 
         <motion.div

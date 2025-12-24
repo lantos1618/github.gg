@@ -105,11 +105,11 @@ export function HighlightsSlide({ username, avatarUrl, aiInsights, stats, longes
               className="pt-4"
             >
               <motion.p
-                className="text-xl text-gray-600"
-                animate={{ opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
+                className="text-xs uppercase tracking-[0.3em] text-gray-500 font-medium"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
               >
-                Let&apos;s talk about the highs and lows...
+                Highlights & Lowlights
               </motion.p>
             </motion.div>
           )}

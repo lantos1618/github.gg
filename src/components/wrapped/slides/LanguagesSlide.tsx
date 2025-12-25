@@ -3,14 +3,15 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { WrappedSlide, UserHeader } from '../WrappedSlide';
-import type { WrappedStats } from '@/lib/types/wrapped';
+import type { WrappedStats, WrappedAIInsights } from '@/lib/types/wrapped';
 
 interface LanguagesSlideProps {
   languages: WrappedStats['languages'];
   user?: { username: string; avatarUrl: string };
+  aiInsights?: WrappedAIInsights | null;
 }
 
-const LANGUAGE_ROASTS: Record<string, { message: string; emoji: string }> = {
+const FALLBACK_ROASTS: Record<string, { message: string; emoji: string }> = {
   JavaScript: { message: 'Embrace the chaos.', emoji: '💛' },
   TypeScript: { message: 'You value your sanity. Rare.', emoji: '💙' },
   Python: { message: "Life's too short for curly braces.", emoji: '🐍' },
@@ -20,7 +21,7 @@ const LANGUAGE_ROASTS: Record<string, { message: string; emoji: string }> = {
   C: { message: "You've seen things. Segfaults. Memory leaks. Pain.", emoji: '⚙️' },
   'C++': { message: "You've seen things. Segfaults. Memory leaks. Pain.", emoji: '⚙️' },
   PHP: { message: 'Brave of you to admit this publicly.', emoji: '🐘' },
-  Ruby: { message: '2015 called, they want their language back. (jk we love you)', emoji: '💎' },
+  Ruby: { message: '2015 called, they want their language back.', emoji: '💎' },
   Swift: { message: 'Apple fan detected.', emoji: '🍎' },
   Kotlin: { message: 'The civilized Android developer.', emoji: '🤖' },
   Shell: { message: 'You speak to machines directly.', emoji: '🐚' },
@@ -30,15 +31,26 @@ const LANGUAGE_ROASTS: Record<string, { message: string; emoji: string }> = {
   Svelte: { message: 'A person of culture, I see.', emoji: '🧡' },
 };
 
-export function LanguagesSlide({ languages, user }: LanguagesSlideProps) {
+export function LanguagesSlide({ languages, user, aiInsights }: LanguagesSlideProps) {
   const [animationComplete, setAnimationComplete] = useState(false);
   const topLanguage = languages[0];
-  const roast = topLanguage ? LANGUAGE_ROASTS[topLanguage.name] : null;
+  const fallbackRoast = topLanguage ? FALLBACK_ROASTS[topLanguage.name] : null;
+  
+  const hasAICodingJourney = !!aiInsights?.codingJourney;
+  const displayMessage = aiInsights?.codingJourney || fallbackRoast?.message;
+  const displayEmoji = fallbackRoast?.emoji || '💻';
 
   useEffect(() => {
     const timer = setTimeout(() => setAnimationComplete(true), 2000);
     return () => clearTimeout(timer);
   }, []);
+
+  const isPolyglot = languages.length >= 4;
+  const topTwo = languages.slice(0, 2);
+  const languageSpread = languages.length > 1 
+    ? Math.abs(languages[0].percentage - languages[1].percentage) 
+    : 100;
+  const isSpecialist = languageSpread > 40;
 
   return (
     <WrappedSlide
@@ -141,16 +153,59 @@ export function LanguagesSlide({ languages, user }: LanguagesSlideProps) {
             ))}
           </div>
 
-          {roast && (
+          {(isPolyglot || isSpecialist) && !hasAICodingJourney && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 2.3 }}
+              className="flex justify-center"
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-100 to-indigo-100 border border-purple-200">
+                <span className="text-lg">{isPolyglot ? '🗣️' : '🎯'}</span>
+                <span className="text-sm font-medium text-purple-700">
+                  {isPolyglot ? `Polyglot: ${languages.length} languages!` : `${topLanguage?.name} Specialist`}
+                </span>
+              </div>
+            </motion.div>
+          )}
+
+          {displayMessage && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 2.5 }}
-              className="text-center space-y-1 pt-4"
+              className="text-center space-y-2 pt-4"
             >
-              <p className="text-2xl">{roast.emoji}</p>
-              <p className="text-lg text-gray-700">{roast.message}</p>
+              {hasAICodingJourney && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium mb-2"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                  AI Analysis
+                </motion.div>
+              )}
+              <p className="text-2xl">{displayEmoji}</p>
+              <p className={`text-gray-700 max-w-md mx-auto ${hasAICodingJourney ? 'text-base leading-relaxed' : 'text-lg'}`}>
+                {displayMessage}
+              </p>
             </motion.div>
+          )}
+
+          {topTwo.length > 1 && !hasAICodingJourney && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 2.8 }}
+              className="text-center text-gray-500 text-sm"
+            >
+              {topTwo[0].name} and {topTwo[1].name} made up{' '}
+              <span className="font-semibold text-gray-700">
+                {(topTwo[0].percentage + topTwo[1].percentage).toFixed(0)}%
+              </span>{' '}
+              of your code
+            </motion.p>
           )}
         </motion.div>
       </div>

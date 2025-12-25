@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -11,7 +11,9 @@ import { LanguagesSlide } from './slides/LanguagesSlide';
 import { ScheduleSlide } from './slides/ScheduleSlide';
 import { ContributionCalendarSlide } from './slides/ContributionCalendarSlide';
 import { HighlightsSlide } from './slides/HighlightsSlide';
+import { TraumaSlide } from './slides/TraumaSlide';
 import { PersonalitySlide } from './slides/PersonalitySlide';
+import { PredictionSlide } from './slides/PredictionSlide';
 import { CodeQualitySlide } from './slides/CodeQualitySlide';
 import { ShareSlide } from './slides/ShareSlide';
 import { cn } from '@/lib/utils';
@@ -23,13 +25,12 @@ interface WrappedStoryProps {
   autoAdvanceInterval?: number;
 }
 
-const SLIDE_COUNT = 9;
-const DEFAULT_AUTO_ADVANCE_MS = 6000;
+const DEFAULT_AUTO_ADVANCE_MS = 8000;
 
 export function WrappedStory({ 
   data, 
   onClose, 
-  autoAdvance = false,
+  autoAdvance = true,
   autoAdvanceInterval = DEFAULT_AUTO_ADVANCE_MS,
 }: WrappedStoryProps) {
   const router = useRouter();
@@ -40,6 +41,163 @@ export function WrappedStory({
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const userInfo = useMemo(() => ({
+    username: data.username,
+    avatarUrl: `https://avatars.githubusercontent.com/${data.username}`,
+  }), [data.username]);
+
+  const hasTraumaContent = useMemo(() => {
+    const traumaEvent = data.aiInsights?.traumaEvent;
+    const shamefulCommit = data.aiInsights?.shamefulCommit;
+    const biggestDay = data.stats.commitPatterns?.biggestCommitDay;
+    const lateNightCommits = data.stats.lateNightCommits;
+    const fridayDeploys = data.stats.commitPatterns?.fridayDeploys || 0;
+    
+    return !!(traumaEvent || shamefulCommit || biggestDay || lateNightCommits > 20 || fridayDeploys > 5);
+  }, [data]);
+
+  const hasPrediction = !!data.aiInsights?.prediction2025;
+
+  const slides = useMemo(() => {
+    const slideList: Array<{ id: string; component: React.ReactNode }> = [
+      {
+        id: 'intro',
+        component: (
+          <IntroSlide
+            year={data.year}
+            username={data.username}
+            avatarUrl={userInfo.avatarUrl}
+          />
+        ),
+      },
+      {
+        id: 'commits',
+        component: (
+          <CommitsSlide
+            totalCommits={data.stats.totalCommits}
+            totalPRs={data.stats.totalPRs}
+            totalPRsMerged={data.stats.totalPRsMerged}
+            linesAdded={data.stats.linesAdded}
+            linesDeleted={data.stats.linesDeleted}
+            user={userInfo}
+            aiInsights={data.aiInsights}
+          />
+        ),
+      },
+      {
+        id: 'languages',
+        component: (
+          <LanguagesSlide 
+            languages={data.stats.languages} 
+            user={userInfo}
+            aiInsights={data.aiInsights}
+          />
+        ),
+      },
+      {
+        id: 'schedule',
+        component: (
+          <ScheduleSlide
+            commitsByHour={data.stats.commitsByHour}
+            commitsByDay={data.stats.commitsByDay}
+            peakHour={data.stats.peakHour}
+            peakDay={data.stats.peakDay}
+            lateNightCommits={data.stats.lateNightCommits}
+            weekendCommits={data.stats.weekendCommits}
+            longestStreak={data.stats.longestStreak}
+            user={userInfo}
+          />
+        ),
+      },
+      {
+        id: 'calendar',
+        component: (
+          <ContributionCalendarSlide
+            contributionCalendar={data.stats.contributionCalendar || {}}
+            year={data.year}
+            totalCommits={data.stats.totalCommits}
+            user={userInfo}
+          />
+        ),
+      },
+      {
+        id: 'highlights',
+        component: (
+          <HighlightsSlide
+            username={data.username}
+            avatarUrl={userInfo.avatarUrl}
+            aiInsights={data.aiInsights}
+            stats={data.stats}
+            longestCommitMessage={data.stats.longestCommitMessage}
+            shortestCommitMessage={data.stats.shamefulCommits?.shortestMessage}
+          />
+        ),
+      },
+    ];
+
+    if (hasTraumaContent) {
+      slideList.push({
+        id: 'trauma',
+        component: (
+          <TraumaSlide
+            stats={data.stats}
+            aiInsights={data.aiInsights}
+            user={userInfo}
+          />
+        ),
+      });
+    }
+
+    slideList.push({
+      id: 'personality',
+      component: (
+        <PersonalitySlide
+          aiInsights={data.aiInsights}
+          stats={{
+            peakHour: data.stats.peakHour,
+            lateNightCommits: data.stats.lateNightCommits,
+            longestStreak: data.stats.longestStreak,
+            topLanguage: data.stats.languages[0]?.name,
+          }}
+          user={userInfo}
+        />
+      ),
+    });
+
+    if (hasPrediction) {
+      slideList.push({
+        id: 'prediction',
+        component: (
+          <PredictionSlide
+            year={data.year}
+            aiInsights={data.aiInsights}
+            user={userInfo}
+          />
+        ),
+      });
+    }
+
+    slideList.push({
+      id: 'codeQuality',
+      component: (
+        <CodeQualitySlide
+          codeQuality={data.stats.codeQuality}
+          username={data.username}
+          user={userInfo}
+        />
+      ),
+    });
+
+    slideList.push({
+      id: 'share',
+      component: <ShareSlide data={data} />,
+    });
+
+    return slideList;
+  }, [data, userInfo, hasTraumaContent, hasPrediction]);
+
+  const SLIDE_COUNT = slides.length;
 
   const handleClose = useCallback(() => {
     if (onClose) {
@@ -57,7 +215,7 @@ export function WrappedStory({
     }
     setCurrentSlide(index);
     setProgress(0);
-  }, [handleClose]);
+  }, [handleClose, SLIDE_COUNT]);
 
   const goNext = useCallback(() => goToSlide(currentSlide + 1), [currentSlide, goToSlide]);
   const goPrev = useCallback(() => goToSlide(currentSlide - 1), [currentSlide, goToSlide]);
@@ -93,19 +251,17 @@ export function WrappedStory({
         progressIntervalRef.current = null;
       }
     };
-  }, [autoAdvance, isPaused, currentSlide, autoAdvanceInterval, goNext]);
+  }, [autoAdvance, isPaused, currentSlide, autoAdvanceInterval, goNext, SLIDE_COUNT]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       switch (e.key) {
         case 'ArrowRight':
+          goNext();
+          break;
         case ' ':
-          if (e.key === ' ') {
-            e.preventDefault();
-            togglePause();
-          } else {
-            goNext();
-          }
+          e.preventDefault();
+          togglePause();
           break;
         case 'ArrowLeft':
           goPrev();
@@ -158,89 +314,6 @@ export function WrappedStory({
       goNext();
     }
   }, [goNext, goPrev]);
-
-  const userInfo = {
-    username: data.username,
-    avatarUrl: `https://avatars.githubusercontent.com/${data.username}`,
-  };
-
-  const renderSlide = () => {
-    switch (currentSlide) {
-      case 0:
-        return <IntroSlide username={data.username} year={data.year} />;
-      case 1:
-        return (
-          <CommitsSlide
-            totalCommits={data.stats.totalCommits}
-            totalPRs={data.stats.totalPRs}
-            totalPRsMerged={data.stats.totalPRsMerged}
-            linesAdded={data.stats.linesAdded}
-            linesDeleted={data.stats.linesDeleted}
-            user={userInfo}
-          />
-        );
-      case 2:
-        return <LanguagesSlide languages={data.stats.languages} user={userInfo} />;
-      case 3:
-        return (
-          <ScheduleSlide
-            commitsByHour={data.stats.commitsByHour}
-            commitsByDay={data.stats.commitsByDay}
-            peakHour={data.stats.peakHour}
-            peakDay={data.stats.peakDay}
-            lateNightCommits={data.stats.lateNightCommits}
-            weekendCommits={data.stats.weekendCommits}
-            longestStreak={data.stats.longestStreak}
-            user={userInfo}
-          />
-        );
-      case 4:
-        return (
-          <ContributionCalendarSlide
-            contributionCalendar={data.stats.contributionCalendar || {}}
-            year={data.year}
-            totalCommits={data.stats.totalCommits}
-            user={userInfo}
-          />
-        );
-      case 5:
-        return (
-          <HighlightsSlide
-            username={data.username}
-            avatarUrl={`https://avatars.githubusercontent.com/${data.username}`}
-            aiInsights={data.aiInsights}
-            stats={data.stats}
-            longestCommitMessage={data.stats.longestCommitMessage}
-            shortestCommitMessage={data.stats.shamefulCommits?.shortestMessage}
-          />
-        );
-      case 6:
-        return (
-          <PersonalitySlide
-            aiInsights={data.aiInsights}
-            stats={{
-              peakHour: data.stats.peakHour,
-              lateNightCommits: data.stats.lateNightCommits,
-              longestStreak: data.stats.longestStreak,
-              topLanguage: data.stats.languages[0]?.name,
-            }}
-            user={userInfo}
-          />
-        );
-      case 7:
-        return (
-          <CodeQualitySlide
-            codeQuality={data.stats.codeQuality}
-            username={data.username}
-            user={userInfo}
-          />
-        );
-      case 8:
-        return <ShareSlide data={data} />;
-      default:
-        return null;
-    }
-  };
 
   return (
     <div
@@ -340,7 +413,7 @@ export function WrappedStory({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
           >
-            {renderSlide()}
+            {slides[currentSlide]?.component}
           </motion.div>
         </AnimatePresence>
       </div>

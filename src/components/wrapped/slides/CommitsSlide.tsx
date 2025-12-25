@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { WrappedSlide, Confetti, UserHeader } from '../WrappedSlide';
+import type { WrappedAIInsights } from '@/lib/types/wrapped';
 
 interface CommitsSlideProps {
   totalCommits: number;
@@ -11,9 +12,10 @@ interface CommitsSlideProps {
   linesAdded: number;
   linesDeleted: number;
   user?: { username: string; avatarUrl: string };
+  aiInsights?: WrappedAIInsights | null;
 }
 
-function getCommitMessage(commits: number): { message: string; subtext: string } {
+function getFallbackMessage(commits: number): { message: string; subtext: string } {
   if (commits >= 2000) {
     return {
       message: "You're basically the machine now.",
@@ -51,11 +53,17 @@ export function CommitsSlide({
   linesAdded,
   linesDeleted,
   user,
+  aiInsights,
 }: CommitsSlideProps) {
   const [count, setCount] = useState(0);
   const [showMessage, setShowMessage] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  const { message, subtext } = getCommitMessage(totalCommits);
+
+  const hasAIInsights = aiInsights?.yearSummary || aiInsights?.biggestWin;
+  const fallback = getFallbackMessage(totalCommits);
+  
+  const message = aiInsights?.yearSummary || fallback.message;
+  const subtext = aiInsights?.biggestWin || fallback.subtext;
 
   useEffect(() => {
     const duration = 1500;
@@ -137,10 +145,26 @@ export function CommitsSlide({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="space-y-2 pt-4"
+            className="space-y-3 pt-4 max-w-lg mx-auto"
           >
-            <p className="text-xl text-gray-800">{message}</p>
-            <p className="text-gray-500">{subtext}</p>
+            {hasAIInsights && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium mb-2"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                AI Analysis
+              </motion.div>
+            )}
+            <p className={`text-gray-800 ${hasAIInsights ? 'text-lg leading-relaxed' : 'text-xl'}`}>
+              {message}
+            </p>
+            {subtext && (
+              <p className={`text-gray-500 ${hasAIInsights ? 'text-sm italic' : ''}`}>
+                {hasAIInsights ? `"${subtext}"` : subtext}
+              </p>
+            )}
           </motion.div>
         )}
 

@@ -26,6 +26,11 @@ const wrappedInsightsSchema = z.object({
   prediction2025: z.string().nullable(),
   overallGrade: z.string().nullable(),
   gradeDescription: z.string().nullable(),
+  shamefulCommit: z.object({
+    message: z.string(),
+    repo: z.string(),
+    reason: z.string(),
+  }).nullable().optional(),
 });
 
 export type GenerateWrappedInsightsParams = {
@@ -259,11 +264,61 @@ function buildPrompt(
   year: number, 
   includeRoast: boolean
 ): string {
-  const commitMessages = rawData.commits.slice(0, 500).map(c => 
+  // Sample commits intelligently: take from beginning, middle, and end of year
+  // This gives better representation than just first 500
+  const totalCommits = rawData.commits.length;
+  const sampleSize = Math.min(150, totalCommits); // Reduced from 500 to 150
+  const sampledCommits: typeof rawData.commits = [];
+  
+  if (totalCommits <= sampleSize) {
+    sampledCommits.push(...rawData.commits);
+  } else {
+    // Take from beginning, middle, and end
+    const third = Math.floor(totalCommits / 3);
+    sampledCommits.push(...rawData.commits.slice(0, Math.floor(sampleSize / 3)));
+    sampledCommits.push(...rawData.commits.slice(third, third + Math.floor(sampleSize / 3)));
+    sampledCommits.push(...rawData.commits.slice(-Math.floor(sampleSize / 3)));
+  }
+  
+  const commitMessages = sampledCommits.map(c => 
     `[${c.repo}] ${c.message.split('\n')[0]}`
   ).join('\n');
 
-  const prTitles = rawData.pullRequests.slice(0, 100).map(pr =>
+  // Only send the MOST suspicious commits with diffs (reduced from 20 to 5)
+  // Prioritize by: shortest messages, lazy patterns, then take top 5
+  const commitsWithDiffs = rawData.commits
+    .filter(c => c.diff)
+    .sort((a, b) => {
+      // Sort by message length (shorter = more suspicious) and lazy patterns
+      const aMsg = a.message.trim().toLowerCase();
+      const bMsg = b.message.trim().toLowerCase();
+      const lazyPatterns = ['fix', 'update', 'wip', 'temp', 'test', 'stuff'];
+      const aIsLazy = lazyPatterns.some(p => aMsg === p || aMsg.length <= 5);
+      const bIsLazy = lazyPatterns.some(p => bMsg === p || bMsg.length <= 5);
+      
+      if (aIsLazy && !bIsLazy) return -1;
+      if (!aIsLazy && bIsLazy) return 1;
+      return a.message.length - b.message.length;
+    })
+    .slice(0, 5); // Only top 5 most suspicious
+    
+  const commitDiffsSection = commitsWithDiffs.length > 0
+    ? `\n=== COMMIT DIFFS FOR ANALYSIS (${commitsWithDiffs.length} most suspicious commits) ===
+Analyze these actual code changes to identify truly shameful commits. Look for:
+- Vague commit messages with significant code changes
+- Commented-out code, debug statements, or temporary hacks
+- Inconsistent formatting or obvious copy-paste
+- Missing tests for complex changes
+- Security issues or credential leaks
+- AI-generated patterns without review
+
+${commitsWithDiffs.map(c => `
+--- COMMIT: [${c.repo}] "${c.message.split('\n')[0]}" ---
+${c.diff ? c.diff.slice(0, 2000) : 'No diff available'}${c.diff && c.diff.length > 2000 ? '... (truncated)' : ''}
+`).join('\n\n')}`
+    : '';
+
+  const prTitles = rawData.pullRequests.slice(0, 50).map(pr => // Reduced from 100 to 50
     `[${pr.repo}] ${pr.title} ${pr.merged ? '✓' : '○'}`
   ).join('\n');
 
@@ -276,8 +331,9 @@ You have access to this developer's ACTUAL commit messages and PR titles - analy
 DEVELOPER: ${username}
 YEAR: ${year}
 
-=== RAW COMMIT MESSAGES (${rawData.commits.length} total) ===
+=== RAW COMMIT MESSAGES (sampled ${sampledCommits.length} of ${rawData.commits.length} total) ===
 ${commitMessages}
+${commitDiffsSection}
 
 === PULL REQUESTS (${rawData.pullRequests.length} total, ${rawData.totalStats.prsMerged} merged) ===
 ${prTitles}
@@ -321,8 +377,14 @@ RESPONSE REQUIREMENTS:
 11. **prediction2025**: Based on their trajectory, what will they work on next year?
 12. **overallGrade**: A-F based on activity and quality
 13. **gradeDescription**: Justify the grade with specifics
+14. **shamefulCommit**: Based on the commit diffs you analyzed, identify the MOST shameful commit. Look at actual code changes, not just message length. Consider:
+    - Vague messages with significant changes
+    - Debug code, commented-out code, or temporary hacks left in
+    - Security issues or bad practices
+    - The actual code quality, not just the message
+    Return an object with: message (the commit message), repo (repository name), reason (why it's shameful based on the CODE, not just the message)
 
-BE SPECIFIC. Reference actual commit messages you see. Make this feel personalized, not generic.`;
+BE SPECIFIC. Reference actual commit messages and code changes you see. Make this feel personalized, not generic.`;
 }
 
 function formatHour(hour: number): string {

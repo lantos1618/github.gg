@@ -6,6 +6,7 @@ import { Star, Lock, ExternalLink, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { GITHUB_GG_REPO } from '@/lib/types/wrapped';
+import { trpc } from '@/lib/trpc/client';
 
 interface StarGateProps {
   username: string;
@@ -20,6 +21,8 @@ interface StarGateProps {
 export function StarGate({ username, onUnlocked, teaserStats }: StarGateProps) {
   const [isChecking, setIsChecking] = useState(false);
   const [showUnlockAnimation, setShowUnlockAnimation] = useState(false);
+  
+  const utils = trpc.useUtils();
 
   const handleStarClick = useCallback(() => {
     window.open(GITHUB_GG_REPO.url, '_blank', 'noopener,noreferrer');
@@ -28,8 +31,7 @@ export function StarGate({ username, onUnlocked, teaserStats }: StarGateProps) {
   const checkStarStatus = useCallback(async () => {
     setIsChecking(true);
     try {
-      const response = await fetch('/api/wrapped/check-star');
-      const data = await response.json();
+      const data = await utils.wrapped.checkStar.fetch();
       
       if (data.hasStarred) {
         setShowUnlockAnimation(true);
@@ -42,7 +44,7 @@ export function StarGate({ username, onUnlocked, teaserStats }: StarGateProps) {
     } finally {
       setIsChecking(false);
     }
-  }, [onUnlocked]);
+  }, [onUnlocked, utils.wrapped.checkStar]);
 
   return (
     <div className="relative min-h-screen bg-gray-50 text-gray-900 overflow-hidden flex items-center justify-center">

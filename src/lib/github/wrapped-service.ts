@@ -20,7 +20,10 @@ export type RichCommitData = {
   message: string;
   repo: string;
   date: string;
+  sha?: string;
+  owner?: string;
   filesChanged?: string[];
+  diff?: string; // Full commit diff for AI analysis
 };
 
 export type WrappedRawData = {
@@ -335,11 +338,17 @@ export class WrappedService {
     const { longestStreak, currentStreak } = this.calculateStreaks(commitDates);
     const codeQuality = this.analyzeCodeQuality(commitMessages, shamefulCommits);
 
-    const richCommits: RichCommitData[] = commits.map(c => ({
+    let richCommits: RichCommitData[] = commits.map(c => ({
       message: c.commit.message,
       repo: c.repository.name,
       date: c.commit.author?.date || '',
+      sha: c.sha,
+      owner: c.repository.owner.login,
     }));
+
+    // Fetch commit diffs for potentially shameful commits (for AI analysis)
+    onProgress?.('🔍 Fetching commit diffs for AI analysis...', { type: 'analysis' });
+    richCommits = await this.fetchCommitDiffsForAnalysis(richCommits);
 
     // Calculate lines added/deleted from PRs
     const linesAdded = pullRequests.reduce((sum, pr) => sum + (pr.additions || 0), 0);
@@ -550,6 +559,82 @@ export class WrappedService {
     }
     
     return languageMap;
+  }
+
+  /**
+   * Fetch commit diffs for potentially shameful commits (short messages, lazy patterns, etc.)
+   * This allows AI to analyze actual code changes, not just message length
+   */
+  async fetchCommitDiffsForAnalysis(commits: RichCommitData[]): Promise<RichCommitData[]> {
+    // Identify potentially shameful commits based on message patterns
+    const potentiallyShameful = commits
+      .filter(c => {
+        const msg = c.message.trim().toLowerCase();
+        const msgLength = c.message.trim().length;
+        return (
+          msgLength <= 10 ||
+          msgLength <= 20 && (msg === 'fix' || msg === 'update' || msg === 'wip' || msg === 'temp' || msg.includes('test')) ||
+          msgLength <= 5
+        );
+      })
+      .slice(0, 10); // Limit to 10 commits to avoid rate limits and token bloat
+
+    if (potentiallyShameful.length === 0) {
+      return commits;
+    }
+
+    const batchSize = 3;
+    const commitsWithDiffs = [...commits];
+
+    for (let i = 0; i < potentiallyShameful.length; i += batchSize) {
+      const batch = potentiallyShameful.slice(i, i + batchSize);
+      await Promise.all(
+        batch.map(async (commit) => {
+          if (!commit.sha || !commit.owner || !commit.repo) return;
+
+          try {
+            const { data } = await this.octokit.rest.repos.getCommit({
+              owner: commit.owner,
+              repo: commit.repo,
+              ref: commit.sha,
+            });
+
+            // Build diff string from changed files
+            const diffParts = data.files
+              ?.slice(0, 5) // Limit to first 5 files to avoid huge diffs
+              .slice(0, 3) // Only first 3 files per commit
+              .map(file => {
+                const patch = file.patch || '';
+                // Truncate each file's patch to 1500 chars to stay within token limits
+                const truncatedPatch = patch.length > 1500 ? patch.slice(0, 1500) + '...' : patch;
+                return `--- ${file.filename} (+${file.additions}/-${file.deletions}) ---\n${truncatedPatch}`;
+              }) || [];
+
+            const fullDiff = diffParts.join('\n\n');
+
+            // Update the commit in the array with the diff
+            const index = commitsWithDiffs.findIndex(c => c.sha === commit.sha);
+            if (index !== -1) {
+              commitsWithDiffs[index] = {
+                ...commitsWithDiffs[index],
+                diff: fullDiff,
+                filesChanged: data.files?.map(f => f.filename) || [],
+              };
+            }
+          } catch (error) {
+            // Silently fail - we'll just use message-based analysis for this commit
+            console.warn(`Failed to fetch diff for commit ${commit.sha}:`, error);
+          }
+        })
+      );
+
+      // Rate limit: wait between batches
+      if (i + batchSize < potentiallyShameful.length) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
+
+    return commitsWithDiffs;
   }
 
   private analyzeShamefulCommits(messages: string[]): WrappedStats['shamefulCommits'] {

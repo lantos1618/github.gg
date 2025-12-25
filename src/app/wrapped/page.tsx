@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, RefreshCw, Eye, Gift, PartyPopper } from 'lucide-react';
+import { Sparkles, RefreshCw, Eye, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { StarGate, useWrappedGeneration, Confetti } from '@/components/wrapped';
+import { StarGate, useWrappedGeneration } from '@/components/wrapped';
 import { useAuth } from '@/lib/auth/factory';
 import { trpc } from '@/lib/trpc/client';
 
@@ -14,7 +14,6 @@ export default function WrappedLandingPage() {
   const { user, isSignedIn, isLoading: authLoading, signIn } = useAuth();
   const [hasStarted, setHasStarted] = useState(false);
   const [starCheckPassed, setStarCheckPassed] = useState(false);
-  const [showReveal, setShowReveal] = useState(false);
 
   const currentYear = new Date().getFullYear();
   
@@ -51,18 +50,17 @@ export default function WrappedLandingPage() {
     reset();
     setHasStarted(false);
     setStarCheckPassed(false);
-    setShowReveal(false);
   }, [reset]);
 
   useEffect(() => {
-    if (data && !showReveal) {
-      setShowReveal(true);
+    if (data) {
+      // Navigate directly to wrapped slides, skipping the reveal screen
+      router.replace(`/wrapped/${data.year}/${data.username}`);
     }
-  }, [data, showReveal]);
+  }, [data, router]);
 
   const handleStartGeneration = (force = false) => {
     setHasStarted(true);
-    setShowReveal(false);
     startGeneration({ 
       withAI: isPaidUser, 
       includeRoast: isPaidUser,
@@ -79,11 +77,6 @@ export default function WrappedLandingPage() {
     });
   };
 
-  const handleViewWrapped = () => {
-    if (data) {
-      router.push(`/wrapped/${data.year}/${data.username}`);
-    }
-  };
 
   if (authLoading) {
     return <LoadingScreen message="Checking authentication..." />;
@@ -141,83 +134,9 @@ export default function WrappedLandingPage() {
     );
   }
 
-  if (showReveal && data) {
-    return (
-      <div className="min-h-screen bg-gray-50 text-gray-900 flex items-center justify-center p-6">
-        <Confetti />
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md w-full text-center space-y-8"
-        >
-          <motion.div
-            initial={{ y: -50, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2, type: 'spring' }}
-          >
-            <PartyPopper className="w-20 h-20 mx-auto text-purple-500 mb-4" />
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">
-              Your Wrapped is Ready!
-            </h1>
-            <p className="text-gray-600">
-              {cached ? 'Loaded from cache' : 'Freshly generated just for you'}
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg"
-          >
-            <div className="grid grid-cols-3 gap-4 mb-4">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-purple-600">
-                  {data.stats.totalCommits.toLocaleString()}
-                </div>
-                <div className="text-xs text-gray-500 uppercase">Commits</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-cyan-600">
-                  {data.stats.languages[0]?.name || '—'}
-                </div>
-                <div className="text-xs text-gray-500 uppercase">Top Lang</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-orange-500">
-                  {data.stats.longestStreak}
-                </div>
-                <div className="text-xs text-gray-500 uppercase">Day Streak</div>
-              </div>
-            </div>
-            {data.aiInsights?.personalityType && (
-              <div className="pt-4 border-t border-gray-100">
-                <div className="text-sm text-gray-500">Your Personality</div>
-                <div className="text-lg font-bold text-gray-900 flex items-center justify-center gap-2">
-                  <span>{data.aiInsights.personalityEmoji}</span>
-                  <span>{data.aiInsights.personalityType}</span>
-                </div>
-              </div>
-            )}
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8 }}
-          >
-            <Button
-              onClick={handleViewWrapped}
-              size="lg"
-              className="w-full h-16 text-xl font-bold bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white"
-            >
-              <Sparkles className="w-6 h-6 mr-2" />
-              Unwrap My Story
-            </Button>
-          </motion.div>
-        </motion.div>
-      </div>
-    );
+  // If data is ready, don't render anything - navigation will happen
+  if (data) {
+    return null;
   }
 
   if (generating || hasStarted) {

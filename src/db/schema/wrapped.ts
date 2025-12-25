@@ -127,6 +127,11 @@ export type WrappedAIInsights = {
   prediction2025: string | null;
   overallGrade: string | null;
   gradeDescription: string | null;
+  shamefulCommit?: {
+    message: string;
+    repo: string;
+    reason: string;
+  } | null;
 };
 
 export const githubWrapped = pgTable('github_wrapped', {

@@ -134,12 +134,12 @@ export function ContributionCalendarSlide({ contributionCalendar, year, totalCom
       gradientVia="#f0fdf4"
       gradientTo="#ecfeff"
     >
-      <div className="text-center space-y-6">
+      <div className="text-center space-y-4 md:space-y-6 w-full">
         {/* Header with Avatar */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-center gap-4 mb-6"
+          className="flex items-center justify-center gap-3 md:gap-4 mb-4 md:mb-6"
         >
           {user && (
             <motion.img
@@ -148,7 +148,7 @@ export function ContributionCalendarSlide({ contributionCalendar, year, totalCom
               transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
               src={user.avatarUrl}
               alt={user.username}
-              className="w-16 h-16 md:w-20 md:h-20 rounded-full border-4 border-white shadow-lg ring-2 ring-gray-200/50"
+              className="w-12 h-12 md:w-16 md:h-16 rounded-full border-2 md:border-4 border-white shadow-lg ring-1 md:ring-2 ring-gray-200/50"
             />
           )}
           <div className="text-left">
@@ -157,7 +157,7 @@ export function ContributionCalendarSlide({ contributionCalendar, year, totalCom
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 }}
-                className="text-sm font-medium text-gray-600 mb-1"
+                className="text-xs md:text-sm font-medium text-gray-600 mb-0.5 md:mb-1"
               >
                 @{user.username}
               </motion.p>
@@ -168,8 +168,8 @@ export function ContributionCalendarSlide({ contributionCalendar, year, totalCom
               transition={{ delay: 0.4 }}
               className="flex items-center gap-2"
             >
-              <Calendar className="w-4 h-4 text-gray-500" />
-              <p className="text-xs uppercase tracking-widest text-gray-500">Your Contribution Calendar</p>
+              <Calendar className="w-3 h-3 md:w-4 md:h-4 text-gray-500" />
+              <p className="text-[10px] md:text-xs uppercase tracking-wider md:tracking-widest text-gray-500">Your Contribution Calendar</p>
             </motion.div>
           </div>
         </motion.div>
@@ -178,9 +178,9 @@ export function ContributionCalendarSlide({ contributionCalendar, year, totalCom
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="space-y-2"
+          className="space-y-1 md:space-y-2"
         >
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+          <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">
             {totalCommits.toLocaleString()} commits in {year}
           </h2>
         </motion.div>
@@ -190,80 +190,86 @@ export function ContributionCalendarSlide({ contributionCalendar, year, totalCom
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.3 }}
-            className="bg-white rounded-2xl p-4 md:p-6 border border-gray-200 shadow-lg mx-auto overflow-x-auto"
+            className="w-full max-w-full mx-auto px-2"
           >
-            {/* GitHub-style Calendar Grid */}
-            <div className="inline-block min-w-max">
-              {/* Month labels row */}
-              <div className="flex mb-1">
-                <div className="w-7 shrink-0" /> {/* Spacer for day labels */}
-                <div className="flex relative" style={{ gap: '3px' }}>
-                  {weeks.map((week, weekIdx) => {
-                    const monthLabel = monthLabels.find(m => m.weekIndex === week.weekIndex);
-                    return (
-                      <div key={`month-${weekIdx}`} className="w-[11px] text-[9px] text-gray-500 font-medium">
-                        {monthLabel ? MONTH_NAMES[monthLabel.month] : ''}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              
-              {/* Calendar grid: 7 rows (days) x ~53 columns (weeks) */}
-              <div className="flex">
-                {/* Day labels column */}
-                <div className="flex flex-col shrink-0 mr-1" style={{ gap: '3px' }}>
-                  {DAY_LABELS.map((label, idx) => (
-                    <div key={`day-${idx}`} className="h-[11px] w-6 text-[9px] text-gray-500 font-medium flex items-center justify-end pr-1">
-                      {label}
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Weeks columns */}
-                <div className="flex" style={{ gap: '3px' }}>
-                  {weeks.map((week, weekIdx) => {
-                    const isAnimated = weekIdx < animatedWeeks;
-                    
-                    return (
-                      <div key={`week-${weekIdx}`} className="flex flex-col" style={{ gap: '3px' }}>
-                        {week.days.map((day, dayIdx) => {
-                          if (!day) {
-                            return <div key={`empty-${dayIdx}`} className="w-[11px] h-[11px]" />;
-                          }
-                          
-                          const level = getContributionLevel(day.count, maxCount);
-                          const color = getContributionColor(level);
-                          
+            <div className="bg-white rounded-2xl p-2 md:p-4 border border-gray-200 shadow-lg overflow-hidden">
+              {/* GitHub-style Calendar Grid - Scale to fit */}
+              <div className="w-full flex justify-center overflow-hidden">
+                <div className="scale-[0.7] sm:scale-[0.8] md:scale-90 lg:scale-100 origin-top-left md:origin-top">
+                  <div className="inline-block">
+                    {/* Month labels row */}
+                    <div className="flex mb-1">
+                      <div className="w-7 shrink-0" /> {/* Spacer for day labels */}
+                      <div className="flex relative" style={{ gap: '3px' }}>
+                        {weeks.map((week, weekIdx) => {
+                          const monthLabel = monthLabels.find(m => m.weekIndex === week.weekIndex);
                           return (
-                            <motion.div
-                              key={day.date.toISOString()}
-                              initial={{ opacity: 0, scale: 0 }}
-                              animate={isAnimated ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0 }}
-                              transition={{ delay: dayIdx * 0.02 }}
-                              className={`w-[11px] h-[11px] rounded-sm ${color} border border-gray-200/50 hover:scale-150 transition-transform cursor-pointer hover:border-gray-400`}
-                              title={`${day.date.toLocaleDateString()}: ${day.count} ${day.count === 1 ? 'contribution' : 'contributions'}`}
-                            />
+                            <div key={`month-${weekIdx}`} className="w-[11px] text-[9px] text-gray-500 font-medium">
+                              {monthLabel ? MONTH_NAMES[monthLabel.month] : ''}
+                            </div>
                           );
                         })}
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
+                    </div>
+                    
+                    {/* Calendar grid: 7 rows (days) x ~53 columns (weeks) */}
+                    <div className="flex">
+                      {/* Day labels column */}
+                      <div className="flex flex-col shrink-0 mr-1" style={{ gap: '3px' }}>
+                        {DAY_LABELS.map((label, idx) => (
+                          <div key={`day-${idx}`} className="h-[11px] w-6 text-[9px] text-gray-500 font-medium flex items-center justify-end pr-1">
+                            {label}
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Weeks columns */}
+                      <div className="flex" style={{ gap: '3px' }}>
+                        {weeks.map((week, weekIdx) => {
+                          const isAnimated = weekIdx < animatedWeeks;
+                          
+                          return (
+                            <div key={`week-${weekIdx}`} className="flex flex-col" style={{ gap: '3px' }}>
+                              {week.days.map((day, dayIdx) => {
+                                if (!day) {
+                                  return <div key={`empty-${dayIdx}`} className="w-[11px] h-[11px]" />;
+                                }
+                                
+                                const level = getContributionLevel(day.count, maxCount);
+                                const color = getContributionColor(level);
+                                
+                                return (
+                                  <motion.div
+                                    key={day.date.toISOString()}
+                                    initial={{ opacity: 0, scale: 0 }}
+                                    animate={isAnimated ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0 }}
+                                    transition={{ delay: dayIdx * 0.02 }}
+                                    className={`w-[11px] h-[11px] rounded-sm ${color} border border-gray-200/50 hover:scale-150 transition-transform cursor-pointer hover:border-gray-400`}
+                                    title={`${day.date.toLocaleDateString()}: ${day.count} ${day.count === 1 ? 'contribution' : 'contributions'}`}
+                                  />
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-              {/* Legend */}
-              <div className="flex items-center justify-end gap-2 mt-4 pt-4 border-t border-gray-200">
-                <span className="text-[10px] text-gray-500">Less</span>
-                <div className="flex gap-1">
-                  {[0, 1, 2, 3, 4].map(level => (
-                    <div
-                      key={level}
-                      className={`w-[11px] h-[11px] rounded-sm ${getContributionColor(level)} border border-gray-200/50`}
-                    />
-                  ))}
+                    {/* Legend */}
+                    <div className="flex items-center justify-end gap-2 mt-4 pt-4 border-t border-gray-200">
+                      <span className="text-[10px] text-gray-500">Less</span>
+                      <div className="flex gap-1">
+                        {[0, 1, 2, 3, 4].map(level => (
+                          <div
+                            key={level}
+                            className={`w-[11px] h-[11px] rounded-sm ${getContributionColor(level)} border border-gray-200/50`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-gray-500">More</span>
+                    </div>
+                  </div>
                 </div>
-                <span className="text-[10px] text-gray-500">More</span>
               </div>
             </div>
           </motion.div>

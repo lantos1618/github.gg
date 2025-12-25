@@ -161,7 +161,7 @@ export function WrappedStory({
 
   const userInfo = {
     username: data.username,
-    avatarUrl: `https://github.com/${data.username}.png`,
+    avatarUrl: `https://avatars.githubusercontent.com/${data.username}`,
   };
 
   const renderSlide = () => {
@@ -207,7 +207,7 @@ export function WrappedStory({
         return (
           <HighlightsSlide
             username={data.username}
-            avatarUrl={`https://github.com/${data.username}.png`}
+            avatarUrl={`https://avatars.githubusercontent.com/${data.username}`}
             aiInsights={data.aiInsights}
             stats={data.stats}
             longestCommitMessage={data.stats.longestCommitMessage}

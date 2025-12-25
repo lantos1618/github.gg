@@ -129,7 +129,12 @@ export class WrappedService {
     return bestOffset;
   }
 
-  async fetchWrappedStats(username: string): Promise<{ stats: WrappedStats; rawData: WrappedRawData }> {
+  async fetchWrappedStats(
+    username: string,
+    onProgress?: (message: string, metadata?: { commits?: number; repos?: number; sampleCommits?: Array<{ repo: string; message: string }>; type?: string }) => void
+  ): Promise<{ stats: WrappedStats; rawData: WrappedRawData }> {
+    onProgress?.('🔍 Scanning the GitHub universe for your commits...', { type: 'init' });
+    
     const [commitResult, pullRequests] = await Promise.all([
       this.searchUserCommits(username),
       this.searchUserPRs(username),
@@ -137,6 +142,27 @@ export class WrappedService {
     
     const commits = commitResult.commits;
     const totalCommitsFromSearch = commitResult.totalCount;
+    
+    // Pick more interesting commits for samples
+    const sampleCommits = commits
+      .filter(c => c.commit.message.length > 30)
+      .slice(0, 5)
+      .map(c => ({
+        repo: c.repository.name,
+        message: c.commit.message.split('\n')[0].slice(0, 60),
+      }));
+    
+    onProgress?.(
+      `✨ Found ${totalCommitsFromSearch.toLocaleString()} commits in ${this.year}!`, 
+      {
+        commits: totalCommitsFromSearch,
+        sampleCommits: sampleCommits.length > 0 ? sampleCommits : commits.slice(0, 3).map(c => ({
+          repo: c.repository.name,
+          message: c.commit.message.split('\n')[0].slice(0, 60),
+        })),
+      }
+    );
+    
     const timezoneOffset = this.inferTimezone(commits);
     
     const uniqueRepos = new Map<string, { owner: string; name: string; commitCount: number }>();
@@ -157,6 +183,15 @@ export class WrappedService {
     const topReposByCommits = Array.from(uniqueRepos.values())
       .sort((a, b) => b.commitCount - a.commitCount)
       .slice(0, 20);
+    
+    const topRepoNames = topReposByCommits.slice(0, 3).map(r => r.name);
+    onProgress?.(
+      `📦 Analyzing ${topReposByCommits.length} repositories... ${topRepoNames.length > 0 ? `Top repos: ${topRepoNames.join(', ')}` : ''}`,
+      {
+        repos: topReposByCommits.length,
+      }
+    );
+    
     const repoLanguages = await this.fetchRepoLanguages(topReposByCommits);
 
     const commitsByHour = new Array(24).fill(0);
@@ -251,6 +286,24 @@ export class WrappedService {
     const peakDayIndex = commitsByDay.indexOf(Math.max(...commitsByDay));
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const peakDay = dayNames[peakDayIndex];
+    
+    // Send analysis insights with interesting patterns
+    const topLanguage = languages[0]?.name || 'Unknown';
+    const topRepo = topRepos[0];
+    const languageCount = languages.length;
+    
+    let patternMessage = `🎯 Patterns detected: ${topLanguage} is your #1 language`;
+    if (topRepo) {
+      patternMessage += `, ${topRepo.name} is your most active repo`;
+    }
+    if (languageCount > 3) {
+      patternMessage += ` (polyglot: ${languageCount} languages!)`;
+    }
+    
+    onProgress?.(patternMessage, {
+      commits: totalCommits,
+      repos: uniqueRepos.size,
+    });
 
     const wordCounts = new Map<string, number>();
     for (const message of commitMessages) {

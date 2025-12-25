@@ -112,7 +112,6 @@ export async function* generateWrappedInsightsStreaming({
   const result = streamText({
     model: google('gemini-3-flash'),
     messages: [{ role: 'user', content: streamingPrompt }],
-    maxTokens: 4000,
   });
 
   let accumulatedText = '';
@@ -186,7 +185,8 @@ export async function* generateWrappedInsightsStreaming({
 
   // Get final result with usage stats
   const finalResult = await result;
-  const usage = finalResult.usage || { inputTokens: 0, outputTokens: 0 };
+  const usageResult = await finalResult.usage;
+  const usage = usageResult || { inputTokens: 0, outputTokens: 0 };
 
   // Parse final JSON
   let insights: WrappedAIInsights;
@@ -200,12 +200,17 @@ export async function* generateWrappedInsightsStreaming({
   } catch (parseError) {
     // If streaming JSON parse failed, fall back to generateObject
     console.warn('Failed to parse streamed JSON, falling back to generateObject', parseError);
-    const { object } = await generateObject({
+    const { object, usage: fallbackUsage } = await generateObject({
       model: google('gemini-3-flash'),
       schema: wrappedInsightsSchema,
       messages: [{ role: 'user', content: streamingPrompt }],
     });
     insights = object as WrappedAIInsights;
+    // Use fallback usage if streaming failed
+    if (fallbackUsage) {
+      usage.inputTokens = fallbackUsage.inputTokens || 0;
+      usage.outputTokens = fallbackUsage.outputTokens || 0;
+    }
   }
 
   yield {

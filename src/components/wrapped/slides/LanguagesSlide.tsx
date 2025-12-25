@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { WrappedSlide } from '../WrappedSlide';
+import { WrappedSlide, UserHeader } from '../WrappedSlide';
 import type { WrappedStats } from '@/lib/types/wrapped';
 
 interface LanguagesSlideProps {
@@ -45,9 +45,13 @@ export function LanguagesSlide({ languages, user }: LanguagesSlideProps) {
       gradientFrom="#ffffff"
       gradientVia="#fefce8"
       gradientTo="#ecfdf5"
-      user={user}
     >
       <div className="space-y-8">
+        {user && (
+          <div className="flex justify-center mb-4">
+            <UserHeader username={user.username} avatarUrl={user.avatarUrl} />
+          </div>
+        )}
         <motion.p
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}

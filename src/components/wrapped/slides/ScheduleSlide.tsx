@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WrappedSlide } from '../WrappedSlide';
+import { WrappedSlide, UserHeader } from '../WrappedSlide';
 import { Flame, Moon, Calendar } from 'lucide-react';
 
 interface ScheduleSlideProps {
@@ -103,7 +103,6 @@ export function ScheduleSlide({
       gradientFrom="#0f0f1a"
       gradientVia="#1a1a2e"
       gradientTo="#16213e"
-      user={user}
     >
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -127,6 +126,34 @@ export function ScheduleSlide({
       </div>
 
       <div className="relative z-10 flex flex-col items-center justify-center min-h-[500px] md:min-h-[600px]">
+        {user && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6"
+          >
+            <div className="flex items-center gap-3">
+              <motion.img
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
+                src={user.avatarUrl}
+                alt={user.username}
+                className="w-12 h-12 md:w-14 md:h-14 rounded-full border-2 border-white/20 shadow-lg ring-1 ring-purple-400/30"
+              />
+              <div>
+                <motion.p
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="text-sm font-semibold text-white/90"
+                >
+                  @{user.username}
+                </motion.p>
+              </div>
+            </div>
+          </motion.div>
+        )}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}

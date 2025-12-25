@@ -3,16 +3,19 @@
  * After migration 0019, all repos default to is_private=true (hidden).
  * This script checks each repo via GitHub API and marks PUBLIC ones as is_private=false.
  * 
- * Run after migration: bun run scripts/fix-private-repos.ts --env-file=.env.prod
+ * Run: bun run scripts/fix-private-repos.ts
  */
 
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { sql } from 'drizzle-orm';
 import { Octokit } from '@octokit/rest';
+import { config } from 'dotenv';
+
+config({ path: '.env.vercel-prod' });
 
 const DATABASE_URL = process.env.DATABASE_URL;
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GITHUB_APP_TOKEN;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GITHUB_APP_TOKEN || process.env.GITHUB_PUBLIC_API_KEY;
 
 if (!DATABASE_URL) {
   console.error('❌ DATABASE_URL is required');

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { WrappedSlide } from '../WrappedSlide';
+import { WrappedSlide, UserHeader } from '../WrappedSlide';
 import { Trophy, Skull } from 'lucide-react';
 import type { WrappedStats, WrappedAIInsights } from '@/lib/types/wrapped';
 
@@ -20,9 +20,9 @@ export function HighlightsSlide({ username, avatarUrl, longestCommitMessage, sho
       gradientFrom="#ffffff"
       gradientVia="#fdf4ff"
       gradientTo="#f0fdf4"
-      user={{ username, avatarUrl }}
     >
       <div className="space-y-4">
+        <UserHeader username={username} avatarUrl={avatarUrl} className="mb-6" />
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}

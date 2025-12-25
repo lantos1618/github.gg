@@ -133,18 +133,53 @@ export function ContributionCalendarSlide({ contributionCalendar, year, totalCom
       gradientFrom="#ffffff"
       gradientVia="#f0fdf4"
       gradientTo="#ecfeff"
-      user={user}
     >
       <div className="text-center space-y-6">
+        {/* Header with Avatar */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-center gap-4 mb-6"
+        >
+          {user && (
+            <motion.img
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+              src={user.avatarUrl}
+              alt={user.username}
+              className="w-16 h-16 md:w-20 md:h-20 rounded-full border-4 border-white shadow-lg ring-2 ring-gray-200/50"
+            />
+          )}
+          <div className="text-left">
+            {user && (
+              <motion.p
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 }}
+                className="text-sm font-medium text-gray-600 mb-1"
+              >
+                @{user.username}
+              </motion.p>
+            )}
+            <motion.div
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+              className="flex items-center gap-2"
+            >
+              <Calendar className="w-4 h-4 text-gray-500" />
+              <p className="text-xs uppercase tracking-widest text-gray-500">Your Contribution Calendar</p>
+            </motion.div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
           className="space-y-2"
         >
-          <div className="flex items-center justify-center gap-2">
-            <Calendar className="w-5 h-5 text-gray-600" />
-            <p className="text-sm uppercase tracking-widest text-gray-500">Your Contribution Calendar</p>
-          </div>
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
             {totalCommits.toLocaleString()} commits in {year}
           </h2>

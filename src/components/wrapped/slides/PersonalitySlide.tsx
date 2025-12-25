@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WrappedSlide, Confetti } from '../WrappedSlide';
+import { WrappedSlide, Confetti, UserHeader } from '../WrappedSlide';
 import type { WrappedAIInsights } from '@/lib/types/wrapped';
 import { PERSONALITY_TYPES } from '@/lib/types/wrapped';
 
@@ -59,10 +59,15 @@ export function PersonalitySlide({ aiInsights, stats, user }: PersonalitySlidePr
   }, []);
 
   return (
-    <WrappedSlide variant="neon" user={user}>
+    <WrappedSlide variant="neon">
       {showConfetti && <Confetti />}
       
       <div className="text-center space-y-8">
+        {user && (
+          <div className="flex justify-center mb-4">
+            <UserHeader username={user.username} avatarUrl={user.avatarUrl} />
+          </div>
+        )}
         <AnimatePresence mode="wait">
           {phase === 'buildup' && (
             <motion.div

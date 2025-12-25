@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WrappedSlide } from '../WrappedSlide';
+import { WrappedSlide, UserHeader } from '../WrappedSlide';
 import { 
   Bot, 
   Sparkles, 
@@ -212,9 +212,13 @@ export function CodeQualitySlide({ codeQuality, username, user }: CodeQualitySli
       gradientFrom="#ffffff"
       gradientVia="#f0f9ff"
       gradientTo="#faf5ff"
-      user={user}
     >
       <div className="text-center space-y-5">
+        {user && (
+          <div className="flex justify-center mb-4">
+            <UserHeader username={user.username} avatarUrl={user.avatarUrl} />
+          </div>
+        )}
         <AnimatePresence mode="wait">
           {phase === 'intro' && (
             <motion.div

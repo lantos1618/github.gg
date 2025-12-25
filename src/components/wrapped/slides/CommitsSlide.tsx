@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { WrappedSlide, Confetti } from '../WrappedSlide';
+import { WrappedSlide, Confetti, UserHeader } from '../WrappedSlide';
 
 interface CommitsSlideProps {
   totalCommits: number;
@@ -89,11 +89,15 @@ export function CommitsSlide({
       gradientFrom="#ffffff"
       gradientVia="#f5f3ff"
       gradientTo="#ecfeff"
-      user={user}
     >
       {showConfetti && <Confetti />}
       
       <div className="text-center space-y-8">
+        {user && (
+          <div className="flex justify-center mb-4">
+            <UserHeader username={user.username} avatarUrl={user.avatarUrl} />
+          </div>
+        )}
         <motion.p
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}

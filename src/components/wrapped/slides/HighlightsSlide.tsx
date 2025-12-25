@@ -21,71 +21,85 @@ export function HighlightsSlide({ username, avatarUrl, longestCommitMessage, sho
       gradientVia="#fdf4ff"
       gradientTo="#f0fdf4"
     >
-      <div className="space-y-4">
-        <UserHeader username={username} avatarUrl={avatarUrl} className="mb-6" />
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center"
-        >
-          <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Highlights & Lowlights</p>
-        </motion.div>
+      <div className="w-full space-y-8">
+        <div className="text-center space-y-4">
+          <UserHeader username={username} avatarUrl={avatarUrl} className="justify-center" />
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center"
+          >
+            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Highlights & Lowlights</p>
+          </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="space-y-3"
-        >
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-100 to-green-100 rounded-full border border-emerald-200">
-            <Trophy className="w-4 h-4 text-emerald-500" />
-            <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Smartest Commit</span>
-          </div>
-          
-          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-md max-w-md mx-auto">
-            <div className="text-3xl mb-2">🧠</div>
-            {longestCommitMessage ? (
-              <>
-                <p className="text-[10px] text-gray-500 mb-1">Your longest commit message ({longestCommitMessage.length} chars):</p>
-                <p className="text-sm text-gray-800 leading-relaxed font-mono bg-gray-50 p-2 rounded border text-left">
-                  {longestCommitMessage.length > 120 
-                    ? `${longestCommitMessage.slice(0, 120)}...` 
-                    : longestCommitMessage}
-                </p>
-              </>
-            ) : (
-              <p className="text-sm text-gray-800">Your commits are consistently thoughtful! 🎉</p>
-            )}
-          </div>
-        </motion.div>
+        <div className="space-y-6 max-w-2xl mx-auto">
+          {/* Smartest Commit */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="space-y-3"
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Trophy className="w-5 h-5 text-emerald-500" />
+              <span className="text-sm font-semibold text-emerald-700 uppercase tracking-wide">Smartest Commit</span>
+            </div>
+            
+            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-lg">
+              <div className="text-4xl mb-3 text-center">🧠</div>
+              {longestCommitMessage ? (
+                <>
+                  <p className="text-xs text-gray-500 mb-3 text-center">
+                    Your longest commit message ({longestCommitMessage.length.toLocaleString()} chars)
+                  </p>
+                  <div className="bg-gray-50 p-4 rounded-lg border text-left">
+                    <p className="text-sm text-gray-800 leading-relaxed font-mono break-words">
+                      {longestCommitMessage.length > 200 
+                        ? `${longestCommitMessage.slice(0, 200)}...` 
+                        : longestCommitMessage}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-gray-800 text-center">Your commits are consistently thoughtful! 🎉</p>
+              )}
+            </div>
+          </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="space-y-3"
-        >
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-red-100 to-orange-100 rounded-full border border-red-200">
-            <Skull className="w-4 h-4 text-red-500" />
-            <span className="text-xs font-semibold text-red-700 uppercase tracking-wide">Moment of Shame</span>
-          </div>
-          
-          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-md max-w-md mx-auto">
-            <div className="text-3xl mb-2">💀</div>
-            {shortestCommitMessage ? (
-              <>
-                <p className="text-[10px] text-gray-500 mb-1">Your shortest commit message ({shortestCommitMessage.length} chars):</p>
-                <p className="text-sm text-gray-800 leading-relaxed font-mono bg-red-50 p-2 rounded border border-red-200 text-left">
-                  &quot;{shortestCommitMessage.message}&quot;
+          {/* Moment of Shame */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="space-y-3"
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Skull className="w-5 h-5 text-red-500" />
+              <span className="text-sm font-semibold text-red-700 uppercase tracking-wide">Moment of Shame</span>
+            </div>
+            
+            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-lg">
+              <div className="text-4xl mb-3 text-center">💀</div>
+              {shortestCommitMessage ? (
+                <>
+                  <p className="text-xs text-gray-500 mb-3 text-center">
+                    Your shortest commit message ({shortestCommitMessage.length} chars)
+                  </p>
+                  <div className="bg-red-50 p-4 rounded-lg border border-red-200 text-left">
+                    <p className="text-sm text-gray-800 leading-relaxed font-mono">
+                      &quot;{shortestCommitMessage.message}&quot;
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-gray-800 text-center">
+                  Somehow you avoided major embarrassment this year. Suspicious. 🤔
                 </p>
-              </>
-            ) : (
-              <p className="text-sm text-gray-800">
-                Somehow you avoided major embarrassment this year. Suspicious. 🤔
-              </p>
-            )}
-          </div>
-        </motion.div>
+              )}
+            </div>
+          </motion.div>
+        </div>
       </div>
     </WrappedSlide>
   );

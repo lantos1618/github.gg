@@ -31,16 +31,12 @@ export const scorecardRouter = router({
 
         yield { type: 'progress', progress: 3, message: 'Authenticating with GitHub...' };
 
-        // Create authenticated GitHub service
         const githubService = await createGitHubServiceFromSession(ctx.session);
 
-        // Fetch repo info to get actual default branch if not provided
-        let ref = input.ref;
-        if (!ref || ref === 'main') {
-          yield { type: 'progress', progress: 4, message: 'Fetching repository info...' };
-          const repoInfo = await githubService.getRepositoryInfo(input.user, input.repo);
-          ref = repoInfo.defaultBranch || 'main';
-        }
+        yield { type: 'progress', progress: 4, message: 'Fetching repository info...' };
+        const repoInfo = await githubService.getRepositoryInfo(input.user, input.repo);
+        const ref = input.ref || repoInfo.defaultBranch || 'main';
+        const isPrivate = repoInfo.private === true;
 
         yield { type: 'progress', progress: 5, message: `Fetching ${input.filePaths.length} files from GitHub...` };
 
@@ -152,6 +148,7 @@ export const scorecardRouter = router({
             repoName: input.repo,
             ref: ref,
             version,
+            isPrivate,
             overallScore: data.overallScore,
             metrics: data.metrics,
             markdown: data.markdown,
@@ -310,7 +307,13 @@ export const scorecardRouter = router({
       limit: z.number().optional().default(100),
       offset: z.number().optional().default(0),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const currentUserId = ctx.session?.user?.id;
+      
+      const whereCondition = currentUserId
+        ? sql`(${repositoryScorecards.isPrivate} = false OR ${repositoryScorecards.userId} = ${currentUserId})`
+        : eq(repositoryScorecards.isPrivate, false);
+      
       const scorecards = await db.select({
         repoOwner: repositoryScorecards.repoOwner,
         repoName: repositoryScorecards.repoName,
@@ -319,13 +322,14 @@ export const scorecardRouter = router({
         metrics: repositoryScorecards.metrics,
         updatedAt: repositoryScorecards.updatedAt,
         version: repositoryScorecards.version,
+        isPrivate: repositoryScorecards.isPrivate,
       })
       .from(repositoryScorecards)
+      .where(whereCondition)
       .orderBy(desc(repositoryScorecards.updatedAt))
       .limit(input.limit)
       .offset(input.offset);
 
-      // Group by repo (owner + name + ref) and take latest version
       const latestRepos = new Map<string, typeof scorecards[0]>();
       for (const scorecard of scorecards) {
         const key = `${scorecard.repoOwner}/${scorecard.repoName}/${scorecard.ref}`;

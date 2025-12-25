@@ -275,7 +275,7 @@ export function WrappedStory({
         ))}
       </div>
 
-      <div className="absolute top-12 right-4 z-50 flex gap-2">
+      <div className="absolute top-12 right-4 z-[60] flex gap-2">
         {autoAdvance && (
           <button
             onClick={(e) => {

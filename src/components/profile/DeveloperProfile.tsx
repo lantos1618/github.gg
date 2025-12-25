@@ -3,22 +3,16 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
-import { SkillAssessment } from './SkillAssessment';
-import { DevelopmentStyle } from './DevelopmentStyle';
 import { TopRepos } from './TopRepos';
 import { TechStack } from './TechStack';
 import { RepoSelector } from './RepoSelector';
 import { ProfileHeader } from './ProfileHeader';
 import { ProfileActions } from './ProfileActions';
 import { ProfileSidebar } from './ProfileSidebar';
-import { getArchetypeInfo } from './constants';
 import { trpc } from '@/lib/trpc/client';
-import { RefreshCw, Sword, Mail, FolderGit2, Trophy, Flame, Heart, Info, AlertCircle } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { RefreshCw, Mail, FolderGit2, AlertCircle } from 'lucide-react';
 import { developerProfileSchema, type DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useRouter } from 'next/navigation';
-import { ScoreHistory } from '@/components/ScoreHistory';
 import { LoadingPage, LoadingInline } from '@/components/common';
 import { ReusableSSEFeedback, type SSEStatus, type SSELogItem } from '@/components/analysis/ReusableSSEFeedback';
 
@@ -617,151 +611,44 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
       >
         {showSparkles && <SparkleEffects chars={sparkleChars} />}
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8 border-b border-gray-100 pb-12 relative z-10">
-          <div className="flex gap-8">
-            <div className="relative">
-              <Avatar 
-                className={`h-24 w-24 border-2 shadow-sm ${
-                  isKnottedBrains 
-                    ? 'border-pink-400 ring-4 ring-pink-400/30' 
-                    : isCracked 
-                      ? 'border-yellow-500 ring-4 ring-yellow-500/20' 
-                      : 'border-gray-200'
-                }`}
-                style={profileStyles?.primaryColor ? { borderColor: profileStyles.primaryColor } : undefined}
-              >
-                <AvatarImage src={`https://avatars.githubusercontent.com/${username}`} alt={username} />
-                <AvatarFallback className="text-2xl bg-gray-50 text-gray-500">{username?.[0]?.toUpperCase()}</AvatarFallback>
-              </Avatar>
-              {isCracked && (
-                <div 
-                  className={`absolute -bottom-2 -right-2 ${isKnottedBrains ? 'bg-pink-400' : 'bg-yellow-500'} text-white p-1.5 rounded-full border-2 border-white shadow-md`}
-                  style={profileStyles?.primaryColor ? { backgroundColor: profileStyles.primaryColor } : undefined}
-                >
-                  {isKnottedBrains ? <Heart className="h-4 w-4 fill-current" /> : <Flame className="h-4 w-4 fill-current" />}
+          <ProfileHeader
+            username={username}
+            profile={validProfile}
+            totalScore={totalScore}
+            arenaRanking={arenaRanking}
+            profileStyles={profileStyles}
+          >
+            <div className="mt-2 space-y-1">
+              {currentUser?.user ? (
+                emailLoading ? (
+                  <LoadingInline />
+                ) : emailData?.email ? (
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <Mail className="h-4 w-4" />
+                    <a href={`mailto:${emailData.email}`} className="hover:text-black transition-colors">{emailData.email}</a>
+                  </div>
+                ) : null
+              ) : null}
+              
+              {versionInfo && (
+                <div className="text-sm text-gray-400 flex items-center gap-2 mt-2">
+                  <span>Analysis Version</span>
+                  <VersionSelector />
                 </div>
               )}
             </div>
-            <div>
-              <div className="flex items-baseline gap-4 flex-wrap">
-                <a
-                  href={`https://github.com/${username}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-4xl font-bold tracking-tight text-black hover:text-blue-600 transition-colors"
-                  style={profileStyles?.textColor ? { color: profileStyles.textColor } : undefined}
-                >
-                  {username}
-                </a>
-                {isCracked && (
-                  <Badge 
-                    className={`${isKnottedBrains ? 'bg-pink-400 hover:bg-pink-500' : 'bg-yellow-500 hover:bg-yellow-600'} text-white border-none px-3 py-1 text-sm font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5`}
-                    style={profileStyles?.primaryColor ? { backgroundColor: profileStyles.primaryColor } : undefined}
-                  >
-                    {isKnottedBrains ? <Flame className="h-3.5 w-3.5 fill-current" /> : <Flame className="h-3.5 w-3.5 fill-current" />}
-                    CRACKED
-                  </Badge>
-                )}
-                <div 
-                  className={`flex items-center gap-2 px-3 py-1 rounded-full border ${
-                  isKnottedBrains
-                    ? 'bg-pink-50 border-pink-200 text-pink-800'
-                    : isCracked 
-                      ? 'bg-yellow-50 border-yellow-200 text-yellow-800' 
-                      : 'bg-gray-50 border-gray-200 text-gray-900'
-                  }`}
-                  style={profileStyles?.primaryColor ? { borderColor: profileStyles.primaryColor, color: profileStyles.primaryColor, backgroundColor: `${profileStyles.primaryColor}10` } : undefined}
-                >
-                   <span className="text-sm font-medium">Score: {totalScore}</span>
-                </div>
-                {arenaRanking && (
-                  <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-200">
-                    <Trophy className="h-3.5 w-3.5 text-yellow-600" />
-                    <span className="text-sm font-medium text-gray-900">{arenaRanking.eloRating} ELO</span>
-                  </div>
-                )}
-                {validProfile.developerArchetype && (() => {
-                  const archetypeInfo = getArchetypeInfo(validProfile.developerArchetype);
-                  return (
-                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border ${archetypeInfo.bgColor} ${archetypeInfo.color}`}>
-                      {archetypeInfo.icon}
-                      <span className="text-sm font-medium">{archetypeInfo.label}</span>
-                    </div>
-                  );
-                })()}
-                {validProfile.profileConfidence !== undefined && (
-                  <div
-                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full border ${
-                      validProfile.profileConfidence >= 70
-                        ? 'bg-green-50 border-green-200 text-green-700'
-                        : validProfile.profileConfidence >= 40
-                          ? 'bg-yellow-50 border-yellow-200 text-yellow-700'
-                          : 'bg-orange-50 border-orange-200 text-orange-700'
-                    }`}
-                    title={validProfile.confidenceReason || 'How representative this GitHub profile is of true capabilities'}
-                  >
-                    <Info className="h-3 w-3" />
-                    <span className="text-sm font-medium">{validProfile.profileConfidence}% confidence</span>
-                  </div>
-                )}
-              </div>
+          </ProfileHeader>
 
-              <div className="mt-2 space-y-1">
-                {currentUser?.user ? (
-                  emailLoading ? (
-                    <LoadingInline />
-                  ) : emailData?.email ? (
-                    <div className="flex items-center gap-2 text-gray-500">
-                      <Mail className="h-4 w-4" />
-                      <a href={`mailto:${emailData.email}`} className="hover:text-black transition-colors">{emailData.email}</a>
-                    </div>
-                  ) : null
-                ) : null}
-                
-                {versionInfo && (
-                  <div className="text-sm text-gray-400 flex items-center gap-2 mt-2">
-                    <span>Analysis Version</span>
-                    <VersionSelector />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            {shouldShowChallengeButton && (
-              <Button
-                onClick={handleChallenge}
-                variant="outline"
-                className="h-12 px-6 border-gray-200 hover:border-black transition-colors"
-              >
-                <Sword className="h-4 w-4 mr-2" />
-                Challenge
-              </Button>
-            )}
-            
-            {isOwnProfile && (
-              <Button
-                onClick={() => setShowRepoSelector(true)}
-                disabled={isGenerating || reposLoading}
-                variant="outline"
-                className="h-12 px-6 border-gray-200 hover:border-black transition-colors"
-              >
-                <FolderGit2 className="h-4 w-4 mr-2" />
-                Configure
-              </Button>
-            )}
-
-            {(isOwnProfile || (currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro'))) && (
-              <Button
-                onClick={handleGenerateProfile}
-                disabled={isGenerating}
-                className="h-12 px-6 bg-black hover:bg-gray-800 text-white shadow-none rounded-lg"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
-                {isGenerating ? 'Analyzing...' : 'Refresh Analysis'}
-              </Button>
-            )}
-          </div>
+          <ProfileActions
+            isOwnProfile={isOwnProfile}
+            isGenerating={isGenerating}
+            reposLoading={reposLoading}
+            showChallengeButton={shouldShowChallengeButton}
+            canRefresh={isOwnProfile || !!(currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro'))}
+            onChallenge={handleChallenge}
+            onConfigure={() => setShowRepoSelector(true)}
+            onRefresh={handleGenerateProfile}
+          />
         </div>
 
         {/* Progress Bar - Terminal-style logger for real-time generation feedback */}
@@ -801,46 +688,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
              </section>
           </div>
 
-          {/* Sidebar */}
-          <div className="xl:col-span-4 space-y-12">
-             {scoreHistory && scoreHistory.length > 0 && (
-               <section>
-                 <h3 className="text-lg font-bold text-black mb-4">ELO Trajectory</h3>
-                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                    <ScoreHistory
-                      data={scoreHistory}
-                      title=""
-                      scoreLabel="ELO"
-                      color="#000000"
-                    />
-                 </div>
-               </section>
-             )}
-
-             <section>
-               <h3 className="text-lg font-bold text-black mb-4">Developer Persona</h3>
-               <DevelopmentStyle traits={validProfile.developmentStyle} />
-             </section>
-
-             <section>
-                <h3 className="text-lg font-bold text-black mb-4">Skill Assessment</h3>
-                <SkillAssessment skills={validProfile.skillAssessment} />
-             </section>
-
-             {Array.isArray(validProfile.suggestions) && validProfile.suggestions.length > 0 && (
-               <section>
-                 <h3 className="text-lg font-bold text-black mb-4">Growth Areas</h3>
-                 <ul className="space-y-3">
-                   {validProfile.suggestions.map((suggestion, idx) => (
-                     <li key={idx} className="text-gray-600 text-sm leading-relaxed flex gap-2">
-                       <span className="text-black font-bold">•</span>
-                       {suggestion}
-                     </li>
-                   ))}
-                 </ul>
-               </section>
-             )}
-          </div>
+          <ProfileSidebar profile={validProfile} scoreHistory={scoreHistory} />
         </div>
 
         {(!currentPlan || currentPlan.plan === 'free') && (

@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Trophy, Flame, Heart, Info } from 'lucide-react';
 import { getArchetypeInfo } from './constants';
 import type { DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
+import type { ReactNode } from 'react';
 
 interface ProfileHeaderProps {
   username: string;
@@ -13,9 +14,10 @@ interface ProfileHeaderProps {
     primaryColor?: string | null;
     textColor?: string | null;
   } | null;
+  children?: ReactNode;
 }
 
-export function ProfileHeader({ username, profile, totalScore, arenaRanking, profileStyles }: ProfileHeaderProps) {
+export function ProfileHeader({ username, profile, totalScore, arenaRanking, profileStyles, children }: ProfileHeaderProps) {
   const isKnottedBrains = username.toLowerCase() === 'knottedbrains';
   const isCracked = totalScore >= 80 || isKnottedBrains;
 
@@ -107,6 +109,7 @@ export function ProfileHeader({ username, profile, totalScore, arenaRanking, pro
             </div>
           )}
         </div>
+        {children}
       </div>
     </div>
   );

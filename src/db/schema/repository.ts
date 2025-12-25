@@ -68,7 +68,7 @@ export const repositoryScorecards = pgTable('repository_scorecards', {
   repoName: text('repo_name').notNull(),
   ref: text('ref').default('main'),
   version: integer('version').notNull(), // Per-group version, set in app logic
-  isPrivate: boolean('is_private').notNull().default(false),
+  isPrivate: boolean('is_private').notNull().default(true),
   overallScore: integer('overall_score').notNull(), // 0-100 overall score
   metrics: jsonb('metrics').$type<ScorecardMetric[]>().notNull(), // Structured metrics breakdown
   markdown: text('markdown').notNull(), // Full markdown analysis

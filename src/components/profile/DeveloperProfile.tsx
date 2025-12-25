@@ -111,7 +111,6 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   const [logs, setLogs] = useState<SSELogItem[]>([]);
   const [sseStatus, setSseStatus] = useState<SSEStatus>('idle');
   const [currentStep, setCurrentStep] = useState<string>('');
-  const [generateInput, setGenerateInput] = useState<{ username: string; includeCodeAnalysis?: boolean; selectedRepos?: string[] } | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const hasCompletedRef = useRef(false);
@@ -129,7 +128,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   const { data: versions, isLoading: versionsLoading } = trpc.profile.getProfileVersions.useQuery({ username });
 
   // Check generation status when error occurs with "already in progress" message
-  const { data: generationStatus, refetch: checkGenerationStatus } = trpc.profile.checkGenerationStatus.useQuery(
+  const { refetch: checkGenerationStatus } = trpc.profile.checkGenerationStatus.useQuery(
     { username },
     { enabled: false } // Only fetch manually
   );
@@ -211,7 +210,6 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     setGenerationError(null);
     setSseStatus('connecting');
     setCurrentStep('Initializing analysis...');
-    setGenerateInput({ username, includeCodeAnalysis: true });
     hasCompletedRef.current = false;
 
     if (eventSourceRef.current) {
@@ -401,7 +399,6 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     setGenerationError(null);
     setSseStatus('connecting');
     setCurrentStep('Initializing analysis with selected repos...');
-    setGenerateInput({ username, includeCodeAnalysis: true, selectedRepos: selectedRepoNames });
     hasCompletedRef.current = false;
 
     if (eventSourceRef.current) {
@@ -598,8 +595,6 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
       // Use custom styles or defaults (keeping knottedbrains hardcoded overrides for now as well)
       const showSparkles = isKnottedBrains || profileStyles?.sparkles;
       const sparkleChars = profileStyles?.emoji ? [profileStyles.emoji] : undefined;
-      
-      const primaryColor = profileStyles?.primaryColor;
 
       return (
       <div 

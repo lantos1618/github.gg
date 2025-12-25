@@ -37,7 +37,6 @@ export default function WrappedLandingPage() {
   
   const {
     progress,
-    message,
     logs,
     data,
     error,

@@ -12,7 +12,7 @@ import { Webhook, Activity, Search, RefreshCw, ExternalLink, Sparkles, Zap, Shie
 import { formatDistanceToNow } from 'date-fns';
 import { useSession } from '@/lib/auth/client';
 import { SortableTable, Column } from '@/components/ui/sortable-table';
-import { FeatureCard, PageHeader, CardWithHeader } from '@/components/common';
+import { FeatureCard, CardWithHeader } from '@/components/common';
 
 type RepoWithActivity = {
   id: string;

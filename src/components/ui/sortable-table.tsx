@@ -3,6 +3,19 @@ import { useState, ReactNode } from 'react';
 
 export type SortDirection = 'asc' | 'desc' | null;
 
+const DIRECTION_CYCLE: Record<NonNullable<SortDirection> | 'null', SortDirection> = {
+  asc: 'desc',
+  desc: null,
+  null: 'asc',
+};
+
+const SORT_ICONS: Record<NonNullable<SortDirection>, React.ReactNode> = {
+  asc: <ArrowUp className="h-4 w-4 text-foreground" />,
+  desc: <ArrowDown className="h-4 w-4 text-foreground" />,
+};
+
+const DEFAULT_SORT_ICON = <ArrowUpDown className="h-4 w-4 text-muted-foreground" />;
+
 export interface Column<T> {
   key: string;
   header: string;
@@ -37,37 +50,18 @@ export function SortableTable<T>({
   const [sortDirection, setSortDirection] = useState<SortDirection>(defaultSortDirection);
 
   const handleSort = (key: string) => {
-    let newDirection: SortDirection = 'asc';
-
-    if (sortKey === key) {
-      if (sortDirection === 'asc') {
-        newDirection = 'desc';
-      } else if (sortDirection === 'desc') {
-        newDirection = null;
-      } else {
-        newDirection = 'asc';
-      }
-    }
+    const newDirection = sortKey === key 
+      ? DIRECTION_CYCLE[sortDirection ?? 'null'] 
+      : 'asc';
 
     setSortKey(newDirection ? key : null);
     setSortDirection(newDirection);
-
-    if (onSort) {
-      onSort(key, newDirection);
-    }
+    onSort?.(key, newDirection);
   };
 
   const getSortIcon = (columnKey: string) => {
-    if (sortKey !== columnKey) {
-      return <ArrowUpDown className="h-4 w-4 text-muted-foreground" />;
-    }
-    if (sortDirection === 'asc') {
-      return <ArrowUp className="h-4 w-4 text-foreground" />;
-    }
-    if (sortDirection === 'desc') {
-      return <ArrowDown className="h-4 w-4 text-foreground" />;
-    }
-    return <ArrowUpDown className="h-4 w-4 text-muted-foreground" />;
+    if (sortKey !== columnKey || !sortDirection) return DEFAULT_SORT_ICON;
+    return SORT_ICONS[sortDirection];
   };
 
   if (data.length === 0) {

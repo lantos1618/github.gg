@@ -1,9 +1,9 @@
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CodeBlock } from '@/components/ui/CodeBlock';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useShikiHighlighter } from 'react-shiki';
 
 interface MarkdownCardRendererProps {
   markdown: string;
@@ -12,21 +12,6 @@ interface MarkdownCardRendererProps {
   minHeight?: string;
   maxHeight?: string;
 }
-
-const CodeBlock = ({ lang, code }: { lang: string; code: string }) => {
-  const highlighted = useShikiHighlighter(code, lang, {
-    light: 'github-light',
-    dark: 'github-dark',
-  });
-
-  return (
-    <div className="not-prose my-4 rounded-lg overflow-hidden border border-border bg-[#f6f8fa] dark:bg-[#161b22] shadow-sm">
-      <div className="overflow-x-auto [&_pre]:!m-0 [&_pre]:!p-4 [&_pre]:!bg-transparent [&_pre]:!text-sm">
-        {highlighted}
-      </div>
-    </div>
-  );
-};
 
 export function MarkdownCardRenderer({
   markdown,

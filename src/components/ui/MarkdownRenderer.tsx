@@ -2,27 +2,20 @@
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useShikiHighlighter } from 'react-shiki';
+import { CodeBlock } from '@/components/ui/CodeBlock';
 
 interface MarkdownRendererProps {
   content: string;
   className?: string;
 }
 
-const CodeBlock = ({ lang, code }: { lang: string; code: string }) => {
-  const highlighted = useShikiHighlighter(code, lang, {
-    light: 'github-light',
-    dark: 'github-dark',
-  });
-
-  return (
-    <div className="not-prose my-6 rounded-lg overflow-hidden border border-border bg-[#f6f8fa] dark:bg-[#161b22] shadow-sm">
-      <div className="overflow-x-auto [&_pre]:!m-0 [&_pre]:!p-4 [&_pre]:!bg-transparent [&_pre]:!text-sm">
-        {highlighted}
-      </div>
-    </div>
-  );
-};
+const slugify = (text: string): string =>
+  text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
 
 export const MarkdownRenderer = ({ content, className = '' }: MarkdownRendererProps) => (
   <div className={`prose prose-neutral dark:prose-invert max-w-none
@@ -50,50 +43,10 @@ export const MarkdownRenderer = ({ content, className = '' }: MarkdownRendererPr
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
-        h1(props) {
-          const { children } = props;
-          const text = String(children);
-          const id = text
-            .toLowerCase()
-            .replace(/[^a-z0-9\s-]/g, '')
-            .replace(/\s+/g, '-')
-            .replace(/-+/g, '-')
-            .trim();
-          return <h1 id={id}>{children}</h1>;
-        },
-        h2(props) {
-          const { children } = props;
-          const text = String(children);
-          const id = text
-            .toLowerCase()
-            .replace(/[^a-z0-9\s-]/g, '')
-            .replace(/\s+/g, '-')
-            .replace(/-+/g, '-')
-            .trim();
-          return <h2 id={id}>{children}</h2>;
-        },
-        h3(props) {
-          const { children } = props;
-          const text = String(children);
-          const id = text
-            .toLowerCase()
-            .replace(/[^a-z0-9\s-]/g, '')
-            .replace(/\s+/g, '-')
-            .replace(/-+/g, '-')
-            .trim();
-          return <h3 id={id}>{children}</h3>;
-        },
-        h4(props) {
-          const { children } = props;
-          const text = String(children);
-          const id = text
-            .toLowerCase()
-            .replace(/[^a-z0-9\s-]/g, '')
-            .replace(/\s+/g, '-')
-            .replace(/-+/g, '-')
-            .trim();
-          return <h4 id={id}>{children}</h4>;
-        },
+        h1: ({ children }) => <h1 id={slugify(String(children))}>{children}</h1>,
+        h2: ({ children }) => <h2 id={slugify(String(children))}>{children}</h2>,
+        h3: ({ children }) => <h3 id={slugify(String(children))}>{children}</h3>,
+        h4: ({ children }) => <h4 id={slugify(String(children))}>{children}</h4>,
         code(props) {
           const { className, children, node, ...rest } = props;
           const match = /language-(\w+)/.exec(className || '');
@@ -101,7 +54,7 @@ export const MarkdownRenderer = ({ content, className = '' }: MarkdownRendererPr
           const isInline = !node || node.position?.start.line === node.position?.end.line;
 
           if (!isInline && match) {
-            return <CodeBlock lang={match[1]} code={codeString} />;
+            return <CodeBlock lang={match[1]} code={codeString} className="my-6" />;
           }
 
           return (

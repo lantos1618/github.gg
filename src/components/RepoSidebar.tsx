@@ -52,13 +52,112 @@ interface NavSection {
   items: NavItem[];
 }
 
+type ExpandableSection = 'wiki' | 'automations' | 'diagram';
+
+interface NavItemsListProps {
+  items: NavItem[];
+  isExpanded: boolean;
+  isActive: (path: string) => boolean;
+  expandedSections: Record<ExpandableSection, boolean>;
+  toggleSection: (section: ExpandableSection) => void;
+}
+
+function NavItemsList({ items, isExpanded, isActive, expandedSections, toggleSection }: NavItemsListProps) {
+  return (
+    <ul className="space-y-1">
+      {items.map((item) => {
+        const Icon = item.icon;
+        const active = isActive(item.path);
+        const hasChildren = item.children && item.children.length > 0;
+        const isItemExpanded = expandedSections[item.key as ExpandableSection] ?? true;
+
+        return (
+          <li key={item.key}>
+            {hasChildren && isExpanded ? (
+              <>
+                <div className="flex items-center gap-1">
+                  <Link
+                    href={item.path}
+                    className={cn(
+                      'flex-1 flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group',
+                      active
+                        ? 'bg-blue-600 text-white font-medium shadow-sm'
+                        : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                    )}
+                  >
+                    <Icon className={cn('h-5 w-5 flex-shrink-0', active ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
+                    <span className="text-sm flex-1 text-left">{item.label}</span>
+                  </Link>
+                  <button
+                    onClick={() => toggleSection(item.key as ExpandableSection)}
+                    className={cn(
+                      'p-2 rounded-lg transition-all duration-200 hover:bg-gray-100',
+                      active ? 'text-white' : 'text-gray-500'
+                    )}
+                  >
+                    {isItemExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </button>
+                </div>
+                {isItemExpanded && (
+                  <ul className="mt-1 ml-8 space-y-1">
+                    {item.children!.map((child) => {
+                      const ChildIcon = child.icon;
+                      const childActive = isActive(child.path);
+                      return (
+                        <li key={child.key}>
+                          <Link
+                            href={child.path}
+                            className={cn(
+                              'flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-all duration-200 group',
+                              childActive
+                                ? 'bg-blue-500 text-white font-medium shadow-sm'
+                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                            )}
+                          >
+                            <ChildIcon className={cn('h-4 w-4', childActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
+                            <span>{child.label}</span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </>
+            ) : (
+              <Link
+                href={item.path}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group',
+                  active
+                    ? 'bg-blue-600 text-white font-medium shadow-sm'
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                )}
+                title={!isExpanded ? item.label : undefined}
+              >
+                <Icon className={cn('h-5 w-5 flex-shrink-0', active ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
+                {isExpanded && <span className="text-sm">{item.label}</span>}
+              </Link>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaultBranch = 'main' }: RepoSidebarProps) {
   const { isExpanded, setIsExpanded } = useSidebar();
-  const [isWikiExpanded, setIsWikiExpanded] = useState(true);
-  const [isAutomationsExpanded, setIsAutomationsExpanded] = useState(true);
-  const [isDiagramsExpanded, setIsDiagramsExpanded] = useState(true);
+  const [expandedSections, setExpandedSections] = useState<Record<ExpandableSection, boolean>>({
+    wiki: true,
+    automations: true,
+    diagram: true,
+  });
   const pathname = usePathname();
   const router = useRouter();
+
+  const toggleSection = (section: ExpandableSection) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
 
   // Check if we're on a wiki page (wiki has different URL structure)
   const isOnWikiPage = pathname.startsWith(`/wiki/${owner}/${repo}`);
@@ -256,94 +355,13 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
                 {intelligenceSection.title}
               </h3>
             )}
-            <ul className="space-y-1">
-              {intelligenceSection.items.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path);
-                const hasChildren = item.children && item.children.length > 0;
-                const isItemExpanded =
-                  item.key === 'automations' ? isAutomationsExpanded :
-                  item.key === 'diagram' ? isDiagramsExpanded :
-                  true;
-
-                return (
-                  <li key={item.key}>
-                    {hasChildren && isExpanded ? (
-                      <>
-                        <div className="flex items-center gap-1">
-                          <Link
-                            href={item.path}
-                            className={cn(
-                              'flex-1 flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group',
-                              active
-                                ? 'bg-blue-600 text-white font-medium shadow-sm'
-                                : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
-                            )}
-                          >
-                            <Icon className={cn('h-5 w-5 flex-shrink-0', active ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
-                            <span className="text-sm flex-1 text-left">{item.label}</span>
-                          </Link>
-                          <button
-                            onClick={() => {
-                              if (item.key === 'automations') setIsAutomationsExpanded(!isAutomationsExpanded);
-                              if (item.key === 'diagram') setIsDiagramsExpanded(!isDiagramsExpanded);
-                            }}
-                            className={cn(
-                              'p-2 rounded-lg transition-all duration-200 hover:bg-gray-100',
-                              active ? 'text-white' : 'text-gray-500'
-                            )}
-                          >
-                            {isItemExpanded ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
-                        {isItemExpanded && (
-                          <ul className="mt-1 ml-8 space-y-1">
-                            {item.children!.map((child) => {
-                              const ChildIcon = child.icon;
-                              const childActive = isActive(child.path);
-                              return (
-                                <li key={child.key}>
-                                  <Link
-                                    href={child.path}
-                                    className={cn(
-                                      'flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-all duration-200 group',
-                                      childActive
-                                        ? 'bg-blue-500 text-white font-medium shadow-sm'
-                                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                                    )}
-                                  >
-                                    <ChildIcon className={cn('h-4 w-4', childActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
-                                    <span>{child.label}</span>
-                                  </Link>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        )}
-                      </>
-                    ) : (
-                      <Link
-                        href={item.path}
-                        className={cn(
-                          'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group',
-                          active
-                            ? 'bg-blue-600 text-white font-medium shadow-sm'
-                            : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
-                        )}
-                        title={!isExpanded ? item.label : undefined}
-                      >
-                        <Icon className={cn('h-5 w-5 flex-shrink-0', active ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
-                        {isExpanded && <span className="text-sm">{item.label}</span>}
-                      </Link>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+            <NavItemsList
+              items={intelligenceSection.items}
+              isExpanded={isExpanded}
+              isActive={isActive}
+              expandedSections={expandedSections}
+              toggleSection={toggleSection}
+            />
           </div>
 
           {/* Separator */}
@@ -356,94 +374,13 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
                 {documentationSection.title}
               </h3>
             )}
-            <ul className="space-y-1">
-              {documentationSection.items.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path);
-                const hasChildren = item.children && item.children.length > 0;
-                const isItemExpanded =
-                  item.key === 'automations' ? isAutomationsExpanded :
-                  item.key === 'diagram' ? isDiagramsExpanded :
-                  true;
-
-                return (
-                  <li key={item.key}>
-                    {hasChildren && isExpanded ? (
-                      <>
-                        <div className="flex items-center gap-1">
-                          <Link
-                            href={item.path}
-                            className={cn(
-                              'flex-1 flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group',
-                              active
-                                ? 'bg-blue-600 text-white font-medium shadow-sm'
-                                : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
-                            )}
-                          >
-                            <Icon className={cn('h-5 w-5 flex-shrink-0', active ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
-                            <span className="text-sm flex-1 text-left">{item.label}</span>
-                          </Link>
-                          <button
-                            onClick={() => {
-                              if (item.key === 'automations') setIsAutomationsExpanded(!isAutomationsExpanded);
-                              if (item.key === 'diagram') setIsDiagramsExpanded(!isDiagramsExpanded);
-                            }}
-                            className={cn(
-                              'p-2 rounded-lg transition-all duration-200 hover:bg-gray-100',
-                              active ? 'text-white' : 'text-gray-500'
-                            )}
-                          >
-                            {isItemExpanded ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
-                        {isItemExpanded && (
-                          <ul className="mt-1 ml-8 space-y-1">
-                            {item.children!.map((child) => {
-                              const ChildIcon = child.icon;
-                              const childActive = isActive(child.path);
-                              return (
-                                <li key={child.key}>
-                                  <Link
-                                    href={child.path}
-                                    className={cn(
-                                      'flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-all duration-200 group',
-                                      childActive
-                                        ? 'bg-blue-500 text-white font-medium shadow-sm'
-                                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                                    )}
-                                  >
-                                    <ChildIcon className={cn('h-4 w-4', childActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
-                                    <span>{child.label}</span>
-                                  </Link>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        )}
-                      </>
-                    ) : (
-                      <Link
-                        href={item.path}
-                        className={cn(
-                          'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group',
-                          active
-                            ? 'bg-blue-600 text-white font-medium shadow-sm'
-                            : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
-                        )}
-                        title={!isExpanded ? item.label : undefined}
-                      >
-                        <Icon className={cn('h-5 w-5 flex-shrink-0', active ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
-                        {isExpanded && <span className="text-sm">{item.label}</span>}
-                      </Link>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+            <NavItemsList
+              items={documentationSection.items}
+              isExpanded={isExpanded}
+              isActive={isActive}
+              expandedSections={expandedSections}
+              toggleSection={toggleSection}
+            />
 
             {/* Wiki Subsection */}
             <div className="mt-3" suppressHydrationWarning>
@@ -462,18 +399,14 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
                 </Link>
                 {wikiPages.length > 0 && isExpanded && (
                   <button
-                    onClick={() => setIsWikiExpanded(!isWikiExpanded)}
+                    onClick={() => toggleSection('wiki')}
                     className={cn(
                       'p-2 rounded-lg transition-all duration-200 hover:bg-gray-100',
                       isWikiActive ? 'text-white' : 'text-gray-500'
                     )}
-                    aria-label={isWikiExpanded ? 'Collapse wiki pages' : 'Expand wiki pages'}
+                    aria-label={expandedSections.wiki ? 'Collapse wiki pages' : 'Expand wiki pages'}
                   >
-                    {isWikiExpanded ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
+                    {expandedSections.wiki ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   </button>
                 )}
               </div>
@@ -483,7 +416,7 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
                 <ul
                   className={cn(
                     'mt-1 ml-4 space-y-1 border-l-2 border-gray-200 pl-3 transition-all duration-200',
-                    !isExpanded || !isWikiExpanded ? 'hidden' : 'block'
+                    !isExpanded || !expandedSections.wiki ? 'hidden' : 'block'
                   )}
                   suppressHydrationWarning
                 >

@@ -29,7 +29,7 @@ const DEFAULT_AUTO_ADVANCE_MS = 6000;
 export function WrappedStory({ 
   data, 
   onClose, 
-  autoAdvance = true,
+  autoAdvance = false,
   autoAdvanceInterval = DEFAULT_AUTO_ADVANCE_MS,
 }: WrappedStoryProps) {
   const router = useRouter();
@@ -159,6 +159,11 @@ export function WrappedStory({
     }
   }, [goNext, goPrev]);
 
+  const userInfo = {
+    username: data.username,
+    avatarUrl: `https://github.com/${data.username}.png`,
+  };
+
   const renderSlide = () => {
     switch (currentSlide) {
       case 0:
@@ -171,10 +176,11 @@ export function WrappedStory({
             totalPRsMerged={data.stats.totalPRsMerged}
             linesAdded={data.stats.linesAdded}
             linesDeleted={data.stats.linesDeleted}
+            user={userInfo}
           />
         );
       case 2:
-        return <LanguagesSlide languages={data.stats.languages} />;
+        return <LanguagesSlide languages={data.stats.languages} user={userInfo} />;
       case 3:
         return (
           <ScheduleSlide
@@ -185,6 +191,7 @@ export function WrappedStory({
             lateNightCommits={data.stats.lateNightCommits}
             weekendCommits={data.stats.weekendCommits}
             longestStreak={data.stats.longestStreak}
+            user={userInfo}
           />
         );
       case 4:
@@ -192,6 +199,8 @@ export function WrappedStory({
           <ContributionCalendarSlide
             contributionCalendar={data.stats.contributionCalendar || {}}
             year={data.year}
+            totalCommits={data.stats.totalCommits}
+            user={userInfo}
           />
         );
       case 5:
@@ -215,6 +224,7 @@ export function WrappedStory({
               longestStreak: data.stats.longestStreak,
               topLanguage: data.stats.languages[0]?.name,
             }}
+            user={userInfo}
           />
         );
       case 7:
@@ -222,6 +232,7 @@ export function WrappedStory({
           <CodeQualitySlide
             codeQuality={data.stats.codeQuality}
             username={data.username}
+            user={userInfo}
           />
         );
       case 8:

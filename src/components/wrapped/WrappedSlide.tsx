@@ -6,6 +6,11 @@ import { cn } from '@/lib/utils';
 
 export type SlideVariant = 'dark' | 'gradient' | 'accent' | 'neon';
 
+interface UserHeaderProps {
+  username: string;
+  avatarUrl: string;
+}
+
 interface WrappedSlideProps {
   children: ReactNode;
   variant?: SlideVariant;
@@ -13,6 +18,7 @@ interface WrappedSlideProps {
   gradientFrom?: string;
   gradientTo?: string;
   gradientVia?: string;
+  user?: UserHeaderProps;
 }
 
 const slideVariants = {
@@ -40,6 +46,7 @@ export function WrappedSlide({
   gradientFrom,
   gradientTo,
   gradientVia,
+  user,
 }: WrappedSlideProps) {
   const customGradient = gradientFrom && gradientTo
     ? `bg-gradient-to-br from-[${gradientFrom}] ${gradientVia ? `via-[${gradientVia}]` : ''} to-[${gradientTo}]`
@@ -75,6 +82,20 @@ export function WrappedSlide({
       )}
       
       <div className="relative z-10 w-full max-w-2xl mx-auto">
+        {user && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="absolute top-4 left-4 flex items-center gap-2"
+          >
+            <img
+              src={user.avatarUrl}
+              alt={user.username}
+              className="w-8 h-8 rounded-full border-2 border-white/80 shadow-sm"
+            />
+            <span className="text-sm font-medium text-gray-700 opacity-80">@{user.username}</span>
+          </motion.div>
+        )}
         {children}
       </div>
     </motion.div>

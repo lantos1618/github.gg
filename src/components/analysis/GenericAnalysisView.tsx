@@ -252,29 +252,24 @@ function GenericAnalysisViewInner<TResponse>({
 
   const overallLoading = filesLoading || isLoading;
   const canAccess = currentPlan && currentPlan.plan !== 'free';
-
-  // Check for any auth errors (from file fetching or subscription)
   const hasAuthError = isFilesAuthError || isSubscriptionAuthError;
+  const hasData = !!(analysisDataObj || markdownContent);
+  const isRegeneratingWithFeedback = shouldAnalyze && sseStatus !== 'idle';
 
-  // Determine the current state
-  let currentState: 'loading' | 'error' | 'no-data' | 'ready' | 'private' | 'upgrade' | 'auth-error' = 'loading';
+  type AnalysisState = 'loading' | 'error' | 'no-data' | 'ready' | 'private' | 'upgrade' | 'auth-error';
+  
+  const determineState = (): AnalysisState => {
+    if (hasAuthError) return 'auth-error';
+    if (isPrivateRepo) return 'private';
+    if (!canAccess && !planLoading) return 'upgrade';
+    if (error && !isRegeneratingWithFeedback) return 'error';
+    if (hasData || isRegeneratingWithFeedback) return 'ready';
+    if (planLoading || publicLoading) return 'loading';
+    if (!overallLoading) return 'no-data';
+    return 'loading';
+  };
 
-  if (hasAuthError) {
-    // Auth errors take priority - user needs to re-authenticate
-    currentState = 'auth-error';
-  } else if (isPrivateRepo) {
-    currentState = 'private';
-  } else if (planLoading || publicLoading) {
-    currentState = 'loading';
-  } else if (!canAccess) {
-    currentState = 'upgrade';
-  } else if (error) {
-    currentState = 'error';
-  } else if (analysisDataObj || markdownContent) {
-    currentState = 'ready';
-  } else if (!overallLoading) {
-    currentState = 'no-data';
-  }
+  const currentState = determineState();
 
   const renderContent = () => {
     return (

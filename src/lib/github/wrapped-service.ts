@@ -137,9 +137,27 @@ export class WrappedService {
     
     const commits = commitResult.commits;
     const totalCommitsFromSearch = commitResult.totalCount;
-
-    // Infer timezone from commit patterns
     const timezoneOffset = this.inferTimezone(commits);
+    
+    const uniqueRepos = new Map<string, { owner: string; name: string; commitCount: number }>();
+    for (const commit of commits) {
+      const key = `${commit.repository.owner.login}/${commit.repository.name}`;
+      const existing = uniqueRepos.get(key);
+      if (existing) {
+        existing.commitCount++;
+      } else {
+        uniqueRepos.set(key, {
+          owner: commit.repository.owner.login,
+          name: commit.repository.name,
+          commitCount: 1,
+        });
+      }
+    }
+    
+    const topReposByCommits = Array.from(uniqueRepos.values())
+      .sort((a, b) => b.commitCount - a.commitCount)
+      .slice(0, 20);
+    const repoLanguages = await this.fetchRepoLanguages(topReposByCommits);
 
     const commitsByHour = new Array(24).fill(0);
     const commitsByDay = new Array(7).fill(0);
@@ -195,8 +213,10 @@ export class WrappedService {
         });
       }
 
-      if (commit.repository.language) {
-        languageCounts.set(commit.repository.language, (languageCounts.get(commit.repository.language) || 0) + 1);
+      const repoKey = `${commit.repository.owner.login}/${commit.repository.name}`;
+      const language = repoLanguages.get(repoKey) || commit.repository.language;
+      if (language) {
+        languageCounts.set(language, (languageCounts.get(language) || 0) + 1);
       }
     }
 
@@ -425,7 +445,6 @@ export class WrappedService {
   }
 
   private async fetchPRStats(prs: Array<{ owner: string; repo: string; number: number; merged?: boolean; additions?: number; deletions?: number }>): Promise<void> {
-    // Fetch PR stats in parallel batches to avoid rate limits
     const batchSize = 5;
     for (let i = 0; i < prs.length; i += batchSize) {
       const batch = prs.slice(i, i + batchSize);
@@ -439,21 +458,45 @@ export class WrappedService {
             });
             pr.additions = data.additions || 0;
             pr.deletions = data.deletions || 0;
-            // Update merged status from the full PR data (more reliable than search API)
             pr.merged = data.merged || false;
-          } catch (error) {
-            // Silently fail for individual PRs to avoid breaking the whole process
+          } catch {
             pr.additions = 0;
             pr.deletions = 0;
-            // Keep existing merged status if fetch fails
           }
         })
       );
-      // Small delay between batches to be respectful of rate limits
       if (i + batchSize < prs.length) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
+  }
+
+  private async fetchRepoLanguages(repos: Array<{ owner: string; name: string }>): Promise<Map<string, string>> {
+    const languageMap = new Map<string, string>();
+    const batchSize = 5;
+    
+    for (let i = 0; i < repos.length; i += batchSize) {
+      const batch = repos.slice(i, i + batchSize);
+      await Promise.all(
+        batch.map(async (repo) => {
+          try {
+            const { data } = await this.octokit.rest.repos.get({
+              owner: repo.owner,
+              repo: repo.name,
+            });
+            if (data.language) {
+              languageMap.set(`${repo.owner}/${repo.name}`, data.language);
+            }
+          } catch {
+          }
+        })
+      );
+      if (i + batchSize < repos.length) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+    }
+    
+    return languageMap;
   }
 
   private analyzeShamefulCommits(messages: string[]): WrappedStats['shamefulCommits'] {

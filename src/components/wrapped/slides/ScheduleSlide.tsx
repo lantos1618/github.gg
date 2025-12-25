@@ -13,6 +13,7 @@ interface ScheduleSlideProps {
   lateNightCommits: number;
   weekendCommits: number;
   longestStreak: number;
+  user?: { username: string; avatarUrl: string };
 }
 
 const HOUR_LABELS_FULL = [
@@ -80,6 +81,7 @@ export function ScheduleSlide({
   lateNightCommits,
   weekendCommits,
   longestStreak,
+  user,
 }: ScheduleSlideProps) {
   const [phase, setPhase] = useState<'clock' | 'reveal' | 'details'>('clock');
   const maxCommits = Math.max(...commitsByHour, 1);
@@ -101,6 +103,7 @@ export function ScheduleSlide({
       gradientFrom="#0f0f1a"
       gradientVia="#1a1a2e"
       gradientTo="#16213e"
+      user={user}
     >
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div

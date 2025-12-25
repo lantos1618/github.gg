@@ -207,41 +207,28 @@ export default function AdminDashboard() {
   const loading = loadingUsage || loadingSubs || loadingUsers || loadingDailyStats;
   const noData = !loading && (!usageStats || usageStats.summary.totalTokens === 0);
 
-  // Sort users based on current sort settings
+  type UserEntry = NonNullable<typeof allUsers>[number];
+  
+  const userValueExtractors: Record<string, (u: UserEntry) => string | number> = {
+    user: (u) => (u.name || u.email || '').toLowerCase(),
+    plan: (u) => (u.userSubscriptions?.plan || 'free').toLowerCase(),
+    status: (u) => (u.userSubscriptions?.status || 'none').toLowerCase(),
+    createdAt: (u) => u.createdAt ? new Date(u.createdAt).getTime() : 0,
+  };
+
   const sortedUsers = useMemo(() => {
     if (!allUsers || !userSortDirection) return allUsers || [];
 
-    const sorted = [...allUsers].sort((a, b) => {
-      let aValue: string | number;
-      let bValue: string | number;
+    const extract = userValueExtractors[userSortKey];
+    if (!extract) return allUsers;
 
-      switch (userSortKey) {
-        case 'user':
-          aValue = (a.name || a.email || '').toLowerCase();
-          bValue = (b.name || b.email || '').toLowerCase();
-          break;
-        case 'plan':
-          aValue = (a.userSubscriptions?.plan || 'free').toLowerCase();
-          bValue = (b.userSubscriptions?.plan || 'free').toLowerCase();
-          break;
-        case 'status':
-          aValue = (a.userSubscriptions?.status || 'none').toLowerCase();
-          bValue = (b.userSubscriptions?.status || 'none').toLowerCase();
-          break;
-        case 'createdAt':
-          aValue = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          bValue = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          break;
-        default:
-          return 0;
-      }
-
+    return [...allUsers].sort((a, b) => {
+      const aValue = extract(a);
+      const bValue = extract(b);
       if (aValue < bValue) return userSortDirection === 'asc' ? -1 : 1;
       if (aValue > bValue) return userSortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-
-    return sorted;
   }, [allUsers, userSortKey, userSortDirection]);
 
   const handleUserSort = (key: string, direction: 'asc' | 'desc' | null) => {

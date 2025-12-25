@@ -37,18 +37,14 @@ export function ReposClientView({ initialRepos }: ReposClientViewProps) {
     `${repo.repoOwner}/${repo.repoName}`.toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
 
-  // Sort repos
+  const comparators: Record<SortField, (a: RepositoryScorecardEntry, b: RepositoryScorecardEntry) => number> = {
+    date: (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    score: (a, b) => (b.overallScore || 0) - (a.overallScore || 0),
+    name: (a, b) => `${a.repoOwner}/${a.repoName}`.localeCompare(`${b.repoOwner}/${b.repoName}`),
+  };
+
   const sortedRepos = [...filteredRepos].sort((a, b) => {
-    let comparison = 0;
-
-    if (sortField === 'date') {
-      comparison = new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-    } else if (sortField === 'score') {
-      comparison = (b.overallScore || 0) - (a.overallScore || 0);
-    } else if (sortField === 'name') {
-      comparison = `${a.repoOwner}/${a.repoName}`.localeCompare(`${b.repoOwner}/${b.repoName}`);
-    }
-
+    const comparison = comparators[sortField](a, b);
     return sortOrder === 'asc' ? -comparison : comparison;
   });
 

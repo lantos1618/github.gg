@@ -8,6 +8,8 @@ import { Calendar } from 'lucide-react';
 interface ContributionCalendarSlideProps {
   contributionCalendar: Record<string, number>;
   year: number;
+  totalCommits: number;
+  user?: { username: string; avatarUrl: string };
 }
 
 const DAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
@@ -23,16 +25,9 @@ function getContributionLevel(count: number, maxCount: number): number {
   return 1;
 }
 
-function getContributionColor(level: number): string {
-  switch (level) {
-    case 0: return 'bg-gray-100';
-    case 1: return 'bg-green-200';
-    case 2: return 'bg-green-400';
-    case 3: return 'bg-green-600';
-    case 4: return 'bg-green-800';
-    default: return 'bg-gray-100';
-  }
-}
+const CONTRIBUTION_COLORS = ['bg-gray-100', 'bg-green-200', 'bg-green-400', 'bg-green-600', 'bg-green-800'];
+
+const getContributionColor = (level: number): string => CONTRIBUTION_COLORS[level] || 'bg-gray-100';
 
 type WeekData = {
   weekIndex: number;
@@ -44,7 +39,7 @@ type WeekData = {
   monthStart?: number; // If this week contains first day of a month
 };
 
-export function ContributionCalendarSlide({ contributionCalendar, year }: ContributionCalendarSlideProps) {
+export function ContributionCalendarSlide({ contributionCalendar, year, totalCommits, user }: ContributionCalendarSlideProps) {
   const [showCalendar, setShowCalendar] = useState(false);
   const [animatedWeeks, setAnimatedWeeks] = useState(0);
 
@@ -133,13 +128,12 @@ export function ContributionCalendarSlide({ contributionCalendar, year }: Contri
     return () => clearInterval(interval);
   }, [showCalendar, weeks.length]);
 
-  const totalContributions = Object.values(contributionCalendar).reduce((sum, count) => sum + count, 0);
-
   return (
     <WrappedSlide
       gradientFrom="#ffffff"
       gradientVia="#f0fdf4"
       gradientTo="#ecfeff"
+      user={user}
     >
       <div className="text-center space-y-6">
         <motion.div
@@ -152,7 +146,7 @@ export function ContributionCalendarSlide({ contributionCalendar, year }: Contri
             <p className="text-sm uppercase tracking-widest text-gray-500">Your Contribution Calendar</p>
           </div>
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-            {totalContributions.toLocaleString()} contributions in {year}
+            {totalCommits.toLocaleString()} commits in {year}
           </h2>
         </motion.div>
 

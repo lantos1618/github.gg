@@ -93,30 +93,31 @@ export default function AutomationsPage() {
     setSortedRepos(filteredRepos);
   }, [filteredRepos]);
 
+  const repoComparators: Record<string, (a: RepoWithActivity, b: RepoWithActivity) => number> = {
+    name: (a, b) => a.fullName.localeCompare(b.fullName),
+    status: (a, b) => (a.webhookEnabled ? 1 : 0) - (b.webhookEnabled ? 1 : 0),
+    activity: (a, b) => {
+      if (!a.lastActivity && !b.lastActivity) return 0;
+      if (!a.lastActivity) return 1;
+      if (!b.lastActivity) return -1;
+      return a.lastActivity.getTime() - b.lastActivity.getTime();
+    },
+  };
+
   const handleRepoSort = (key: string, direction: 'asc' | 'desc' | null) => {
     if (!direction) {
       setSortedRepos(filteredRepos);
       return;
     }
 
-    const sorted = [...filteredRepos].sort((a, b) => {
-      const multiplier = direction === 'asc' ? 1 : -1;
+    const compare = repoComparators[key];
+    if (!compare) {
+      setSortedRepos(filteredRepos);
+      return;
+    }
 
-      switch (key) {
-        case 'name':
-          return a.fullName.localeCompare(b.fullName) * multiplier;
-        case 'status':
-          return ((a.webhookEnabled ? 1 : 0) - (b.webhookEnabled ? 1 : 0)) * multiplier;
-        case 'activity':
-          if (!a.lastActivity && !b.lastActivity) return 0;
-          if (!a.lastActivity) return 1;
-          if (!b.lastActivity) return -1;
-          return (a.lastActivity.getTime() - b.lastActivity.getTime()) * multiplier;
-        default:
-          return 0;
-      }
-    });
-
+    const multiplier = direction === 'asc' ? 1 : -1;
+    const sorted = [...filteredRepos].sort((a, b) => compare(a, b) * multiplier);
     setSortedRepos(sorted);
   };
 

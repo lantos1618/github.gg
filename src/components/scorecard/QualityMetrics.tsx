@@ -2,44 +2,35 @@ import { RepoInsights } from '@/lib/analysis/insights';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Info, XCircle, TrendingUp, Gauge } from 'lucide-react';
 
+const ISSUE_ICONS: Record<string, React.ReactNode> = {
+  error: <XCircle className="w-5 h-5 text-rose-500" />,
+  warning: <AlertTriangle className="w-5 h-5 text-amber-500" />,
+  info: <Info className="w-5 h-5 text-blue-500" />,
+};
+
+const SEVERITY_COLORS: Record<string, string> = {
+  high: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400 border-rose-200 dark:border-rose-800',
+  medium: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800',
+  low: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
+};
+
+const getScoreColor = (score: number) => {
+  if (score >= 80) return 'text-emerald-600 dark:text-emerald-400';
+  if (score >= 60) return 'text-amber-600 dark:text-amber-400';
+  return 'text-rose-600 dark:text-rose-400';
+};
+
+const getScoreBg = (score: number) => {
+  if (score >= 80) return 'bg-emerald-100 dark:bg-emerald-900/20';
+  if (score >= 60) return 'bg-amber-100 dark:bg-amber-900/20';
+  return 'bg-rose-100 dark:bg-rose-900/20';
+};
+
 interface QualityMetricsProps {
   quality: RepoInsights['quality'];
 }
 
 export function QualityMetrics({ quality }: QualityMetricsProps) {
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-emerald-600 dark:text-emerald-400';
-    if (score >= 60) return 'text-amber-600 dark:text-amber-400';
-    return 'text-rose-600 dark:text-rose-400';
-  };
-
-  const getScoreBg = (score: number) => {
-    if (score >= 80) return 'bg-emerald-100 dark:bg-emerald-900/20';
-    if (score >= 60) return 'bg-amber-100 dark:bg-amber-900/20';
-    return 'bg-rose-100 dark:bg-rose-900/20';
-  };
-
-  const getIssueIcon = (type: 'warning' | 'error' | 'info') => {
-    switch (type) {
-      case 'error':
-        return <XCircle className="w-5 h-5 text-rose-500" />;
-      case 'warning':
-        return <AlertTriangle className="w-5 h-5 text-amber-500" />;
-      case 'info':
-        return <Info className="w-5 h-5 text-blue-500" />;
-    }
-  };
-
-  const getSeverityColor = (severity: 'low' | 'medium' | 'high') => {
-    switch (severity) {
-      case 'high':
-        return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400 border-rose-200 dark:border-rose-800';
-      case 'medium':
-        return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800';
-      case 'low':
-        return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800';
-    }
-  };
 
   return (
     <div className="space-y-8">
@@ -110,14 +101,14 @@ export function QualityMetrics({ quality }: QualityMetricsProps) {
             {quality.issues.map((issue, index) => (
               <div key={index} className="flex items-start gap-4 p-4 hover:bg-muted/30 transition-colors">
                 <div className="mt-1 flex-shrink-0">
-                  {getIssueIcon(issue.type)}
+                  {ISSUE_ICONS[issue.type]}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
                     <span className="text-sm font-medium text-foreground">
                       {issue.message}
                     </span>
-                    <Badge variant="outline" className={`w-fit text-[10px] px-2 py-0.5 uppercase font-bold tracking-wider ${getSeverityColor(issue.severity)}`}>
+                    <Badge variant="outline" className={`w-fit text-[10px] px-2 py-0.5 uppercase font-bold tracking-wider ${SEVERITY_COLORS[issue.severity]}`}>
                       {issue.severity}
                     </Badge>
                   </div>

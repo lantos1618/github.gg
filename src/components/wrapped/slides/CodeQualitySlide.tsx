@@ -40,6 +40,7 @@ interface CodeQualitySlideProps {
     hygieneGrade: 'A' | 'B' | 'C' | 'D' | 'F';
   };
   username: string;
+  user?: { username: string; avatarUrl: string };
 }
 
 const gradeConfig: Record<string, { color: string; gradient: string; emoji: string; message: string }> = {
@@ -191,7 +192,7 @@ function AnimatedGauge({
   );
 }
 
-export function CodeQualitySlide({ codeQuality, username }: CodeQualitySlideProps) {
+export function CodeQualitySlide({ codeQuality, username, user }: CodeQualitySlideProps) {
   const [phase, setPhase] = useState<'intro' | 'scores' | 'details'>('intro');
   
   const gradeInfo = gradeConfig[codeQuality.hygieneGrade] || gradeConfig.C;
@@ -211,6 +212,7 @@ export function CodeQualitySlide({ codeQuality, username }: CodeQualitySlideProp
       gradientFrom="#ffffff"
       gradientVia="#f0f9ff"
       gradientTo="#faf5ff"
+      user={user}
     >
       <div className="text-center space-y-5">
         <AnimatePresence mode="wait">

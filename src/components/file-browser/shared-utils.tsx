@@ -25,34 +25,19 @@ export interface TreeNode {
   file?: RepoFile;
 }
 
+const EXT_ICONS: Record<string, typeof File> = {
+  tsx: Code, ts: Code, js: Code, jsx: Code,
+  md: FileText, txt: FileText,
+  json: Settings, yml: Settings, yaml: Settings,
+  png: Image, jpg: Image, svg: Image, gif: Image,
+  sql: Database,
+  dockerfile: Package,
+};
+
 export function getFileIcon(filename?: string) {
   if (!filename) return File;
   const ext = filename.split('.').pop()?.toLowerCase();
-  switch (ext) {
-    case 'tsx':
-    case 'ts':
-    case 'js':
-    case 'jsx':
-      return Code;
-    case 'md':
-    case 'txt':
-      return FileText;
-    case 'json':
-    case 'yml':
-    case 'yaml':
-      return Settings;
-    case 'png':
-    case 'jpg':
-    case 'svg':
-    case 'gif':
-      return Image;
-    case 'sql':
-      return Database;
-    case 'dockerfile':
-      return Package;
-    default:
-      return File;
-  }
+  return ext ? (EXT_ICONS[ext] || File) : File;
 }
 
 export function formatFileSize(bytes?: number): string {

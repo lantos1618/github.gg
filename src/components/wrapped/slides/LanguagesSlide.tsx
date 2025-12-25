@@ -7,6 +7,7 @@ import type { WrappedStats } from '@/lib/types/wrapped';
 
 interface LanguagesSlideProps {
   languages: WrappedStats['languages'];
+  user?: { username: string; avatarUrl: string };
 }
 
 const LANGUAGE_ROASTS: Record<string, { message: string; emoji: string }> = {
@@ -29,7 +30,7 @@ const LANGUAGE_ROASTS: Record<string, { message: string; emoji: string }> = {
   Svelte: { message: 'A person of culture, I see.', emoji: '🧡' },
 };
 
-export function LanguagesSlide({ languages }: LanguagesSlideProps) {
+export function LanguagesSlide({ languages, user }: LanguagesSlideProps) {
   const [animationComplete, setAnimationComplete] = useState(false);
   const topLanguage = languages[0];
   const roast = topLanguage ? LANGUAGE_ROASTS[topLanguage.name] : null;
@@ -44,6 +45,7 @@ export function LanguagesSlide({ languages }: LanguagesSlideProps) {
       gradientFrom="#ffffff"
       gradientVia="#fefce8"
       gradientTo="#ecfdf5"
+      user={user}
     >
       <div className="space-y-8">
         <motion.p

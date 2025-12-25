@@ -101,7 +101,7 @@ Get yours at github.gg/wrapped`;
           <div className="bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-white/80 text-xs font-medium uppercase tracking-wider">Year at a Glance</p>
+                <p className="text-white text-xs font-medium uppercase tracking-wider">Year at a Glance</p>
                 <p className="text-white text-xl font-bold">@{data.username} • {data.year}</p>
               </div>
               <div className="flex items-center gap-2">
@@ -189,7 +189,7 @@ Get yours at github.gg/wrapped`;
                     <span className="text-sm font-semibold text-gray-800">{topLanguage.name}</span>
                     <span className="text-xs text-gray-500 ml-auto">{topLanguage.percentage}%</span>
                   </div>
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wide mt-1">Top Language</p>
+                  <p className="text-[10px] text-gray-600 uppercase tracking-wide mt-1">Top Language</p>
                 </motion.div>
               )}
               
@@ -369,9 +369,9 @@ function StatCard({
           </div>
         )}
         {subValue && (
-          <div className="text-[9px] text-gray-400 mt-0.5">{subValue}</div>
+          <div className="text-[9px] text-gray-600 mt-0.5">{subValue}</div>
         )}
-        <div className="text-[10px] text-gray-500 uppercase tracking-wide mt-1">{label}</div>
+        <div className="text-[10px] text-gray-700 uppercase tracking-wide mt-1">{label}</div>
       </div>
     </motion.div>
   );
@@ -401,7 +401,7 @@ function MiniStatCard({
           {typeof value === 'number' ? value.toLocaleString() : value}
         </span>
       </div>
-      <div className="text-[9px] text-gray-400 uppercase tracking-wide mt-0.5">{label}</div>
+      <div className="text-[9px] text-gray-600 uppercase tracking-wide mt-0.5">{label}</div>
     </motion.div>
   );
 }

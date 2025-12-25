@@ -10,6 +10,7 @@ interface CommitsSlideProps {
   totalPRsMerged: number;
   linesAdded: number;
   linesDeleted: number;
+  user?: { username: string; avatarUrl: string };
 }
 
 function getCommitMessage(commits: number): { message: string; subtext: string } {
@@ -49,6 +50,7 @@ export function CommitsSlide({
   totalPRsMerged,
   linesAdded,
   linesDeleted,
+  user,
 }: CommitsSlideProps) {
   const [count, setCount] = useState(0);
   const [showMessage, setShowMessage] = useState(false);
@@ -87,6 +89,7 @@ export function CommitsSlide({
       gradientFrom="#ffffff"
       gradientVia="#f5f3ff"
       gradientTo="#ecfeff"
+      user={user}
     >
       {showConfetti && <Confetti />}
       

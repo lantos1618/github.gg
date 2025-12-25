@@ -14,6 +14,7 @@ interface PersonalitySlideProps {
     longestStreak: number;
     topLanguage?: string;
   };
+  user?: { username: string; avatarUrl: string };
 }
 
 function derivePersonality(stats: PersonalitySlideProps['stats']) {
@@ -29,7 +30,7 @@ function derivePersonality(stats: PersonalitySlideProps['stats']) {
   return PERSONALITY_TYPES.find(p => p.id === 'chaos-agent');
 }
 
-export function PersonalitySlide({ aiInsights, stats }: PersonalitySlideProps) {
+export function PersonalitySlide({ aiInsights, stats, user }: PersonalitySlideProps) {
   const [phase, setPhase] = useState<'buildup' | 'reveal' | 'details'>('buildup');
   const [showConfetti, setShowConfetti] = useState(false);
 
@@ -58,7 +59,7 @@ export function PersonalitySlide({ aiInsights, stats }: PersonalitySlideProps) {
   }, []);
 
   return (
-    <WrappedSlide variant="neon">
+    <WrappedSlide variant="neon" user={user}>
       {showConfetti && <Confetti />}
       
       <div className="text-center space-y-8">

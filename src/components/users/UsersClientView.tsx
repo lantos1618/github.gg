@@ -48,38 +48,23 @@ export function UsersClientView({ initialProfiles, initialLeaderboard }: UsersCl
     profile.username.toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
 
-  // Sort profiles
+  const getProfileScore = (profile: DeveloperProfile) => {
+    if (!profile.skillAssessment?.length) return 0;
+    return Math.round(
+      (profile.skillAssessment.reduce((acc, skill) => acc + skill.score, 0) / profile.skillAssessment.length) * 10
+    );
+  };
+
+  const comparators: Record<SortField, (a: DeveloperProfileEntry, b: DeveloperProfileEntry) => number> = {
+    date: (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    score: (a, b) => getProfileScore(b.profileData as DeveloperProfile) - getProfileScore(a.profileData as DeveloperProfile),
+    username: (a, b) => a.username.localeCompare(b.username),
+    elo: (a, b) => (eloMap.get(b.username.toLowerCase()) || 0) - (eloMap.get(a.username.toLowerCase()) || 0),
+    tokens: (a, b) => (b.totalTokens || 0) - (a.totalTokens || 0),
+  };
+
   const sortedProfiles = [...filteredProfiles].sort((a, b) => {
-    const aProfile = a.profileData as DeveloperProfile;
-    const bProfile = b.profileData as DeveloperProfile;
-
-    let comparison = 0;
-
-    if (sortField === 'date') {
-      comparison = new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-    } else if (sortField === 'score') {
-      const getScore = (profile: DeveloperProfile) => {
-        if (!profile.skillAssessment?.length) return 0;
-        return Math.round(
-          (profile.skillAssessment.reduce((acc, skill) => acc + skill.score, 0) / profile.skillAssessment.length) * 10
-        );
-      };
-      
-      const aScore = getScore(aProfile);
-      const bScore = getScore(bProfile);
-      comparison = bScore - aScore;
-    } else if (sortField === 'username') {
-      comparison = a.username.localeCompare(b.username);
-    } else if (sortField === 'elo') {
-      const aElo = eloMap.get(a.username.toLowerCase()) || 0;
-      const bElo = eloMap.get(b.username.toLowerCase()) || 0;
-      comparison = bElo - aElo;
-    } else if (sortField === 'tokens') {
-       const aTokens = a.totalTokens || 0;
-       const bTokens = b.totalTokens || 0;
-       comparison = bTokens - aTokens;
-     }
-
+    const comparison = comparators[sortField](a, b);
     return sortOrder === 'asc' ? -comparison : comparison;
   });
 

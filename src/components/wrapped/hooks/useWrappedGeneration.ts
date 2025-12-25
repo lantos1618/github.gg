@@ -8,6 +8,19 @@ export type LogEntry = {
   message: string;
   progress: number;
   timestamp: number;
+  metadata?: {
+    commits?: number;
+    repos?: number;
+    sampleCommits?: Array<{ repo: string; message: string }>;
+    prs?: number;
+    personalityType?: string;
+    personalityEmoji?: string;
+    grade?: string;
+    type?: string;
+    insight?: string;
+    streaming?: boolean;
+    textChunk?: string;
+  };
 };
 
 export type WrappedGenerationState = {
@@ -32,9 +45,22 @@ type WrappedEvent = {
   type: string;
   progress?: number;
   message?: string;
-  data?: unknown;
+  data?: WrappedData;
   cached?: boolean;
   repoUrl?: string;
+  metadata?: {
+    commits?: number;
+    repos?: number;
+    sampleCommits?: Array<{ repo: string; message: string }>;
+    prs?: number;
+    personalityType?: string;
+    personalityEmoji?: string;
+    grade?: string;
+    type?: string;
+    insight?: string;
+    streaming?: boolean;
+    textChunk?: string;
+  };
 };
 
 export function useWrappedGeneration(year?: number) {
@@ -102,7 +128,12 @@ export function useWrappedGeneration(year?: number) {
                 progress: newProgress,
                 message: newMessage,
                 logs: shouldAddLog 
-                  ? [...prev.logs, { message: newMessage, progress: newProgress, timestamp: Date.now() }]
+                  ? [...prev.logs, { 
+                      message: newMessage, 
+                      progress: newProgress, 
+                      timestamp: Date.now(),
+                      metadata: event.metadata,
+                    }]
                   : prev.logs,
               };
             });
@@ -112,7 +143,7 @@ export function useWrappedGeneration(year?: number) {
               progress: 100,
               message: 'Complete!',
               logs: [...prev.logs, { message: 'Complete!', progress: 100, timestamp: Date.now() }],
-              data: event.data as WrappedData,
+              data: event.data ?? null,
               isLoading: false,
               cached: event.cached ?? false,
             }));

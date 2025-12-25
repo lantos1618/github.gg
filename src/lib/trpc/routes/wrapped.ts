@@ -8,10 +8,28 @@ import { GITHUB_GG_REPO } from '@/lib/types/wrapped';
 import { TRPCError } from '@trpc/server';
 import { nanoid } from 'nanoid';
 import { WrappedService } from '@/lib/github/wrapped-service';
-import { generateWrappedInsights } from '@/lib/ai/wrapped-insights';
+import { generateWrappedInsights, generateWrappedInsightsStreaming } from '@/lib/ai/wrapped-insights';
+import type { GenerateWrappedInsightsResult } from '@/lib/ai/wrapped-insights';
 import { getUserSubscription } from '@/lib/utils/user-plan';
 import { sendWrappedGiftEmail } from '@/lib/email/resend';
 import type { WrappedAIInsights } from '@/db/schema/wrapped';
+
+type ProgressMetadata = {
+  commits?: number;
+  repos?: number;
+  sampleCommits?: Array<{ repo: string; message: string }>;
+  prs?: number;
+  personalityType?: string;
+  personalityEmoji?: string;
+  grade?: string;
+  type?: string;
+  insight?: string;
+};
+
+type ProgressUpdate = {
+  message: string;
+  metadata?: ProgressMetadata;
+};
 
 const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -130,9 +148,30 @@ export const wrappedRouter = router({
 
         const wrappedService = new WrappedService(githubService['octokit'], year);
         
-        yield { type: 'progress', progress: 30, message: 'Analyzing commits...' };
+        let commitAnalysisProgress = 30;
+        const progressQueue: ProgressUpdate[] = [];
         
-        const { stats, rawData } = await wrappedService.fetchWrappedStats(username);
+        const { stats, rawData } = await wrappedService.fetchWrappedStats(
+          username,
+          (message, metadata) => {
+            commitAnalysisProgress = Math.min(commitAnalysisProgress + 5, 55);
+            progressQueue.push({ message, metadata });
+          }
+        );
+        
+        // Yield all queued progress updates
+        for (const update of progressQueue) {
+          yield { 
+            type: 'progress', 
+            progress: commitAnalysisProgress, 
+            message: update.message,
+            metadata: update.metadata ? {
+              commits: update.metadata.commits,
+              repos: update.metadata.repos,
+              sampleCommits: update.metadata.sampleCommits,
+            } : undefined,
+          };
+        }
 
         yield { type: 'progress', progress: 60, message: 'Crunching the numbers...' };
 
@@ -143,10 +182,13 @@ export const wrappedRouter = router({
           const isPro = subscription?.status === 'active' && subscription?.plan === 'pro';
           
           if (isPro) {
-            yield { type: 'progress', progress: 70, message: 'Generating AI personality analysis...' };
+            yield { type: 'progress', progress: 70, message: '🤖 Starting AI analysis...' };
             
             try {
-              const result = await generateWrappedInsights({
+              let finalResult: GenerateWrappedInsightsResult | null = null;
+              
+              // Use streaming generator for real-time progress
+              const insightsGenerator = generateWrappedInsightsStreaming({
                 username,
                 stats,
                 rawData,
@@ -154,15 +196,47 @@ export const wrappedRouter = router({
                 includeRoast,
               });
               
-              aiInsights = result.insights;
+              for await (const update of insightsGenerator) {
+                if (update.type === 'progress') {
+                  // Map AI progress (0-100) to our wrapped progress range (70-79)
+                  const mappedProgress = 70 + Math.floor((update.progress || 0) * 0.09);
+                  yield {
+                    type: 'progress',
+                    progress: mappedProgress,
+                    message: update.message || 'AI analyzing...',
+                    metadata: update.metadata,
+                  };
+                } else if (update.type === 'stream') {
+                  // Stream actual AI tokens
+                  const mappedProgress = 70 + Math.floor((update.progress || 30) * 0.09);
+                  yield {
+                    type: 'progress',
+                    progress: mappedProgress,
+                    message: update.message || 'AI is thinking...',
+                    metadata: {
+                      ...update.metadata,
+                      streaming: true,
+                      textChunk: update.text,
+                    },
+                  };
+                } else if (update.type === 'complete' && update.result) {
+                  finalResult = update.result;
+                }
+              }
+              
+              if (!finalResult) {
+                throw new Error('AI analysis completed but no result received');
+              }
+              
+              aiInsights = finalResult.insights;
               
               await db.insert(tokenUsage).values({
                 userId: ctx.user.id,
                 feature: 'wrapped_insights',
-                inputTokens: result.usage.inputTokens,
-                outputTokens: result.usage.outputTokens,
-                totalTokens: result.usage.totalTokens,
-                model: 'gemini-2.0-flash',
+                inputTokens: finalResult.usage.inputTokens,
+                outputTokens: finalResult.usage.outputTokens,
+                totalTokens: finalResult.usage.totalTokens,
+                model: 'gemini-3-flash',
                 isByok: false,
               });
               
@@ -281,9 +355,30 @@ export const wrappedRouter = router({
 
         const wrappedService = new WrappedService(githubService['octokit'], year);
         
-        yield { type: 'progress', progress: 30, message: 'Analyzing commits...' };
+        let commitAnalysisProgress = 30;
+        const progressQueue: ProgressUpdate[] = [];
         
-        const { stats, rawData } = await wrappedService.fetchWrappedStats(friendUsername);
+        const { stats, rawData } = await wrappedService.fetchWrappedStats(
+          friendUsername,
+          (message, metadata) => {
+            commitAnalysisProgress = Math.min(commitAnalysisProgress + 5, 55);
+            progressQueue.push({ message, metadata });
+          }
+        );
+        
+        // Yield all queued progress updates
+        for (const update of progressQueue) {
+          yield { 
+            type: 'progress', 
+            progress: commitAnalysisProgress, 
+            message: update.message,
+            metadata: update.metadata ? {
+              commits: update.metadata.commits,
+              repos: update.metadata.repos,
+              sampleCommits: update.metadata.sampleCommits,
+            } : undefined,
+          };
+        }
 
         if (stats.totalCommits === 0) {
           yield { type: 'error', message: `${friendUsername} has no commits in ${year}` };
@@ -298,10 +393,13 @@ export const wrappedRouter = router({
         let aiInsights: WrappedAIInsights | null = null;
         
         if (isPro) {
-          yield { type: 'progress', progress: 70, message: 'Generating AI personality analysis...' };
+          yield { type: 'progress', progress: 70, message: `🤖 Starting AI analysis for ${friendUsername}...` };
           
           try {
-            const result = await generateWrappedInsights({
+            let finalResult: GenerateWrappedInsightsResult | null = null;
+            
+            // Use streaming generator for real-time progress
+            const insightsGenerator = generateWrappedInsightsStreaming({
               username: friendUsername,
               stats,
               rawData,
@@ -309,15 +407,47 @@ export const wrappedRouter = router({
               includeRoast: true,
             });
             
-            aiInsights = result.insights;
+            for await (const update of insightsGenerator) {
+              if (update.type === 'progress') {
+                // Map AI progress (0-100) to our wrapped progress range (70-79)
+                const mappedProgress = 70 + Math.floor((update.progress || 0) * 0.09);
+                yield {
+                  type: 'progress',
+                  progress: mappedProgress,
+                  message: update.message || 'AI analyzing...',
+                  metadata: update.metadata,
+                };
+              } else if (update.type === 'stream') {
+                // Stream actual AI tokens
+                const mappedProgress = 70 + Math.floor((update.progress || 30) * 0.09);
+                yield {
+                  type: 'progress',
+                  progress: mappedProgress,
+                  message: update.message || 'AI is thinking...',
+                  metadata: {
+                    ...update.metadata,
+                    streaming: true,
+                    textChunk: update.text,
+                  },
+                };
+              } else if (update.type === 'complete' && update.result) {
+                finalResult = update.result;
+              }
+            }
+            
+            if (!finalResult) {
+              throw new Error('AI analysis completed but no result received');
+            }
+            
+            aiInsights = finalResult.insights;
             
             await db.insert(tokenUsage).values({
               userId: ctx.user.id,
               feature: 'wrapped_gift',
-              inputTokens: result.usage.inputTokens,
-              outputTokens: result.usage.outputTokens,
-              totalTokens: result.usage.totalTokens,
-              model: 'gemini-2.0-flash',
+              inputTokens: finalResult.usage.inputTokens,
+              outputTokens: finalResult.usage.outputTokens,
+              totalTokens: finalResult.usage.totalTokens,
+              model: 'gemini-3-flash',
               isByok: false,
             });
             

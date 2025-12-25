@@ -273,16 +273,80 @@ export default function WrappedLandingPage() {
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3, ease: 'easeOut' }}
-                    className="flex items-start gap-2 mb-2"
+                    className="mb-3"
                   >
-                    <span className="text-purple-500 select-none">→</span>
-                    <span className="text-gray-600">{log.message}</span>
-                    {index === logs.length - 1 && !error && progress < 100 && (
-                      <motion.span
-                        animate={{ opacity: [1, 0] }}
-                        transition={{ duration: 0.8, repeat: Infinity, repeatType: 'reverse' }}
-                        className="inline-block w-2 h-4 bg-purple-500 ml-1"
-                      />
+                    <div className="flex items-start gap-2">
+                      <span className="text-purple-500 select-none">→</span>
+                      <div className="flex-1">
+                        <span className="text-gray-600">{log.message}</span>
+                        {index === logs.length - 1 && !error && progress < 100 && (
+                          <motion.span
+                            animate={{ opacity: [1, 0] }}
+                            transition={{ duration: 0.8, repeat: Infinity, repeatType: 'reverse' }}
+                            className="inline-block w-2 h-4 bg-purple-500 ml-1"
+                          />
+                        )}
+                      </div>
+                    </div>
+                    {log.metadata && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="ml-5 mt-2 space-y-1 text-xs"
+                      >
+                        {log.metadata.commits !== undefined && (
+                          <div className="text-cyan-600">
+                            <span className="text-purple-400">•</span> {log.metadata.commits.toLocaleString()} commits found
+                          </div>
+                        )}
+                        {log.metadata.repos !== undefined && (
+                          <div className="text-cyan-600">
+                            <span className="text-purple-400">•</span> {log.metadata.repos} repositories analyzed
+                          </div>
+                        )}
+                        {log.metadata.prs !== undefined && (
+                          <div className="text-cyan-600">
+                            <span className="text-purple-400">•</span> {log.metadata.prs} pull requests reviewed
+                          </div>
+                        )}
+                        {log.metadata.insight && (
+                          <div className="text-purple-500 italic">
+                            <span className="text-purple-400">💭</span> {log.metadata.insight}
+                          </div>
+                        )}
+                        {log.metadata.streaming && log.metadata.textChunk && (
+                          <div className="mt-2 text-xs text-gray-400 font-mono bg-gray-50 p-2 rounded border border-gray-200">
+                            <span className="text-purple-400 animate-pulse">●</span> AI: {log.metadata.textChunk}
+                          </div>
+                        )}
+                        {log.metadata.sampleCommits && log.metadata.sampleCommits.length > 0 && (
+                          <div className="mt-2 space-y-0.5">
+                            <div className="text-purple-400 text-[10px] uppercase">Sample commits:</div>
+                            {log.metadata.sampleCommits.slice(0, 3).map((commit, i) => (
+                              <div key={i} className="text-gray-500 truncate">
+                                <span className="text-purple-300">[{commit.repo}]</span> {commit.message}...
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {log.metadata.personalityType && (
+                          <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="mt-2 p-2 bg-gradient-to-r from-purple-50 to-cyan-50 rounded border border-purple-200 shadow-sm"
+                          >
+                            <div className="text-purple-700 font-semibold flex items-center gap-2">
+                              <span className="text-lg">{log.metadata.personalityEmoji}</span>
+                              <span>{log.metadata.personalityType}</span>
+                            </div>
+                            {log.metadata.grade && (
+                              <div className="text-purple-600 text-[10px] mt-0.5">
+                                Overall Grade: <span className="font-bold">{log.metadata.grade}</span>
+                              </div>
+                            )}
+                          </motion.div>
+                        )}
+                      </motion.div>
                     )}
                   </motion.div>
                 ))}

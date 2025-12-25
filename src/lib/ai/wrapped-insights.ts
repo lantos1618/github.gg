@@ -1,5 +1,5 @@
 import { google } from '@ai-sdk/google';
-import { generateObject } from 'ai';
+import { generateObject, streamText } from 'ai';
 import { z } from 'zod';
 import type { WrappedStats, WrappedAIInsights } from '@/db/schema/wrapped';
 import type { WrappedRawData } from '@/lib/github/wrapped-service';
@@ -45,6 +45,183 @@ export type GenerateWrappedInsightsResult = {
   };
 };
 
+export async function* generateWrappedInsightsStreaming({
+  username,
+  stats,
+  rawData,
+  year,
+  includeRoast = false,
+}: GenerateWrappedInsightsParams): AsyncGenerator<{
+  type: 'progress' | 'complete' | 'stream';
+  progress?: number;
+  message?: string;
+  text?: string;
+  metadata?: { type: string; insight?: string };
+  result?: GenerateWrappedInsightsResult;
+}> {
+  // Pre-analysis insights
+  const sampleCommits = rawData.commits.slice(0, 10);
+  const interestingCommits = sampleCommits.filter(c => {
+    const msg = c.message.toLowerCase();
+    return msg.length > 50 || msg.includes('refactor') || msg.includes('feature') || msg.includes('fix');
+  }).slice(0, 3);
+
+  yield {
+    type: 'progress',
+    progress: 0,
+    message: '🧠 Feeding your commit history to the AI brain...',
+    metadata: { type: 'init' },
+  };
+
+  yield {
+    type: 'progress',
+    progress: 10,
+    message: `📚 Analyzing ${rawData.commits.length} commits and ${rawData.pullRequests.length} PRs...`,
+    metadata: {
+      type: 'analysis',
+      insight: stats.topRepos.length > 0 ? `Noticing patterns in ${stats.topRepos.slice(0, 2).map(r => r.name).join(' and ')}...` : undefined,
+    },
+  };
+
+  // Analyze some interesting commits
+  if (interestingCommits.length > 0) {
+    const randomCommit = interestingCommits[Math.floor(Math.random() * interestingCommits.length)];
+    yield {
+      type: 'progress',
+      progress: 20,
+      message: `🔍 Spotted an interesting commit: "${randomCommit.message.split('\n')[0].slice(0, 60)}..."`,
+      metadata: {
+        type: 'insight',
+        insight: `from ${randomCommit.repo}`,
+      },
+    };
+  }
+
+  yield {
+    type: 'progress',
+    progress: 30,
+    message: '🤖 Starting AI analysis... Streaming response...',
+    metadata: { type: 'ai_processing' },
+  };
+
+  // Build prompt for streaming - ask for JSON output
+  const prompt = buildPrompt(username, stats, rawData, year, includeRoast);
+  const streamingPrompt = `${prompt}\n\nIMPORTANT: Respond with ONLY a valid JSON object that matches the schema. Do not include markdown code blocks, explanations, or any text outside the JSON object.`;
+
+  // Use streamText to actually stream the AI response
+  const result = streamText({
+    model: google('gemini-3-flash'),
+    messages: [{ role: 'user', content: streamingPrompt }],
+    maxTokens: 4000,
+  });
+
+  let accumulatedText = '';
+  let lastInsight: string | null = null;
+  let progressValue = 30;
+
+  // Stream actual AI tokens as they come in
+  for await (const chunk of result.textStream) {
+    accumulatedText += chunk;
+    progressValue = Math.min(progressValue + 0.3, 95);
+
+    // Yield the actual streamed text chunk
+    yield {
+      type: 'stream',
+      progress: progressValue,
+      text: chunk,
+      message: '🤖 AI is analyzing...',
+      metadata: { type: 'streaming' },
+    };
+
+    // Try to extract insights incrementally from partial JSON
+    try {
+      // Look for JSON object structure
+      const jsonMatch = accumulatedText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const potentialJson = jsonMatch[0];
+        try {
+          const parsed = JSON.parse(potentialJson) as Partial<WrappedAIInsights>;
+          
+          // Extract insights as they appear in the JSON
+          if (parsed.personalityType && parsed.personalityEmoji && lastInsight !== 'personality') {
+            yield {
+              type: 'progress',
+              progress: 85,
+              message: `✨ ${parsed.personalityEmoji} Discovered: You're a ${parsed.personalityType}!`,
+              metadata: {
+                type: 'discovery',
+                insight: parsed.overallGrade ? `Grade: ${parsed.overallGrade}` : undefined,
+              },
+            };
+            lastInsight = 'personality';
+          }
+
+          if (parsed.commitMessageAnalysis?.commonThemes && parsed.commitMessageAnalysis.commonThemes.length > 0 && lastInsight !== 'themes') {
+            yield {
+              type: 'progress',
+              progress: 70,
+              message: `💡 Commit themes: ${parsed.commitMessageAnalysis.commonThemes.slice(0, 3).join(', ')}`,
+              metadata: { type: 'insight' },
+            };
+            lastInsight = 'themes';
+          }
+
+          if (parsed.topProjects && parsed.topProjects.length > 0 && lastInsight !== 'projects') {
+            yield {
+              type: 'progress',
+              progress: 75,
+              message: `🚀 Top projects: ${parsed.topProjects.slice(0, 2).map(p => p.name).join(', ')}`,
+              metadata: { type: 'insight' },
+            };
+            lastInsight = 'projects';
+          }
+        } catch {
+          // JSON not complete yet, continue streaming
+        }
+      }
+    } catch {
+      // Continue streaming
+    }
+  }
+
+  // Get final result with usage stats
+  const finalResult = await result;
+  const usage = finalResult.usage || { inputTokens: 0, outputTokens: 0 };
+
+  // Parse final JSON
+  let insights: WrappedAIInsights;
+  try {
+    const jsonMatch = accumulatedText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No JSON found in response');
+    }
+    const parsed = JSON.parse(jsonMatch[0]);
+    insights = wrappedInsightsSchema.parse(parsed) as WrappedAIInsights;
+  } catch (parseError) {
+    // If streaming JSON parse failed, fall back to generateObject
+    console.warn('Failed to parse streamed JSON, falling back to generateObject', parseError);
+    const { object } = await generateObject({
+      model: google('gemini-3-flash'),
+      schema: wrappedInsightsSchema,
+      messages: [{ role: 'user', content: streamingPrompt }],
+    });
+    insights = object as WrappedAIInsights;
+  }
+
+  yield {
+    type: 'complete',
+    progress: 100,
+    result: {
+      insights,
+      usage: {
+        inputTokens: usage.inputTokens || 0,
+        outputTokens: usage.outputTokens || 0,
+        totalTokens: (usage.inputTokens || 0) + (usage.outputTokens || 0),
+      },
+    },
+  };
+}
+
 export async function generateWrappedInsights({
   username,
   stats,
@@ -55,7 +232,7 @@ export async function generateWrappedInsights({
   const prompt = buildPrompt(username, stats, rawData, year, includeRoast);
 
   const { object, usage } = await generateObject({
-    model: google('gemini-2.0-flash'),
+    model: google('gemini-3-flash'),
     schema: wrappedInsightsSchema,
     messages: [{ role: 'user', content: prompt }],
   });

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, RefreshCw, Eye, Gift } from 'lucide-react';
+import { Sparkles, RefreshCw, Eye, Gift, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StarGate, useWrappedGeneration } from '@/components/wrapped';
 import { useAuth } from '@/lib/auth/factory';
@@ -14,6 +14,7 @@ export default function WrappedLandingPage() {
   const { user, isSignedIn, isLoading: authLoading, signIn } = useAuth();
   const [hasStarted, setHasStarted] = useState(false);
   const [starCheckPassed, setStarCheckPassed] = useState(false);
+  const [tempApiKey, setTempApiKey] = useState('');
 
   const currentYear = new Date().getFullYear();
   
@@ -44,6 +45,8 @@ export default function WrappedLandingPage() {
     starRequired,
     startGeneration,
     reset,
+    aiStreamText,
+    isAiStreaming,
   } = useWrappedGeneration();
 
   useEffect(() => {
@@ -61,19 +64,21 @@ export default function WrappedLandingPage() {
 
   const handleStartGeneration = (force = false) => {
     setHasStarted(true);
-    startGeneration({ 
-      withAI: isPaidUser, 
-      includeRoast: isPaidUser,
+    startGeneration({
+      withAI: true,
+      includeRoast: true,
       force,
+      tempApiKey: tempApiKey || undefined, // Pass temporary key if provided
     });
   };
 
   const handleUnlocked = () => {
     setStarCheckPassed(true);
     setHasStarted(true);
-    startGeneration({ 
-      withAI: isPaidUser, 
-      includeRoast: isPaidUser,
+    startGeneration({
+      withAI: true,
+      includeRoast: true,
+      tempApiKey: tempApiKey || undefined, // Pass temporary key if provided
     });
   };
 
@@ -188,7 +193,7 @@ export default function WrappedLandingPage() {
               <AnimatePresence mode="popLayout">
                 {logs.map((log, index) => (
                   <motion.div
-                    key={log.timestamp}
+                    key={`${log.timestamp}-${index}`}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3, ease: 'easeOut' }}
@@ -233,11 +238,7 @@ export default function WrappedLandingPage() {
                             <span className="text-purple-400">💭</span> {log.metadata.insight}
                           </div>
                         )}
-                        {log.metadata.streaming && log.metadata.textChunk && (
-                          <div className="mt-2 text-xs text-gray-400 font-mono bg-gray-50 p-2 rounded border border-gray-200">
-                            <span className="text-purple-400 animate-pulse">●</span> AI: {log.metadata.textChunk}
-                          </div>
-                        )}
+                        {/* AI streaming now shown in dedicated area below */}
                         {log.metadata.sampleCommits && log.metadata.sampleCommits.length > 0 && (
                           <div className="mt-2 space-y-0.5">
                             <div className="text-purple-400 text-[10px] uppercase">Sample commits:</div>
@@ -299,6 +300,51 @@ export default function WrappedLandingPage() {
               </div>
             </div>
           </motion.div>
+
+          {/* AI Streaming Response Display */}
+          <AnimatePresence>
+            {(aiStreamText || isAiStreaming) && (
+              <motion.div
+                initial={{ opacity: 0, y: 20, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: 'auto' }}
+                exit={{ opacity: 0, y: -10, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="bg-white border border-purple-200 rounded-xl overflow-hidden shadow-lg"
+              >
+                <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-50 to-cyan-50 border-b border-purple-200">
+                  <motion.div
+                    animate={isAiStreaming ? { scale: [1, 1.2, 1] } : {}}
+                    transition={{ duration: 0.5, repeat: Infinity }}
+                    className="text-lg"
+                  >
+                    🤖
+                  </motion.div>
+                  <span className="text-sm font-semibold text-purple-700">AI Analysis</span>
+                  {isAiStreaming && (
+                    <motion.span
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                      className="text-xs text-purple-500 ml-2"
+                    >
+                      Streaming response...
+                    </motion.span>
+                  )}
+                </div>
+                <div className="p-4 max-h-64 overflow-y-auto">
+                  <pre className="text-xs font-mono text-gray-700 whitespace-pre-wrap break-words">
+                    {aiStreamText || 'Waiting for AI response...'}
+                    {isAiStreaming && (
+                      <motion.span
+                        animate={{ opacity: [1, 0] }}
+                        transition={{ duration: 0.5, repeat: Infinity, repeatType: 'reverse' }}
+                        className="inline-block w-2 h-4 bg-purple-500 ml-0.5 align-middle"
+                      />
+                    )}
+                  </pre>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <AnimatePresence>
             {error && (
@@ -374,6 +420,59 @@ export default function WrappedLandingPage() {
           Ready to see your year in code, @{user?.githubUsername || user?.name}?
         </motion.p>
 
+        {/* AI Insights - Pro users get it automatically, others can add their key */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45 }}
+          className="max-w-md mx-auto"
+        >
+          {isPaidUser ? (
+            <div className="bg-gradient-to-r from-purple-50 to-cyan-50 border border-purple-200 rounded-xl p-4 shadow-sm">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-purple-600" />
+                <span className="text-sm font-semibold text-purple-800">AI Insights Enabled</span>
+                <span className="ml-auto text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full font-medium">Pro</span>
+              </div>
+              <p className="text-xs text-purple-600 mt-2">
+                Your wrapped will include personalized AI analysis
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                  <span className="text-sm font-semibold text-gray-800">AI Insights</span>
+                </div>
+                {tempApiKey && (
+                  <span className="text-xs text-green-600 font-medium">✓ Ready</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={tempApiKey}
+                  onChange={(e) => setTempApiKey(e.target.value)}
+                  placeholder="Paste your Gemini API key..."
+                  className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-gray-400">Temporary, not stored</span>
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1"
+                >
+                  Get free key <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            </div>
+          )}
+        </motion.div>
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -435,20 +534,6 @@ export default function WrappedLandingPage() {
           <PreviewStat icon="💻" label="Languages" />
           <PreviewStat icon="🎭" label="Personality" />
         </motion.div>
-
-        {isPaidUser && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.9 }}
-            className="pt-4"
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-100 to-cyan-100 rounded-full">
-              <Sparkles className="w-4 h-4 text-purple-600" />
-              <span className="text-sm font-medium text-purple-700">Pro: AI Insights Enabled</span>
-            </div>
-          </motion.div>
-        )}
       </motion.div>
 
       <FloatingParticles />

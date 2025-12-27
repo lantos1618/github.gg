@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WrappedSlide, Confetti, UserHeader } from '../WrappedSlide';
+import { WrappedSlide, SlideCard, Confetti, UserHeader, WRAPPED_THEME, WRAPPED_STYLES } from '../WrappedSlide';
 import type { WrappedAIInsights } from '@/lib/types/wrapped';
 import { PERSONALITY_TYPES } from '@/lib/types/wrapped';
 
@@ -59,26 +59,29 @@ export function PersonalitySlide({ aiInsights, stats, user }: PersonalitySlidePr
   }, []);
 
   return (
-    <WrappedSlide variant="neon">
+    <WrappedSlide glowPosition="center">
       {showConfetti && <Confetti />}
-      
+
       <div className="text-center space-y-8">
         {user && (
           <div className="flex justify-center mb-4">
             <UserHeader username={user.username} avatarUrl={user.avatarUrl} />
           </div>
         )}
-        <AnimatePresence mode="wait">
-          {phase === 'buildup' && (
-            <motion.div
-              key="buildup"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-4"
-            >
+
+        {/* Min-height prevents CLS during phase transitions */}
+        <div className="min-h-[320px] flex items-center justify-center">
+          <AnimatePresence mode="wait">
+            {phase === 'buildup' && (
+              <motion.div
+                key="buildup"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="space-y-4"
+              >
               <motion.p
-                className="text-2xl text-gray-600"
+                className="text-xl text-slate-500"
                 animate={{ opacity: [0.5, 1, 0.5] }}
                 transition={{ duration: 1.5, repeat: Infinity }}
               >
@@ -88,7 +91,7 @@ export function PersonalitySlide({ aiInsights, stats, user }: PersonalitySlidePr
                 {[0, 1, 2].map((i) => (
                   <motion.div
                     key={i}
-                    className="w-3 h-3 rounded-full bg-purple-500"
+                    className="w-2.5 h-2.5 rounded-full bg-violet-400"
                     animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
                     transition={{ duration: 1, delay: i * 0.2, repeat: Infinity }}
                   />
@@ -105,20 +108,20 @@ export function PersonalitySlide({ aiInsights, stats, user }: PersonalitySlidePr
               transition={{ type: 'spring', stiffness: 200, damping: 15 }}
               className="space-y-6"
             >
-              <motion.div
+              <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.3 }}
-                className="text-sm uppercase tracking-widest text-purple-600"
+                className={WRAPPED_STYLES.sectionLabel}
               >
                 Your {new Date().getFullYear()} Developer Personality
-              </motion.div>
+              </motion.p>
 
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: 'spring', delay: 0.2 }}
-                className="text-8xl md:text-9xl"
+                className="text-7xl md:text-8xl"
               >
                 {personality.emoji}
               </motion.div>
@@ -127,7 +130,8 @@ export function PersonalitySlide({ aiInsights, stats, user }: PersonalitySlidePr
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                className="text-3xl md:text-5xl font-black bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 bg-clip-text text-transparent"
+                className={WRAPPED_STYLES.heroSecondary}
+                style={{ color: WRAPPED_THEME.accent, textShadow: `0 0 40px ${WRAPPED_THEME.accentGlow}` }}
               >
                 {personality.name}
               </motion.h2>
@@ -136,7 +140,7 @@ export function PersonalitySlide({ aiInsights, stats, user }: PersonalitySlidePr
                 <motion.p
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="text-lg text-gray-600 max-w-md mx-auto"
+                  className="text-base text-slate-500 max-w-md mx-auto leading-relaxed"
                 >
                   {personality.description}
                 </motion.p>
@@ -147,12 +151,12 @@ export function PersonalitySlide({ aiInsights, stats, user }: PersonalitySlidePr
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.5 }}
-                  className="pt-6"
+                  className="pt-4"
                 >
-                  <div className="bg-white border border-gray-200 rounded-xl p-4 max-w-md mx-auto shadow-sm">
-                    <p className="text-sm text-gray-500 uppercase tracking-wide mb-2">The Roast</p>
-                    <p className="text-gray-700 italic">&ldquo;{aiInsights.roast}&rdquo;</p>
-                  </div>
+                  <SlideCard className="max-w-md mx-auto">
+                    <p className="text-xs text-slate-600 uppercase tracking-wide mb-2">The Roast</p>
+                    <p className="text-slate-700 italic">&ldquo;{aiInsights.roast}&rdquo;</p>
+                  </SlideCard>
                 </motion.div>
               )}
 
@@ -171,7 +175,8 @@ export function PersonalitySlide({ aiInsights, stats, user }: PersonalitySlidePr
               )}
             </motion.div>
           )}
-        </AnimatePresence>
+          </AnimatePresence>
+        </div>
       </div>
     </WrappedSlide>
   );
@@ -185,22 +190,23 @@ function GradeBadge({
   description: string | null;
 }) {
   const gradeColors: Record<string, string> = {
-    A: 'from-green-400 to-emerald-500',
-    B: 'from-blue-400 to-cyan-500',
-    C: 'from-yellow-400 to-orange-500',
-    D: 'from-orange-400 to-red-500',
-    F: 'from-red-400 to-red-600',
+    A: 'text-emerald-400',
+    B: 'text-violet-400',
+    C: 'text-amber-400',
+    D: 'text-orange-400',
+    F: 'text-red-400',
   };
 
   return (
     <div className="inline-flex flex-col items-center gap-2">
       <div
-        className={`text-6xl font-black bg-gradient-to-r ${gradeColors[grade] || gradeColors.C} bg-clip-text text-transparent`}
+        className={`text-5xl font-black ${gradeColors[grade] || gradeColors.C}`}
+        style={{ textShadow: '0 0 30px currentColor' }}
       >
         {grade}
       </div>
       {description && (
-        <p className="text-sm text-gray-500">{description}</p>
+        <p className="text-sm text-slate-600">{description}</p>
       )}
     </div>
   );

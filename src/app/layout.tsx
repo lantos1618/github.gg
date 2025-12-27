@@ -12,11 +12,13 @@ import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap", // Prevents FOUT causing CLS
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap", // Prevents FOUT causing CLS
 });
 
 export const metadata: Metadata = {

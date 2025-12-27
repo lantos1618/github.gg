@@ -5,7 +5,95 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import * as React from 'react';
 
-export type SlideVariant = 'dark' | 'gradient' | 'accent' | 'neon';
+/**
+ * Wrapped Design System - Light Mode
+ * ===================================
+ *
+ * DESIGN PHILOSOPHY:
+ * A sophisticated, shareable light theme designed for developers.
+ * Feels celebratory and premium - perfect for social media sharing.
+ * Uses a violet/purple accent that feels modern and achievement-oriented.
+ *
+ * COLOR PALETTE:
+ * - Background: Warm off-white gradient (#FFFBF8 → #F8F7FF)
+ * - Surface: Pure white with soft shadows
+ * - Text Primary: Deep slate (#1E293B)
+ * - Text Secondary: Medium slate (#64748B)
+ * - Text Muted: Light slate (#94A3B8)
+ * - Accent: Violet gradient (#8B5CF6 → #6366F1)
+ * - Accent Glow: violet-500/15 for subtle highlights
+ *
+ * SEMANTIC COLORS:
+ * - Success: Emerald (#10B981) - grades A, positive growth
+ * - Warning: Amber (#F59E0B) - trauma, security warnings
+ * - Error: Rose (#F43F5E) - grade F, critical issues
+ *
+ * TYPOGRAPHY SCALE:
+ * - Hero (dramatic): text-[10rem] md:text-[14rem] - IntroSlide year only
+ * - Hero (stats): text-7xl md:text-[8rem] - commit counts, grades
+ * - Hero (secondary): text-3xl md:text-4xl - personality names, years
+ * - Title: text-2xl md:text-3xl - section titles
+ * - Body emphasis: text-lg md:text-xl
+ * - Body: text-base
+ * - Small: text-sm
+ * - Label: text-xs uppercase tracking-[0.3em] font-medium
+ *
+ * SPACING HIERARCHY:
+ * - Main content: space-y-8 (hero/dramatic slides)
+ * - Dense content: space-y-6 (info-heavy slides)
+ * - Card groups: space-y-4
+ * - Within cards: space-y-2 or space-y-3
+ *
+ * ANIMATION EASING:
+ * - Standard: [0.25, 0.46, 0.45, 0.94] (ease-out-quad)
+ * - Spring: { type: 'spring', stiffness: 200, damping: 15 }
+ */
+
+export const WRAPPED_THEME = {
+  // Backgrounds - warm light gradient
+  bgPrimary: '#FFFBF8',
+  bgSecondary: '#F8F7FF',
+  bgSurface: 'rgba(255, 255, 255, 0.8)',
+  bgSurfaceSolid: '#FFFFFF',
+
+  // Accent - Violet/Purple (feels celebratory & modern)
+  accent: '#8B5CF6',
+  accentLight: '#A78BFA',
+  accentDark: '#7C3AED',
+  accentGlow: 'rgba(139, 92, 246, 0.15)',
+  accentSubtle: 'rgba(139, 92, 246, 0.08)',
+
+  // Gradient for special elements
+  accentGradient: 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)',
+
+  // Text - slate colors for warmth
+  textPrimary: '#1E293B',
+  textSecondary: '#64748B',
+  textMuted: '#94A3B8',
+
+  // Borders - subtle and soft
+  border: 'rgba(148, 163, 184, 0.2)',
+  borderLight: 'rgba(148, 163, 184, 0.1)',
+
+  // Semantic colors
+  success: '#10B981',
+  warning: '#F59E0B',
+  error: '#F43F5E',
+} as const;
+
+// Reusable style constants for consistency
+export const WRAPPED_STYLES = {
+  // Section label style - use for all slide headers
+  sectionLabel: 'text-xs uppercase tracking-[0.3em] text-slate-500 font-medium',
+
+  // Hero number styles
+  heroStat: 'text-7xl md:text-[8rem] font-black tabular-nums leading-none',
+  heroSecondary: 'text-3xl md:text-4xl font-black',
+
+  // Animation presets
+  standardEasing: [0.25, 0.46, 0.45, 0.94] as const,
+  springConfig: { type: 'spring' as const, stiffness: 200, damping: 15 },
+} as const;
 
 export interface UserHeaderProps {
   username: string;
@@ -25,29 +113,25 @@ export function UserHeader({ username, avatarUrl, className }: UserHeaderProps &
         transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
         src={avatarUrl}
         alt={username}
-        className="w-12 h-12 md:w-14 md:h-14 rounded-full border-2 border-white/80 shadow-md ring-1 ring-gray-200/50"
+        className="w-10 h-10 md:w-12 md:h-12 rounded-full border border-slate-200 shadow-lg ring-2 ring-violet-500/20"
       />
-      <div>
-        <motion.p
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
-          className="text-sm font-semibold text-gray-700"
-        >
-          @{username}
-        </motion.p>
-      </div>
+      <motion.p
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.2 }}
+        className="text-sm font-medium text-slate-700"
+      >
+        @{username}
+      </motion.p>
     </motion.div>
   );
 }
 
 interface WrappedSlideProps {
   children: ReactNode;
-  variant?: SlideVariant;
   className?: string;
-  gradientFrom?: string;
-  gradientTo?: string;
-  gradientVia?: string;
+  showGrid?: boolean;
+  glowPosition?: 'top' | 'center' | 'bottom' | 'none';
 }
 
 const slideVariants = {
@@ -61,25 +145,12 @@ const slideTransition = {
   ease: [0.25, 0.46, 0.45, 0.94] as const,
 };
 
-const variantStyles: Record<SlideVariant, string> = {
-  dark: 'bg-white text-gray-900',
-  gradient: 'bg-gradient-to-br from-white via-gray-50 to-blue-50 text-gray-900',
-  accent: 'bg-gradient-to-br from-[#667eea] via-[#764ba2] to-[#f97316] text-white',
-  neon: 'bg-gradient-to-br from-purple-50 via-white to-cyan-50 text-gray-900',
-};
-
 export function WrappedSlide({
   children,
-  variant = 'dark',
   className,
-  gradientFrom,
-  gradientTo,
-  gradientVia,
+  showGrid = true,
+  glowPosition = 'center',
 }: WrappedSlideProps) {
-  const customGradient = gradientFrom && gradientTo
-    ? `bg-gradient-to-br from-[${gradientFrom}] ${gradientVia ? `via-[${gradientVia}]` : ''} to-[${gradientTo}]`
-    : '';
-
   return (
     <motion.div
       variants={slideVariants}
@@ -88,31 +159,102 @@ export function WrappedSlide({
       exit="exit"
       transition={slideTransition}
       className={cn(
-        'relative w-full h-full flex flex-col items-center justify-center p-8 md:p-12 overflow-hidden',
-        customGradient || variantStyles[variant],
+        'relative w-full h-full flex flex-col items-center justify-center p-6 md:p-12 overflow-hidden',
+        'bg-gradient-to-br from-[#FFFBF8] via-[#FDF8FF] to-[#F8F7FF]',
         className
       )}
-      style={
-        gradientFrom && gradientTo
-          ? {
-              background: `linear-gradient(135deg, ${gradientFrom} 0%, ${gradientVia || gradientFrom} 50%, ${gradientTo} 100%)`,
-            }
-          : undefined
-      }
     >
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSA2MCAwIEwgMCAwIDAgNjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgwLDAsMCwwLjA1KSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-50" />
-      
-      {variant === 'neon' && (
-        <>
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-200/40 rounded-full blur-[120px] animate-pulse" />
-          <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-cyan-200/40 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '1s' }} />
-        </>
+      {/* Subtle dot pattern for texture */}
+      {showGrid && (
+        <div
+          className="absolute inset-0 opacity-[0.4]"
+          style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(139, 92, 246, 0.08) 1px, transparent 0)`,
+            backgroundSize: '24px 24px',
+          }}
+        />
       )}
-      
+
+      {/* Violet accent glow - soft and warm */}
+      {glowPosition !== 'none' && (
+        <div
+          className={cn(
+            'absolute w-[800px] h-[800px] rounded-full blur-[200px] pointer-events-none',
+            'bg-gradient-to-br from-violet-400/10 to-indigo-400/10',
+            glowPosition === 'top' && '-top-96 left-1/2 -translate-x-1/2',
+            glowPosition === 'center' && 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
+            glowPosition === 'bottom' && '-bottom-96 left-1/2 -translate-x-1/2',
+          )}
+        />
+      )}
+
+      {/* Content */}
       <div className="relative z-10 w-full max-w-2xl mx-auto">
         {children}
       </div>
     </motion.div>
+  );
+}
+
+// Reusable card component for consistent styling
+interface SlideCardProps {
+  children: ReactNode;
+  className?: string;
+  glow?: boolean;
+}
+
+export function SlideCard({ children, className, glow = false }: SlideCardProps) {
+  return (
+    <div
+      className={cn(
+        'relative bg-white/80 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-5 shadow-sm',
+        glow && 'ring-1 ring-violet-500/20 shadow-violet-100/50',
+        className
+      )}
+    >
+      {glow && (
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-violet-500/5 to-transparent pointer-events-none" />
+      )}
+      <div className="relative">{children}</div>
+    </div>
+  );
+}
+
+// Accent badge for AI insights
+export function AIBadge({ className }: { className?: string }) {
+  return (
+    <div className={cn(
+      'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full',
+      'bg-violet-500/10 border border-violet-500/20',
+      className
+    )}>
+      <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
+      <span className="text-xs font-medium text-violet-600">AI</span>
+    </div>
+  );
+}
+
+// Stat pill for consistent stat display
+interface StatPillProps {
+  icon?: ReactNode;
+  value: number | string;
+  label: string;
+  className?: string;
+}
+
+export function StatPill({ icon, value, label, className }: StatPillProps) {
+  return (
+    <div className={cn(
+      'flex items-center gap-2 px-3 py-1.5',
+      'bg-white/60 border border-slate-200/60 rounded-full shadow-sm',
+      className
+    )}>
+      {icon && <span className="text-violet-500">{icon}</span>}
+      <span className="text-sm font-semibold text-slate-800">
+        {typeof value === 'number' ? value.toLocaleString() : value}
+      </span>
+      <span className="text-xs text-slate-500">{label}</span>
+    </div>
   );
 }
 
@@ -215,13 +357,14 @@ export function StaggeredText({
 }
 
 export function Confetti() {
-  const colors = ['#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
-  const particles = Array.from({ length: 50 }, (_, i) => ({
+  // Violet/purple confetti for celebratory feel
+  const colors = ['#8B5CF6', '#A78BFA', '#C4B5FD', '#6366F1', '#818CF8', '#F472B6'];
+  const particles = Array.from({ length: 40 }, (_, i) => ({
     id: i,
     x: Math.random() * 100,
     color: colors[Math.floor(Math.random() * colors.length)],
     delay: Math.random() * 0.5,
-    size: Math.random() * 8 + 4,
+    size: Math.random() * 6 + 3,
     rotation: Math.random() * 360,
   }));
 
@@ -243,10 +386,10 @@ export function Confetti() {
             y: '100vh',
             opacity: [1, 1, 0],
             rotate: p.rotation + 720,
-            x: [0, (Math.random() - 0.5) * 200],
+            x: [0, (Math.random() - 0.5) * 150],
           }}
           transition={{
-            duration: 3,
+            duration: 2.5,
             delay: p.delay,
             ease: 'easeOut',
           }}

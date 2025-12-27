@@ -78,10 +78,11 @@ export const wrappedRouter = router({
       withAI: z.boolean().optional().default(false),
       includeRoast: z.boolean().optional().default(false),
       force: z.boolean().optional().default(false),
+      tempApiKey: z.string().optional(), // Temporary API key for this session only (not stored)
     }))
     .subscription(async function* ({ input, ctx }) {
       const year = input.year || new Date().getFullYear();
-      const { withAI, includeRoast, force } = input;
+      const { withAI, includeRoast, force, tempApiKey } = input;
       const username = (ctx.user as { githubUsername?: string }).githubUsername || ctx.user.name || '';
 
       try {
@@ -176,17 +177,26 @@ export const wrappedRouter = router({
         yield { type: 'progress', progress: 60, message: 'Crunching the numbers...' };
 
         let aiInsights: WrappedAIInsights | null = null;
-        
+
         if (withAI) {
+          // Check for Pro subscription (uses system key) or temporary API key from user
           const subscription = await getUserSubscription(ctx.user.id);
           const isPro = subscription?.status === 'active' && subscription?.plan === 'pro';
-          
-          if (isPro) {
-            yield { type: 'progress', progress: 70, message: '🤖 Starting AI analysis...' };
-            
+
+          // Use temporary API key if provided, otherwise use system key for Pro users
+          const apiKeyToUse = tempApiKey || (isPro ? process.env.GEMINI_API_KEY : null);
+          const isByok = !!tempApiKey;
+
+          if (apiKeyToUse) {
+            yield {
+              type: 'progress',
+              progress: 70,
+              message: isByok ? '🤖 Starting AI analysis (using your API key)...' : '🤖 Starting AI analysis...'
+            };
+
             try {
               let finalResult: GenerateWrappedInsightsResult | null = null;
-              
+
               // Use streaming generator for real-time progress
               const insightsGenerator = generateWrappedInsightsStreaming({
                 username,
@@ -194,8 +204,9 @@ export const wrappedRouter = router({
                 rawData,
                 year,
                 includeRoast,
+                apiKey: apiKeyToUse,
               });
-              
+
               for await (const update of insightsGenerator) {
                 if (update.type === 'progress') {
                   // Map AI progress (0-100) to our wrapped progress range (70-79)
@@ -223,37 +234,41 @@ export const wrappedRouter = router({
                   finalResult = update.result;
                 }
               }
-              
+
               if (!finalResult) {
                 throw new Error('AI analysis completed but no result received');
               }
-              
+
               aiInsights = finalResult.insights;
-              
+
+              // Only log token usage (not the API key - it's temporary and not stored)
               await db.insert(tokenUsage).values({
                 userId: ctx.user.id,
                 feature: 'wrapped_insights',
                 inputTokens: finalResult.usage.inputTokens,
                 outputTokens: finalResult.usage.outputTokens,
                 totalTokens: finalResult.usage.totalTokens,
-                model: 'gemini-3-flash',
-                isByok: false,
+                model: 'gemini-2.0-flash',
+                isByok,
               });
-              
+
               yield { type: 'progress', progress: 80, message: 'AI analysis complete!' };
             } catch (aiError) {
               console.error('AI insights generation failed:', aiError);
-              yield { 
-                type: 'progress', 
-                progress: 80, 
-                message: 'AI analysis skipped (API error). Continuing...' 
+              const errorMessage = aiError instanceof Error ? aiError.message : 'Unknown error';
+              yield {
+                type: 'progress',
+                progress: 80,
+                message: isByok
+                  ? `AI analysis failed (check your API key): ${errorMessage.slice(0, 50)}...`
+                  : 'AI analysis skipped (API error). Continuing...'
               };
             }
           } else {
-            yield { 
-              type: 'progress', 
-              progress: 80, 
-              message: 'AI features require Pro subscription. Continuing without AI...' 
+            yield {
+              type: 'progress',
+              progress: 80,
+              message: 'No API key provided. Continuing without AI insights...'
             };
           }
         }
@@ -318,10 +333,11 @@ export const wrappedRouter = router({
       friendUsername: z.string().min(1, 'Friend username is required'),
       year: z.number().optional(),
       personalMessage: z.string().optional(),
+      tempApiKey: z.string().optional(), // Temporary API key for this session only (not stored)
     }))
     .subscription(async function* ({ input, ctx }) {
       const year = input.year || new Date().getFullYear();
-      const { friendUsername, personalMessage } = input;
+      const { friendUsername, personalMessage, tempApiKey } = input;
       const senderUsername = (ctx.user as { githubUsername?: string }).githubUsername || ctx.user.name || '';
 
       try {
@@ -387,17 +403,28 @@ export const wrappedRouter = router({
 
         yield { type: 'progress', progress: 60, message: 'Crunching the numbers...' };
 
+        // Check for Pro subscription (uses system key) or temporary API key from user
         const subscription = await getUserSubscription(ctx.user.id);
         const isPro = subscription?.status === 'active' && subscription?.plan === 'pro';
-        
+
+        // Use temporary API key if provided, otherwise use system key for Pro users
+        const apiKeyToUse = tempApiKey || (isPro ? process.env.GEMINI_API_KEY : null);
+        const isByok = !!tempApiKey;
+
         let aiInsights: WrappedAIInsights | null = null;
-        
-        if (isPro) {
-          yield { type: 'progress', progress: 70, message: `🤖 Starting AI analysis for ${friendUsername}...` };
-          
+
+        if (apiKeyToUse) {
+          yield {
+            type: 'progress',
+            progress: 70,
+            message: isByok
+              ? `🤖 Starting AI analysis for ${friendUsername} (using your API key)...`
+              : `🤖 Starting AI analysis for ${friendUsername}...`
+          };
+
           try {
             let finalResult: GenerateWrappedInsightsResult | null = null;
-            
+
             // Use streaming generator for real-time progress
             const insightsGenerator = generateWrappedInsightsStreaming({
               username: friendUsername,
@@ -405,8 +432,9 @@ export const wrappedRouter = router({
               rawData,
               year,
               includeRoast: true,
+              apiKey: apiKeyToUse,
             });
-            
+
             for await (const update of insightsGenerator) {
               if (update.type === 'progress') {
                 // Map AI progress (0-100) to our wrapped progress range (70-79)
@@ -434,23 +462,24 @@ export const wrappedRouter = router({
                 finalResult = update.result;
               }
             }
-            
+
             if (!finalResult) {
               throw new Error('AI analysis completed but no result received');
             }
-            
+
             aiInsights = finalResult.insights;
-            
+
+            // Only log token usage (not the API key - it's temporary and not stored)
             await db.insert(tokenUsage).values({
               userId: ctx.user.id,
               feature: 'wrapped_gift',
               inputTokens: finalResult.usage.inputTokens,
               outputTokens: finalResult.usage.outputTokens,
               totalTokens: finalResult.usage.totalTokens,
-              model: 'gemini-3-flash',
-              isByok: false,
+              model: 'gemini-2.0-flash',
+              isByok,
             });
-            
+
             yield { type: 'progress', progress: 80, message: 'AI analysis complete!' };
           } catch (aiError) {
             console.error('AI insights generation failed:', aiError);

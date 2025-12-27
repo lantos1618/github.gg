@@ -73,8 +73,8 @@ export const billingRouter = router({
       const subscription = await db.query.userSubscriptions.findFirst({
         where: eq(userSubscriptions.userId, ctx.user.id)
       });
-      
-      return subscription;
+
+      return subscription ?? null;
     }),
 
   cancelSubscription: protectedProcedure

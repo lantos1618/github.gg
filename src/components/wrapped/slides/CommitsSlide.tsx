@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { WrappedSlide, Confetti, UserHeader } from '../WrappedSlide';
+import { WrappedSlide, SlideCard, AIBadge, Confetti, UserHeader, WRAPPED_THEME, WRAPPED_STYLES } from '../WrappedSlide';
 import type { WrappedAIInsights } from '@/lib/types/wrapped';
 
 interface CommitsSlideProps {
@@ -61,7 +61,7 @@ export function CommitsSlide({
 
   const hasAIInsights = aiInsights?.yearSummary || aiInsights?.biggestWin;
   const fallback = getFallbackMessage(totalCommits);
-  
+
   const message = aiInsights?.yearSummary || fallback.message;
   const subtext = aiInsights?.biggestWin || fallback.subtext;
 
@@ -93,23 +93,20 @@ export function CommitsSlide({
   const mergeRate = totalPRs > 0 ? Math.round((totalPRsMerged / totalPRs) * 100) : 0;
 
   return (
-    <WrappedSlide
-      gradientFrom="#ffffff"
-      gradientVia="#f5f3ff"
-      gradientTo="#ecfeff"
-    >
+    <WrappedSlide glowPosition="top">
       {showConfetti && <Confetti />}
-      
+
       <div className="text-center space-y-8">
         {user && (
           <div className="flex justify-center mb-4">
             <UserHeader username={user.username} avatarUrl={user.avatarUrl} />
           </div>
         )}
+
         <motion.p
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-xs uppercase tracking-[0.3em] text-gray-500 font-medium"
+          className={WRAPPED_STYLES.sectionLabel}
         >
           Your Commits
         </motion.p>
@@ -120,14 +117,17 @@ export function CommitsSlide({
           transition={{ delay: 0.3, type: 'spring', stiffness: 200 }}
           className="relative"
         >
-          <div className="text-8xl md:text-[10rem] font-black tabular-nums bg-gradient-to-r from-green-400 via-emerald-300 to-cyan-400 bg-clip-text text-transparent leading-none">
+          <div
+            className={`${WRAPPED_STYLES.heroStat} bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent`}
+            style={{ filter: 'drop-shadow(0 0 40px rgba(139, 92, 246, 0.25))' }}
+          >
             {count.toLocaleString()}
           </div>
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
-            className="absolute -inset-8 bg-gradient-to-r from-green-500/20 via-emerald-500/20 to-cyan-500/20 blur-3xl -z-10"
+            className="absolute -inset-8 bg-violet-500/10 blur-3xl -z-10 rounded-full"
           />
         </motion.div>
 
@@ -135,7 +135,7 @@ export function CommitsSlide({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
-          className="text-2xl text-gray-900 font-medium"
+          className="text-xl text-slate-500 font-medium"
         >
           commits pushed
         </motion.p>
@@ -145,26 +145,22 @@ export function CommitsSlide({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="space-y-3 pt-4 max-w-lg mx-auto"
           >
-            {hasAIInsights && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium mb-2"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
-                AI Analysis
-              </motion.div>
-            )}
-            <p className={`text-gray-800 ${hasAIInsights ? 'text-lg leading-relaxed' : 'text-xl'}`}>
-              {message}
-            </p>
-            {subtext && (
-              <p className={`text-gray-500 ${hasAIInsights ? 'text-sm italic' : ''}`}>
-                {hasAIInsights ? `"${subtext}"` : subtext}
-              </p>
-            )}
+            <SlideCard glow className="max-w-md mx-auto">
+              <div className="space-y-3">
+                {hasAIInsights && (
+                  <AIBadge className="mb-2" />
+                )}
+                <p className={`text-slate-700 ${hasAIInsights ? 'text-base leading-relaxed' : 'text-lg'}`}>
+                  {message}
+                </p>
+                {subtext && (
+                  <p className={`text-slate-500 ${hasAIInsights ? 'text-sm italic' : ''}`}>
+                    {hasAIInsights ? `"${subtext}"` : subtext}
+                  </p>
+                )}
+              </div>
+            </SlideCard>
           </motion.div>
         )}
 
@@ -172,22 +168,13 @@ export function CommitsSlide({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: showMessage ? 1 : 0, y: showMessage ? 0 : 20 }}
           transition={{ delay: 0.4 }}
-          className="grid grid-cols-3 gap-4 pt-8 max-w-md mx-auto"
+          className="grid grid-cols-3 gap-3 pt-4 max-w-md mx-auto"
         >
-          <StatBox
-            value={totalPRs}
-            label="PRs Opened"
-            color="from-purple-400 to-purple-600"
-          />
-          <StatBox
-            value={`${mergeRate}%`}
-            label="Merged"
-            color="from-green-400 to-green-600"
-          />
+          <StatBox value={totalPRs} label="PRs Opened" />
+          <StatBox value={`${mergeRate}%`} label="Merged" />
           <StatBox
             value={formatNumber(linesAdded - linesDeleted)}
             label="Net Lines"
-            color={linesAdded > linesDeleted ? 'from-green-400 to-emerald-600' : 'from-red-400 to-red-600'}
             prefix={linesAdded > linesDeleted ? '+' : ''}
           />
         </motion.div>
@@ -199,20 +186,19 @@ export function CommitsSlide({
 function StatBox({
   value,
   label,
-  color,
   prefix = '',
 }: {
   value: number | string;
   label: string;
-  color: string;
   prefix?: string;
 }) {
   return (
-    <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-      <div className={`text-2xl font-bold bg-gradient-to-r ${color} bg-clip-text text-transparent`}>
-        {prefix}{typeof value === 'number' ? value.toLocaleString() : value}
+    <div className="bg-white/80 border border-slate-200/60 rounded-xl p-3 shadow-sm">
+      <div className="text-xl font-bold text-violet-600">
+        {prefix}
+        {typeof value === 'number' ? value.toLocaleString() : value}
       </div>
-      <div className="text-xs text-gray-500 mt-1">{label}</div>
+      <div className="text-xs text-slate-500">{label}</div>
     </div>
   );
 }

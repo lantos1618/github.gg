@@ -83,6 +83,8 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 <img
                   src={`https://github.com/${repo.owner}.png`}
                   alt={repo.owner}
+                  width={32}
+                  height={32}
                   className={cn(
                     "rounded-full shrink-0 opacity-80 group-hover:opacity-100 transition-opacity",
                     isMobile ? "w-8 h-8" : "w-5 h-5"

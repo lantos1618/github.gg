@@ -2,6 +2,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* CLS Prevention: Ensure navbar height is consistent */
+:root {
+  --navbar-height: 3.5rem; /* 56px / h-14 */
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

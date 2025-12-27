@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { WrappedData } from '@/lib/types/wrapped';
 import { IntroSlide } from './slides/IntroSlide';
@@ -21,26 +21,17 @@ import { cn } from '@/lib/utils';
 interface WrappedStoryProps {
   data: WrappedData;
   onClose?: () => void;
-  autoAdvance?: boolean;
-  autoAdvanceInterval?: number;
 }
 
-const DEFAULT_AUTO_ADVANCE_MS = 8000;
-
-export function WrappedStory({ 
-  data, 
-  onClose, 
-  autoAdvance = true,
-  autoAdvanceInterval = DEFAULT_AUTO_ADVANCE_MS,
+export function WrappedStory({
+  data,
+  onClose,
 }: WrappedStoryProps) {
   const router = useRouter();
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const [progress, setProgress] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
-  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const userInfo = useMemo(() => ({
     username: data.username,
@@ -53,7 +44,7 @@ export function WrappedStory({
     const biggestDay = data.stats.commitPatterns?.biggestCommitDay;
     const lateNightCommits = data.stats.lateNightCommits;
     const fridayDeploys = data.stats.commitPatterns?.fridayDeploys || 0;
-    
+
     return !!(traumaEvent || shamefulCommit || biggestDay || lateNightCommits > 20 || fridayDeploys > 5);
   }, [data]);
 
@@ -88,8 +79,8 @@ export function WrappedStory({
       {
         id: 'languages',
         component: (
-          <LanguagesSlide 
-            languages={data.stats.languages} 
+          <LanguagesSlide
+            languages={data.stats.languages}
             user={userInfo}
             aiInsights={data.aiInsights}
           />
@@ -214,54 +205,19 @@ export function WrappedStory({
       return;
     }
     setCurrentSlide(index);
-    setProgress(0);
   }, [handleClose, SLIDE_COUNT]);
 
   const goNext = useCallback(() => goToSlide(currentSlide + 1), [currentSlide, goToSlide]);
   const goPrev = useCallback(() => goToSlide(currentSlide - 1), [currentSlide, goToSlide]);
 
-  const togglePause = useCallback(() => {
-    setIsPaused(prev => !prev);
-  }, []);
-
-  useEffect(() => {
-    if (!autoAdvance || isPaused || currentSlide >= SLIDE_COUNT - 1) {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-        progressIntervalRef.current = null;
-      }
-      return;
-    }
-
-    const progressStep = 100 / (autoAdvanceInterval / 50);
-    
-    progressIntervalRef.current = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          goNext();
-          return 0;
-        }
-        return prev + progressStep;
-      });
-    }, 50);
-
-    return () => {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-        progressIntervalRef.current = null;
-      }
-    };
-  }, [autoAdvance, isPaused, currentSlide, autoAdvanceInterval, goNext, SLIDE_COUNT]);
-
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       switch (e.key) {
         case 'ArrowRight':
-          goNext();
-          break;
         case ' ':
           e.preventDefault();
-          togglePause();
+          goNext();
           break;
         case 'ArrowLeft':
           goPrev();
@@ -274,7 +230,7 @@ export function WrappedStory({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goNext, goPrev, handleClose, togglePause]);
+  }, [goNext, goPrev, handleClose]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -301,13 +257,13 @@ export function WrappedStory({
     if (target.closest('button') || target.closest('a') || target.closest('[role="button"]')) {
       return;
     }
-    
+
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    
+
     const x = e.clientX - rect.left;
     const third = rect.width / 3;
-    
+
     if (x < third) {
       goPrev();
     } else {
@@ -323,6 +279,7 @@ export function WrappedStory({
       onTouchEnd={handleTouchEnd}
       onClick={handleClick}
     >
+      {/* Progress bar - shows completed slides */}
       <div className="absolute top-0 left-0 right-0 z-50 p-3 flex gap-1.5">
         {Array.from({ length: SLIDE_COUNT }).map((_, index) => (
           <div
@@ -333,38 +290,19 @@ export function WrappedStory({
               className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
               initial={{ width: 0 }}
               animate={{
-                width: index < currentSlide
-                  ? '100%'
-                  : index === currentSlide
-                  ? `${progress}%`
-                  : '0%',
+                width: index <= currentSlide ? '100%' : '0%',
               }}
               transition={{
-                duration: 0.05,
-                ease: 'linear',
+                duration: 0.3,
+                ease: 'easeOut',
               }}
             />
           </div>
         ))}
       </div>
 
-      <div className="absolute top-12 right-4 z-[60] flex gap-2">
-        {autoAdvance && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              togglePause();
-            }}
-            className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors"
-            title={isPaused ? 'Resume (Space)' : 'Pause (Space)'}
-          >
-            {isPaused ? (
-              <Play className="w-5 h-5 text-gray-700" />
-            ) : (
-              <Pause className="w-5 h-5 text-gray-700" />
-            )}
-          </button>
-        )}
+      {/* Close button */}
+      <div className="absolute top-12 right-4 z-[60]">
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -376,6 +314,7 @@ export function WrappedStory({
         </button>
       </div>
 
+      {/* Left arrow (desktop) */}
       <div className="hidden md:flex absolute inset-y-0 left-4 z-50 items-center">
         <button
           onClick={(e) => {
@@ -391,6 +330,7 @@ export function WrappedStory({
         </button>
       </div>
 
+      {/* Right arrow (desktop) */}
       <div className="hidden md:flex absolute inset-y-0 right-4 z-50 items-center">
         <button
           onClick={(e) => {
@@ -403,6 +343,7 @@ export function WrappedStory({
         </button>
       </div>
 
+      {/* Slide content */}
       <div className="flex-1 relative overflow-hidden pt-8">
         <AnimatePresence mode="wait">
           <motion.div
@@ -418,6 +359,7 @@ export function WrappedStory({
         </AnimatePresence>
       </div>
 
+      {/* Dot navigation */}
       <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-50">
         {Array.from({ length: SLIDE_COUNT }).map((_, index) => (
           <button

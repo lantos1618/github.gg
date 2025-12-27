@@ -1,4 +1,4 @@
-import { google } from '@ai-sdk/google';
+import { google, createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateObject, streamText } from 'ai';
 import { z } from 'zod';
 import type { WrappedStats, WrappedAIInsights } from '@/db/schema/wrapped';
@@ -39,6 +39,7 @@ export type GenerateWrappedInsightsParams = {
   rawData: WrappedRawData;
   year: number;
   includeRoast?: boolean;
+  apiKey?: string; // Optional custom API key (BYOK)
 };
 
 export type GenerateWrappedInsightsResult = {
@@ -56,6 +57,7 @@ export async function* generateWrappedInsightsStreaming({
   rawData,
   year,
   includeRoast = false,
+  apiKey,
 }: GenerateWrappedInsightsParams): AsyncGenerator<{
   type: 'progress' | 'complete' | 'stream';
   progress?: number;
@@ -64,6 +66,11 @@ export async function* generateWrappedInsightsStreaming({
   metadata?: { type: string; insight?: string };
   result?: GenerateWrappedInsightsResult;
 }> {
+  // Create model - use custom API key if provided (BYOK), otherwise use default
+  const googleProvider = apiKey
+    ? createGoogleGenerativeAI({ apiKey })
+    : google;
+  const model = googleProvider('gemini-2.0-flash');
   // Pre-analysis insights
   const sampleCommits = rawData.commits.slice(0, 10);
   const interestingCommits = sampleCommits.filter(c => {
@@ -115,7 +122,7 @@ export async function* generateWrappedInsightsStreaming({
 
   // Use streamText to actually stream the AI response
   const result = streamText({
-    model: google('gemini-3-flash'),
+    model,
     messages: [{ role: 'user', content: streamingPrompt }],
   });
 
@@ -206,7 +213,7 @@ export async function* generateWrappedInsightsStreaming({
     // If streaming JSON parse failed, fall back to generateObject
     console.warn('Failed to parse streamed JSON, falling back to generateObject', parseError);
     const { object, usage: fallbackUsage } = await generateObject({
-      model: google('gemini-3-flash'),
+      model,
       schema: wrappedInsightsSchema,
       messages: [{ role: 'user', content: streamingPrompt }],
     });
@@ -238,11 +245,18 @@ export async function generateWrappedInsights({
   rawData,
   year,
   includeRoast = false,
+  apiKey,
 }: GenerateWrappedInsightsParams): Promise<GenerateWrappedInsightsResult> {
+  // Create model - use custom API key if provided (BYOK), otherwise use default
+  const googleProvider = apiKey
+    ? createGoogleGenerativeAI({ apiKey })
+    : google;
+  const model = googleProvider('gemini-2.0-flash');
+
   const prompt = buildPrompt(username, stats, rawData, year, includeRoast);
 
   const { object, usage } = await generateObject({
-    model: google('gemini-3-flash'),
+    model,
     schema: wrappedInsightsSchema,
     messages: [{ role: 'user', content: prompt }],
   });

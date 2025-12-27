@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WrappedSlide } from '../WrappedSlide';
+import { WrappedSlide, WRAPPED_THEME, WRAPPED_STYLES } from '../WrappedSlide';
 
 interface IntroSlideProps {
   year: number;
@@ -11,8 +11,8 @@ interface IntroSlideProps {
 }
 
 const DRAMATIC_LINES = [
-  "You wrote code this year.",
-  "Some of it was... interesting.",
+  'You wrote code this year.',
+  'Some of it was... interesting.',
   "Let's talk about it.",
 ];
 
@@ -44,11 +44,7 @@ export function IntroSlide({ year, username, avatarUrl }: IntroSlideProps) {
   const userAvatarUrl = avatarUrl || `https://avatars.githubusercontent.com/${username}`;
 
   return (
-    <WrappedSlide
-      gradientFrom="#030712"
-      gradientVia="#0f172a"
-      gradientTo="#030712"
-    >
+    <WrappedSlide glowPosition="center">
       <div className="text-center space-y-8 relative min-h-[70vh] flex flex-col items-center justify-center">
         <AnimatePresence mode="wait">
           {(phase === 'year' || phase === 'shatter') && (
@@ -60,22 +56,19 @@ export function IntroSlide({ year, username, avatarUrl }: IntroSlideProps) {
             >
               <motion.h1
                 initial={{ opacity: 0, scale: 0.3, rotateX: 90 }}
-                animate={{ 
-                  opacity: phase === 'shatter' ? 0 : 1, 
+                animate={{
+                  opacity: phase === 'shatter' ? 0 : 1,
                   scale: phase === 'shatter' ? 2 : 1,
                   rotateX: 0,
                 }}
-                transition={{ 
+                transition={{
                   duration: phase === 'shatter' ? 0.4 : 0.8,
                   type: 'spring',
                   stiffness: 100,
                 }}
-                className="text-[10rem] md:text-[14rem] font-black leading-none tracking-tighter"
-                style={{ 
-                  background: 'linear-gradient(180deg, #ffffff 0%, #a855f7 50%, #6366f1 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  filter: 'drop-shadow(0 0 60px rgba(168, 85, 247, 0.5))',
+                className="text-[10rem] md:text-[14rem] font-black leading-none tracking-tighter bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent"
+                style={{
+                  filter: 'drop-shadow(0 0 60px rgba(139, 92, 246, 0.3))',
                 }}
               >
                 {year}
@@ -87,19 +80,19 @@ export function IntroSlide({ year, username, avatarUrl }: IntroSlideProps) {
                     <motion.span
                       key={fragment.id}
                       initial={{ opacity: 1, x: 0, y: 0, rotate: 0, scale: 1 }}
-                      animate={{ 
+                      animate={{
                         opacity: 0,
                         x: fragment.x,
                         y: fragment.y,
                         rotate: fragment.rotation,
                         scale: fragment.scale,
                       }}
-                      transition={{ 
+                      transition={{
                         duration: 0.6,
                         delay: fragment.delay,
                         ease: 'easeOut',
                       }}
-                      className="absolute text-xl md:text-3xl font-mono text-purple-400/80"
+                      className="absolute text-xl md:text-3xl font-mono text-violet-500/60"
                     >
                       {fragment.char}
                     </motion.span>
@@ -109,16 +102,16 @@ export function IntroSlide({ year, username, avatarUrl }: IntroSlideProps) {
 
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ 
-                  opacity: [0.3, 0.6, 0.3],
+                animate={{
+                  opacity: [0.2, 0.4, 0.2],
                   scale: [1, 1.1, 1],
                 }}
-                transition={{ 
+                transition={{
                   duration: 2,
                   repeat: Infinity,
                   ease: 'easeInOut',
                 }}
-                className="absolute inset-0 blur-[100px] bg-gradient-to-r from-purple-600/40 via-pink-500/40 to-indigo-600/40 -z-10"
+                className="absolute inset-0 blur-[100px] bg-violet-500/15 -z-10"
               />
             </motion.div>
           )}
@@ -145,11 +138,12 @@ export function IntroSlide({ year, username, avatarUrl }: IntroSlideProps) {
                   <img
                     src={userAvatarUrl}
                     alt={username}
-                    className="w-24 h-24 md:w-28 md:h-28 rounded-full border-4 border-purple-500/50"
-                    style={{ boxShadow: '0 0 50px rgba(168, 85, 247, 0.5)' }}
+                    width={96}
+                    height={96}
+                    className="w-20 h-20 md:w-24 md:h-24 rounded-full border-2 border-white ring-4 ring-violet-500/20 shadow-xl"
                   />
                   <motion.div
-                    className="absolute inset-0 rounded-full border-2 border-purple-400/50"
+                    className="absolute inset-0 rounded-full border-2 border-violet-400/30"
                     animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
                     transition={{ duration: 2, repeat: Infinity }}
                   />
@@ -158,7 +152,7 @@ export function IntroSlide({ year, username, avatarUrl }: IntroSlideProps) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.4 }}
-                  className="text-purple-300 text-xl font-medium"
+                  className="text-violet-600 text-lg font-semibold"
                 >
                   @{username}
                 </motion.p>
@@ -171,12 +165,12 @@ export function IntroSlide({ year, username, avatarUrl }: IntroSlideProps) {
                     initial={{ opacity: 0, y: 20, filter: 'blur(10px)' }}
                     animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                     transition={{ delay: 0.05 * index, duration: 0.4 }}
-                    className={`text-2xl md:text-3xl ${
-                      index === DRAMATIC_LINES.length - 1 
-                        ? 'text-white font-bold' 
-                        : index === 1 
-                        ? 'text-gray-400 italic'
-                        : 'text-gray-300'
+                    className={`text-xl md:text-2xl ${
+                      index === DRAMATIC_LINES.length - 1
+                        ? 'text-slate-800 font-semibold'
+                        : index === 1
+                        ? 'text-slate-500 italic'
+                        : 'text-slate-600'
                     }`}
                   >
                     {line}
@@ -188,33 +182,33 @@ export function IntroSlide({ year, username, avatarUrl }: IntroSlideProps) {
                 initial={{ opacity: 0, scale: 0.5 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.6, type: 'spring' }}
-                className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-purple-900/50 to-indigo-900/50 border border-purple-500/30 backdrop-blur-sm"
+                className="inline-flex items-center gap-3 px-6 py-3 rounded-xl bg-white/80 border border-slate-200/60 backdrop-blur-sm shadow-lg"
               >
-                <span className="text-4xl md:text-5xl font-black bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 bg-clip-text text-transparent">
+                <span className="text-3xl md:text-4xl font-black bg-gradient-to-br from-violet-600 to-indigo-600 bg-clip-text text-transparent">
                   {year}
                 </span>
                 <div className="text-left">
-                  <p className="text-white font-semibold text-lg">GitHub Wrapped</p>
-                  <p className="text-purple-300 text-sm">Your year in review</p>
+                  <p className="text-slate-800 font-semibold">GitHub Wrapped</p>
+                  <p className="text-slate-500 text-sm">Your year in review</p>
                 </div>
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
 
+        {/* Floating code symbols */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
-          {Array.from({ length: 30 }).map((_, i) => (
+          {Array.from({ length: 20 }).map((_, i) => (
             <motion.div
               key={i}
-              className="absolute text-purple-500/20 font-mono text-sm"
+              className="absolute text-violet-500/20 font-mono text-sm"
               style={{
                 left: `${Math.random() * 100}%`,
                 top: `${Math.random() * 100}%`,
               }}
               animate={{
-                y: [0, -30, 0],
-                opacity: [0.1, 0.3, 0.1],
-                rotate: [0, 10, 0],
+                y: [0, -20, 0],
+                opacity: [0.1, 0.25, 0.1],
               }}
               transition={{
                 duration: 3 + Math.random() * 3,
@@ -224,23 +218,6 @@ export function IntroSlide({ year, username, avatarUrl }: IntroSlideProps) {
             >
               {['<>', '//', '{}', '[]', '()', '=>', '&&', '||'][Math.floor(Math.random() * 8)]}
             </motion.div>
-          ))}
-        </div>
-
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {[...Array(3)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-full h-px bg-gradient-to-r from-transparent via-purple-500/40 to-transparent"
-              style={{ top: `${30 + i * 20}%` }}
-              initial={{ x: '-100%', opacity: 0 }}
-              animate={{ x: '200%', opacity: [0, 1, 0] }}
-              transition={{
-                duration: 2,
-                delay: 1 + i * 0.3,
-                ease: 'easeInOut',
-              }}
-            />
           ))}
         </div>
       </div>

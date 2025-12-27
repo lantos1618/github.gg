@@ -33,12 +33,15 @@ export type WrappedGenerationState = {
   starRequired: boolean;
   repoUrl: string | null;
   cached: boolean;
+  aiStreamText: string; // Accumulated AI streaming text
+  isAiStreaming: boolean; // Whether AI is currently streaming
 };
 
 export type GenerationOptions = {
   withAI?: boolean;
   includeRoast?: boolean;
   force?: boolean;
+  tempApiKey?: string; // Temporary API key for this session only (not stored)
 };
 
 type WrappedEvent = {
@@ -74,6 +77,8 @@ export function useWrappedGeneration(year?: number) {
     starRequired: false,
     repoUrl: null,
     cached: false,
+    aiStreamText: '',
+    isAiStreaming: false,
   });
 
   const unsubscribeRef = useRef<(() => void) | null>(null);
@@ -103,6 +108,8 @@ export function useWrappedGeneration(year?: number) {
       starRequired: false,
       repoUrl: null,
       cached: false,
+      aiStreamText: '',
+      isAiStreaming: false,
     });
 
     const targetYear = year || new Date().getFullYear();
@@ -113,6 +120,7 @@ export function useWrappedGeneration(year?: number) {
         withAI: options?.withAI ?? false,
         includeRoast: options?.includeRoast ?? false,
         force: options?.force ?? false,
+        tempApiKey: options?.tempApiKey,
       },
       {
         onData: (rawEvent) => {
@@ -122,15 +130,27 @@ export function useWrappedGeneration(year?: number) {
             setState((prev) => {
               const newMessage = event.message ?? prev.message;
               const newProgress = event.progress ?? prev.progress;
-              const shouldAddLog = newMessage !== prev.message;
+              const isStreaming = event.metadata?.streaming === true;
+              const textChunk = event.metadata?.textChunk;
+
+              // Don't add log entries for streaming chunks - they clutter the log
+              const shouldAddLog = newMessage !== prev.message && !isStreaming;
+
+              // Accumulate streaming text
+              const newAiStreamText = isStreaming && textChunk
+                ? prev.aiStreamText + textChunk
+                : prev.aiStreamText;
+
               return {
                 ...prev,
                 progress: newProgress,
                 message: newMessage,
-                logs: shouldAddLog 
-                  ? [...prev.logs, { 
-                      message: newMessage, 
-                      progress: newProgress, 
+                aiStreamText: newAiStreamText,
+                isAiStreaming: isStreaming,
+                logs: shouldAddLog
+                  ? [...prev.logs, {
+                      message: newMessage,
+                      progress: newProgress,
                       timestamp: Date.now(),
                       metadata: event.metadata,
                     }]
@@ -146,6 +166,7 @@ export function useWrappedGeneration(year?: number) {
               data: event.data ?? null,
               isLoading: false,
               cached: event.cached ?? false,
+              isAiStreaming: false,
             }));
             cleanup();
           } else if (event.type === 'star_required') {
@@ -195,6 +216,8 @@ export function useWrappedGeneration(year?: number) {
       starRequired: false,
       repoUrl: null,
       cached: false,
+      aiStreamText: '',
+      isAiStreaming: false,
     });
   }, [cleanup]);
 

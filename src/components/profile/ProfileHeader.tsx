@@ -19,17 +19,20 @@ interface ProfileHeaderProps {
 
 export function ProfileHeader({ username, profile, totalScore, arenaRanking, profileStyles, children }: ProfileHeaderProps) {
   const isKnottedBrains = username.toLowerCase() === 'knottedbrains';
-  const isCracked = totalScore >= 80 || isKnottedBrains;
+  const isCracked = totalScore >= 85 || isKnottedBrains;
+  const isElite = totalScore >= 90; // Red tier for 90+
 
   return (
     <div className="flex gap-8">
       <div className="relative">
-        <Avatar 
+        <Avatar
           className={`h-24 w-24 border-2 shadow-sm ${
-            isKnottedBrains 
-              ? 'border-pink-400 ring-4 ring-pink-400/30' 
-              : isCracked 
-                ? 'border-yellow-500 ring-4 ring-yellow-500/20' 
+            isKnottedBrains
+              ? 'border-pink-400 ring-4 ring-pink-400/30'
+              : isElite
+                ? 'border-red-500 ring-4 ring-red-500/20'
+              : isCracked
+                ? 'border-yellow-500 ring-4 ring-yellow-500/20'
                 : 'border-gray-200'
           }`}
           style={profileStyles?.primaryColor ? { borderColor: profileStyles.primaryColor } : undefined}
@@ -38,8 +41,8 @@ export function ProfileHeader({ username, profile, totalScore, arenaRanking, pro
           <AvatarFallback className="text-2xl bg-gray-50 text-gray-500">{username?.[0]?.toUpperCase()}</AvatarFallback>
         </Avatar>
         {isCracked && (
-          <div 
-            className={`absolute -bottom-2 -right-2 ${isKnottedBrains ? 'bg-pink-400' : 'bg-yellow-500'} text-white p-1.5 rounded-full border-2 border-white shadow-md`}
+          <div
+            className={`absolute -bottom-2 -right-2 ${isKnottedBrains ? 'bg-pink-400' : isElite ? 'bg-red-500' : 'bg-yellow-500'} text-white p-1.5 rounded-full border-2 border-white shadow-md`}
             style={profileStyles?.primaryColor ? { backgroundColor: profileStyles.primaryColor } : undefined}
           >
             {isKnottedBrains ? <Heart className="h-4 w-4 fill-current" /> : <Flame className="h-4 w-4 fill-current" />}
@@ -58,20 +61,22 @@ export function ProfileHeader({ username, profile, totalScore, arenaRanking, pro
             {username}
           </a>
           {isCracked && (
-            <Badge 
-              className={`${isKnottedBrains ? 'bg-pink-400 hover:bg-pink-500' : 'bg-yellow-500 hover:bg-yellow-600'} text-white border-none px-3 py-1 text-sm font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5`}
+            <Badge
+              className={`${isKnottedBrains ? 'bg-pink-400 hover:bg-pink-500' : isElite ? 'bg-red-500 hover:bg-red-600' : 'bg-yellow-500 hover:bg-yellow-600'} text-white border-none px-3 py-1 text-sm font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5`}
               style={profileStyles?.primaryColor ? { backgroundColor: profileStyles.primaryColor } : undefined}
             >
               <Flame className="h-3.5 w-3.5 fill-current" />
               CRACKED
             </Badge>
           )}
-          <div 
+          <div
             className={`flex items-center gap-2 px-3 py-1 rounded-full border ${
             isKnottedBrains
               ? 'bg-pink-50 border-pink-200 text-pink-800'
-              : isCracked 
-                ? 'bg-yellow-50 border-yellow-200 text-yellow-800' 
+              : isElite
+                ? 'bg-red-50 border-red-200 text-red-800'
+              : isCracked
+                ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
                 : 'bg-gray-50 border-gray-200 text-gray-900'
             }`}
             style={profileStyles?.primaryColor ? { borderColor: profileStyles.primaryColor, color: profileStyles.primaryColor, backgroundColor: `${profileStyles.primaryColor}10` } : undefined}

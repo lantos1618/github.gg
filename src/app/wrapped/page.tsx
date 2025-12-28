@@ -134,7 +134,7 @@ export default function WrappedLandingPage() {
     );
   }
 
-  // Show completion screen when data is ready
+  // Show completion screen when data is ready (with log)
   if (data) {
     return (
       <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col items-center justify-center p-6 relative overflow-hidden">
@@ -144,40 +144,87 @@ export default function WrappedLandingPage() {
         </div>
 
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md w-full text-center space-y-8 relative z-10"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-2xl w-full space-y-6 relative z-10"
         >
+          {/* Terminal log */}
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-            className="text-8xl"
+            className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xl"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
           >
-            🎉
+            <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 border-b border-gray-200">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-green-400" />
+                <div className="w-3 h-3 rounded-full bg-green-400" />
+                <div className="w-3 h-3 rounded-full bg-green-400" />
+              </div>
+              <div className="flex-1 text-center">
+                <span className="text-xs text-gray-500 font-mono">wrapped-generator — complete</span>
+              </div>
+              <div className="w-16" />
+            </div>
+
+            <div className="p-4 font-mono text-sm max-h-48 overflow-y-auto">
+              {logs.map((log, index) => (
+                <div key={`${log.timestamp}-${index}`} className="mb-2">
+                  <div className="flex items-start gap-2">
+                    <span className="text-green-500 select-none">✓</span>
+                    <span className="text-gray-600">{log.message}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-full w-full bg-gradient-to-r from-purple-500 to-cyan-500 rounded-full" />
+                </div>
+                <span className="text-xs font-mono text-green-600 font-medium">100%</span>
+              </div>
+            </div>
           </motion.div>
 
-          <div className="space-y-2">
-            <h1 className="text-4xl font-black bg-gradient-to-r from-purple-600 via-cyan-500 to-purple-600 bg-clip-text text-transparent">
-              Your Wrapped is Ready!
-            </h1>
-            <p className="text-gray-600">
-              {data.stats.totalCommits.toLocaleString()} commits analyzed
-            </p>
-          </div>
-
-          <Button
-            onClick={() => router.push(`/wrapped/${data.year}/${data.username}`)}
-            size="lg"
-            className="w-full h-16 text-xl font-bold bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white transition-all shadow-lg"
+          {/* Completion card */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white border border-gray-200 rounded-xl p-6 shadow-xl text-center space-y-4"
           >
-            <Sparkles className="w-6 h-6 mr-2" />
-            View My Wrapped
-          </Button>
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.3 }}
+              className="text-6xl"
+            >
+              🎉
+            </motion.div>
 
-          <p className="text-xs text-gray-500">
-            {cached ? 'Loaded from cache' : 'Freshly generated just for you'}
-          </p>
+            <div className="space-y-1">
+              <h1 className="text-3xl font-black bg-gradient-to-r from-purple-600 via-cyan-500 to-purple-600 bg-clip-text text-transparent">
+                Your Wrapped is Ready!
+              </h1>
+              <p className="text-gray-600">
+                {data.stats.totalCommits.toLocaleString()} commits analyzed
+              </p>
+            </div>
+
+            <Button
+              onClick={() => router.push(`/wrapped/${data.year}/${data.username}`)}
+              size="lg"
+              className="w-full h-14 text-lg font-bold bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white transition-all shadow-lg"
+            >
+              <Sparkles className="w-5 h-5 mr-2" />
+              View My Wrapped
+            </Button>
+
+            <p className="text-xs text-gray-500">
+              {cached ? 'Loaded from cache' : 'Freshly generated just for you'}
+            </p>
+          </motion.div>
         </motion.div>
 
         <FloatingParticles />

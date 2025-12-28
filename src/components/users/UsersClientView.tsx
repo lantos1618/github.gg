@@ -6,11 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Search, Sparkles, ArrowUpDown, ChevronLeft, ChevronRight, Trophy, Flame } from 'lucide-react';
+import { Search, Sparkles, ArrowUpDown, ChevronLeft, ChevronRight, Trophy, Flame, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import { LoadingPage } from '@/components/common';
+import { getCrackedInfo } from '@/lib/utils/cracked';
 
 type SortField = 'date' | 'score' | 'username' | 'elo' | 'tokens';
 type SortOrder = 'asc' | 'desc';
@@ -175,8 +176,8 @@ export function UsersClientView({ initialProfiles, initialLeaderboard }: UsersCl
                           (profileData.skillAssessment.reduce((acc, skill) => acc + skill.score, 0) / profileData.skillAssessment.length) * 10
                         )
                       : null;
-                    const isKnottedBrains = profile.username.toLowerCase() === 'knottedbrains';
-                    const isCracked = (avgScore ?? 0) >= 80 || isKnottedBrains;
+                    const crackedInfo = getCrackedInfo(avgScore ?? 0, profile.username);
+                    const isSpecial = profile.username.toLowerCase() === 'knottedbrains';
 
                     return (
                       <tr key={`${profile.username}-${profile.version}`} className="group hover:bg-gray-50/50 transition-colors">
@@ -194,9 +195,9 @@ export function UsersClientView({ initialProfiles, initialLeaderboard }: UsersCl
                                 <p className="font-bold text-black text-base group-hover:text-blue-600 transition-colors">
                                   {profile.username}
                                 </p>
-                                {isCracked && (
-                                  <Badge className={`${isKnottedBrains ? 'bg-pink-400 hover:bg-pink-500' : 'bg-yellow-500 hover:bg-yellow-600'} text-white border-none px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1`}>
-                                    <Flame className="h-3 w-3 fill-current" />
+                                {crackedInfo.isCracked && (
+                                  <Badge className={`${crackedInfo.colors.bg} ${crackedInfo.colors.bgHover} text-white border-none px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1`}>
+                                    {isSpecial ? <Heart className="h-3 w-3 fill-current" /> : <Flame className="h-3 w-3 fill-current" />}
                                     Cracked
                                   </Badge>
                                 )}

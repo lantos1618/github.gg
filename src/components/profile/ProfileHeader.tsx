@@ -2,6 +2,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Trophy, Flame, Heart, Info } from 'lucide-react';
 import { getArchetypeInfo } from './constants';
+import { getCrackedInfo } from '@/lib/utils/cracked';
 import type { DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
 import type { ReactNode } from 'react';
 
@@ -18,37 +19,29 @@ interface ProfileHeaderProps {
 }
 
 export function ProfileHeader({ username, profile, totalScore, arenaRanking, profileStyles, children }: ProfileHeaderProps) {
-  const isKnottedBrains = username.toLowerCase() === 'knottedbrains';
-  const isCracked = totalScore >= 80 || isKnottedBrains; // 80+ = cracked
-  const isGold = totalScore >= 85 && totalScore < 90; // 85-89 = gold
-  const isElite = totalScore >= 90; // 90+ = red (god tier)
+  const crackedInfo = getCrackedInfo(totalScore, username);
+  const isSpecial = username.toLowerCase() === 'knottedbrains';
 
   return (
     <div className="flex gap-8">
       <div className="relative">
         <Avatar
           className={`h-24 w-24 border-2 shadow-sm ${
-            isKnottedBrains
-              ? 'border-pink-400 ring-4 ring-pink-400/30'
-              : isElite
-                ? 'border-red-500 ring-4 ring-red-500/20'
-              : isGold
-                ? 'border-yellow-500 ring-4 ring-yellow-500/20'
-              : isCracked
-                ? 'border-slate-400 ring-4 ring-slate-400/20'
-                : 'border-gray-200'
+            crackedInfo.isCracked
+              ? `${crackedInfo.colors.border} ring-4 ${crackedInfo.colors.ring}`
+              : 'border-gray-200'
           }`}
           style={profileStyles?.primaryColor ? { borderColor: profileStyles.primaryColor } : undefined}
         >
           <AvatarImage src={`https://avatars.githubusercontent.com/${username}`} alt={username} />
           <AvatarFallback className="text-2xl bg-gray-50 text-gray-500">{username?.[0]?.toUpperCase()}</AvatarFallback>
         </Avatar>
-        {isCracked && (
+        {crackedInfo.isCracked && (
           <div
-            className={`absolute -bottom-2 -right-2 ${isKnottedBrains ? 'bg-pink-400' : isElite ? 'bg-red-500' : isGold ? 'bg-yellow-500' : 'bg-slate-400'} text-white p-1.5 rounded-full border-2 border-white shadow-md`}
+            className={`absolute -bottom-2 -right-2 ${crackedInfo.colors.bg} text-white p-1.5 rounded-full border-2 border-white shadow-md`}
             style={profileStyles?.primaryColor ? { backgroundColor: profileStyles.primaryColor } : undefined}
           >
-            {isKnottedBrains ? <Heart className="h-4 w-4 fill-current" /> : <Flame className="h-4 w-4 fill-current" />}
+            {isSpecial ? <Heart className="h-4 w-4 fill-current" /> : <Flame className="h-4 w-4 fill-current" />}
           </div>
         )}
       </div>
@@ -63,25 +56,19 @@ export function ProfileHeader({ username, profile, totalScore, arenaRanking, pro
           >
             {username}
           </a>
-          {isCracked && (
+          {crackedInfo.isCracked && (
             <Badge
-              className={`${isKnottedBrains ? 'bg-pink-400 hover:bg-pink-500' : isElite ? 'bg-red-500 hover:bg-red-600' : isGold ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-slate-400 hover:bg-slate-500'} text-white border-none px-3 py-1 text-sm font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5`}
+              className={`${crackedInfo.colors.bg} ${crackedInfo.colors.bgHover} text-white border-none px-3 py-1 text-sm font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5`}
               style={profileStyles?.primaryColor ? { backgroundColor: profileStyles.primaryColor } : undefined}
             >
-              <Flame className="h-3.5 w-3.5 fill-current" />
+              {isSpecial ? <Heart className="h-3.5 w-3.5 fill-current" /> : <Flame className="h-3.5 w-3.5 fill-current" />}
               CRACKED
             </Badge>
           )}
           <div
             className={`flex items-center gap-2 px-3 py-1 rounded-full border ${
-            isKnottedBrains
-              ? 'bg-pink-50 border-pink-200 text-pink-800'
-              : isElite
-                ? 'bg-red-50 border-red-200 text-red-800'
-              : isGold
-                ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
-              : isCracked
-                ? 'bg-slate-100 border-slate-300 text-slate-700'
+              crackedInfo.isCracked
+                ? `${crackedInfo.colors.bgLight} ${crackedInfo.colors.borderLight} ${crackedInfo.colors.textLight}`
                 : 'bg-gray-50 border-gray-200 text-gray-900'
             }`}
             style={profileStyles?.primaryColor ? { borderColor: profileStyles.primaryColor, color: profileStyles.primaryColor, backgroundColor: `${profileStyles.primaryColor}10` } : undefined}

@@ -55,12 +55,7 @@ export default function WrappedLandingPage() {
     setStarCheckPassed(false);
   }, [reset]);
 
-  useEffect(() => {
-    if (data) {
-      // Navigate directly to wrapped slides, skipping the reveal screen
-      router.replace(`/wrapped/${data.year}/${data.username}`);
-    }
-  }, [data, router]);
+  // No auto-redirect - let user click to view
 
   const handleStartGeneration = (force = false) => {
     setHasStarted(true);
@@ -139,9 +134,55 @@ export default function WrappedLandingPage() {
     );
   }
 
-  // If data is ready, don't render anything - navigation will happen
+  // Show completion screen when data is ready
   if (data) {
-    return null;
+    return (
+      <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-[120px] animate-pulse" />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }} />
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-md w-full text-center space-y-8 relative z-10"
+        >
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+            className="text-8xl"
+          >
+            🎉
+          </motion.div>
+
+          <div className="space-y-2">
+            <h1 className="text-4xl font-black bg-gradient-to-r from-purple-600 via-cyan-500 to-purple-600 bg-clip-text text-transparent">
+              Your Wrapped is Ready!
+            </h1>
+            <p className="text-gray-600">
+              {data.stats.totalCommits.toLocaleString()} commits analyzed
+            </p>
+          </div>
+
+          <Button
+            onClick={() => router.push(`/wrapped/${data.year}/${data.username}`)}
+            size="lg"
+            className="w-full h-16 text-xl font-bold bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700 text-white transition-all shadow-lg"
+          >
+            <Sparkles className="w-6 h-6 mr-2" />
+            View My Wrapped
+          </Button>
+
+          <p className="text-xs text-gray-500">
+            {cached ? 'Loaded from cache' : 'Freshly generated just for you'}
+          </p>
+        </motion.div>
+
+        <FloatingParticles />
+      </div>
+    );
   }
 
   if (generating || hasStarted) {
@@ -427,50 +468,44 @@ export default function WrappedLandingPage() {
           transition={{ delay: 0.45 }}
           className="max-w-md mx-auto"
         >
-          {isPaidUser ? (
-            <div className="bg-gradient-to-r from-purple-50 to-cyan-50 border border-purple-200 rounded-xl p-4 shadow-sm">
+          <div className={`${isPaidUser ? 'bg-gradient-to-r from-purple-50 to-cyan-50 border-purple-200' : 'bg-white border-gray-200'} border rounded-xl p-4 shadow-sm`}>
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-purple-600" />
-                <span className="text-sm font-semibold text-purple-800">AI Insights Enabled</span>
-                <span className="ml-auto text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full font-medium">Pro</span>
-              </div>
-              <p className="text-xs text-purple-600 mt-2">
-                Your wrapped will include personalized AI analysis
-              </p>
-            </div>
-          ) : (
-            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-purple-600" />
-                  <span className="text-sm font-semibold text-gray-800">AI Insights</span>
-                </div>
-                {tempApiKey && (
-                  <span className="text-xs text-green-600 font-medium">✓ Ready</span>
+                <span className={`text-sm font-semibold ${isPaidUser ? 'text-purple-800' : 'text-gray-800'}`}>
+                  AI Insights
+                </span>
+                {isPaidUser && (
+                  <span className="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full font-medium">Pro</span>
                 )}
               </div>
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  value={tempApiKey}
-                  onChange={(e) => setTempApiKey(e.target.value)}
-                  placeholder="Paste your Gemini API key..."
-                  className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div className="flex items-center justify-between mt-2">
-                <span className="text-xs text-gray-400">Temporary, not stored</span>
-                <a
-                  href="https://aistudio.google.com/apikey"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1"
-                >
-                  Get free key <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
+              {(isPaidUser || tempApiKey) && (
+                <span className="text-xs text-green-600 font-medium">✓ Ready</span>
+              )}
             </div>
-          )}
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={tempApiKey}
+                onChange={(e) => setTempApiKey(e.target.value)}
+                placeholder={isPaidUser ? "Optional: use your own key..." : "Paste your Gemini API key..."}
+                className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs text-gray-400">
+                {isPaidUser ? (tempApiKey ? 'Using your key' : 'Using Pro key') : 'Temporary, not stored'}
+              </span>
+              <a
+                href="https://aistudio.google.com/apikey"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1"
+              >
+                Get free key <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          </div>
         </motion.div>
 
         <motion.div
@@ -495,7 +530,8 @@ export default function WrappedLandingPage() {
                 onClick={() => handleStartGeneration(true)}
                 variant="outline"
                 size="lg"
-                className="w-full h-12 border-gray-300 text-gray-700 hover:bg-gray-100"
+                disabled={!isPaidUser && !tempApiKey}
+                className="w-full h-12 border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Regenerate {cacheStatus && 'hoursAgo' in cacheStatus && (() => {
@@ -506,20 +542,32 @@ export default function WrappedLandingPage() {
                   return '(last: just now)';
                 })()}
               </Button>
+              {!isPaidUser && !tempApiKey && (
+                <p className="text-xs text-amber-600 mt-2">
+                  Add your Gemini API key above to regenerate with AI
+                </p>
+              )}
             </>
           ) : (
             <>
               <Button
                 onClick={() => handleStartGeneration(false)}
                 size="lg"
-                className="w-full h-16 text-xl font-bold bg-gray-900 hover:bg-gray-800 text-white transition-all"
+                disabled={!isPaidUser && !tempApiKey}
+                className="w-full h-16 text-xl font-bold bg-gray-900 hover:bg-gray-800 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Sparkles className="w-6 h-6 mr-2" />
                 Unwrap My Year
               </Button>
-              <p className="text-xs text-gray-500">
-                Takes about 30 seconds to generate
-              </p>
+              {!isPaidUser && !tempApiKey ? (
+                <p className="text-xs text-amber-600">
+                  Add your Gemini API key above to enable AI insights
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500">
+                  Takes about 30 seconds to generate
+                </p>
+              )}
             </>
           )}
         </motion.div>

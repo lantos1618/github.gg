@@ -47,6 +47,77 @@ export class WrappedService {
     this.year = year;
   }
 
+  /**
+   * Fetch contribution calendar data using GitHub's GraphQL API
+   * This gives us accurate daily contribution counts without the 1000 result limit
+   */
+  private async fetchContributionCalendarGraphQL(username: string): Promise<Record<string, number>> {
+    const calendar: Record<string, number> = {};
+    const fromDate = `${this.year}-01-01T00:00:00Z`;
+    const toDate = `${this.year}-12-31T23:59:59Z`;
+
+    const query = `
+      query($username: String!, $from: DateTime!, $to: DateTime!) {
+        user(login: $username) {
+          contributionsCollection(from: $from, to: $to) {
+            contributionCalendar {
+              weeks {
+                contributionDays {
+                  date
+                  contributionCount
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      // Check if graphql method exists (Octokit REST v19+ supports it)
+      if (typeof this.octokit.graphql !== 'function') {
+        console.warn('⚠️ Octokit GraphQL not available, will use Search API for calendar');
+        return {};
+      }
+
+      const response = await this.octokit.graphql<{
+        user: {
+          contributionsCollection: {
+            contributionCalendar: {
+              weeks: Array<{
+                contributionDays: Array<{
+                  date: string;
+                  contributionCount: number;
+                }>;
+              }>;
+            };
+          } | null;
+        } | null;
+      }>(query, {
+        username,
+        from: fromDate,
+        to: toDate,
+      });
+
+      if (response?.user?.contributionsCollection?.contributionCalendar) {
+        for (const week of response.user.contributionsCollection.contributionCalendar.weeks) {
+          for (const day of week.contributionDays) {
+            const dateKey = day.date.split('T')[0]; // Convert to YYYY-MM-DD
+            calendar[dateKey] = day.contributionCount;
+          }
+        }
+        console.log(`✅ Fetched contribution calendar via GraphQL: ${Object.keys(calendar).length} days with contributions`);
+      } else {
+        console.warn('⚠️ GraphQL contributionsCollection returned null - user may not exist or have no contributions');
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to fetch contribution calendar via GraphQL, falling back to Search API:', error);
+      // Return empty calendar - will be filled by Search API method
+    }
+
+    return calendar;
+  }
+
   async hasStarredGithubGG(): Promise<boolean> {
     try {
       await this.octokit.rest.activity.checkRepoIsStarredByAuthenticatedUser({
@@ -138,9 +209,11 @@ export class WrappedService {
   ): Promise<{ stats: WrappedStats; rawData: WrappedRawData }> {
     onProgress?.('🔍 Scanning the GitHub universe for your commits...', { type: 'init' });
     
-    const [commitResult, pullRequests] = await Promise.all([
+    // Fetch contribution calendar via GraphQL (more accurate, no 1000 limit) in parallel with commits
+    const [commitResult, pullRequests, graphQLCalendar] = await Promise.all([
       this.searchUserCommits(username),
       this.searchUserPRs(username),
+      this.fetchContributionCalendarGraphQL(username).catch(() => ({}) as Record<string, number>),
     ]);
     
     const commits = commitResult.commits;
@@ -205,8 +278,17 @@ export class WrappedService {
     const repoData = new Map<string, { language: string | null; stars: number; owner: string }>();
     const languageCounts = new Map<string, number>();
     const commitDates = new Set<string>();
-    // Contribution calendar: map of date strings (YYYY-MM-DD) to commit counts
+    // Contribution calendar: start with GraphQL data if available (more accurate), otherwise build from commits
     const contributionCalendar = new Map<string, number>();
+    
+    // Initialize calendar from GraphQL data (has all days, more accurate counts)
+    if (Object.keys(graphQLCalendar).length > 0) {
+      for (const [date, count] of Object.entries(graphQLCalendar)) {
+        contributionCalendar.set(date, count);
+        if (count > 0) commitDates.add(date);
+      }
+      console.log(`✅ Using GraphQL contribution calendar with ${Object.keys(graphQLCalendar).length} days`);
+    }
 
     let lateNightCommits = 0;
     let weekendCommits = 0;
@@ -230,8 +312,12 @@ export class WrappedService {
       commitsByMonth[month]++;
       const dateKey = dateStr.split('T')[0];
       commitDates.add(dateKey);
-      // Track contributions per day for calendar heatmap
-      contributionCalendar.set(dateKey, (contributionCalendar.get(dateKey) || 0) + 1);
+      
+      // If we don't have GraphQL calendar data, build it from commits
+      // Otherwise, keep GraphQL data as it's more accurate (includes all contribution types)
+      if (Object.keys(graphQLCalendar).length === 0) {
+        contributionCalendar.set(dateKey, (contributionCalendar.get(dateKey) || 0) + 1);
+      }
 
       if (localHour >= 0 && localHour < 5) lateNightCommits++;
       if (day === 0 || day === 6) weekendCommits++;
@@ -409,46 +495,108 @@ export class WrappedService {
 
   private async searchUserCommits(username: string): Promise<{ commits: SearchCommitItem[]; totalCount: number }> {
     const allCommits: SearchCommitItem[] = [];
-    const q = `author:${username} committer-date:${this.year}-01-01..${this.year}-12-31`;
     let totalCount = 0;
 
     try {
-      let page = 1;
-      const perPage = 100;
-      // GitHub Search API has a hard limit of 1,000 results, which is 10 pages at 100 per page
-      // But we'll fetch until we hit the limit or run out of results
-      const maxPages = 10; // GitHub's search API limit
-      
-      while (page <= maxPages) {
-        const { data } = await this.octokit.rest.search.commits({
-          q,
-          per_page: perPage,
-          page,
-          sort: 'committer-date',
-          order: 'desc',
+      // First, get the total count from a full year query
+      const fullYearQ = `author:${username} committer-date:${this.year}-01-01..${this.year}-12-31`;
+      try {
+        const { data: fullYearData } = await this.octokit.rest.search.commits({
+          q: fullYearQ,
+          per_page: 1,
+          page: 1,
         });
-
-        // Capture total_count from first page (it's the same for all pages)
-        if (page === 1) {
-          totalCount = data.total_count;
-        }
-
-        allCommits.push(...(data.items as SearchCommitItem[]));
-
-        // Stop if we've fetched all available results or hit GitHub's limit
-        if (data.items.length < perPage || allCommits.length >= data.total_count || allCommits.length >= 1000) {
-          break;
-        }
-        page++;
+        totalCount = fullYearData.total_count;
+      } catch (error) {
+        console.warn('Failed to get total count:', error);
       }
+
+      // GitHub Search API has a hard limit of 1,000 results per query
+      // To get better coverage across the year, fetch commits in quarterly chunks
+      // This ensures we get representation from different periods of the year
+      // We'll fetch as many as possible from each quarter up to the 1000 limit
+      const quarters = [
+        { start: `${this.year}-01-01`, end: `${this.year}-03-31` },
+        { start: `${this.year}-04-01`, end: `${this.year}-06-30` },
+        { start: `${this.year}-07-01`, end: `${this.year}-09-30` },
+        { start: `${this.year}-10-01`, end: `${this.year}-12-31` },
+      ];
+
+      const perPage = 100;
+      const maxCommits = 1000;
+
+      // Fetch commits from each quarter, getting as many as available up to the remaining slots
+      for (const quarter of quarters) {
+        if (allCommits.length >= maxCommits) {
+          break; // Hit the overall limit
+        }
+
+        const remainingSlots = maxCommits - allCommits.length;
+        const q = `author:${username} committer-date:${quarter.start}..${quarter.end}`;
+        
+        try {
+          let page = 1;
+          let quarterCommits: SearchCommitItem[] = [];
+
+          while (page <= 10 && quarterCommits.length < remainingSlots) {
+            const { data } = await this.octokit.rest.search.commits({
+              q,
+              per_page: perPage,
+              page,
+              sort: 'committer-date',
+              order: 'desc',
+            });
+
+            const needed = Math.min(remainingSlots - quarterCommits.length, data.items.length);
+            quarterCommits.push(...(data.items.slice(0, needed) as SearchCommitItem[]));
+
+            // Stop if we've fetched all available results for this quarter or hit our limit
+            if (data.items.length < perPage || quarterCommits.length >= remainingSlots || allCommits.length + quarterCommits.length >= maxCommits) {
+              break;
+            }
+            page++;
+          }
+
+          allCommits.push(...quarterCommits);
+          console.log(`✅ Fetched ${quarterCommits.length} commits from ${quarter.start} to ${quarter.end} (total so far: ${allCommits.length}/${maxCommits})`);
+        } catch (error) {
+          console.warn(`Failed to search commits for ${quarter.start}..${quarter.end}:`, error);
+          // Continue with next quarter
+        }
+      }
+      
+      // Log distribution summary
+      const commitsByQuarter = {
+        Q1: allCommits.filter(c => {
+          const date = new Date(c.commit.author?.date || '');
+          return date >= new Date(`${this.year}-01-01`) && date <= new Date(`${this.year}-03-31`);
+        }).length,
+        Q2: allCommits.filter(c => {
+          const date = new Date(c.commit.author?.date || '');
+          return date >= new Date(`${this.year}-04-01`) && date <= new Date(`${this.year}-06-30`);
+        }).length,
+        Q3: allCommits.filter(c => {
+          const date = new Date(c.commit.author?.date || '');
+          return date >= new Date(`${this.year}-07-01`) && date <= new Date(`${this.year}-09-30`);
+        }).length,
+        Q4: allCommits.filter(c => {
+          const date = new Date(c.commit.author?.date || '');
+          return date >= new Date(`${this.year}-10-01`) && date <= new Date(`${this.year}-12-31`);
+        }).length,
+      };
+      console.log(`📊 Commit distribution: Q1=${commitsByQuarter.Q1}, Q2=${commitsByQuarter.Q2}, Q3=${commitsByQuarter.Q3}, Q4=${commitsByQuarter.Q4} (Total: ${allCommits.length})`);
       
       // Log if we hit the limit but there are more commits
       if (allCommits.length >= 1000 && totalCount > 1000) {
         console.warn(`⚠️  GitHub Search API limit reached: fetched ${allCommits.length} commits, but total is ${totalCount.toLocaleString()}. Using total count for stats.`);
       }
+
+      // Fallback: if we didn't get totalCount, use a reasonable estimate
+      if (totalCount === 0) {
+        totalCount = allCommits.length;
+      }
     } catch (error) {
       console.warn('Failed to search commits:', error);
-      // If search fails, totalCount will be 0, and we'll use commits.length
       totalCount = allCommits.length;
     }
 

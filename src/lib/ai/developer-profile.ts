@@ -210,6 +210,10 @@ export async function* generateDeveloperProfileStreaming({
     topics: repo.topics,
   }));
 
+  // Calculate total stars and max stars for AI context
+  const totalStars = nonForkedRepos.reduce((sum, repo) => sum + (repo.stargazersCount || 0), 0);
+  const maxStars = Math.max(...nonForkedRepos.map(repo => repo.stargazersCount || 0), 0);
+
   const totalUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
   let scorecardInsights = '';
   let scorecardResults: Array<{ repoName: string; scorecard: ScorecardAnalysisResult['scorecard']; usage: ScorecardAnalysisResult['usage'] }> = [];
@@ -421,6 +425,15 @@ export async function* generateDeveloperProfileStreaming({
 
     IMPORTANT: We are analyzing ONLY their original repositories (forked repos have been excluded) to ensure fair scoring based on their actual contributions.
 
+    STAR COUNT CONSIDERATION:
+    Repository star counts are a strong signal of community validation and real-world impact. Factor them into your assessment:
+    - 10,000+ stars: Exceptional - this developer has created something the community finds extremely valuable. This should significantly boost relevant skill scores.
+    - 1,000-9,999 stars: Strong impact - clear evidence of valuable contributions that resonate with developers.
+    - 100-999 stars: Meaningful traction - projects have found a real audience.
+    - <100 stars: Early stage or niche - don't penalize, but stars don't boost the score.
+
+    A developer with repos totaling 10k+ stars has PROVEN their ability to ship valuable software, regardless of documentation completeness or test coverage. Weight this heavily.
+
     CRITICAL RULES:
     1. You MUST ONLY use repositories from the provided "Repository Metadata" section below
     2. DO NOT invent, hallucinate, or create fake repository names
@@ -471,6 +484,13 @@ export async function* generateDeveloperProfileStreaming({
     - For early career with 45 score: "Score reflects current portfolio maturity. Fundamentals are solid; continued project completion will improve this assessment."
 
     Your entire output must be a single, valid JSON object that strictly adheres to the provided Zod schema.
+
+    IMPACT SUMMARY:
+    - Total repositories: ${nonForkedRepos.length}
+    - Total stars across all repos: ${totalStars.toLocaleString()}
+    - Highest starred repo: ${maxStars.toLocaleString()} stars
+    ${totalStars >= 10000 ? '⭐ HIGH IMPACT DEVELOPER - Total stars exceed 10,000. Weight this heavily in scoring.' : ''}
+    ${totalStars >= 1000 && totalStars < 10000 ? '⭐ NOTABLE IMPACT - Total stars exceed 1,000. Factor this into scoring.' : ''}
 
     Repository Metadata (${nonForkedRepos.length} original repositories available):
     ${JSON.stringify(repoDataForPrompt, null, 2)}

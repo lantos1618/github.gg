@@ -16,10 +16,15 @@ export const scorecardRouter = router({
     .input(z.object({
       user: z.string(),
       repo: z.string(),
-      ref: z.string().optional().default('main'),
+      ref: z.string().optional(), // Don't default - use repo's default branch
       filePaths: z.array(z.string()),
     }))
     .subscription(async function* ({ input, ctx }) {
+      // Normalize username and repo to lowercase for database storage (case-insensitive)
+      // Keep original casing for GitHub API calls
+      const repoOwnerNormalized = input.user.toLowerCase();
+      const repoNameNormalized = input.repo.toLowerCase();
+
       try {
         yield { type: 'progress', progress: 0, message: 'Starting scorecard analysis...' };
 
@@ -34,13 +39,14 @@ export const scorecardRouter = router({
         const githubService = await createGitHubServiceFromSession(ctx.session);
 
         yield { type: 'progress', progress: 4, message: 'Fetching repository info...' };
+        // Use original casing for GitHub API calls
         const repoInfo = await githubService.getRepositoryInfo(input.user, input.repo);
         const ref = input.ref || repoInfo.defaultBranch || 'main';
         const isPrivate = repoInfo.private === true;
 
         yield { type: 'progress', progress: 5, message: `Fetching ${input.filePaths.length} files from GitHub...` };
 
-        // Fetch file contents from GitHub
+        // Fetch file contents from GitHub (use original casing for API)
         const files = await fetchFilesByPaths(input.user, input.repo, input.filePaths, githubService, ref);
 
         if (!files || files.length === 0) {
@@ -56,8 +62,8 @@ export const scorecardRouter = router({
           .from(repositoryScorecards)
           .where(and(
             eq(repositoryScorecards.userId, ctx.user.id),
-            eq(repositoryScorecards.repoOwner, input.user),
-            eq(repositoryScorecards.repoName, input.repo),
+            eq(repositoryScorecards.repoOwner, repoOwnerNormalized),
+            eq(repositoryScorecards.repoName, repoNameNormalized),
             eq(repositoryScorecards.ref, ref)
           ))
           .orderBy(desc(repositoryScorecards.version))
@@ -67,6 +73,13 @@ export const scorecardRouter = router({
         const result = await generateScorecardAnalysis({
           files,
           repoName: input.repo,
+          metadata: {
+            description: repoInfo.description,
+            stars: repoInfo.stargazersCount,
+            forks: repoInfo.forksCount,
+            language: repoInfo.language,
+            topics: repoInfo.topics,
+          },
         });
 
         // Stream token usage to the client as soon as it's known
@@ -111,8 +124,8 @@ export const scorecardRouter = router({
             await db.insert(tokenUsage).values({
               userId: ctx.user.id,
               feature: 'scorecard',
-              repoOwner: input.user,
-              repoName: input.repo,
+              repoOwner: repoOwnerNormalized,
+              repoName: repoNameNormalized,
               model: 'gemini-3-pro-preview',
               inputTokens: result.usage.inputTokens,
               outputTokens: result.usage.outputTokens,
@@ -129,8 +142,8 @@ export const scorecardRouter = router({
         const { insertedRecord } = await executeAnalysisWithVersioning({
           userId: ctx.user.id,
           feature: 'scorecard',
-          repoOwner: input.user,
-          repoName: input.repo,
+          repoOwner: repoOwnerNormalized,
+          repoName: repoNameNormalized,
           table: repositoryScorecards,
           generateFn: async () => ({
             data: parsedData,
@@ -138,14 +151,14 @@ export const scorecardRouter = router({
           }),
           versioningConditions: [
             eq(repositoryScorecards.userId, ctx.user.id),
-            eq(repositoryScorecards.repoOwner, input.user),
-            eq(repositoryScorecards.repoName, input.repo),
+            eq(repositoryScorecards.repoOwner, repoOwnerNormalized),
+            eq(repositoryScorecards.repoName, repoNameNormalized),
             eq(repositoryScorecards.ref, ref),
           ],
           buildInsertValues: (data, version) => ({
             userId: ctx.user.id,
-            repoOwner: input.user,
-            repoName: input.repo,
+            repoOwner: repoOwnerNormalized,
+            repoName: repoNameNormalized,
             ref: ref,
             version,
             isPrivate,

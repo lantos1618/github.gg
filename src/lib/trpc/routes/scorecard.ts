@@ -41,7 +41,8 @@ export const scorecardRouter = router({
         yield { type: 'progress', progress: 4, message: 'Fetching repository info...' };
         // Use original casing for GitHub API calls
         const repoInfo = await githubService.getRepositoryInfo(input.user, input.repo);
-        const ref = input.ref || repoInfo.defaultBranch || 'main';
+        // If no ref provided OR ref is 'main' but repo uses different default, use actual default branch
+        const ref = (!input.ref || input.ref === 'main') ? (repoInfo.defaultBranch || 'main') : input.ref;
         const isPrivate = repoInfo.private === true;
 
         yield { type: 'progress', progress: 5, message: `Fetching ${input.filePaths.length} files from GitHub...` };

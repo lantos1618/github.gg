@@ -15,16 +15,18 @@ export const diagramRouter = router({
     .input(diagramBaseSchema)
     .query(async ({ input, ctx }) => {
       const { user, repo, ref, diagramType } = input;
-      
-      // Check for cached diagram
+      const normalizedUser = user.toLowerCase();
+      const normalizedRepo = repo.toLowerCase();
+
+      // Check for cached diagram (case-insensitive)
       const cached = await db
         .select()
         .from(repositoryDiagrams)
         .where(
           and(
             eq(repositoryDiagrams.userId, ctx.user.id),
-            eq(repositoryDiagrams.repoOwner, user),
-            eq(repositoryDiagrams.repoName, repo),
+            sql`LOWER(${repositoryDiagrams.repoOwner}) = ${normalizedUser}`,
+            sql`LOWER(${repositoryDiagrams.repoName}) = ${normalizedRepo}`,
             eq(repositoryDiagrams.ref, ref || 'main'),
             eq(repositoryDiagrams.diagramType, diagramType)
           )
@@ -58,12 +60,14 @@ export const diagramRouter = router({
     .input(diagramBaseSchema)
     .query(async ({ input, ctx }) => {
       const { user, repo, ref, diagramType } = input;
-      
+      const normalizedUser = user.toLowerCase();
+      const normalizedRepo = repo.toLowerCase();
+
       // Check repository access and privacy
       try {
         const githubService = await createGitHubServiceFromSession(ctx.session);
         const repoInfo = await githubService.getRepositoryInfo(user, repo);
-        
+
         // If the repository is private, check if user has access
         if (repoInfo.private === true) {
           // If user is not authenticated, block access
@@ -89,15 +93,15 @@ export const diagramRouter = router({
           error: 'Unable to access repository',
         };
       }
-      
-      // Find the most recent diagram for this repo/ref/type (any user)
+
+      // Find the most recent diagram for this repo/ref/type (case-insensitive)
       const cached = await db
         .select()
         .from(repositoryDiagrams)
         .where(
           and(
-            eq(repositoryDiagrams.repoOwner, user),
-            eq(repositoryDiagrams.repoName, repo),
+            sql`LOWER(${repositoryDiagrams.repoOwner}) = ${normalizedUser}`,
+            sql`LOWER(${repositoryDiagrams.repoName}) = ${normalizedRepo}`,
             eq(repositoryDiagrams.ref, ref || 'main'),
             eq(repositoryDiagrams.diagramType, diagramType)
           )
@@ -138,19 +142,21 @@ export const diagramRouter = router({
   getDiagramVersions: publicProcedure
     .input(diagramBaseSchema)
     .query(async ({ input }) => {
+      const normalizedUser = input.user.toLowerCase();
+      const normalizedRepo = input.repo.toLowerCase();
       const versions = await db
         .select({ version: repositoryDiagrams.version, updatedAt: repositoryDiagrams.updatedAt })
         .from(repositoryDiagrams)
         .where(
           and(
-            eq(repositoryDiagrams.repoOwner, input.user),
-            eq(repositoryDiagrams.repoName, input.repo),
+            sql`LOWER(${repositoryDiagrams.repoOwner}) = ${normalizedUser}`,
+            sql`LOWER(${repositoryDiagrams.repoName}) = ${normalizedRepo}`,
             eq(repositoryDiagrams.ref, input.ref || 'main'),
             eq(repositoryDiagrams.diagramType, input.diagramType)
           )
         )
         .orderBy(desc(repositoryDiagrams.version));
-      
+
       console.log('🔥 getDiagramVersions:', {
         user: input.user,
         repo: input.repo,
@@ -158,20 +164,22 @@ export const diagramRouter = router({
         diagramType: input.diagramType,
         versions: versions.map(v => v.version)
       });
-      
+
       return versions;
     }),
 
   getDiagramByVersion: publicProcedure
     .input(diagramBaseSchema.extend({ version: z.number() }))
     .query(async ({ input }) => {
+      const normalizedUser = input.user.toLowerCase();
+      const normalizedRepo = input.repo.toLowerCase();
       const result = await db
         .select()
         .from(repositoryDiagrams)
         .where(
           and(
-            eq(repositoryDiagrams.repoOwner, input.user),
-            eq(repositoryDiagrams.repoName, input.repo),
+            sql`LOWER(${repositoryDiagrams.repoOwner}) = ${normalizedUser}`,
+            sql`LOWER(${repositoryDiagrams.repoName}) = ${normalizedRepo}`,
             eq(repositoryDiagrams.ref, input.ref || 'main'),
             eq(repositoryDiagrams.diagramType, input.diagramType),
             eq(repositoryDiagrams.version, input.version)
@@ -184,9 +192,12 @@ export const diagramRouter = router({
   generateDiagram: protectedProcedure
     .input(diagramInputSchemaServer)
     .subscription(async function* ({ input, ctx }) {
-      try {
-        const { owner, repo, ref, diagramType, options, previousResult, lastError, isRetry } = input;
+      // Normalize owner and repo to lowercase for database storage
+      const { owner, repo, ref, diagramType, options, previousResult, lastError, isRetry } = input;
+      const ownerNormalized = owner.toLowerCase();
+      const repoNormalized = repo.toLowerCase();
 
+      try {
         yield { type: 'progress', progress: 0, message: 'Starting diagram generation...' };
 
         // 1. Check user plan and get API key
@@ -237,15 +248,15 @@ export const diagramRouter = router({
 
         yield { type: 'progress', progress: 80, message: 'Diagram generated, saving results...' };
 
-        // 3. Save diagram to database
+        // 3. Save diagram to database (use normalized values for DB)
         const maxVersionResult = await db
           .select({ max: sql<number>`MAX(${repositoryDiagrams.version})` })
           .from(repositoryDiagrams)
           .where(
             and(
               eq(repositoryDiagrams.userId, ctx.user.id),
-              eq(repositoryDiagrams.repoOwner, owner),
-              eq(repositoryDiagrams.repoName, repo),
+              eq(repositoryDiagrams.repoOwner, ownerNormalized),
+              eq(repositoryDiagrams.repoName, repoNormalized),
               eq(repositoryDiagrams.ref, ref || 'main'),
               eq(repositoryDiagrams.diagramType, diagramType)
             )
@@ -255,8 +266,8 @@ export const diagramRouter = router({
 
         console.log('🔥 Version calculation:', {
           userId: ctx.user.id,
-          repoOwner: owner,
-          repoName: repo,
+          repoOwner: ownerNormalized,
+          repoName: repoNormalized,
           ref: ref || 'main',
           diagramType,
           maxVersion,
@@ -267,8 +278,8 @@ export const diagramRouter = router({
           .insert(repositoryDiagrams)
           .values({
             userId: ctx.user.id,
-            repoOwner: owner,
-            repoName: repo,
+            repoOwner: ownerNormalized,
+            repoName: repoNormalized,
             ref: ref || 'main',
             diagramType,
             version: nextVersion,
@@ -298,8 +309,8 @@ export const diagramRouter = router({
         await db.insert(tokenUsage).values({
           userId: ctx.user.id,
           feature: 'diagram',
-          repoOwner: owner,
-          repoName: repo,
+          repoOwner: ownerNormalized,
+          repoName: repoNormalized,
           model: 'gemini-3-pro-preview', // Default model used
           inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,
@@ -334,14 +345,16 @@ export const diagramRouter = router({
     .input(diagramBaseSchema)
     .mutation(async ({ input, ctx }) => {
       const { user, repo, ref, diagramType } = input;
+      const normalizedUser = user.toLowerCase();
+      const normalizedRepo = repo.toLowerCase();
 
       await db
         .delete(repositoryDiagrams)
         .where(
           and(
             eq(repositoryDiagrams.userId, ctx.user.id),
-            eq(repositoryDiagrams.repoOwner, user),
-            eq(repositoryDiagrams.repoName, repo),
+            sql`LOWER(${repositoryDiagrams.repoOwner}) = ${normalizedUser}`,
+            sql`LOWER(${repositoryDiagrams.repoName}) = ${normalizedRepo}`,
             eq(repositoryDiagrams.ref, ref || 'main'),
             eq(repositoryDiagrams.diagramType, diagramType)
           )

@@ -3,9 +3,18 @@ import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { scorecardSchema, type ScorecardData } from '@/lib/types/scorecard';
 
+export interface RepoMetadata {
+  description?: string | null;
+  stars?: number;
+  forks?: number;
+  language?: string | null;
+  topics?: string[];
+}
+
 export interface ScorecardAnalysisParams {
   files: Array<{ path: string; content: string }>;
   repoName: string;
+  metadata?: RepoMetadata;
 }
 
 export interface ScorecardAnalysisResult {
@@ -23,55 +32,79 @@ export interface ScorecardAnalysisResult {
 export async function generateScorecardAnalysis({
   files,
   repoName,
+  metadata,
 }: ScorecardAnalysisParams): Promise<ScorecardAnalysisResult> {
   try {
-    // Create a comprehensive prompt for scorecard analysis
-    const prompt = `You are an expert codebase analyst. Analyze the following repository files and create a structured scorecard analysis.
+    // Build metadata context
+    const metadataLines: string[] = [];
+    if (metadata?.description) metadataLines.push(`Description: ${metadata.description}`);
+    if (metadata?.language) metadataLines.push(`Primary Language: ${metadata.language}`);
+    if (metadata?.stars !== undefined) metadataLines.push(`Stars: ${metadata.stars.toLocaleString()}`);
+    if (metadata?.forks !== undefined) metadataLines.push(`Forks: ${metadata.forks.toLocaleString()}`);
+    if (metadata?.topics?.length) metadataLines.push(`Topics: ${metadata.topics.join(', ')}`);
 
-REPOSITORY: ${repoName}
-FILES: ${files.length} files
+    const metadataSection = metadataLines.length > 0
+      ? `\n${metadataLines.join('\n')}\n`
+      : '';
 
-REQUIREMENTS:
-- Analyze the codebase and provide an overall score from 0-100
-- Identify 5-8 key metrics to evaluate (e.g., code quality, documentation, testing, security, performance, architecture, maintainability, feature completeness etc.)
-- Score each metric from 0-100 based on the code quality, patterns, and best practices
-- Provide a concise reason for each metric score
-- In the markdown, instead of listing the metrics, write a **Business Impact** section that summarizes how the codebase's state affects business goals, developer velocity, onboarding, and risk. Make it actionable and human-readable for stakeholders.
-- Be honest but constructive in your assessment
+    const prompt = `You are a senior software architect conducting a thorough code review. Analyze this repository and produce a comprehensive scorecard report.
 
-Your response must be a valid JSON object with this exact structure:
+REPOSITORY: ${repoName}${metadataSection}
+FILES ANALYZED: ${files.length}
+
+SCORING GUIDELINES:
+- 90-100: Exceptional - Production-ready, comprehensive testing, excellent patterns, ready to scale
+- 80-89: Strong - Solid foundation, minor improvements possible, good practices throughout
+- 70-79: Good - Functional and maintainable, some gaps in testing or documentation
+- 60-69: Adequate - Works but has notable technical debt or missing best practices
+- 50-59: Needs Work - Significant issues affecting maintainability or reliability
+- Below 50: Critical - Major architectural or quality issues requiring substantial refactoring
+
+METRICS TO EVALUATE (select 5-7 most relevant to this codebase):
+- Code Quality (readability, consistency, naming, patterns)
+- Architecture (modularity, separation of concerns, scalability potential)
+- Documentation (inline comments, README quality, API documentation)
+- Error Handling (edge cases, validation, graceful degradation, error messages)
+- Security (input validation, authentication patterns, secrets handling, OWASP concerns)
+- Testing (coverage indicators, test quality, test patterns, testability)
+- Performance (algorithmic efficiency, resource management, caching, optimization)
+- Maintainability (complexity, coupling, cohesion, technical debt indicators)
+- Type Safety (type coverage, strict mode usage, proper inference)
+- Dependencies (currency, minimal footprint, appropriate choices, security)
+- Developer Experience (setup ease, tooling, debugging support)
+
+MARKDOWN REPORT STRUCTURE:
+Write a thorough analysis that includes:
+
+1. **Executive Summary** - 2-3 sentence overview for non-technical stakeholders
+2. **Overall Score** with brief justification
+3. **Business Impact** - How does this codebase affect:
+   - Developer velocity and onboarding time
+   - Production reliability and incident risk
+   - Feature development speed
+   - Technical debt burden
+   - Scaling readiness
+4. **Technical Deep Dive**
+   - What patterns and practices stand out (good or bad)
+   - Specific files or modules that need attention
+   - Architecture decisions and their implications
+5. **Strengths** - What this codebase does well (be specific, cite examples)
+6. **Areas for Improvement** - Prioritized list of issues (high/medium/low impact)
+7. **Actionable Recommendations** - Concrete next steps with estimated effort
+8. **Risk Assessment** - What could go wrong if issues aren't addressed
+
+Be thorough and specific. Reference actual file names and code patterns you observed. Write as much as needed to provide genuine value - this report should help developers understand what to prioritize.
+
+OUTPUT FORMAT:
 {
-  "metrics": [
-    {
-      "metric": "Code Quality",
-      "score": 85,
-      "reason": "Well-structured code with good naming conventions and consistent formatting"
-    }
-  ],
-  "markdown": "# 🏆 Repository Scorecard
-    
-    ## 📊 Overall Score: 85/100
-    
-    ### 💼 Business Impact
-    - The codebase’s strong documentation and modular structure will accelerate onboarding for new developers.
-    - Gaps in testing may increase the risk of production bugs, potentially impacting customer trust.
-    - High code quality and clear architecture support rapid feature development and scalability.
-    
-    ### 🥇 Strengths
-    - Excellent code organization
-    
-    ### ⚠️ Areas for Improvement
-    - Could benefit from more tests
-    
-    ### 📝 Recommendations
-    - Add comprehensive unit tests",
-  "overallScore": 85
+  "overallScore": number,
+  "metrics": [{"metric": "Name", "score": number, "reason": "Specific justification with examples"}],
+  "markdown": "Full markdown report following the structure above"
 }
 
 ---
 
-ANALYZE THESE FILES:
-${files.map(file => `\n--- ${file.path} ---\n${file.content}`).join('\n')}`;
+${files.map(file => `--- ${file.path} ---\n${file.content}`).join('\n\n')}`;
 
     const { object, usage } = await generateObject({
       model: google('models/gemini-3-pro-preview'),

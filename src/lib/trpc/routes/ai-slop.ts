@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { aiSlopAnalyses } from '@/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { generateAISlopAnalysis, aiSlopSchema } from '@/lib/ai/ai-slop';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceFromSession } from '@/lib/github';
@@ -32,6 +32,11 @@ export const aiSlopRouter = router({
       filePaths: z.array(z.string()),
     }))
     .subscription(async function* ({ input, ctx }) {
+      // Normalize username and repo to lowercase for database storage (case-insensitive)
+      // Keep original casing for GitHub API calls
+      const repoOwnerNormalized = input.user.toLowerCase();
+      const repoNameNormalized = input.repo.toLowerCase();
+
       try {
         yield { type: 'progress', progress: 0, message: 'Starting AI slop analysis...' };
 
@@ -56,7 +61,7 @@ export const aiSlopRouter = router({
 
         yield { type: 'progress', progress: 5, message: `Fetching ${input.filePaths.length} files from GitHub...` };
 
-        // Fetch file contents from GitHub
+        // Fetch file contents from GitHub (use original casing for API)
         const files = await fetchFilesByPaths(input.user, input.repo, input.filePaths, githubService, ref);
 
         if (!files || files.length === 0) {
@@ -69,8 +74,8 @@ export const aiSlopRouter = router({
         const { insertedRecord } = await executeAnalysisWithVersioning({
           userId: ctx.user.id,
           feature: 'ai-slop',
-          repoOwner: input.user,
-          repoName: input.repo,
+          repoOwner: repoOwnerNormalized,
+          repoName: repoNameNormalized,
           table: aiSlopAnalyses,
           generateFn: async () => {
             const result = await generateAISlopAnalysis({
@@ -84,14 +89,14 @@ export const aiSlopRouter = router({
           },
           versioningConditions: [
             eq(aiSlopAnalyses.userId, ctx.user.id),
-            eq(aiSlopAnalyses.repoOwner, input.user),
-            eq(aiSlopAnalyses.repoName, input.repo),
+            eq(aiSlopAnalyses.repoOwner, repoOwnerNormalized),
+            eq(aiSlopAnalyses.repoName, repoNameNormalized),
             eq(aiSlopAnalyses.ref, ref),
           ],
           buildInsertValues: (data, version) => ({
             userId: ctx.user.id,
-            repoOwner: input.user,
-            repoName: input.repo,
+            repoOwner: repoOwnerNormalized,
+            repoName: repoNameNormalized,
             ref: ref,
             version,
             overallScore: data.overallScore,
@@ -138,6 +143,8 @@ export const aiSlopRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       const { user, repo, ref, version } = input;
+      const normalizedUser = user.toLowerCase();
+      const normalizedRepo = repo.toLowerCase();
 
       // Check repository access and privacy
       try {
@@ -171,9 +178,10 @@ export const aiSlopRouter = router({
         };
       }
 
+      // Use case-insensitive comparison for repoOwner/repoName
       const baseConditions = [
-        eq(aiSlopAnalyses.repoOwner, user),
-        eq(aiSlopAnalyses.repoName, repo),
+        sql`LOWER(${aiSlopAnalyses.repoOwner}) = ${normalizedUser}`,
+        sql`LOWER(${aiSlopAnalyses.repoName}) = ${normalizedRepo}`,
         eq(aiSlopAnalyses.ref, ref),
       ];
       if (version !== undefined) {
@@ -212,13 +220,15 @@ export const aiSlopRouter = router({
   getAISlopVersions: publicProcedure
     .input(z.object({ user: z.string(), repo: z.string(), ref: z.string().optional().default('main') }))
     .query(async ({ input }) => {
+      const normalizedUser = input.user.toLowerCase();
+      const normalizedRepo = input.repo.toLowerCase();
       return await db
         .select({ version: aiSlopAnalyses.version, updatedAt: aiSlopAnalyses.updatedAt })
         .from(aiSlopAnalyses)
         .where(
           and(
-            eq(aiSlopAnalyses.repoOwner, input.user),
-            eq(aiSlopAnalyses.repoName, input.repo),
+            sql`LOWER(${aiSlopAnalyses.repoOwner}) = ${normalizedUser}`,
+            sql`LOWER(${aiSlopAnalyses.repoName}) = ${normalizedRepo}`,
             eq(aiSlopAnalyses.ref, input.ref)
           )
         )

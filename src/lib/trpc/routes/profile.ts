@@ -510,7 +510,7 @@ export const profileRouter = router({
           await db.insert(tokenUsage).values({
             userId: ctx.user.id,
             feature: 'profile',
-            repoOwner: username,
+            repoOwner: normalizedUsername,
             repoName: null,
             model: 'gemini-3-pro-preview',
             inputTokens: result.usage.inputTokens,

@@ -53,7 +53,7 @@ const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisTypeConfig> = {
     errorMessage: 'Failed to generate scorecard',
     showCopyButton: false,
     showMetricsBar: false,
-    useEffectiveRef: false,
+    useEffectiveRef: true,
     getMetricColor: () => 'bg-blue-500',
   },
   'ai-slop': {

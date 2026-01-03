@@ -34,6 +34,8 @@ export async function GET(req: NextRequest) {
   const includeCodeAnalysis =
     searchParams.get('includeCodeAnalysis') === 'true';
   const selectedRepos = searchParams.getAll('selectedRepo');
+  const forceRefreshScorecards =
+    searchParams.get('forceRefreshScorecards') === 'true';
 
   if (!username) {
     return new Response('Missing username', { status: 400 });
@@ -330,8 +332,11 @@ export async function GET(req: NextRequest) {
         }> = [];
 
         // 6. Optionally fetch files and generate scorecards
+        // When user selects repos via Configure, analyze all of them (up to 15)
+        // Otherwise, auto-select top 5
         if (includeCodeAnalysis && smartSortedRepos.length > 0) {
-          const topRepos = smartSortedRepos.slice(0, 5);
+          const maxReposToAnalyze = selectedRepos.length > 0 ? 15 : 5;
+          const topRepos = smartSortedRepos.slice(0, maxReposToAnalyze);
 
           sendEvent('progress', {
             type: 'progress',
@@ -476,6 +481,7 @@ export async function GET(req: NextRequest) {
           repos: smartSortedRepos,
           repoFiles: includeCodeAnalysis ? repoFiles : undefined,
           userId: session.user.id,
+          forceRefreshScorecards,
         });
 
         for await (const update of generator) {

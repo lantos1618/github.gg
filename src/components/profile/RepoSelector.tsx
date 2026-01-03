@@ -21,13 +21,14 @@ interface RepoSelectorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   repos: Repo[];
-  onConfirm: (selectedRepoNames: string[]) => void;
+  onConfirm: (selectedRepoNames: string[], forceRefreshScorecards: boolean) => void;
   defaultSelected?: string[];
 }
 
 export function RepoSelector({ open, onOpenChange, repos, onConfirm, defaultSelected = [] }: RepoSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRepos, setSelectedRepos] = useState<Set<string>>(new Set(defaultSelected));
+  const [forceRefreshScorecards, setForceRefreshScorecards] = useState(false);
 
   // Filter out forks and apply search
   const filteredRepos = repos
@@ -61,8 +62,9 @@ export function RepoSelector({ open, onOpenChange, repos, onConfirm, defaultSele
   };
 
   const handleConfirm = () => {
-    onConfirm(Array.from(selectedRepos));
+    onConfirm(Array.from(selectedRepos), forceRefreshScorecards);
     onOpenChange(false);
+    setForceRefreshScorecards(false); // Reset for next time
   };
 
   return (
@@ -161,13 +163,26 @@ export function RepoSelector({ open, onOpenChange, repos, onConfirm, defaultSele
           </ScrollArea>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="border-gray-200">
-            Cancel
-          </Button>
-          <Button onClick={handleConfirm} disabled={selectedRepos.size === 0} className="bg-black hover:bg-gray-800 text-white">
-            Analyze {selectedRepos.size} Repos
-          </Button>
+        <DialogFooter className="flex-col sm:flex-row gap-4">
+          <div className="flex items-center gap-2 mr-auto">
+            <Checkbox
+              id="force-refresh"
+              checked={forceRefreshScorecards}
+              onCheckedChange={(checked) => setForceRefreshScorecards(checked === true)}
+              className="border-gray-300 data-[state=checked]:bg-black data-[state=checked]:border-black"
+            />
+            <label htmlFor="force-refresh" className="text-sm text-gray-600 cursor-pointer">
+              Hard refresh all scorecards
+            </label>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="border-gray-200">
+              Cancel
+            </Button>
+            <Button onClick={handleConfirm} disabled={selectedRepos.size === 0} className="bg-black hover:bg-gray-800 text-white">
+              Analyze {selectedRepos.size} Repos
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

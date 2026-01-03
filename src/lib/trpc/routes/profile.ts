@@ -167,6 +167,7 @@ export const profileRouter = router({
       username: z.string().min(1, 'Username is required'),
       includeCodeAnalysis: z.boolean().optional().default(false),
       selectedRepos: z.array(z.string()).optional(), // User-selected repo names
+      forceRefreshScorecards: z.boolean().optional().default(false), // Force regenerate all scorecards
     }))
     .subscription(async function* ({ input, ctx }) {
       try {
@@ -341,8 +342,10 @@ export const profileRouter = router({
         }> = [];
 
         // Always fetch files and generate scorecards for better profile quality
+        // When user selects repos via Configure, analyze all of them (up to 15)
         if (input.includeCodeAnalysis && smartSortedRepos.length > 0) {
-          const topRepos = smartSortedRepos.slice(0, 5); // Analyze top 5 repos
+          const maxReposToAnalyze = input.selectedRepos && input.selectedRepos.length > 0 ? 15 : 5;
+          const topRepos = smartSortedRepos.slice(0, maxReposToAnalyze);
           console.log(`📁 Fetching files for ${topRepos.length} repositories in parallel...`);
 
           const fileFetchPromises = topRepos.map(async (repo) => {
@@ -436,7 +439,8 @@ export const profileRouter = router({
           username,
           repos: smartSortedRepos,
           repoFiles: input.includeCodeAnalysis ? repoFiles : undefined,
-          userId: ctx.user.id
+          userId: ctx.user.id,
+          forceRefreshScorecards: input.forceRefreshScorecards,
         });
 
         for await (const update of generator) {

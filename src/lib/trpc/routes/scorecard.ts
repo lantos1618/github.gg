@@ -239,10 +239,11 @@ export const scorecardRouter = router({
         };
       }
       
-      // Use case-insensitive comparison for repoOwner to handle existing records with different casing
+      // Use case-insensitive comparison for both repoOwner and repoName (GitHub is case-insensitive)
+      const normalizedRepo = repo.toLowerCase();
       const baseConditions = [
         sql`LOWER(${repositoryScorecards.repoOwner}) = LOWER(${normalizedUser})`,
-        eq(repositoryScorecards.repoName, repo),
+        sql`LOWER(${repositoryScorecards.repoName}) = ${normalizedRepo}`,
         eq(repositoryScorecards.ref, ref),
       ];
       if (version !== undefined) {
@@ -281,7 +282,7 @@ export const scorecardRouter = router({
         .from(repositoryScorecards)
         .where(and(
           sql`LOWER(${repositoryScorecards.repoOwner}) = LOWER(${normalizedUser})`,
-          eq(repositoryScorecards.repoName, repo)
+          sql`LOWER(${repositoryScorecards.repoName}) = ${normalizedRepo}`
         ))
         .limit(5);
       if (anyScorecard.length > 0) {
@@ -303,13 +304,14 @@ export const scorecardRouter = router({
     .input(z.object({ user: z.string(), repo: z.string(), ref: z.string().optional().default('main') }))
     .query(async ({ input }) => {
       const normalizedUser = input.user.toLowerCase();
+      const normalizedRepo = input.repo.toLowerCase();
       return await db
         .select({ version: repositoryScorecards.version, updatedAt: repositoryScorecards.updatedAt })
         .from(repositoryScorecards)
         .where(
           and(
             sql`LOWER(${repositoryScorecards.repoOwner}) = LOWER(${normalizedUser})`,
-            eq(repositoryScorecards.repoName, input.repo),
+            sql`LOWER(${repositoryScorecards.repoName}) = ${normalizedRepo}`,
             eq(repositoryScorecards.ref, input.ref)
           )
         )

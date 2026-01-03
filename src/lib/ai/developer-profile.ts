@@ -173,6 +173,7 @@ export type DeveloperProfileParams = {
   }>;
   userId: string; // userId is now required to associate scorecards
   onProgress?: (current: number, total: number, repoName: string) => void;
+  forceRefreshScorecards?: boolean; // When true, regenerate all scorecards even if cached
 };
 
 export type DeveloperProfileResult = {
@@ -189,6 +190,7 @@ export async function* generateDeveloperProfileStreaming({
   repos,
   repoFiles,
   userId,
+  forceRefreshScorecards = false,
 }: Omit<DeveloperProfileParams, 'onProgress'>): AsyncGenerator<{
   type: 'progress' | 'complete';
   progress?: number;
@@ -219,21 +221,30 @@ export async function* generateDeveloperProfileStreaming({
   let scorecardResults: Array<{ repoName: string; scorecard: ScorecardAnalysisResult['scorecard']; usage: ScorecardAnalysisResult['usage'] }> = [];
 
   if (repoFiles && repoFiles.length > 0) {
-    const topReposToAnalyze = repoFiles.slice(0, 5);
+    // Allow up to 15 repos when user explicitly selects them via Configure
+    const topReposToAnalyze = repoFiles.slice(0, 15);
     const repoNames = topReposToAnalyze.map(r => r.repoName);
 
+    if (forceRefreshScorecards) {
+      console.log(`🔄 Force refresh enabled - will regenerate all ${topReposToAnalyze.length} scorecards`);
+    }
+
     // Batch query: fetch existing scorecards for specific repos only
+    // Use lowercase for consistency (GitHub is case-insensitive)
+    const normalizedUsername = username.toLowerCase();
+    const normalizedRepoNames = repoNames.map(name => name.toLowerCase());
     const existingScorecards = await db
       .select()
       .from(repositoryScorecards)
       .where(and(
         eq(repositoryScorecards.userId, userId),
-        eq(repositoryScorecards.repoOwner, username),
-        inArray(repositoryScorecards.repoName, repoNames)
+        eq(repositoryScorecards.repoOwner, normalizedUsername),
+        inArray(repositoryScorecards.repoName, normalizedRepoNames)
       ));
 
+    // Map uses lowercase keys for case-insensitive lookup
     const existingScorecardMap = new Map(
-      existingScorecards.map(sc => [`${sc.repoOwner}/${sc.repoName}`, sc])
+      existingScorecards.map(sc => [`${sc.repoOwner.toLowerCase()}/${sc.repoName.toLowerCase()}`, sc])
     );
 
     console.log(`🔍 Found ${existingScorecards.length} existing scorecards`);
@@ -244,15 +255,17 @@ export async function* generateDeveloperProfileStreaming({
 
     // Create promises for all repos
     const scorecardPromises = topReposToAnalyze.map(async (repoData) => {
-      const repoKey = `${username}/${repoData.repoName}`;
+      // Use lowercase keys for case-insensitive lookup
+      const repoKey = `${username.toLowerCase()}/${repoData.repoName.toLowerCase()}`;
       let result;
 
-      // Check if we already have a recent scorecard for this repo
-      if (existingScorecardMap.has(repoKey)) {
+      // Check if we already have a recent scorecard for this repo (skip if force refresh)
+      if (!forceRefreshScorecards && existingScorecardMap.has(repoKey)) {
         // ... existing cache logic ...
         console.log(`✅ Using cached scorecard for ${repoData.repoName}`);
         const existing = existingScorecards.find(sc =>
-          sc.repoOwner === username && sc.repoName === repoData.repoName
+          sc.repoOwner.toLowerCase() === username.toLowerCase() &&
+          sc.repoName.toLowerCase() === repoData.repoName.toLowerCase()
         );
         if (existing) {
           result = {
@@ -290,8 +303,9 @@ export async function* generateDeveloperProfileStreaming({
           // Retry logic handles race conditions by recalculating version on each attempt
           let inserted = null;
           for (let retryCount = 0; retryCount < 3; retryCount++) {
-            // Normalize username to lowercase for consistency
+            // Normalize username and repo name to lowercase for consistency
             const normalizedUsername = username.toLowerCase();
+            const normalizedRepoName = repoData.repoName.toLowerCase();
             // Recalculate version on each retry to handle concurrent inserts
             const maxVersionResult = await db
               .select({ max: sql<number>`COALESCE(MAX(version), 0)` })
@@ -299,18 +313,19 @@ export async function* generateDeveloperProfileStreaming({
               .where(and(
                 eq(repositoryScorecards.userId, userId),
                 eq(repositoryScorecards.repoOwner, normalizedUsername),
-                eq(repositoryScorecards.repoName, repoData.repoName)
+                eq(repositoryScorecards.repoName, normalizedRepoName)
               ));
             const nextVersion = (maxVersionResult[0]?.max || 0) + 1;
 
             try {
-              // Normalize username to lowercase for consistency (GitHub usernames are case-insensitive)
+              // Normalize username and repo name to lowercase for consistency (GitHub is case-insensitive)
               const normalizedUsername = username.toLowerCase();
-              console.log(`💾 Saving scorecard for ${normalizedUsername}/${repoData.repoName}, version ${nextVersion}, userId: ${userId}`);
+              const normalizedRepoName = repoData.repoName.toLowerCase();
+              console.log(`💾 Saving scorecard for ${normalizedUsername}/${normalizedRepoName}, version ${nextVersion}, userId: ${userId}`);
               const insertValues = {
                 userId,
                 repoOwner: normalizedUsername,
-                repoName: repoData.repoName,
+                repoName: normalizedRepoName,
                 ref: 'main',
                 version: nextVersion,
                 overallScore: scorecardResult.scorecard.overallScore,

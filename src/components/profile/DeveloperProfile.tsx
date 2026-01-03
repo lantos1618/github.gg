@@ -391,7 +391,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   }, [username, utils, checkGenerationStatus, handleGenerateProfile]);
 
   // Handle profile generation with selected repos
-  const handleGenerateWithSelectedRepos = useCallback((selectedRepoNames: string[]) => {
+  const handleGenerateWithSelectedRepos = useCallback((selectedRepoNames: string[], forceRefreshScorecards: boolean = false) => {
     if (isGenerating) return;
 
     setProgress(0);
@@ -410,6 +410,10 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
       username,
       includeCodeAnalysis: 'true',
     });
+
+    if (forceRefreshScorecards) {
+      params.set('forceRefreshScorecards', 'true');
+    }
 
     selectedRepoNames.forEach((name) => {
       params.append('selectedRepo', name);

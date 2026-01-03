@@ -1,0 +1,243 @@
+/**
+ * Fix Case Sensitivity Duplicates
+ *
+ * This script:
+ * 1. Finds duplicates where LOWER(repoOwner/repoName) are the same but actual casing differs
+ * 2. Keeps the most recent/highest scoring version
+ * 3. Deletes duplicates
+ * 4. Normalizes remaining records to lowercase
+ *
+ * Run with: bun --env-file=.env.prod scripts/fix-case-duplicates.ts
+ */
+
+import { db } from '@/db';
+import {
+  repositoryScorecards,
+  repositoryDiagrams,
+  aiSlopAnalyses,
+  repoScoreHistory,
+  developerProfileCache,
+  insightsCache,
+  tokenUsage
+} from '@/db/schema';
+import { sql, eq, and } from 'drizzle-orm';
+
+async function fixScorecardDuplicates() {
+  console.log('\n=== Fixing repository_scorecards duplicates ===');
+
+  // Find all records that need fixing: either duplicates or non-lowercase
+  const duplicates = await db.execute(sql`
+    SELECT DISTINCT
+      LOWER(repo_owner) as lower_owner,
+      LOWER(repo_name) as lower_name,
+      ref,
+      "userId"
+    FROM repository_scorecards
+    WHERE repo_owner != LOWER(repo_owner) OR repo_name != LOWER(repo_name)
+    UNION
+    SELECT
+      LOWER(repo_owner) as lower_owner,
+      LOWER(repo_name) as lower_name,
+      ref,
+      "userId"
+    FROM repository_scorecards
+    GROUP BY LOWER(repo_owner), LOWER(repo_name), ref, "userId"
+    HAVING COUNT(*) > 1
+  `);
+
+  // Handle both row formats
+  const rows = Array.isArray(duplicates) ? duplicates : (duplicates.rows || []);
+  console.log(`Found ${rows.length} duplicate groups to fix`);
+
+  for (const dup of rows) {
+    const { lower_owner, lower_name, ref, userId } = dup as any;
+
+    // Get all records for this group, ordered by score DESC, updated_at DESC
+    const records = await db
+      .select()
+      .from(repositoryScorecards)
+      .where(and(
+        sql`LOWER(${repositoryScorecards.repoOwner}) = ${lower_owner}`,
+        sql`LOWER(${repositoryScorecards.repoName}) = ${lower_name}`,
+        eq(repositoryScorecards.ref, ref || 'main'),
+        eq(repositoryScorecards.userId, userId)
+      ))
+      .orderBy(sql`overall_score DESC, updated_at DESC`);
+
+    if (records.length <= 1) continue;
+
+    console.log(`  Processing ${lower_owner}/${lower_name} (${records.length} records)`);
+
+    // Keep the best one (highest score, most recent)
+    const [keep, ...toDelete] = records;
+
+    // Delete duplicates
+    for (const record of toDelete) {
+      console.log(`    Deleting: ${record.repoOwner}/${record.repoName} v${record.version} (score: ${record.overallScore})`);
+      await db.delete(repositoryScorecards).where(eq(repositoryScorecards.id, record.id));
+    }
+
+    // Update the kept record to lowercase if needed
+    if (keep.repoOwner !== lower_owner || keep.repoName !== lower_name) {
+      console.log(`    Normalizing: ${keep.repoOwner}/${keep.repoName} -> ${lower_owner}/${lower_name}`);
+      await db
+        .update(repositoryScorecards)
+        .set({
+          repoOwner: lower_owner,
+          repoName: lower_name
+        })
+        .where(eq(repositoryScorecards.id, keep.id));
+    }
+  }
+
+  // Also normalize any remaining non-lowercase entries
+  const remaining = await db.execute(sql`
+    UPDATE repository_scorecards
+    SET repo_owner = LOWER(repo_owner), repo_name = LOWER(repo_name)
+    WHERE repo_owner != LOWER(repo_owner) OR repo_name != LOWER(repo_name)
+    RETURNING id
+  `);
+  const remainingRows = Array.isArray(remaining) ? remaining : (remaining.rows || []);
+  console.log(`Normalized ${remainingRows.length} additional records to lowercase`);
+}
+
+async function fixDiagramDuplicates() {
+  console.log('\n=== Fixing repository_diagrams duplicates ===');
+
+  const remaining = await db.execute(sql`
+    UPDATE repository_diagrams
+    SET repo_owner = LOWER(repo_owner), repo_name = LOWER(repo_name)
+    WHERE repo_owner != LOWER(repo_owner) OR repo_name != LOWER(repo_name)
+    RETURNING id
+  `);
+  const rows = Array.isArray(remaining) ? remaining : (remaining.rows || []);
+  console.log(`Normalized ${rows.length} records to lowercase`);
+}
+
+async function fixAISlopDuplicates() {
+  console.log('\n=== Fixing ai_slop_analyses duplicates ===');
+
+  const remaining = await db.execute(sql`
+    UPDATE ai_slop_analyses
+    SET repo_owner = LOWER(repo_owner), repo_name = LOWER(repo_name)
+    WHERE repo_owner != LOWER(repo_owner) OR repo_name != LOWER(repo_name)
+    RETURNING id
+  `);
+  const rows = Array.isArray(remaining) ? remaining : (remaining.rows || []);
+  console.log(`Normalized ${rows.length} records to lowercase`);
+}
+
+async function fixScoreHistoryDuplicates() {
+  console.log('\n=== Fixing repo_score_history duplicates ===');
+
+  const remaining = await db.execute(sql`
+    UPDATE repo_score_history
+    SET repo_owner = LOWER(repo_owner), repo_name = LOWER(repo_name)
+    WHERE repo_owner != LOWER(repo_owner) OR repo_name != LOWER(repo_name)
+    RETURNING id
+  `);
+  const rows = Array.isArray(remaining) ? remaining : (remaining.rows || []);
+  console.log(`Normalized ${rows.length} records to lowercase`);
+}
+
+async function fixProfileCacheDuplicates() {
+  console.log('\n=== Fixing developer_profile_cache duplicates ===');
+
+  // Find duplicate usernames with different casing
+  const duplicates = await db.execute(sql`
+    WITH dups AS (
+      SELECT LOWER(username) as lower_username, COUNT(*) as cnt
+      FROM developer_profile_cache
+      GROUP BY LOWER(username)
+      HAVING COUNT(DISTINCT username) > 1
+    )
+    SELECT lower_username FROM dups
+  `);
+
+  const dupRows = Array.isArray(duplicates) ? duplicates : (duplicates.rows || []);
+  console.log(`Found ${dupRows.length} duplicate username groups`);
+
+  for (const dup of dupRows) {
+    const { lower_username } = dup as any;
+
+    // Get all records for this username, ordered by version DESC
+    const records = await db.execute(sql`
+      SELECT id, username, version, updated_at
+      FROM developer_profile_cache
+      WHERE LOWER(username) = ${lower_username}
+      ORDER BY version DESC, updated_at DESC
+    `);
+
+    const recordRows = Array.isArray(records) ? records : (records.rows || []);
+    if (recordRows.length <= 1) continue;
+
+    console.log(`  Processing username: ${lower_username} (${recordRows.length} records)`);
+
+    // Keep the first one (highest version, most recent)
+    const [keep, ...toDelete] = recordRows as any[];
+
+    for (const record of toDelete) {
+      console.log(`    Deleting: ${record.username} v${record.version}`);
+      await db.execute(sql`DELETE FROM developer_profile_cache WHERE id = ${record.id}`);
+    }
+  }
+
+  // Normalize remaining
+  const remaining = await db.execute(sql`
+    UPDATE developer_profile_cache
+    SET username = LOWER(username)
+    WHERE username != LOWER(username)
+    RETURNING id
+  `);
+  const rows = Array.isArray(remaining) ? remaining : (remaining.rows || []);
+  console.log(`Normalized ${rows.length} records to lowercase`);
+}
+
+async function fixInsightsCacheDuplicates() {
+  console.log('\n=== Fixing insights_cache duplicates ===');
+
+  const remaining = await db.execute(sql`
+    UPDATE insights_cache
+    SET repo_owner = LOWER(repo_owner), repo_name = LOWER(repo_name)
+    WHERE repo_owner != LOWER(repo_owner) OR repo_name != LOWER(repo_name)
+    RETURNING id
+  `);
+  const rows = Array.isArray(remaining) ? remaining : (remaining.rows || []);
+  console.log(`Normalized ${rows.length} records to lowercase`);
+}
+
+async function fixTokenUsageDuplicates() {
+  console.log('\n=== Fixing token_usage duplicates ===');
+
+  const remaining = await db.execute(sql`
+    UPDATE token_usage
+    SET repo_owner = LOWER(repo_owner), repo_name = LOWER(repo_name)
+    WHERE repo_owner IS NOT NULL AND (repo_owner != LOWER(repo_owner) OR (repo_name IS NOT NULL AND repo_name != LOWER(repo_name)))
+    RETURNING id
+  `);
+  const rows = Array.isArray(remaining) ? remaining : (remaining.rows || []);
+  console.log(`Normalized ${rows.length} records to lowercase`);
+}
+
+async function main() {
+  console.log('Starting case sensitivity cleanup...\n');
+
+  try {
+    await fixScorecardDuplicates();
+    await fixDiagramDuplicates();
+    await fixAISlopDuplicates();
+    await fixScoreHistoryDuplicates();
+    await fixProfileCacheDuplicates();
+    await fixInsightsCacheDuplicates();
+    await fixTokenUsageDuplicates();
+
+    console.log('\n=== Cleanup complete! ===');
+  } catch (error) {
+    console.error('Error during cleanup:', error);
+    process.exit(1);
+  }
+
+  process.exit(0);
+}
+
+main();

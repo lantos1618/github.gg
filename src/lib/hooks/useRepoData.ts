@@ -62,6 +62,7 @@ export function useRepoData(overrideParams?: RepoParams) {
     files: repoData.files,
     totalFiles: repoData.totalFiles,
     actualRef: data?.ref, // Expose the actual ref used after any fallbacks
+    commitSha: data?.commitSha, // Expose the commit SHA
   };
 }
 

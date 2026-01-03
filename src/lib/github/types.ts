@@ -36,6 +36,7 @@ export interface GitHubFilesResponse {
   owner: string;
   repo: string;
   ref: string;
+  commitSha: string;
 }
 
 // Authentication types

@@ -11,6 +11,7 @@ import {
   GitPullRequest,
   Network,
   GitBranch,
+  GitCommit,
   Box,
   Boxes,
   Workflow,
@@ -37,6 +38,7 @@ interface RepoSidebarProps {
   wikiPages?: WikiPage[];
   branches?: string[];
   defaultBranch?: string;
+  commitSha?: string;
 }
 
 interface NavItem {
@@ -145,7 +147,7 @@ function NavItemsList({ items, isExpanded, isActive, expandedSections, toggleSec
   );
 }
 
-export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaultBranch = 'main' }: RepoSidebarProps) {
+export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaultBranch = 'main', commitSha }: RepoSidebarProps) {
   const { isExpanded, setIsExpanded } = useSidebar();
   const [expandedSections, setExpandedSections] = useState<Record<ExpandableSection, boolean>>({
     wiki: true,
@@ -343,6 +345,19 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
                 )}
               </li>
             </ul>
+            {/* Commit SHA display */}
+            {commitSha && isExpanded && (
+              <a
+                href={`https://github.com/${owner}/${repo}/commit/${commitSha}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-1.5 mt-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                title={`Commit: ${commitSha}`}
+              >
+                <GitCommit className="h-3.5 w-3.5" />
+                <span className="font-mono">{commitSha.slice(0, 7)}</span>
+              </a>
+            )}
           </div>
 
           {/* Separator */}

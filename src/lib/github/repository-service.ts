@@ -160,6 +160,27 @@ export class RepositoryService {
     }
   }
 
+  // Get the latest commit SHA for a given ref (branch, tag, or commit)
+  async getCommitSha(owner: string, repo: string, ref: string): Promise<string> {
+    try {
+      const response = await this.octokit.rest.repos.listCommits({
+        owner,
+        repo,
+        sha: ref,
+        per_page: 1,
+      });
+
+      if (response.data.length === 0) {
+        throw new Error(`No commits found for ref: ${ref}`);
+      }
+
+      return response.data[0].sha;
+    } catch (error: unknown) {
+      const errorMessage = parseError(error);
+      throw new Error(`Failed to get commit SHA: ${errorMessage}`);
+    }
+  }
+
   async getCommitHistory(
     owner: string,
     repo: string,
@@ -246,12 +267,16 @@ export class RepositoryService {
         content: file.content
       }));
 
+      // Get the commit SHA for the target ref
+      const commitSha = await this.getCommitSha(owner, repo, targetRef);
+
       return {
         files: transformedFiles,
         totalFiles: transformedFiles.length,
         owner,
         repo,
         ref: targetRef,
+        commitSha,
       };
     } catch (error: unknown) {
       const errorMessage = parseError(error);

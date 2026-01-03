@@ -69,7 +69,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   // Coming soon features - should not be indexed
-  const COMING_SOON_FEATURES = ['dependencies', 'architecture', 'components', 'data-flow', 'automations'];
+  const COMING_SOON_FEATURES = ['refactor', 'dependencies', 'architecture', 'components', 'data-flow', 'automations'];
   const isComingSoon = tab && COMING_SOON_FEATURES.includes(tab);
 
   // Build canonical URL - normalize by removing 'tree/' prefix
@@ -185,6 +185,12 @@ export default async function Page({ params }: PageProps) {
 
   // Coming Soon features configuration
   const COMING_SOON_FEATURES = {
+    'refactor': {
+      title: 'Refactor Suggestions',
+      description: 'AI-powered refactoring suggestions and code improvement recommendations coming soon.',
+      iconName: 'Wrench' as const,
+      iconColor: 'text-amber-600',
+    },
     'dependencies': {
       title: 'Dependencies',
       description: 'Dependency analysis and visualization coming soon.',

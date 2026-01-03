@@ -22,6 +22,7 @@ interface RepoClientViewInnerProps extends RepoClientViewProps {
   files: RepoFile[];
   isLoading: boolean;
   error: unknown;
+  commitSha?: string;
 }
 
 // Inner component that uses the context
@@ -82,7 +83,7 @@ function RepoClientViewInner({ user, repo, refName, path, files, isLoading, erro
 // Outer wrapper that provides context
 export default function RepoClientView(props: RepoClientViewProps) {
   // Fetch files once at the top level
-  const { files, isLoading, error } = useRepoData({
+  const { files, isLoading, error, commitSha } = useRepoData({
     user: props.user,
     repo: props.repo,
     ref: props.refName,
@@ -96,12 +97,14 @@ export default function RepoClientView(props: RepoClientViewProps) {
       refName={props.refName}
       files={files}
       totalFiles={files.length}
+      commitSha={commitSha}
     >
       <RepoClientViewInner
         {...props}
         files={files}
         isLoading={isLoading}
         error={error}
+        commitSha={commitSha}
       />
     </RepoPageLayout>
   );

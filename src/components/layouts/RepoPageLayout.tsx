@@ -28,6 +28,7 @@ interface RepoPageLayoutProps {
   branches?: string[];
   defaultBranch?: string;
   wikiPages?: WikiPage[];
+  commitSha?: string;
 }
 
 function RepoPageLayoutContent({
@@ -38,6 +39,7 @@ function RepoPageLayoutContent({
   branches = [],
   defaultBranch = 'main',
   wikiPages: serverWikiPages = [],
+  commitSha,
 }: RepoPageLayoutProps) {
   const { isExpanded } = useSidebar();
 
@@ -56,6 +58,7 @@ function RepoPageLayoutContent({
         wikiPages={wikiPages}
         branches={branches}
         defaultBranch={defaultBranch}
+        commitSha={commitSha}
       />
 
       <main className={`flex-1 flex flex-col overflow-y-auto transition-all duration-300 ${isExpanded ? 'lg:ml-64' : 'lg:ml-16'}`}>

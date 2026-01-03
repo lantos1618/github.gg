@@ -2,7 +2,7 @@
 import RepoPageLayout from "@/components/layouts/RepoPageLayout";
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { GitBranch, Box, Boxes, Workflow, Cog } from 'lucide-react';
+import { GitBranch, Box, Boxes, Workflow, Cog, Wrench } from 'lucide-react';
 
 const ICON_MAP = {
   GitBranch,
@@ -10,6 +10,7 @@ const ICON_MAP = {
   Boxes,
   Workflow,
   Cog,
+  Wrench,
 } as const;
 
 type IconName = keyof typeof ICON_MAP;

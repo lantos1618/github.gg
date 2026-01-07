@@ -2,12 +2,35 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { trpc } from '@/lib/trpc/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MilkdownEditor } from '@/components/ui/MilkdownEditor';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+
+// Lazy load MilkdownEditor - Milkdown is a heavy rich text editor (~150KB+)
+const MilkdownEditor = dynamic(
+  () => import('@/components/ui/MilkdownEditor').then(mod => ({ default: mod.MilkdownEditor })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="border rounded-lg p-4 min-h-[300px] space-y-3">
+        <div className="flex gap-2 border-b pb-3 mb-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-8 w-8" />
+          ))}
+        </div>
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
+    ),
+  }
+);
 
 interface WikiEditorProps {
   owner: string;

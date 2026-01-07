@@ -1,7 +1,23 @@
-import { ScoreHistory } from '@/components/ScoreHistory';
+'use client';
+
+import dynamic from 'next/dynamic';
 import { DevelopmentStyle } from './DevelopmentStyle';
 import { SkillAssessment } from './SkillAssessment';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
+
+// Lazy load ScoreHistory - Recharts is ~100KB+, only load when score history exists
+const ScoreHistory = dynamic(
+  () => import('@/components/ScoreHistory').then(mod => ({ default: mod.ScoreHistory })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="space-y-3">
+        <Skeleton className="h-[300px] w-full rounded-lg" />
+      </div>
+    ),
+  }
+);
 
 interface ScoreDataPoint {
   date: string;

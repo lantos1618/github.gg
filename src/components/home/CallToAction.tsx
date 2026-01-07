@@ -4,9 +4,10 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowRight, Github } from 'lucide-react';
+import { ArrowRight, Github, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import Link from 'next/link';
 
 export function CallToAction() {
   const router = useRouter();
@@ -18,11 +19,11 @@ export function CallToAction() {
     if (!repoUrl.trim()) return;
 
     setIsAnalyzing(true);
-    
+
     let target = repoUrl.trim();
     target = target.replace(/^https?:\/\/github\.com\//, '');
     target = target.replace(/\/$/, '');
-    
+
     const parts = target.split('/');
     if (parts.length < 2) {
       toast.error('Please enter a valid repository (e.g., facebook/react)');
@@ -35,68 +36,79 @@ export function CallToAction() {
   };
 
   return (
-    <section className="py-32 bg-black text-white relative overflow-hidden">
-        {/* Abstract background shapes */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-20 pointer-events-none">
-            <div className="absolute -top-1/2 -left-1/4 w-[1000px] h-[1000px] bg-blue-600/30 rounded-full blur-3xl" />
-            <div className="absolute -bottom-1/2 -right-1/4 w-[1000px] h-[1000px] bg-purple-600/30 rounded-full blur-3xl" />
-        </div>
+    <section className="py-24 bg-gray-900 text-white relative overflow-hidden">
+      {/* Gradient orbs */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute -top-1/2 -left-1/4 w-[600px] h-[600px] bg-blue-500/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-1/2 -right-1/4 w-[600px] h-[600px] bg-purple-500/20 rounded-full blur-3xl" />
+      </div>
 
       <div className="container mx-auto px-4 relative z-10">
-        <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="max-w-4xl mx-auto text-center"
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="max-w-3xl mx-auto text-center"
         >
-          <h2 className="text-5xl md:text-7xl font-bold mb-8 tracking-tighter">
-            Ready to ship better code?
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-sm mb-8">
+            <Sparkles className="h-4 w-4 text-amber-400" />
+            <span>Join 10,000+ developers</span>
+          </div>
+
+          <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">
+            Ready to understand your codebase?
           </h2>
-          <p className="text-xl text-gray-400 mb-12 max-w-2xl mx-auto font-light">
-            Join thousands of developers who use GG to understand their codebases instantly. No signup required to start.
+          <p className="text-xl text-gray-400 mb-10 max-w-xl mx-auto">
+            Stop reading code line by line. Get instant insights, diagrams, and documentation.
           </p>
 
-          <div className="max-w-md mx-auto">
-            <form onSubmit={handleAnalyze} className="relative group">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-white transition-colors">
-                <Github className="h-6 w-6" />
+          <div className="max-w-lg mx-auto mb-8">
+            <form onSubmit={handleAnalyze} className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
+                <Github className="h-5 w-5" />
               </div>
               <Input
                 type="text"
                 placeholder="github.com/owner/repo"
-                className="pl-14 h-16 text-lg border-white/10 bg-white/5 text-white placeholder:text-gray-600 rounded-2xl focus:border-white/30 focus:ring-0 transition-all duration-300 font-mono"
+                className="pl-12 pr-32 h-14 text-base border-white/10 bg-white/5 text-white placeholder:text-gray-500 rounded-xl focus:border-white/30 focus:ring-0"
                 value={repoUrl}
                 onChange={(e) => setRepoUrl(e.target.value)}
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                <Button 
-                  size="lg" 
+                <Button
+                  size="default"
                   type="submit"
                   disabled={isAnalyzing}
-                  className="h-12 px-6 bg-white text-black hover:bg-gray-200 rounded-xl font-medium transition-all hover:scale-105 active:scale-95"
+                  className="h-10 px-5 bg-white text-gray-900 hover:bg-gray-100 rounded-lg font-semibold"
                 >
                   {isAnalyzing ? (
-                    <span className="animate-pulse">Analyzing...</span>
+                    <span className="animate-pulse">...</span>
                   ) : (
-                    <ArrowRight className="h-5 w-5" />
+                    <>
+                      Analyze
+                      <ArrowRight className="h-4 w-4 ml-1" />
+                    </>
                   )}
                 </Button>
               </div>
             </form>
           </div>
 
-          <div className="mt-12 pt-12 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-6 text-sm text-gray-500">
-            <p>© {new Date().getFullYear()} GG. All rights reserved.</p>
-            <div className="flex gap-6">
-                <a href="#" className="hover:text-white transition-colors">Privacy</a>
-                <a href="#" className="hover:text-white transition-colors">Terms</a>
-                <a href="#" className="hover:text-white transition-colors">Twitter</a>
-                <a href="#" className="hover:text-white transition-colors">GitHub</a>
-            </div>
-          </div>
+          <p className="text-sm text-gray-500">
+            Free for public repos. <Link href="/pricing" className="text-white hover:underline">See pricing</Link> for private repos.
+          </p>
         </motion.div>
+
+        {/* Footer */}
+        <div className="mt-20 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-500">
+          <p>&copy; {new Date().getFullYear()} GG. All rights reserved.</p>
+          <div className="flex gap-6">
+            <Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link>
+            <a href="https://github.com/lantos1618/github.gg" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">GitHub</a>
+            <a href="https://twitter.com/github_gg" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Twitter</a>
+          </div>
+        </div>
       </div>
     </section>
   );
 }
-

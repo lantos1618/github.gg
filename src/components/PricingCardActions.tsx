@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc/client';
 import { useAuth } from '@/lib/auth/client';
 import { toast } from 'sonner';
+import { ArrowRight, Loader2 } from 'lucide-react';
 
 interface PricingCardActionsProps {
   planType: 'free' | 'pro' | null;
@@ -40,46 +41,52 @@ export function PricingCardActions({ planType, isPro }: PricingCardActionsProps)
     }
   };
 
-  const getButtonText = () => {
-    if (!isSignedIn) return 'Sign in to upgrade';
-    if (isCurrent) return 'Current Plan';
-    if (isPro) return 'Upgrade to Pro';
-    return 'Current Plan';
-  };
-
   // Free plan button
   if (planType === 'free') {
     return (
-      <Button className="w-full" variant="outline" disabled>
-        Free Forever
+      <Button
+        className="w-full h-12 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold border-0"
+        variant="outline"
+        asChild
+      >
+        <a href="/">Get Started Free</a>
       </Button>
     );
   }
 
-  // Pro plan button
+  // Pro plan button - loading state
   if (isLoading) {
     return (
-      <Button className="w-full" variant="outline" disabled>
+      <Button
+        className="w-full h-12 rounded-xl bg-white hover:bg-gray-100 text-gray-900 font-semibold"
+        disabled
+      >
+        <Loader2 className="h-4 w-4 animate-spin mr-2" />
         Loading...
       </Button>
     );
   }
 
+  // Current plan
   if (isCurrent) {
     return (
-      <Button className="w-full" variant="outline" disabled>
+      <Button
+        className="w-full h-12 rounded-xl bg-white/20 text-white font-semibold border border-white/30 hover:bg-white/30"
+        disabled
+      >
         Current Plan
       </Button>
     );
   }
 
+  // Upgrade button
   return (
     <Button
-      className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold"
+      className="w-full h-12 rounded-xl bg-white hover:bg-gray-100 text-gray-900 font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
       onClick={handleAction}
-      disabled={isLoading}
     >
-      {getButtonText()}
+      {!isSignedIn ? 'Sign in to upgrade' : 'Upgrade to Pro'}
+      <ArrowRight className="h-4 w-4 ml-2" />
     </Button>
   );
 }

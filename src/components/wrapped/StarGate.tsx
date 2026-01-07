@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { GITHUB_GG_REPO } from '@/lib/types/wrapped';
 import { trpc } from '@/lib/trpc/client';
+import { getWrappedYear } from '@/lib/utils/wrapped-year';
 
 interface StarGateProps {
   username: string;
@@ -99,7 +100,7 @@ export function StarGate({ username, onUnlocked, teaserStats }: StarGateProps) {
                 <Lock className="w-12 h-12 mx-auto mb-4 text-purple-500" />
                 
                 <h1 className="text-3xl md:text-4xl font-black mb-2 bg-gradient-to-r from-gray-900 via-purple-600 to-cyan-600 bg-clip-text text-transparent">
-                  Your {new Date().getFullYear()} Wrapped
+                  Your {getWrappedYear()} Wrapped
                 </h1>
                 <p className="text-lg text-gray-500 mb-6">is waiting to be unlocked</p>
 

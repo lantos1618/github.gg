@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { WrappedSlide, SlideCard, AIBadge, Confetti, UserHeader, WRAPPED_THEME, WRAPPED_STYLES } from '../WrappedSlide';
 import type { WrappedAIInsights } from '@/lib/types/wrapped';
+import { getWrappedYear } from '@/lib/utils/wrapped-year';
 
 interface CommitsSlideProps {
   totalCommits: number;
@@ -42,7 +43,7 @@ function getFallbackMessage(commits: number): { message: string; subtext: string
   }
   return {
     message: "Every journey starts somewhere.",
-    subtext: `${new Date().getFullYear() + 1} is your year. We believe in you.`,
+    subtext: `${getWrappedYear() + 1} is your year. We believe in you.`,
   };
 }
 

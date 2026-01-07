@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import type { WrappedData } from '@/lib/types/wrapped';
+import { getWrappedYear } from '@/lib/utils/wrapped-year';
 
 export type LogEntry = {
   message: string;
@@ -112,7 +113,7 @@ export function useWrappedGeneration(year?: number) {
       isAiStreaming: false,
     });
 
-    const targetYear = year || new Date().getFullYear();
+    const targetYear = year || getWrappedYear();
     
     const subscription = utils.client.wrapped.generateWrapped.subscribe(
       {
@@ -302,7 +303,7 @@ export function useGenerateForFriend() {
     const subscription = utils.client.wrapped.generateForFriend.subscribe(
       {
         friendUsername: options.friendUsername,
-        year: options.year || new Date().getFullYear(),
+        year: options.year || getWrappedYear(),
         personalMessage: options.personalMessage,
       },
       {

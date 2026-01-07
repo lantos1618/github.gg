@@ -1,6 +1,7 @@
 import { Octokit } from '@octokit/rest';
 import type { WrappedStats } from '@/db/schema/wrapped';
 import { getLanguageColor, GITHUB_GG_REPO } from '@/lib/types/wrapped';
+import { getWrappedYear } from '@/lib/utils/wrapped-year';
 
 type SearchCommitItem = {
   sha: string;
@@ -42,7 +43,7 @@ export class WrappedService {
   private octokit: Octokit;
   private year: number;
 
-  constructor(octokit: Octokit, year: number = new Date().getFullYear()) {
+  constructor(octokit: Octokit, year: number = getWrappedYear()) {
     this.octokit = octokit;
     this.year = year;
   }

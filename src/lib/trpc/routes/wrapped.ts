@@ -13,6 +13,7 @@ import type { GenerateWrappedInsightsResult } from '@/lib/ai/wrapped-insights';
 import { getUserSubscription } from '@/lib/utils/user-plan';
 import { sendWrappedGiftEmail } from '@/lib/email/resend';
 import type { WrappedAIInsights } from '@/db/schema/wrapped';
+import { getWrappedYear } from '@/lib/utils/wrapped-year';
 
 type ProgressMetadata = {
   commits?: number;
@@ -37,7 +38,7 @@ export const wrappedRouter = router({
   exists: protectedProcedure
     .input(z.object({ year: z.number().optional() }))
     .query(async ({ ctx, input }) => {
-      const year = input.year || new Date().getFullYear();
+      const year = input.year || getWrappedYear();
       const username = (ctx.user as { githubUsername?: string }).githubUsername;
       
       if (!username) {
@@ -81,7 +82,7 @@ export const wrappedRouter = router({
       tempApiKey: z.string().optional(), // Temporary API key for this session only (not stored)
     }))
     .subscription(async function* ({ input, ctx }) {
-      const year = input.year || new Date().getFullYear();
+      const year = input.year || getWrappedYear();
       const { withAI, includeRoast, force, tempApiKey } = input;
       const username = (ctx.user as { githubUsername?: string }).githubUsername || ctx.user.name || '';
 
@@ -336,7 +337,7 @@ export const wrappedRouter = router({
       tempApiKey: z.string().optional(), // Temporary API key for this session only (not stored)
     }))
     .subscription(async function* ({ input, ctx }) {
-      const year = input.year || new Date().getFullYear();
+      const year = input.year || getWrappedYear();
       const { friendUsername, personalMessage, tempApiKey } = input;
       const senderUsername = (ctx.user as { githubUsername?: string }).githubUsername || ctx.user.name || '';
 
@@ -582,7 +583,7 @@ export const wrappedRouter = router({
   getMyWrapped: protectedProcedure
     .input(z.object({ year: z.number().optional() }))
     .query(async ({ ctx, input }) => {
-      const year = input.year || new Date().getFullYear();
+      const year = input.year || getWrappedYear();
 
       const wrapped = await db
         .select()
@@ -609,7 +610,7 @@ export const wrappedRouter = router({
       year: z.number().optional(),
     }))
     .query(async ({ input }) => {
-      const year = input.year || new Date().getFullYear();
+      const year = input.year || getWrappedYear();
 
       const wrapped = await db
         .select()
@@ -653,7 +654,7 @@ export const wrappedRouter = router({
   getCacheStatus: protectedProcedure
     .input(z.object({ year: z.number().optional() }))
     .query(async ({ ctx, input }) => {
-      const year = input.year || new Date().getFullYear();
+      const year = input.year || getWrappedYear();
 
       const wrapped = await db
         .select({

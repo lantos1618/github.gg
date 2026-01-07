@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { WrappedSlide, SlideCard, Confetti, UserHeader, WRAPPED_THEME, WRAPPED_STYLES } from '../WrappedSlide';
 import type { WrappedAIInsights } from '@/lib/types/wrapped';
 import { PERSONALITY_TYPES } from '@/lib/types/wrapped';
+import { getWrappedYear } from '@/lib/utils/wrapped-year';
 
 interface PersonalitySlideProps {
   aiInsights: WrappedAIInsights | null;
@@ -114,7 +115,7 @@ export function PersonalitySlide({ aiInsights, stats, user }: PersonalitySlidePr
                 transition={{ delay: 0.3 }}
                 className={WRAPPED_STYLES.sectionLabel}
               >
-                Your {new Date().getFullYear()} Developer Personality
+                Your {getWrappedYear()} Developer Personality
               </motion.p>
 
               <motion.div

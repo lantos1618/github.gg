@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { StarGate, useWrappedGeneration } from '@/components/wrapped';
 import { useAuth } from '@/lib/auth/factory';
 import { trpc } from '@/lib/trpc/client';
+import { getWrappedYear } from '@/lib/utils/wrapped-year';
 
 export default function WrappedLandingPage() {
   const router = useRouter();
@@ -16,7 +17,8 @@ export default function WrappedLandingPage() {
   const [starCheckPassed, setStarCheckPassed] = useState(false);
   const [tempApiKey, setTempApiKey] = useState('');
 
-  const currentYear = new Date().getFullYear();
+  // Wrapped is for the PREVIOUS year (e.g., in Jan 2026, show 2025 Wrapped)
+  const currentYear = getWrappedYear();
   
   const { data: existsData, isLoading: existsLoading } = trpc.wrapped.exists.useQuery(
     { year: currentYear },

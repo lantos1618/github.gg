@@ -36,6 +36,18 @@ export function NavbarLinks() {
       >
         Wrapped
       </Link>
+      <Link
+        href="/hire"
+        className="text-sm font-medium text-gray-500 hover:text-black transition-colors"
+      >
+        Hire
+      </Link>
+      <Link
+        href="/developers"
+        className="text-sm font-medium text-gray-500 hover:text-black transition-colors"
+      >
+        Developers
+      </Link>
     </div>
   );
 }

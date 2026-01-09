@@ -771,4 +771,152 @@ export const profileRouter = router({
         b.updatedAt.getTime() - a.updatedAt.getTime()
       );
     }),
+
+  // Search profiles by skills, archetype, confidence
+  searchProfiles: publicProcedure
+    .input(z.object({
+      skills: z.array(z.string()).optional(),
+      archetypes: z.array(z.string()).optional(),
+      minConfidence: z.number().min(0).max(100).optional(),
+      maxConfidence: z.number().min(0).max(100).optional(),
+      query: z.string().optional(), // Free text search
+      limit: z.number().optional().default(50),
+      offset: z.number().optional().default(0),
+    }))
+    .query(async ({ input }) => {
+      const { skills, archetypes, minConfidence, maxConfidence, query, limit, offset } = input;
+
+      // Get latest version of each profile using subquery
+      const maxVersions = db
+        .select({
+          username: developerProfileCache.username,
+          maxVersion: sql<number>`MAX(${developerProfileCache.version})`.as('max_version')
+        })
+        .from(developerProfileCache)
+        .groupBy(developerProfileCache.username)
+        .as('max_versions');
+
+      const allProfiles = await db
+        .select({
+          username: developerProfileCache.username,
+          profileData: developerProfileCache.profileData,
+          updatedAt: developerProfileCache.updatedAt,
+          version: developerProfileCache.version,
+        })
+        .from(developerProfileCache)
+        .innerJoin(
+          maxVersions,
+          and(
+            eq(developerProfileCache.username, maxVersions.username),
+            eq(developerProfileCache.version, maxVersions.maxVersion)
+          )
+        )
+        .orderBy(desc(developerProfileCache.updatedAt));
+
+      // Filter in memory for more complex queries
+      let filtered = allProfiles.filter(profile => {
+        const data = profile.profileData as DeveloperProfile;
+        if (!data) return false;
+
+        // Filter by archetype
+        if (archetypes && archetypes.length > 0) {
+          if (!data.developerArchetype || !archetypes.includes(data.developerArchetype)) {
+            return false;
+          }
+        }
+
+        // Filter by confidence
+        if (minConfidence !== undefined && (data.profileConfidence ?? 0) < minConfidence) {
+          return false;
+        }
+        if (maxConfidence !== undefined && (data.profileConfidence ?? 100) > maxConfidence) {
+          return false;
+        }
+
+        // Filter by skills (any match)
+        if (skills && skills.length > 0) {
+          const profileSkills = [
+            ...(data.skillAssessment?.map(s => s.metric.toLowerCase()) || []),
+            ...(data.techStack?.map(t => t.name.toLowerCase()) || []),
+          ];
+          const hasMatchingSkill = skills.some(skill =>
+            profileSkills.some(ps => ps.includes(skill.toLowerCase()))
+          );
+          if (!hasMatchingSkill) return false;
+        }
+
+        // Free text search in summary
+        if (query && query.trim()) {
+          const searchLower = query.toLowerCase();
+          const searchableText = [
+            data.summary,
+            data.developerArchetype,
+            ...(data.skillAssessment?.map(s => s.metric) || []),
+            ...(data.techStack?.map(t => t.name) || []),
+          ].join(' ').toLowerCase();
+
+          if (!searchableText.includes(searchLower)) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+      // Calculate match score for ranking
+      const scored = filtered.map(profile => {
+        const data = profile.profileData as DeveloperProfile;
+        let score = 0;
+
+        // Base score from confidence
+        score += (data.profileConfidence ?? 50) / 2;
+
+        // Bonus for matching skills
+        if (skills && skills.length > 0) {
+          const profileSkills = [
+            ...(data.skillAssessment?.map(s => ({ name: s.metric.toLowerCase(), score: s.score })) || []),
+          ];
+          skills.forEach(skill => {
+            const match = profileSkills.find(ps => ps.name.includes(skill.toLowerCase()));
+            if (match) {
+              score += match.score * 3; // Weight skill matches heavily
+            }
+          });
+        }
+
+        // Bonus for production builders (they ship)
+        if (data.developerArchetype === 'Production Builder') {
+          score += 10;
+        }
+
+        return { ...profile, matchScore: Math.round(score) };
+      });
+
+      // Sort by match score
+      scored.sort((a, b) => b.matchScore - a.matchScore);
+
+      // Paginate
+      const paginated = scored.slice(offset, offset + limit);
+
+      return {
+        results: paginated.map(p => {
+          const data = p.profileData as DeveloperProfile;
+          return {
+            username: p.username,
+            summary: data.summary,
+            archetype: data.developerArchetype,
+            confidence: data.profileConfidence,
+            topSkills: data.skillAssessment?.slice(0, 5).map(s => ({
+              name: s.metric,
+              score: s.score,
+            })) || [],
+            techStack: data.techStack?.slice(0, 8).map(t => t.name) || [],
+            matchScore: p.matchScore,
+            updatedAt: p.updatedAt,
+          };
+        }),
+        total: scored.length,
+        hasMore: offset + limit < scored.length,
+      };
+    }),
 }); 

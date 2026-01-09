@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Key, Trash2, BarChart3, Webhook, Palette } from 'lucide-react';
+import { Eye, EyeOff, Key, Trash2, BarChart3, Webhook, Palette, Plus, Copy, Check, Code2, ExternalLink } from 'lucide-react';
 import { PageHeader, CardWithHeader } from '@/components/common';
 import { HexColorPicker } from 'react-colorful';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -27,6 +27,11 @@ function useDebounce<T>(value: T, delay: number): T {
 export default function SettingsPage() {
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
+
+  // Public API Keys state
+  const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyRevealed, setNewKeyRevealed] = useState<string | null>(null);
+  const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
   
   // tRPC queries and mutations
   const { data: keyStatus } = trpc.user.getApiKeyStatus.useQuery();
@@ -36,6 +41,29 @@ export default function SettingsPage() {
   const { data: currentPlan } = trpc.user.getCurrentPlan.useQuery();
   const { data: webhookPrefs, refetch: refetchWebhookPrefs } = trpc.webhooks.getPreferences.useQuery();
   const { data: installationInfo } = trpc.webhooks.getInstallationInfo.useQuery();
+
+  // Public API Keys
+  const { data: publicApiKeys, refetch: refetchApiKeys } = trpc.apiKeys.list.useQuery();
+  const createApiKey = trpc.apiKeys.create.useMutation({
+    onSuccess: (data) => {
+      setNewKeyRevealed(data.key);
+      setNewKeyName('');
+      refetchApiKeys();
+      toast.success('API key created! Copy it now - it won\'t be shown again.');
+    },
+    onError: (err) => {
+      toast.error(err.message);
+    }
+  });
+  const deleteApiKey_public = trpc.apiKeys.delete.useMutation({
+    onSuccess: () => {
+      toast.success('API key deleted');
+      refetchApiKeys();
+    },
+    onError: (err) => {
+      toast.error(err.message);
+    }
+  });
 
   // Profile Customization State
   const { data: currentUser } = trpc.me.useQuery();
@@ -134,6 +162,29 @@ export default function SettingsPage() {
       return;
     }
     getBillingPortal.mutate();
+  };
+
+  const handleCreateApiKey = () => {
+    if (!newKeyName.trim()) {
+      toast.error('Please enter a name for your API key');
+      return;
+    }
+    createApiKey.mutate({ name: newKeyName.trim(), scopes: ['read'] });
+  };
+
+  const handleCopyKey = async (key: string, id?: string) => {
+    await navigator.clipboard.writeText(key);
+    if (id) {
+      setCopiedKeyId(id);
+      setTimeout(() => setCopiedKeyId(null), 2000);
+    }
+    toast.success('Copied to clipboard');
+  };
+
+  const handleDeletePublicKey = (id: string, name: string) => {
+    if (confirm(`Are you sure you want to delete the API key "${name}"? This action cannot be undone.`)) {
+      deleteApiKey_public.mutate({ id });
+    }
   };
 
   return (
@@ -359,6 +410,142 @@ export default function SettingsPage() {
                 </p>
               </div>
             )}
+          </div>
+        </CardWithHeader>
+
+        {/* Public API Keys */}
+        <CardWithHeader
+          title="API Keys"
+          description="Manage API keys for programmatic access to the GG REST API."
+          icon={Code2}
+        >
+          <div className="space-y-4">
+            {/* Newly created key reveal */}
+            {newKeyRevealed && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg space-y-3">
+                <div className="flex items-start gap-2">
+                  <Key className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-amber-800">Your new API key</p>
+                    <p className="text-sm text-amber-700 mt-1">
+                      Copy this key now. You won&apos;t be able to see it again!
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <code className="flex-1 p-3 bg-white border border-amber-300 rounded text-sm font-mono break-all">
+                    {newKeyRevealed}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyKey(newKeyRevealed)}
+                    className="flex-shrink-0"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setNewKeyRevealed(null)}
+                  className="text-amber-700"
+                >
+                  I&apos;ve copied my key
+                </Button>
+              </div>
+            )}
+
+            {/* Create new key */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Key name (e.g., Production App)"
+                value={newKeyName}
+                onChange={(e) => setNewKeyName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateApiKey()}
+                className="flex-1"
+              />
+              <Button
+                onClick={handleCreateApiKey}
+                disabled={createApiKey.isPending || !newKeyName.trim()}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                {createApiKey.isPending ? 'Creating...' : 'Create Key'}
+              </Button>
+            </div>
+
+            {/* Existing keys list */}
+            {publicApiKeys && publicApiKeys.length > 0 ? (
+              <div className="space-y-2 mt-4">
+                <h4 className="text-sm font-medium text-gray-700">Your API Keys</h4>
+                <div className="divide-y border rounded-lg">
+                  {publicApiKeys.map((key) => (
+                    <div key={key.id} className="p-3 flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium truncate">{key.name}</span>
+                          {!key.isActive && (
+                            <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
+                              Inactive
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
+                          <code className="bg-gray-100 px-1.5 py-0.5 rounded">{key.keyPrefix}...</code>
+                          <span>
+                            Created {new Date(key.createdAt).toLocaleDateString()}
+                          </span>
+                          {key.lastUsedAt && (
+                            <span>
+                              &bull; Last used {new Date(key.lastUsedAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCopyKey(key.keyPrefix + '...', key.id)}
+                          title="Copy key prefix"
+                        >
+                          {copiedKeyId === key.id ? (
+                            <Check className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeletePublicKey(key.id, key.name)}
+                          disabled={deleteApiKey_public.isPending}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No API keys yet. Create one to access the GG API programmatically.
+              </p>
+            )}
+
+            {/* Link to docs */}
+            <div className="pt-4 border-t">
+              <a
+                href="/api-docs"
+                className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+              >
+                View API Documentation
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
           </div>
         </CardWithHeader>
 

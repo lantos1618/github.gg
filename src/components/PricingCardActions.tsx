@@ -45,11 +45,11 @@ export function PricingCardActions({ planType, isPro }: PricingCardActionsProps)
   if (planType === 'free') {
     return (
       <Button
-        className="w-full h-12 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold border-0"
+        className="w-full h-10 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium border-0 rounded"
         variant="outline"
         asChild
       >
-        <a href="/">Get Started Free</a>
+        <a href="/">Get Started</a>
       </Button>
     );
   }
@@ -58,7 +58,7 @@ export function PricingCardActions({ planType, isPro }: PricingCardActionsProps)
   if (isLoading) {
     return (
       <Button
-        className="w-full h-12 rounded-xl bg-white hover:bg-gray-100 text-gray-900 font-semibold"
+        className="w-full h-10 bg-gray-900 text-white font-medium rounded"
         disabled
       >
         <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -71,7 +71,7 @@ export function PricingCardActions({ planType, isPro }: PricingCardActionsProps)
   if (isCurrent) {
     return (
       <Button
-        className="w-full h-12 rounded-xl bg-white/20 text-white font-semibold border border-white/30 hover:bg-white/30"
+        className="w-full h-10 bg-gray-100 text-gray-500 font-medium border-0 rounded"
         disabled
       >
         Current Plan
@@ -82,11 +82,11 @@ export function PricingCardActions({ planType, isPro }: PricingCardActionsProps)
   // Upgrade button
   return (
     <Button
-      className="w-full h-12 rounded-xl bg-white hover:bg-gray-100 text-gray-900 font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
+      className="w-full h-10 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded"
       onClick={handleAction}
     >
-      {!isSignedIn ? 'Sign in to upgrade' : 'Upgrade to Pro'}
-      <ArrowRight className="h-4 w-4 ml-2" />
+      {!isSignedIn ? 'Sign in to upgrade' : 'Upgrade'}
+      <ArrowRight className="h-4 w-4 ml-1.5" />
     </Button>
   );
 }

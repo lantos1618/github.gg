@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
+import { router, publicProcedure } from '@/lib/trpc/trpc';
+import { adminProcedure } from '@/lib/trpc/admin';
 import { db } from '@/db';
 import { featuredRepos } from '@/db/schema';
 import { eq, asc } from 'drizzle-orm';
@@ -15,8 +16,8 @@ export const featuredRouter = router({
       });
     }),
 
-  // Admin routes (you can add admin check middleware later)
-  create: protectedProcedure
+  // Admin-only routes for managing featured repos
+  create: adminProcedure
     .input(z.object({
       repositoryUrl: z.string().url(),
       repositoryName: z.string().min(1),
@@ -37,7 +38,7 @@ export const featuredRouter = router({
       return result[0];
     }),
 
-  update: protectedProcedure
+  update: adminProcedure
     .input(z.object({
       id: z.string().uuid(),
       repositoryUrl: z.string().url().optional(),
@@ -49,7 +50,7 @@ export const featuredRouter = router({
     }))
     .mutation(async ({ input }) => {
       const { id, ...updateData } = input;
-      
+
       const result = await db.update(featuredRepos)
         .set(updateData)
         .where(eq(featuredRepos.id, id))
@@ -58,18 +59,18 @@ export const featuredRouter = router({
       return result[0];
     }),
 
-  delete: protectedProcedure
+  delete: adminProcedure
     .input(z.object({
       id: z.string().uuid(),
     }))
     .mutation(async ({ input }) => {
       await db.delete(featuredRepos)
         .where(eq(featuredRepos.id, input.id));
-      
+
       return { success: true };
     }),
 
-  getAll: protectedProcedure
+  getAll: adminProcedure
     .query(async () => {
       return await db.query.featuredRepos.findMany({
         orderBy: asc(featuredRepos.position)

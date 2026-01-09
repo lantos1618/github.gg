@@ -34,4 +34,7 @@ export * from './user-vms';
 // Wrapped tables
 export * from './wrapped';
 
+// API keys tables
+export * from './api-keys';
+
 // Do NOT import or export relations here. Only table definitions.

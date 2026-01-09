@@ -5,39 +5,43 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion } from 'framer-motion';
-import { ArrowRight, Github, FileCode2, Network, BarChart3, BookOpen, Sparkles, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Github, FileCode2, Network, BarChart3, BookOpen, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
 const fadeUpVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 12 },
   visible: { opacity: 1, y: 0 }
 };
 
-// Visual feature cards that show what you get
+// Visual feature cards - varied sizes and emphasis
 const valueProps = [
   {
     icon: BarChart3,
-    title: "Code Quality Scores",
-    desc: "Instant A-F grades for any file",
-    color: "bg-blue-500"
+    title: "Quality Scores",
+    desc: "A-F grades per file",
+    accent: "text-orange-600",
+    bg: "bg-orange-50 border-orange-100"
   },
   {
     icon: Network,
-    title: "Architecture Diagrams",
-    desc: "Auto-generated visual maps",
-    color: "bg-purple-500"
+    title: "Diagrams",
+    desc: "Auto-generated maps",
+    accent: "text-violet-600",
+    bg: "bg-violet-50 border-violet-100"
   },
   {
     icon: BookOpen,
-    title: "AI Documentation",
-    desc: "Wiki pages from your code",
-    color: "bg-emerald-500"
+    title: "Wiki",
+    desc: "Docs from code",
+    accent: "text-teal-600",
+    bg: "bg-teal-50 border-teal-100"
   },
   {
     icon: Sparkles,
-    title: "AI Code Reviews",
-    desc: "Find bugs before production",
-    color: "bg-amber-500"
+    title: "Reviews",
+    desc: "Catch bugs early",
+    accent: "text-rose-600",
+    bg: "bg-rose-50 border-rose-100"
   }
 ];
 
@@ -69,80 +73,75 @@ export function HeroSection() {
 
   return (
     <div className="relative bg-white overflow-hidden">
-      {/* Subtle gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-white to-purple-50/30 pointer-events-none" />
+      {/* Subtle dot pattern instead of gradient */}
+      <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, #000 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
 
       <div className="container mx-auto px-4 relative z-10">
-        <div className="max-w-6xl mx-auto pt-16 pb-20">
+        <div className="max-w-5xl mx-auto pt-20 pb-24">
 
           {/* Main hero content */}
           <motion.div
-            className="text-center mb-16"
+            className="text-center mb-14"
             initial="hidden"
             animate="visible"
             variants={{
-              visible: { transition: { staggerChildren: 0.1 } }
+              visible: { transition: { staggerChildren: 0.08 } }
             }}
           >
-            {/* Trust badge */}
+            {/* Simple badge - no generic icons */}
             <motion.div
               variants={fadeUpVariants}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/5 text-sm text-gray-600 mb-8"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-gray-100 text-sm text-gray-700 mb-8 font-medium"
             >
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-              <span>Free for public repos</span>
-              <span className="text-gray-300">|</span>
-              <span>No signup required</span>
+              Free for public repos · No signup
             </motion.div>
 
-            {/* Main headline - clear value prop */}
+            {/* Main headline - more direct */}
             <motion.h1
-              className="text-5xl md:text-7xl font-bold text-black mb-6 tracking-tight leading-[1.1]"
+              className="text-4xl sm:text-5xl md:text-6xl font-bold text-gray-900 mb-5 tracking-tight leading-[1.15]"
               variants={fadeUpVariants}
             >
-              Understand any GitHub repo
-              <br />
-              <span className="text-gray-400">in seconds, not hours</span>
+              Read any repo like you wrote it
             </motion.h1>
 
-            {/* Subheadline - what you get */}
+            {/* Subheadline - shorter, punchier */}
             <motion.p
-              className="text-xl md:text-2xl text-gray-600 mb-10 max-w-3xl mx-auto font-normal leading-relaxed"
+              className="text-lg md:text-xl text-gray-500 mb-10 max-w-2xl mx-auto leading-relaxed"
               variants={fadeUpVariants}
             >
-              Paste a repo URL and instantly get <span className="text-black font-medium">quality scores</span>, <span className="text-black font-medium">architecture diagrams</span>, and <span className="text-black font-medium">AI-generated docs</span>.
+              Paste a GitHub URL. Get quality scores, architecture diagrams, and generated docs.
             </motion.p>
 
-            {/* Search input - main CTA */}
+            {/* Search input - clean, functional */}
             <motion.div
               variants={fadeUpVariants}
-              className="max-w-2xl mx-auto mb-6"
+              className="max-w-xl mx-auto mb-6"
             >
-              <form onSubmit={handleAnalyze} className="relative group">
-                <div className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-black z-10">
-                  <Github className="h-6 w-6" />
+              <form onSubmit={handleAnalyze} className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 z-10">
+                  <Github className="h-5 w-5" />
                 </div>
                 <Input
                   type="text"
-                  placeholder="Paste any GitHub URL or owner/repo"
-                  className="pl-14 pr-36 h-16 text-lg border-2 border-gray-200 bg-white rounded-2xl focus:border-black focus:ring-0 transition-all duration-300 placeholder:text-gray-400 shadow-sm hover:shadow-md hover:border-gray-300"
+                  placeholder="owner/repo or paste URL"
+                  className="pl-12 pr-28 h-14 text-base border border-gray-200 bg-white rounded-lg focus:border-gray-900 focus:ring-0 transition-colors placeholder:text-gray-400"
                   value={repoUrl}
                   onChange={(e) => setRepoUrl(e.target.value)}
                   autoFocus
                 />
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
+                <div className="absolute right-1.5 top-1/2 -translate-y-1/2 z-10">
                   <Button
-                    size="lg"
+                    size="default"
                     type="submit"
                     disabled={isAnalyzing}
-                    className="h-12 px-6 bg-black hover:bg-gray-800 text-white rounded-xl font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+                    className="h-11 px-5 bg-gray-900 hover:bg-gray-800 text-white rounded-md font-medium"
                   >
                     {isAnalyzing ? (
-                      <span className="animate-pulse">Analyzing...</span>
+                      <span>...</span>
                     ) : (
                       <>
-                        Analyze
-                        <ArrowRight className="h-4 w-4 ml-2" />
+                        Go
+                        <ArrowRight className="h-4 w-4 ml-1.5" />
                       </>
                     )}
                   </Button>
@@ -150,18 +149,18 @@ export function HeroSection() {
               </form>
             </motion.div>
 
-            {/* Quick examples */}
-            <motion.div variants={fadeUpVariants} className="flex flex-wrap justify-center gap-3 text-sm mb-16">
-              <span className="text-gray-400">Try:</span>
+            {/* Quick examples - inline */}
+            <motion.div variants={fadeUpVariants} className="flex flex-wrap justify-center gap-2 text-sm">
+              <span className="text-gray-400 py-1">Try</span>
               {[
-                { name: 'facebook/react', label: 'React' },
-                { name: 'vercel/next.js', label: 'Next.js' },
-                { name: 'microsoft/vscode', label: 'VS Code' },
+                { name: 'facebook/react', label: 'react' },
+                { name: 'vercel/next.js', label: 'next.js' },
+                { name: 'denoland/deno', label: 'deno' },
               ].map((repo) => (
                 <button
                   key={repo.name}
                   onClick={() => setRepoUrl(repo.name)}
-                  className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-colors"
+                  className="px-2.5 py-1 rounded border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600 font-mono text-xs transition-colors"
                 >
                   {repo.label}
                 </button>
@@ -169,46 +168,38 @@ export function HeroSection() {
             </motion.div>
           </motion.div>
 
-          {/* Value props grid - what you actually get */}
+          {/* Value props - horizontal strip */}
           <motion.div
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto"
+            className="flex flex-wrap justify-center gap-3 mt-16"
             initial="hidden"
             animate="visible"
             variants={{
-              visible: { transition: { staggerChildren: 0.1, delayChildren: 0.3 } }
+              visible: { transition: { staggerChildren: 0.06, delayChildren: 0.2 } }
             }}
           >
             {valueProps.map((prop, idx) => (
               <motion.div
                 key={idx}
                 variants={fadeUpVariants}
-                className="group p-5 rounded-2xl bg-white border border-gray-100 hover:border-gray-200 hover:shadow-lg transition-all duration-300 cursor-default"
+                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-lg border ${prop.bg}`}
               >
-                <div className={`w-10 h-10 rounded-xl ${prop.color} flex items-center justify-center mb-3`}>
-                  <prop.icon className="h-5 w-5 text-white" />
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-1">{prop.title}</h3>
-                <p className="text-sm text-gray-500">{prop.desc}</p>
+                <prop.icon className={`h-4 w-4 ${prop.accent}`} />
+                <span className="font-medium text-gray-900 text-sm">{prop.title}</span>
+                <span className="text-gray-400 text-sm hidden sm:inline">·</span>
+                <span className="text-gray-500 text-sm hidden sm:inline">{prop.desc}</span>
               </motion.div>
             ))}
           </motion.div>
 
-          {/* Social proof */}
-          <motion.div
-            className="mt-16 text-center"
+          {/* Simple stat - less generic */}
+          <motion.p
+            className="mt-12 text-center text-sm text-gray-400"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.8 }}
+            transition={{ delay: 0.6 }}
           >
-            <p className="text-sm text-gray-400 mb-4">Trusted by developers analyzing</p>
-            <div className="flex justify-center items-center gap-8 text-gray-300">
-              <div className="flex items-center gap-2">
-                <FileCode2 className="h-5 w-5" />
-                <span className="text-lg font-semibold text-gray-600">50K+</span>
-                <span className="text-sm text-gray-400">repos analyzed</span>
-              </div>
-            </div>
-          </motion.div>
+            Works with any public GitHub repository
+          </motion.p>
         </div>
       </div>
     </div>

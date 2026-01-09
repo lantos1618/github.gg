@@ -1,4 +1,18 @@
-import { pgTable, text, timestamp, uuid, uniqueIndex, index, integer, jsonb, varchar, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, uniqueIndex, index, integer, jsonb, varchar, boolean, customType } from 'drizzle-orm/pg-core';
+
+// Custom type for pgvector
+const vector = customType<{ data: number[]; driverData: string; config: { dimensions: number } }>({
+  dataType(config) {
+    return `vector(${config?.dimensions ?? 768})`;
+  },
+  toDriver(value: number[]): string {
+    return `[${value.join(',')}]`;
+  },
+  fromDriver(value: string): number[] {
+    // Parse "[1,2,3]" format
+    return value.slice(1, -1).split(',').map(Number);
+  },
+});
 import type { ScorecardMetric, DiagramOptions } from '@/lib/types/scorecard';
 import { user } from './auth';
 
@@ -156,6 +170,7 @@ export const developerProfileCache = pgTable('developer_profile_cache', {
   username: text('username').notNull(),
   version: integer('version').notNull().default(1),
   profileData: jsonb('profile_data').notNull(),
+  embedding: vector('embedding', { dimensions: 768 }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({

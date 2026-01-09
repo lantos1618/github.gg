@@ -14,12 +14,15 @@ import { webhooksRouter } from '@/lib/trpc/routes/webhooks';
 import { githubAnalysisRouter } from '@/lib/trpc/routes/github-analysis';
 import { wikiRouter } from '@/lib/trpc/routes/wiki';
 import { wrappedRouter } from '@/lib/trpc/routes/wrapped';
+import { apiKeysRouter } from '@/lib/trpc/routes/api-keys';
+import { hireRouter } from '@/lib/trpc/routes/hire';
 import { z } from 'zod';
 import { router } from '@/lib/trpc/trpc';
 import { db } from '@/db';
-import { account } from '@/db/schema';
+import { account, user } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { githubAppInstallations } from '@/db/schema';
+import { TRPCError } from '@trpc/server';
 
 export const appRouter = router({
   // Protected user routes
@@ -56,17 +59,36 @@ export const appRouter = router({
 
   updateProfile: protectedProcedure
     .input(z.object({
-      name: z.string().optional(),
-      bio: z.string().optional(),
+      name: z.string().min(1).max(100).optional(),
     }))
-    .mutation(async ({ ctx }) => {
-      // TODO: Update user profile in database
-      console.log('Updating profile for user:', ctx.user);
-      
+    .mutation(async ({ ctx, input }) => {
+      const updates: Partial<{ name: string }> = {};
+
+      if (input.name !== undefined) {
+        updates.name = input.name;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'No fields to update',
+        });
+      }
+
+      await db
+        .update(user)
+        .set(updates)
+        .where(eq(user.id, ctx.user.id));
+
+      // Fetch updated user
+      const updatedUser = await db.query.user.findFirst({
+        where: eq(user.id, ctx.user.id),
+      });
+
       return {
         success: true,
         message: 'Profile updated',
-        user: ctx.user,
+        user: updatedUser,
       };
     }),
 
@@ -112,6 +134,12 @@ export const appRouter = router({
 
   // GitHub Wrapped routes
   wrapped: wrappedRouter,
+
+  // Public API key management
+  apiKeys: apiKeysRouter,
+
+  // Hiring/job matching
+  hire: hireRouter,
 });
 
 export type AppRouter = typeof appRouter; 

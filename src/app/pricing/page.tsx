@@ -1,5 +1,5 @@
 import { PLANS, FEATURE_COMPARISON } from '@/data/plans';
-import { Check, X, Sparkles, Shield, Zap } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import type { Metadata } from 'next';
 import { PricingCardActions } from '@/components/PricingCardActions';
 
@@ -14,45 +14,35 @@ export const metadata: Metadata = {
 
 export default function PricingPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-screen bg-white">
       {/* Hero */}
-      <div className="pt-16 pb-12 text-center px-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-sm font-medium mb-6">
-          <Sparkles className="h-4 w-4" />
-          Simple pricing, no surprises
-        </div>
-        <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-          Start free, upgrade when ready
+      <div className="pt-16 pb-10 text-center px-4">
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+          Pricing
         </h1>
-        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-          Explore any public repo for free. Unlock AI-powered features when you need them.
+        <p className="text-lg text-gray-500 max-w-xl mx-auto">
+          Free for public repos. Pro unlocks AI features and private repo support.
         </p>
       </div>
 
       {/* Pricing Cards */}
-      <div className="max-w-5xl mx-auto px-4 pb-16">
-        <div className="grid md:grid-cols-2 gap-8">
+      <div className="max-w-3xl mx-auto px-4 pb-16">
+        <div className="grid md:grid-cols-2 gap-6">
           {/* Free Plan */}
-          <div className="relative bg-white rounded-3xl border-2 border-gray-200 p-8 shadow-sm">
-            <div className="mb-8">
-              <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
-                <Zap className="h-6 w-6 text-gray-600" />
+          <div className="border border-gray-200 p-6">
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-1">Free</h2>
+              <div className="flex items-baseline gap-1 mb-2">
+                <span className="text-4xl font-bold text-gray-900">$0</span>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Free</h2>
-              <div className="flex items-baseline gap-1 mb-3">
-                <span className="text-5xl font-bold text-gray-900">$0</span>
-                <span className="text-gray-500">/forever</span>
-              </div>
-              <p className="text-gray-600">Perfect for exploring open source</p>
+              <p className="text-sm text-gray-500">For exploring public repos</p>
             </div>
 
-            <ul className="space-y-4 mb-8">
+            <ul className="space-y-3 mb-6 text-sm">
               {PLANS[0].features.map((feature, idx) => (
-                <li key={idx} className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-gray-600" />
-                  </div>
-                  <span className="text-gray-700">{feature}</span>
+                <li key={idx} className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-gray-600">{feature}</span>
                 </li>
               ))}
             </ul>
@@ -61,33 +51,25 @@ export default function PricingPage() {
           </div>
 
           {/* Pro Plan */}
-          <div className="relative bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-8 shadow-2xl text-white">
-            {/* Popular badge */}
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-              <div className="px-4 py-1.5 bg-gradient-to-r from-amber-400 to-orange-500 rounded-full text-sm font-semibold text-gray-900 shadow-lg">
-                Most Popular
-              </div>
+          <div className="border-2 border-gray-900 p-6 relative">
+            <div className="absolute -top-3 left-4 px-2 bg-white text-xs font-medium text-gray-900">
+              RECOMMENDED
             </div>
 
-            <div className="mb-8 pt-2">
-              <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center mb-4">
-                <Sparkles className="h-6 w-6 text-amber-400" />
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-1">Pro</h2>
+              <div className="flex items-baseline gap-1 mb-2">
+                <span className="text-4xl font-bold text-gray-900">$20</span>
+                <span className="text-gray-500 text-sm">/mo</span>
               </div>
-              <h2 className="text-2xl font-bold mb-2">Pro</h2>
-              <div className="flex items-baseline gap-1 mb-3">
-                <span className="text-5xl font-bold">$20</span>
-                <span className="text-gray-400">/month</span>
-              </div>
-              <p className="text-gray-300">Full AI-powered code intelligence</p>
+              <p className="text-sm text-gray-500">AI features + private repos</p>
             </div>
 
-            <ul className="space-y-4 mb-8">
+            <ul className="space-y-3 mb-6 text-sm">
               {PLANS[1].features.map((feature, idx) => (
-                <li key={idx} className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Check className="h-3 w-3 text-emerald-400" />
-                  </div>
-                  <span className="text-gray-200">{feature}</span>
+                <li key={idx} className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-gray-900 mt-0.5 flex-shrink-0" />
+                  <span className="text-gray-700">{feature}</span>
                 </li>
               ))}
             </ul>
@@ -98,35 +80,35 @@ export default function PricingPage() {
       </div>
 
       {/* Feature Comparison Table */}
-      <div className="max-w-4xl mx-auto px-4 pb-16">
-        <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">
-          Compare plans
+      <div className="max-w-2xl mx-auto px-4 pb-16">
+        <h2 className="text-lg font-semibold text-gray-900 text-center mb-6">
+          Compare
         </h2>
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-          <table className="w-full">
+        <div className="border border-gray-200">
+          <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100">
-                <th className="text-left p-4 font-semibold text-gray-900">Feature</th>
-                <th className="p-4 font-semibold text-gray-900 text-center w-28">Free</th>
-                <th className="p-4 font-semibold text-gray-900 text-center w-28 bg-gray-50">Pro</th>
+              <tr className="border-b border-gray-200 bg-gray-50">
+                <th className="text-left p-3 font-medium text-gray-700">Feature</th>
+                <th className="p-3 font-medium text-gray-700 text-center w-20">Free</th>
+                <th className="p-3 font-medium text-gray-700 text-center w-20">Pro</th>
               </tr>
             </thead>
             <tbody>
               {FEATURE_COMPARISON.map((row, idx) => (
-                <tr key={idx} className="border-b border-gray-50 last:border-0">
-                  <td className="p-4 text-gray-700">{row.feature}</td>
-                  <td className="p-4 text-center">
+                <tr key={idx} className="border-b border-gray-100 last:border-0">
+                  <td className="p-3 text-gray-600">{row.feature}</td>
+                  <td className="p-3 text-center">
                     {row.free ? (
-                      <Check className="h-5 w-5 text-emerald-500 mx-auto" />
+                      <Check className="h-4 w-4 text-gray-900 mx-auto" />
                     ) : (
-                      <X className="h-5 w-5 text-gray-300 mx-auto" />
+                      <X className="h-4 w-4 text-gray-300 mx-auto" />
                     )}
                   </td>
-                  <td className="p-4 text-center bg-gray-50/50">
+                  <td className="p-3 text-center">
                     {row.pro ? (
-                      <Check className="h-5 w-5 text-emerald-500 mx-auto" />
+                      <Check className="h-4 w-4 text-gray-900 mx-auto" />
                     ) : (
-                      <X className="h-5 w-5 text-gray-300 mx-auto" />
+                      <X className="h-4 w-4 text-gray-300 mx-auto" />
                     )}
                   </td>
                 </tr>
@@ -136,60 +118,40 @@ export default function PricingPage() {
         </div>
       </div>
 
-      {/* Trust Signals */}
-      <div className="max-w-4xl mx-auto px-4 pb-16">
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="text-center p-6">
-            <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center mx-auto mb-4">
-              <Shield className="h-6 w-6 text-blue-600" />
-            </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Secure & Private</h3>
-            <p className="text-sm text-gray-600">Your code stays private. We never store or share your data.</p>
-          </div>
-          <div className="text-center p-6">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center mx-auto mb-4">
-              <Check className="h-6 w-6 text-emerald-600" />
-            </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Cancel Anytime</h3>
-            <p className="text-sm text-gray-600">No contracts, no commitments. Cancel with one click.</p>
-          </div>
-          <div className="text-center p-6">
-            <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center mx-auto mb-4">
-              <Sparkles className="h-6 w-6 text-purple-600" />
-            </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Always Improving</h3>
-            <p className="text-sm text-gray-600">New features every month. Your feedback shapes the product.</p>
-          </div>
-        </div>
+      {/* Simple trust line */}
+      <div className="max-w-2xl mx-auto px-4 pb-12 text-center">
+        <p className="text-sm text-gray-500">
+          Cancel anytime · Secure payment via Stripe · Your code stays private
+        </p>
       </div>
 
       {/* FAQ */}
-      <div className="max-w-3xl mx-auto px-4 pb-20">
-        <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">
-          Frequently asked questions
+      <div className="max-w-2xl mx-auto px-4 pb-20">
+        <h2 className="text-lg font-semibold text-gray-900 text-center mb-6">
+          FAQ
         </h2>
-        <div className="space-y-4">
+        <div className="space-y-4 text-sm">
           {[
             {
               q: "What happens when I run out of tokens?",
-              a: "You'll be notified when you're running low. You can continue browsing repos for free, but AI features will be paused until next month or until you upgrade."
+              a: "AI features pause until next month. You can still browse repos for free."
             },
             {
               q: "Can I switch between plans?",
-              a: "Yes! Upgrade or downgrade anytime. Changes take effect immediately and we'll prorate the difference."
+              a: "Yes. Upgrade or downgrade anytime, changes are prorated."
             },
             {
-              q: "Do you offer team plans?",
-              a: "Not yet, but it's on our roadmap. Contact us if you're interested in a team plan."
+              q: "Team plans?",
+              a: "Coming soon. Contact us if interested."
             },
             {
-              q: "What payment methods do you accept?",
-              a: "We accept all major credit cards through Stripe. All payments are secure and encrypted."
+              q: "Payment methods?",
+              a: "All major credit cards via Stripe."
             }
           ].map((faq, idx) => (
-            <div key={idx} className="bg-white rounded-xl border border-gray-200 p-6">
-              <h3 className="font-semibold text-gray-900 mb-2">{faq.q}</h3>
-              <p className="text-gray-600">{faq.a}</p>
+            <div key={idx} className="border-b border-gray-100 pb-4 last:border-0">
+              <h3 className="font-medium text-gray-900 mb-1">{faq.q}</h3>
+              <p className="text-gray-500">{faq.a}</p>
             </div>
           ))}
         </div>

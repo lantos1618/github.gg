@@ -5,9 +5,36 @@ import Link from 'next/link';
 
 interface TopReposProps {
   repos: ScoredRepo[];
+  compact?: boolean;
+  username?: string;
 }
 
-export function TopRepos({ repos }: TopReposProps) {
+export function TopRepos({ repos, compact = false, username }: TopReposProps) {
+  if (compact) {
+    return (
+      <div className="space-y-3">
+        {repos.slice(0, 5).map((repo, idx) => (
+          <div key={idx} className="flex items-start justify-between pb-3 border-b border-gray-100 last:border-0 last:pb-0">
+            <div>
+              <a
+                href={repo.url || `https://github.com/${username}/${repo.repo || repo.name}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-gray-900 hover:text-blue-600"
+              >
+                {repo.name}
+              </a>
+              <p className="text-sm text-gray-500 mt-0.5">{repo.description}</p>
+            </div>
+            <div className="text-sm text-gray-400 flex-shrink-0 ml-4">
+              {repo.significanceScore}/10
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {repos.map((repo, index) => (

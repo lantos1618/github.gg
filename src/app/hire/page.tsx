@@ -76,7 +76,7 @@ export default function HirePage() {
 
           <div className="flex items-center justify-center gap-4">
             <Link href="/hire/match">
-              <Button className="text-sm bg-violet-600 hover:bg-violet-700">
+              <Button className="text-sm bg-amber-600 hover:bg-amber-700">
                 <Sparkles className="h-4 w-4 mr-2" />
                 AI Job Matching
               </Button>
@@ -101,7 +101,7 @@ export default function HirePage() {
           <div className="grid md:grid-cols-2 gap-4">
             <div className="bg-white border border-gray-200 p-5">
               <div className="flex items-start gap-3 mb-2">
-                <Sparkles className="h-5 w-5 text-violet-500 mt-0.5 flex-shrink-0" />
+                <Sparkles className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
                 <h3 className="font-medium text-gray-900">AI Workflow Analysis</h3>
               </div>
               <p className="text-sm text-gray-500 pl-8">
@@ -131,7 +131,7 @@ export default function HirePage() {
 
             <div className="bg-white border border-gray-200 p-5">
               <div className="flex items-start gap-3 mb-2">
-                <MessageSquare className="h-5 w-5 text-violet-500 mt-0.5 flex-shrink-0" />
+                <MessageSquare className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
                 <h3 className="font-medium text-gray-900">Interview Questions</h3>
               </div>
               <p className="text-sm text-gray-500 pl-8">

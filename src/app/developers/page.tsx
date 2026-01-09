@@ -149,7 +149,7 @@ export default function DevelopersPage() {
             >
               <Bot className="h-4 w-4" />
               MCP
-              <span className="text-xs bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded">Soon</span>
+              <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Soon</span>
             </button>
           </div>
         </div>
@@ -179,9 +179,9 @@ export default function DevelopersPage() {
 
               <div className="bg-gray-50 border rounded-lg p-5">
                 <div className="flex items-center gap-3 mb-2">
-                  <code className="bg-violet-600 text-white px-3 py-1 rounded text-sm font-mono">ggs</code>
+                  <code className="bg-amber-600 text-white px-3 py-1 rounded text-sm font-mono">ggs</code>
                   <div className="flex items-center gap-2 text-gray-600">
-                    <BarChart3 className="h-4 w-4 text-violet-500" />
+                    <BarChart3 className="h-4 w-4 text-amber-500" />
                     Open Scorecard
                   </div>
                 </div>
@@ -284,15 +284,15 @@ export default function DevelopersPage() {
               </p>
             </div>
 
-            <div className="bg-violet-50 border border-violet-200 rounded-lg p-6 text-center">
-              <Bot className="h-12 w-12 text-violet-400 mx-auto mb-4" />
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
+              <Bot className="h-12 w-12 text-amber-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">Coming Soon</h3>
               <p className="text-gray-600 max-w-md mx-auto mb-4">
                 We&apos;re building an MCP server that will let AI assistants search repos,
                 get scorecards, and analyze developer profiles directly.
               </p>
               <div className="text-sm text-gray-500">
-                Interested? Email <a href="mailto:hello@github.gg" className="text-violet-600 hover:underline">hello@github.gg</a>
+                Interested? Email <a href="mailto:hello@github.gg" className="text-amber-600 hover:underline">hello@github.gg</a>
               </div>
             </div>
 
@@ -301,21 +301,21 @@ export default function DevelopersPage() {
               <h3 className="font-medium text-gray-900 mb-4">What you&apos;ll be able to do</h3>
               <div className="grid gap-3">
                 <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                  <Sparkles className="h-5 w-5 text-violet-500 mt-0.5" />
+                  <Sparkles className="h-5 w-5 text-amber-500 mt-0.5" />
                   <div>
                     <p className="font-medium text-gray-900">Search & analyze repos</p>
                     <p className="text-sm text-gray-500">&quot;Find React repos with good test coverage&quot;</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                  <Sparkles className="h-5 w-5 text-violet-500 mt-0.5" />
+                  <Sparkles className="h-5 w-5 text-amber-500 mt-0.5" />
                   <div>
                     <p className="font-medium text-gray-900">Get developer insights</p>
                     <p className="text-sm text-gray-500">&quot;What&apos;s the tech stack of @username?&quot;</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                  <Sparkles className="h-5 w-5 text-violet-500 mt-0.5" />
+                  <Sparkles className="h-5 w-5 text-amber-500 mt-0.5" />
                   <div>
                     <p className="font-medium text-gray-900">Generate scorecards</p>
                     <p className="text-sm text-gray-500">&quot;Analyze the code quality of this repo&quot;</p>

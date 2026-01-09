@@ -130,9 +130,9 @@ export default function CLIPage() {
 
             <div className="bg-white border border-gray-200 rounded-lg p-5">
               <div className="flex items-center gap-3 mb-2">
-                <code className="bg-violet-600 text-white px-3 py-1 rounded text-sm font-mono">ggs</code>
+                <code className="bg-amber-600 text-white px-3 py-1 rounded text-sm font-mono">ggs</code>
                 <div className="flex items-center gap-2 text-gray-600">
-                  <BarChart3 className="h-4 w-4 text-violet-500" />
+                  <BarChart3 className="h-4 w-4 text-amber-500" />
                   Open Scorecard
                 </div>
               </div>
@@ -189,8 +189,8 @@ export default function CLIPage() {
 
           <div className="bg-white border border-gray-200 rounded-lg p-6">
             <div className="flex items-start gap-4">
-              <div className="p-2 bg-violet-100 rounded-lg">
-                <Sparkles className="h-5 w-5 text-violet-600" />
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <Sparkles className="h-5 w-5 text-amber-600" />
               </div>
               <div>
                 <h3 className="font-medium text-gray-900 mb-1">URL Shortcut</h3>
@@ -202,7 +202,7 @@ export default function CLIPage() {
                     <span className="text-gray-400">github.com/</span>
                     <span className="text-gray-600">owner/repo</span>
                     <span className="text-gray-400 mx-2">→</span>
-                    <span className="text-violet-600 font-semibold">github.gg/</span>
+                    <span className="text-amber-600 font-semibold">github.gg/</span>
                     <span className="text-gray-600">owner/repo</span>
                   </div>
                 </div>

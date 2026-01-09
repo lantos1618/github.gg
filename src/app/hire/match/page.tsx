@@ -88,8 +88,8 @@ export default function HireMatchPage() {
             Back to Hire
           </Link>
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-violet-100 rounded-lg">
-              <Sparkles className="h-6 w-6 text-violet-600" />
+            <div className="p-2 bg-amber-100 rounded-lg">
+              <Sparkles className="h-6 w-6 text-amber-600" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">AI Job Matching</h1>
@@ -227,7 +227,7 @@ Include:
 
             {matchMutation.isPending && (
               <div className="bg-white rounded-lg border p-12 text-center">
-                <Loader2 className="h-12 w-12 text-violet-500 mx-auto mb-4 animate-spin" />
+                <Loader2 className="h-12 w-12 text-amber-500 mx-auto mb-4 animate-spin" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
                   Analyzing Candidates...
                 </h3>

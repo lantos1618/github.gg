@@ -13,6 +13,7 @@ import { Octokit } from '@octokit/rest';
 import { handleTRPCGitHubError } from '@/lib/github/error-handler';
 import { getCachedStargazerStatus, setCachedStargazerStatus } from '@/lib/rate-limit';
 import { isPgErrorWithCode } from '@/lib/db/utils';
+import { generateEmbedding, formatEmbeddingForPg } from '@/lib/ai/embeddings';
 
 export const profileRouter = router({
   getUserRepositories: protectedProcedure
@@ -772,48 +773,125 @@ export const profileRouter = router({
       );
     }),
 
-  // Search profiles by skills, archetype, confidence
+  // Search profiles by skills, archetype, confidence - with semantic search
   searchProfiles: publicProcedure
     .input(z.object({
       skills: z.array(z.string()).optional(),
       archetypes: z.array(z.string()).optional(),
       minConfidence: z.number().min(0).max(100).optional(),
       maxConfidence: z.number().min(0).max(100).optional(),
-      query: z.string().optional(), // Free text search
+      query: z.string().optional(), // Free text search - now uses semantic search
       limit: z.number().optional().default(50),
       offset: z.number().optional().default(0),
     }))
     .query(async ({ input }) => {
       const { skills, archetypes, minConfidence, maxConfidence, query, limit, offset } = input;
 
-      // Get latest version of each profile using subquery
-      const maxVersions = db
-        .select({
-          username: developerProfileCache.username,
-          maxVersion: sql<number>`MAX(${developerProfileCache.version})`.as('max_version')
-        })
-        .from(developerProfileCache)
-        .groupBy(developerProfileCache.username)
-        .as('max_versions');
+      let allProfiles: Array<{
+        username: string;
+        profileData: unknown;
+        updatedAt: Date;
+        version: number;
+        similarityScore?: number;
+      }>;
 
-      const allProfiles = await db
-        .select({
-          username: developerProfileCache.username,
-          profileData: developerProfileCache.profileData,
-          updatedAt: developerProfileCache.updatedAt,
-          version: developerProfileCache.version,
-        })
-        .from(developerProfileCache)
-        .innerJoin(
-          maxVersions,
-          and(
-            eq(developerProfileCache.username, maxVersions.username),
-            eq(developerProfileCache.version, maxVersions.maxVersion)
+      // If there's a text query, use semantic vector search
+      if (query && query.trim().length >= 2) {
+        try {
+          // Generate embedding for the search query
+          const queryEmbedding = await generateEmbedding(`Developer search: ${query}`);
+          const embeddingStr = formatEmbeddingForPg(queryEmbedding);
+
+          // Vector similarity search
+          const vectorResults = await db.execute(sql`
+            SELECT
+              p.username,
+              p.profile_data as "profileData",
+              p.updated_at as "updatedAt",
+              p.version,
+              1 - (p.embedding <=> ${embeddingStr}::vector) as similarity_score
+            FROM developer_profile_cache p
+            INNER JOIN (
+              SELECT username, MAX(version) as max_version
+              FROM developer_profile_cache
+              GROUP BY username
+            ) latest ON p.username = latest.username AND p.version = latest.max_version
+            WHERE p.embedding IS NOT NULL
+            ${minConfidence ? sql`AND (p.profile_data->>'profileConfidence')::int >= ${minConfidence}` : sql``}
+            ${maxConfidence ? sql`AND (p.profile_data->>'profileConfidence')::int <= ${maxConfidence}` : sql``}
+            ORDER BY p.embedding <=> ${embeddingStr}::vector
+            LIMIT 200
+          `);
+
+          allProfiles = (vectorResults as unknown as Array<{
+            username: string;
+            profileData: DeveloperProfile;
+            updatedAt: Date;
+            version: number;
+            similarity_score: number;
+          }>).map(r => ({
+            ...r,
+            similarityScore: Number(r.similarity_score) || 0,
+          }));
+        } catch (error) {
+          // Fallback: if vector search fails, use regular search
+          console.warn('Semantic search failed, falling back to basic search:', error);
+          const maxVersions = db
+            .select({
+              username: developerProfileCache.username,
+              maxVersion: sql<number>`MAX(${developerProfileCache.version})`.as('max_version')
+            })
+            .from(developerProfileCache)
+            .groupBy(developerProfileCache.username)
+            .as('max_versions');
+
+          allProfiles = await db
+            .select({
+              username: developerProfileCache.username,
+              profileData: developerProfileCache.profileData,
+              updatedAt: developerProfileCache.updatedAt,
+              version: developerProfileCache.version,
+            })
+            .from(developerProfileCache)
+            .innerJoin(
+              maxVersions,
+              and(
+                eq(developerProfileCache.username, maxVersions.username),
+                eq(developerProfileCache.version, maxVersions.maxVersion)
+              )
+            )
+            .orderBy(desc(developerProfileCache.updatedAt));
+        }
+      } else {
+        // No query - just get all profiles with basic ordering
+        const maxVersions = db
+          .select({
+            username: developerProfileCache.username,
+            maxVersion: sql<number>`MAX(${developerProfileCache.version})`.as('max_version')
+          })
+          .from(developerProfileCache)
+          .groupBy(developerProfileCache.username)
+          .as('max_versions');
+
+        allProfiles = await db
+          .select({
+            username: developerProfileCache.username,
+            profileData: developerProfileCache.profileData,
+            updatedAt: developerProfileCache.updatedAt,
+            version: developerProfileCache.version,
+          })
+          .from(developerProfileCache)
+          .innerJoin(
+            maxVersions,
+            and(
+              eq(developerProfileCache.username, maxVersions.username),
+              eq(developerProfileCache.version, maxVersions.maxVersion)
+            )
           )
-        )
-        .orderBy(desc(developerProfileCache.updatedAt));
+          .orderBy(desc(developerProfileCache.updatedAt));
+      }
 
-      // Filter in memory for more complex queries
+      // Filter in memory for structured filters
       let filtered = allProfiles.filter(profile => {
         const data = profile.profileData as DeveloperProfile;
         if (!data) return false;
@@ -825,39 +903,29 @@ export const profileRouter = router({
           }
         }
 
-        // Filter by confidence
-        if (minConfidence !== undefined && (data.profileConfidence ?? 0) < minConfidence) {
-          return false;
-        }
-        if (maxConfidence !== undefined && (data.profileConfidence ?? 100) > maxConfidence) {
-          return false;
+        // Filter by confidence (only apply if not already filtered in SQL)
+        if (!query || !query.trim()) {
+          if (minConfidence !== undefined && (data.profileConfidence ?? 0) < minConfidence) {
+            return false;
+          }
+          if (maxConfidence !== undefined && (data.profileConfidence ?? 100) > maxConfidence) {
+            return false;
+          }
         }
 
-        // Filter by skills (any match)
+        // Filter by skills (fuzzy match using includes)
         if (skills && skills.length > 0) {
           const profileSkills = [
             ...(data.skillAssessment?.map(s => s.metric.toLowerCase()) || []),
             ...(data.techStack?.map(t => t.name.toLowerCase()) || []),
           ];
-          const hasMatchingSkill = skills.some(skill =>
-            profileSkills.some(ps => ps.includes(skill.toLowerCase()))
-          );
+          const hasMatchingSkill = skills.some(skill => {
+            const skillLower = skill.toLowerCase();
+            return profileSkills.some(ps =>
+              ps.includes(skillLower) || skillLower.includes(ps)
+            );
+          });
           if (!hasMatchingSkill) return false;
-        }
-
-        // Free text search in summary
-        if (query && query.trim()) {
-          const searchLower = query.toLowerCase();
-          const searchableText = [
-            data.summary,
-            data.developerArchetype,
-            ...(data.skillAssessment?.map(s => s.metric) || []),
-            ...(data.techStack?.map(t => t.name) || []),
-          ].join(' ').toLowerCase();
-
-          if (!searchableText.includes(searchLower)) {
-            return false;
-          }
         }
 
         return true;
@@ -868,8 +936,13 @@ export const profileRouter = router({
         const data = profile.profileData as DeveloperProfile;
         let score = 0;
 
+        // If we have similarity score from vector search, use it as primary signal
+        if (profile.similarityScore !== undefined) {
+          score += profile.similarityScore * 100; // Scale similarity to 0-100
+        }
+
         // Base score from confidence
-        score += (data.profileConfidence ?? 50) / 2;
+        score += (data.profileConfidence ?? 50) / 4;
 
         // Bonus for matching skills
         if (skills && skills.length > 0) {
@@ -877,16 +950,19 @@ export const profileRouter = router({
             ...(data.skillAssessment?.map(s => ({ name: s.metric.toLowerCase(), score: s.score })) || []),
           ];
           skills.forEach(skill => {
-            const match = profileSkills.find(ps => ps.name.includes(skill.toLowerCase()));
+            const skillLower = skill.toLowerCase();
+            const match = profileSkills.find(ps =>
+              ps.name.includes(skillLower) || skillLower.includes(ps.name)
+            );
             if (match) {
-              score += match.score * 3; // Weight skill matches heavily
+              score += match.score * 2; // Weight skill matches
             }
           });
         }
 
-        // Bonus for production builders (they ship)
+        // Bonus for production builders
         if (data.developerArchetype === 'Production Builder') {
-          score += 10;
+          score += 5;
         }
 
         return { ...profile, matchScore: Math.round(score) };

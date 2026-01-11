@@ -138,16 +138,26 @@ async function main() {
   console.log('Press Ctrl+C to cancel, or wait 5 seconds to continue...\n');
   await delay(5000);
 
-  // Update using ANY array
+  // Update using IN clause with batching
   console.log('📝 Updating scorecards...');
 
-  const { sql } = await import('drizzle-orm');
+  const { sql, inArray } = await import('drizzle-orm');
 
-  await db.execute(
-    sql`UPDATE repository_scorecards SET is_private = false WHERE id = ANY(${toUpdate}::uuid[])`
-  );
+  // Batch update in chunks of 100 to avoid query size limits
+  const batchSize = 100;
+  let updated = 0;
 
-  console.log(`\n✅ Successfully updated ${toUpdate.length} scorecards to is_private=false`);
+  for (let i = 0; i < toUpdate.length; i += batchSize) {
+    const batch = toUpdate.slice(i, i + batchSize);
+    await db
+      .update(repositoryScorecards)
+      .set({ isPrivate: false })
+      .where(inArray(repositoryScorecards.id, batch));
+    updated += batch.length;
+    process.stdout.write(`\r📝 Updated ${updated}/${toUpdate.length} scorecards...`);
+  }
+
+  console.log(`\n\n✅ Successfully updated ${toUpdate.length} scorecards to is_private=false`);
 }
 
 main().catch(console.error);

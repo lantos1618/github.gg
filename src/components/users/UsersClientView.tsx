@@ -32,9 +32,10 @@ interface LeaderboardEntry {
 interface UsersClientViewProps {
   initialProfiles: DeveloperProfileEntry[];
   initialLeaderboard: LeaderboardEntry[];
+  totalProfileCount: number;
 }
 
-export function UsersClientView({ initialProfiles, initialLeaderboard }: UsersClientViewProps) {
+export function UsersClientView({ initialProfiles, initialLeaderboard, totalProfileCount }: UsersClientViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -89,7 +90,7 @@ export function UsersClientView({ initialProfiles, initialLeaderboard }: UsersCl
         <div className="mb-16">
             <h1 className="text-5xl font-bold text-black tracking-tight mb-4">Analyzed Profiles</h1>
             <p className="text-xl text-gray-500 font-light max-w-2xl">
-                Discover developers with AI-generated insights.
+                Discover developers with AI-generated insights. <span className="font-medium text-gray-700">{totalProfileCount.toLocaleString()}</span> profiles analyzed.
             </p>
         </div>
 

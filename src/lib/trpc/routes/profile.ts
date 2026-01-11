@@ -678,6 +678,15 @@ export const profileRouter = router({
       return result[0] || null;
     }),
 
+  // Get total count of unique analyzed profiles
+  getAnalyzedProfileCount: publicProcedure
+    .query(async () => {
+      const result = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${developerProfileCache.username})` })
+        .from(developerProfileCache);
+      return result[0]?.count ?? 0;
+    }),
+
   // Get all analyzed profiles (latest version only per username)
   getAllAnalyzedProfiles: publicProcedure
     .input(z.object({

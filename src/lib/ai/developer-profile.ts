@@ -328,6 +328,7 @@ export async function* generateDeveloperProfileStreaming({
                 repoName: normalizedRepoName,
                 ref: 'main',
                 version: nextVersion,
+                isPrivate: false, // Profile generation only uses public repos (filtered in getUserRepositories)
                 overallScore: scorecardResult.scorecard.overallScore,
                 metrics: scorecardResult.scorecard.metrics,
                 markdown: scorecardResult.scorecard.markdown,

@@ -13,9 +13,12 @@ export const metadata: Metadata = {
 
 export default async function ReposPage() {
   const caller = await createCaller();
-  
-  // Fetch data on server
-  const repos = await caller.scorecard.getAllAnalyzedRepos({ limit: 200, offset: 0 });
 
-  return <ReposClientView initialRepos={repos} />;
+  // Fetch data on server
+  const [repos, totalCount] = await Promise.all([
+    caller.scorecard.getAllAnalyzedRepos({ limit: 200, offset: 0 }),
+    caller.scorecard.getAnalyzedRepoCount(),
+  ]);
+
+  return <ReposClientView initialRepos={repos} totalRepoCount={totalCount} />;
 }

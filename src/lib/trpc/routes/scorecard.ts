@@ -318,6 +318,16 @@ export const scorecardRouter = router({
         .orderBy(desc(repositoryScorecards.version));
     }),
 
+  // Get total count of unique analyzed repos (public only)
+  getAnalyzedRepoCount: publicProcedure
+    .query(async () => {
+      const result = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${repositoryScorecards.repoOwner} || '/' || ${repositoryScorecards.repoName})` })
+        .from(repositoryScorecards)
+        .where(eq(repositoryScorecards.isPrivate, false));
+      return result[0]?.count ?? 0;
+    }),
+
   getAllAnalyzedRepos: publicProcedure
     .input(z.object({
       limit: z.number().optional().default(100),

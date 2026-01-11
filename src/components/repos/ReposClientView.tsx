@@ -23,9 +23,10 @@ interface RepositoryScorecardEntry {
 
 interface ReposClientViewProps {
   initialRepos: RepositoryScorecardEntry[];
+  totalRepoCount: number;
 }
 
-export function ReposClientView({ initialRepos }: ReposClientViewProps) {
+export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -68,7 +69,7 @@ export function ReposClientView({ initialRepos }: ReposClientViewProps) {
         <div className="mb-16">
             <h1 className="text-5xl font-bold text-black tracking-tight mb-4">Analyzed Repositories</h1>
             <p className="text-xl text-gray-500 font-light max-w-2xl">
-                Explore comprehensive code quality metrics and insights.
+                Explore comprehensive code quality metrics and insights. <span className="font-medium text-gray-700">{totalRepoCount.toLocaleString()}</span> repositories analyzed.
             </p>
         </div>
 

@@ -80,6 +80,7 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
             <Input
               type="text"
               placeholder="Search repositories..."
+              aria-label="Search analyzed repositories"
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);

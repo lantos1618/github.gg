@@ -101,6 +101,7 @@ export function UsersClientView({ initialProfiles, initialLeaderboard, totalProf
             <Input
               type="text"
               placeholder="Search username..."
+              aria-label="Search developer profiles"
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);

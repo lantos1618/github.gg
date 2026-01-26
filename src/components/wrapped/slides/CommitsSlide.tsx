@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { WrappedSlide, SlideCard, AIBadge, Confetti, UserHeader, WRAPPED_THEME, WRAPPED_STYLES } from '../WrappedSlide';
 import type { WrappedAIInsights } from '@/lib/types/wrapped';
 import { getWrappedYear } from '@/lib/utils/wrapped-year';
+import { COMMIT_THRESHOLDS, COUNT_ANIMATION_DURATION } from '@/lib/constants/wrapped';
 
 interface CommitsSlideProps {
   totalCommits: number;
@@ -17,25 +18,27 @@ interface CommitsSlideProps {
 }
 
 function getFallbackMessage(commits: number): { message: string; subtext: string } {
-  if (commits >= 2000) {
+  const { LEGENDARY, EXCEPTIONAL, IMPRESSIVE, SOLID } = COMMIT_THRESHOLDS;
+
+  if (commits >= LEGENDARY) {
     return {
       message: "You're basically the machine now.",
       subtext: "Touch grass? Never heard of her.",
     };
   }
-  if (commits >= 1000) {
+  if (commits >= EXCEPTIONAL) {
     return {
       message: "Commit machine engaged.",
       subtext: "Your keyboard is crying for mercy.",
     };
   }
-  if (commits >= 500) {
+  if (commits >= IMPRESSIVE) {
     return {
       message: "Solid work ethic detected.",
       subtext: "That's a commit every 17 hours.",
     };
   }
-  if (commits >= 100) {
+  if (commits >= SOLID) {
     return {
       message: "Quality over quantity. Respect.",
       subtext: "(We'll pretend that's the reason.)",
@@ -67,7 +70,7 @@ export function CommitsSlide({
   const subtext = aiInsights?.biggestWin || fallback.subtext;
 
   useEffect(() => {
-    const duration = 1500;
+    const duration = COUNT_ANIMATION_DURATION;
     let current = 0;
     const startTime = Date.now();
 
@@ -82,7 +85,7 @@ export function CommitsSlide({
         setCount(totalCommits);
         clearInterval(timer);
         setShowMessage(true);
-        if (totalCommits >= 500) {
+        if (totalCommits >= COMMIT_THRESHOLDS.IMPRESSIVE) {
           setShowConfetti(true);
         }
       }

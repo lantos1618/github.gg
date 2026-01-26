@@ -44,6 +44,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
           <input
             type="text"
             placeholder="Find repository..."
+            aria-label="Search repositories"
             value={repoSearch}
             onChange={(e) => onRepoSearchChange(e.target.value)}
             className={cn(

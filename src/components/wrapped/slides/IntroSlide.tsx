@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WrappedSlide, WRAPPED_THEME, WRAPPED_STYLES } from '../WrappedSlide';
+import { INTRO_ANIMATION_TIMINGS, CODE_SYMBOLS, FRAGMENT_ANIMATION } from '@/lib/constants/wrapped';
 
 interface IntroSlideProps {
   year: number;
@@ -21,25 +22,29 @@ export function IntroSlide({ year, username, avatarUrl }: IntroSlideProps) {
   const [currentLine, setCurrentLine] = useState(0);
 
   useEffect(() => {
+    const { SHATTER_DELAY, LINES_DELAY, LINE_1_DELAY, LINE_2_DELAY, READY_DELAY } = INTRO_ANIMATION_TIMINGS;
     const timers = [
-      setTimeout(() => setPhase('shatter'), 1200),
-      setTimeout(() => setPhase('lines'), 2000),
-      setTimeout(() => setCurrentLine(1), 3000),
-      setTimeout(() => setCurrentLine(2), 4000),
-      setTimeout(() => setPhase('ready'), 5000),
+      setTimeout(() => setPhase('shatter'), SHATTER_DELAY),
+      setTimeout(() => setPhase('lines'), LINES_DELAY),
+      setTimeout(() => setCurrentLine(1), LINE_1_DELAY),
+      setTimeout(() => setCurrentLine(2), LINE_2_DELAY),
+      setTimeout(() => setPhase('ready'), READY_DELAY),
     ];
     return () => timers.forEach(clearTimeout);
   }, []);
 
-  const fragments = Array.from({ length: 40 }, (_, i) => ({
-    id: i,
-    char: ['<', '/', '>', '{', '}', '(', ')', ';', '=', '+', '-', '*', '0', '1', 'fn', 'if', '[]'][Math.floor(Math.random() * 17)],
-    x: (Math.random() - 0.5) * 400,
-    y: (Math.random() - 0.5) * 400,
-    rotation: Math.random() * 720 - 360,
-    scale: Math.random() * 0.5 + 0.3,
-    delay: Math.random() * 0.2,
-  }));
+  const fragments = useMemo(() => {
+    const { COUNT, SPREAD, MAX_ROTATION, MIN_SCALE, SCALE_RANGE, MAX_DELAY } = FRAGMENT_ANIMATION;
+    return Array.from({ length: COUNT }, (_, i) => ({
+      id: i,
+      char: CODE_SYMBOLS[Math.floor(Math.random() * CODE_SYMBOLS.length)],
+      x: (Math.random() - 0.5) * SPREAD,
+      y: (Math.random() - 0.5) * SPREAD,
+      rotation: Math.random() * MAX_ROTATION - MAX_ROTATION / 2,
+      scale: Math.random() * SCALE_RANGE + MIN_SCALE,
+      delay: Math.random() * MAX_DELAY,
+    }));
+  }, []);
 
   const userAvatarUrl = avatarUrl || `https://avatars.githubusercontent.com/${username}`;
 

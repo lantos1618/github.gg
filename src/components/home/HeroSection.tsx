@@ -124,6 +124,7 @@ export function HeroSection() {
                 <Input
                   type="text"
                   placeholder="owner/repo or paste URL"
+                  aria-label="GitHub repository URL or path"
                   className="pl-12 pr-28 h-14 text-base border border-gray-200 bg-white rounded-lg focus:border-gray-900 focus:ring-0 transition-colors placeholder:text-gray-400"
                   value={repoUrl}
                   onChange={(e) => setRepoUrl(e.target.value)}

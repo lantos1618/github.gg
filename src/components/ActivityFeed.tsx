@@ -94,7 +94,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                     <div className="mt-1.5 text-xs bg-muted/50 p-2.5 rounded-md border border-border text-muted-foreground line-clamp-2">
                       <div className="flex items-center gap-1.5 mb-1 text-[10px]">
                         {activity.commentAuthorAvatar && (
-                          <img src={activity.commentAuthorAvatar} width={14} height={14} className="w-3.5 h-3.5 rounded-full" alt="" />
+                          <img src={activity.commentAuthorAvatar} width={14} height={14} className="w-3.5 h-3.5 rounded-full" alt={`${activity.commentAuthor}'s avatar`} />
                         )}
                         <span className="font-medium text-foreground/80">{activity.commentAuthor}</span>
                       </div>

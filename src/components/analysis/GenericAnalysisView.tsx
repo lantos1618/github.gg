@@ -69,6 +69,7 @@ export interface AnalysisViewConfig<TResponse> {
   renderCustomMetrics?: (data: AnalysisData) => ReactNode;
   getMetricColor?: (score: number) => string;
   useEffectiveRef?: boolean; // If true, uses actualRef from useRepoData
+  upgradeFeature?: 'scorecard' | 'ai-slop' | 'wiki' | 'diagram' | 'review' | 'general'; // For contextual upgrade prompts
 }
 
 interface GenericAnalysisViewProps<TResponse> {
@@ -383,7 +384,7 @@ function GenericAnalysisViewInner<TResponse>({
       sseLogs={logs}
       sseTitle={config.generatingMessage}
     >
-      {currentState === 'upgrade' ? <SubscriptionUpgrade /> : renderContent()}
+      {currentState === 'upgrade' ? <SubscriptionUpgrade feature={config.upgradeFeature || 'general'} /> : renderContent()}
     </AnalysisStateHandler>
   );
 }

@@ -33,6 +33,8 @@ interface AnalysisTypeConfig {
   showCopyButton: boolean;
   showMetricsBar: boolean;
   useEffectiveRef: boolean;
+  // Feature type for contextual upgrade prompts
+  upgradeFeature: 'scorecard' | 'ai-slop' | 'wiki' | 'diagram' | 'review' | 'general';
   // Custom metrics renderer for types that need it
   renderCustomMetrics?: (data: AnalysisData) => React.ReactNode;
   getMetricColor?: (score: number) => string;
@@ -44,7 +46,7 @@ const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisTypeConfig> = {
   'scorecard': {
     title: 'Repository Scorecard',
     noDataTitle: 'No Scorecard Available',
-    noDataDescription: 'Click below to generate an AI-powered scorecard for this repository.',
+    noDataDescription: 'Get instant A-F grades with actionable improvement suggestions for every file.',
     privateRepoMessage: 'Scorecards are not available for private repositories.',
     generateButtonText: 'Generate Scorecard',
     generatingButtonText: 'Generating...',
@@ -54,14 +56,15 @@ const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisTypeConfig> = {
     showCopyButton: false,
     showMetricsBar: false,
     useEffectiveRef: true,
+    upgradeFeature: 'scorecard',
     getMetricColor: () => 'bg-blue-500',
   },
   'ai-slop': {
     title: 'Code Quality Report',
-    noDataTitle: 'No AI Slop Analysis Available',
-    noDataDescription: 'Detect AI-generated code and identify quality issues commonly associated with AI coding tools.',
+    noDataTitle: 'No Code Quality Analysis',
+    noDataDescription: 'Detect AI-generated code issues and find quality problems before they cause trouble.',
     privateRepoMessage: 'Code quality analysis is not available for private repositories.',
-    generateButtonText: 'Analyze for AI Slop',
+    generateButtonText: 'Analyze Code Quality',
     generatingButtonText: 'Analyzing...',
     loadingMessage: 'Analyzing code quality...',
     generatingMessage: 'Detecting code quality issues...',
@@ -69,6 +72,7 @@ const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisTypeConfig> = {
     showCopyButton: true,
     showMetricsBar: true,
     useEffectiveRef: true,
+    upgradeFeature: 'ai-slop',
     getMetricColor: (score) => score < 60 ? 'bg-red-500' : score < 80 ? 'bg-orange-500' : 'bg-green-500',
     renderCustomMetrics: (data) => <SlopMetrics data={data} />,
   },

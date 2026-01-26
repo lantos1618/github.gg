@@ -62,6 +62,18 @@ function estimateTokens(text: string): number {
 }
 
 /**
+ * Wrap a promise with a timeout
+ */
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, operation: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`${operation} timed out after ${timeoutMs / 1000}s`)), timeoutMs)
+    ),
+  ]);
+}
+
+/**
  * Format files for prompt context with safety truncation
  */
 function formatFilesForPrompt(files: Array<{ path: string; content: string }>): string {
@@ -115,11 +127,16 @@ REQUIREMENTS:
 
 Your response must be a valid JSON object following the schema provided.`;
 
-  const { object, usage } = await generateObject({
-    model: google('models/gemini-3-pro-preview'),
-    schema: partialSlopSchema,
-    messages: [{ role: 'user', content: prompt }],
-  });
+  // 90 second timeout for chunk analysis
+  const { object, usage } = await withTimeout(
+    generateObject({
+      model: google('models/gemini-3-pro-preview'),
+      schema: partialSlopSchema,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+    90000,
+    `Chunk ${chunkIndex + 1}/${totalChunks} analysis`
+  );
 
   return { result: object, usage };
 }
@@ -173,11 +190,16 @@ METRICS TO EVALUATE (0-100 scale):
 
 Your response must be a valid JSON object following the schema provided.`;
 
-  const { object, usage } = await generateObject({
-    model: google('models/gemini-3-pro-preview'),
-    schema: aiSlopSchema,
-    messages: [{ role: 'user', content: prompt }],
-  });
+  // 120 second timeout for stitching results
+  const { object, usage } = await withTimeout(
+    generateObject({
+      model: google('models/gemini-3-pro-preview'),
+      schema: aiSlopSchema,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+    120000,
+    'Stitching chunk results'
+  );
 
   return { result: object, usage };
 }
@@ -189,7 +211,7 @@ export async function generateAISlopAnalysis({
   files,
   repoName,
   useChunking = true,
-  tokensPerChunk = 800000, // 800k tokens default
+  tokensPerChunk = 150000, // 150k tokens per chunk for reliable processing
 }: AISlopAnalysisParams): Promise<AISlopAnalysisResult> {
   try {
     // Estimate total tokens
@@ -294,13 +316,18 @@ Your response must be a valid JSON object with this exact structure:
 ANALYZE THESE FILES:
 ${fileContents}`;
 
-    const { object, usage } = await generateObject({
-      model: google('models/gemini-3-pro-preview'),
-      schema: aiSlopSchema,
-      messages: [
-        { role: 'user', content: prompt },
-      ],
-    });
+    // 120 second timeout for single-pass analysis
+    const { object, usage } = await withTimeout(
+      generateObject({
+        model: google('models/gemini-3-pro-preview'),
+        schema: aiSlopSchema,
+        messages: [
+          { role: 'user', content: prompt },
+        ],
+      }),
+      120000,
+      'Single-pass AI slop analysis'
+    );
 
     return {
       analysis: object,

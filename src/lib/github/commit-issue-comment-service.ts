@@ -5,6 +5,7 @@ import { db } from '@/db';
 import { tokenUsage, webhookPreferences } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { escapeHtmlEntities } from '@/lib/utils/sanitize';
 
 const COMMIT_COMMENT_MARKER = '<!-- gh.gg commit analysis -->';
 const ISSUE_COMMENT_MARKER = '<!-- gh.gg issue analysis -->';
@@ -21,18 +22,6 @@ interface IssueCommentParams {
   owner: string;
   repo: string;
   issueNumber: number;
-}
-
-/**
- * Sanitize text to prevent XSS and injection attacks
- */
-function sanitizeText(text: string): string {
-  return text
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-    .replace(/\//g, '&#x2F;');
 }
 
 /**
@@ -79,7 +68,7 @@ export async function postCommitAnalysisComment({
     const startTime = Date.now();
 
     // Sanitize inputs
-    const sanitizedMessage = sanitizeText(commit.commit.message);
+    const sanitizedMessage = escapeHtmlEntities(commit.commit.message);
 
     // Analyze the commit
     const analysisResult = await analyzeCommit({
@@ -213,8 +202,8 @@ export async function postIssueAnalysisComment({
     const startTime = Date.now();
 
     // Sanitize inputs
-    const sanitizedTitle = sanitizeText(issue.title);
-    const sanitizedBody = sanitizeText(issue.body || '');
+    const sanitizedTitle = escapeHtmlEntities(issue.title);
+    const sanitizedBody = escapeHtmlEntities(issue.body || '');
 
     // Analyze the issue
     const analysisResult = await analyzeIssue({

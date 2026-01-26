@@ -5,6 +5,7 @@ import { tokenUsage, webhookPreferences } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { PR_REVIEW_CONFIG } from '@/lib/config/pr-review';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { escapeHtmlEntities } from '@/lib/utils/sanitize';
 
 interface GitHubPRFile {
   filename: string;
@@ -12,18 +13,6 @@ interface GitHubPRFile {
   deletions: number;
   changes: number;
   patch?: string;
-}
-
-/**
- * Sanitize text to prevent XSS and injection attacks
- */
-function sanitizeText(text: string): string {
-  return text
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-    .replace(/\//g, '&#x2F;');
 }
 
 interface PRCommentParams {
@@ -144,8 +133,8 @@ export async function postPRReviewComment({
     console.log(`Fetched ${allFiles.length} files (${filesToAnalyze.length} relevant) for PR #${prNumber} in ${fetchTime}ms`);
 
     // Sanitize inputs before sending to AI
-    const sanitizedTitle = sanitizeText(prTitle);
-    const sanitizedDescription = sanitizeText(prDescription || '');
+    const sanitizedTitle = escapeHtmlEntities(prTitle);
+    const sanitizedDescription = escapeHtmlEntities(prDescription || '');
 
     // Analyze the PR
     const analysisStartTime = Date.now();

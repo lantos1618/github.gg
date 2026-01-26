@@ -1,14 +1,14 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
-import { createGitHubServiceFromSession, createPublicGitHubService, createGitHubServiceForUserOperations } from '@/lib/github';
+import { createGitHubServiceFromSession, createPublicGitHubService } from '@/lib/github';
 import { analyzePullRequest } from '@/lib/ai/pr-analysis';
 import { analyzeIssue } from '@/lib/ai/issue-analysis';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
 import { tokenUsage, prAnalysisCache, issueAnalysisCache } from '@/db/schema';
-import { desc, and, eq, gte } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
-import { getCachedStargazerStatus, setCachedStargazerStatus } from '@/lib/rate-limit';
+import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
 
 export const githubAnalysisRouter = router({
   // Get all PRs for a repository
@@ -135,49 +135,17 @@ export const githubAnalysisRouter = router({
         let effectivePlan = plan;
         let isStargazerPerk = false;
 
-        // If no active subscription, check for star credit
+        // If no active subscription, check for stargazer perk
         if (!subscription || subscription.status !== 'active') {
-          try {
-            const STARGAZER_REPO = 'lantos1618/github.gg';
-            let hasStarred = await getCachedStargazerStatus(ctx.user.id, STARGAZER_REPO);
+          const perkResult = await checkStargazerPerk(ctx.user.id, ctx.session, 'pr_analysis', plan);
 
-            if (hasStarred === null) {
-              const githubServiceForStar = await createGitHubServiceForUserOperations(ctx.session);
-              hasStarred = await githubServiceForStar.hasStarredRepo('lantos1618', 'github.gg');
-              await setCachedStargazerStatus(ctx.user.id, STARGAZER_REPO, hasStarred);
-            }
-
-            if (hasStarred) {
-              const oneMonthAgo = new Date();
-              oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-
-              const monthlyUsage = await db
-                .select()
-                .from(tokenUsage)
-                .where(
-                  and(
-                    eq(tokenUsage.userId, ctx.user.id),
-                    eq(tokenUsage.feature, 'pr_analysis'),
-                    gte(tokenUsage.createdAt, oneMonthAgo)
-                  )
-                );
-
-              if (monthlyUsage.length < 1) {
-                isStargazerPerk = true;
-                effectivePlan = 'pro';
-              } else {
-                yield { type: 'error' as const, message: 'You have used your 1 free monthly PR analysis. Upgrade to Pro for unlimited access!' };
-                return;
-              }
-            } else {
-              yield { type: 'error' as const, message: 'Active subscription required. Tip: Star our repo (lantos1618/github.gg) to get 1 free PR analysis/month!' };
-              return;
-            }
-          } catch (e) {
-            console.error('Failed to check stargazer status:', e);
-            yield { type: 'error' as const, message: 'Active subscription required for AI features' };
+          if (!perkResult.isStargazerPerk) {
+            yield { type: 'error' as const, message: perkResult.errorMessage };
             return;
           }
+
+          isStargazerPerk = true;
+          effectivePlan = perkResult.effectivePlan;
         }
 
         const keyInfo = await getApiKeyForUser(ctx.user.id, effectivePlan as 'byok' | 'pro');
@@ -438,49 +406,17 @@ export const githubAnalysisRouter = router({
         let effectivePlan = plan;
         let isStargazerPerk = false;
 
-        // If no active subscription, check for star credit
+        // If no active subscription, check for stargazer perk
         if (!subscription || subscription.status !== 'active') {
-          try {
-            const STARGAZER_REPO = 'lantos1618/github.gg';
-            let hasStarred = await getCachedStargazerStatus(ctx.user.id, STARGAZER_REPO);
+          const perkResult = await checkStargazerPerk(ctx.user.id, ctx.session, 'issue_analysis', plan);
 
-            if (hasStarred === null) {
-              const githubServiceForStar = await createGitHubServiceForUserOperations(ctx.session);
-              hasStarred = await githubServiceForStar.hasStarredRepo('lantos1618', 'github.gg');
-              await setCachedStargazerStatus(ctx.user.id, STARGAZER_REPO, hasStarred);
-            }
-
-            if (hasStarred) {
-              const oneMonthAgo = new Date();
-              oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-
-              const monthlyUsage = await db
-                .select()
-                .from(tokenUsage)
-                .where(
-                  and(
-                    eq(tokenUsage.userId, ctx.user.id),
-                    eq(tokenUsage.feature, 'issue_analysis'),
-                    gte(tokenUsage.createdAt, oneMonthAgo)
-                  )
-                );
-
-              if (monthlyUsage.length < 1) {
-                isStargazerPerk = true;
-                effectivePlan = 'pro';
-              } else {
-                yield { type: 'error' as const, message: 'You have used your 1 free monthly issue analysis. Upgrade to Pro for unlimited access!' };
-                return;
-              }
-            } else {
-              yield { type: 'error' as const, message: 'Active subscription required. Tip: Star our repo (lantos1618/github.gg) to get 1 free issue analysis/month!' };
-              return;
-            }
-          } catch (e) {
-            console.error('Failed to check stargazer status:', e);
-            yield { type: 'error' as const, message: 'Active subscription required for AI features' };
+          if (!perkResult.isStargazerPerk) {
+            yield { type: 'error' as const, message: perkResult.errorMessage };
             return;
           }
+
+          isStargazerPerk = true;
+          effectivePlan = perkResult.effectivePlan;
         }
 
         const keyInfo = await getApiKeyForUser(ctx.user.id, effectivePlan as 'byok' | 'pro');

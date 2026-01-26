@@ -1,6 +1,7 @@
 import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { retryWithBackoff } from './retry-utils';
 
 // Schema for AI slop detection
 export const aiSlopSchema = z.object({
@@ -50,41 +51,6 @@ export interface AISlopAnalysisResult {
  */
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
-}
-
-/**
- * Retry wrapper with exponential backoff for rate limits
- */
-async function retryWithBackoff<T>(
-  fn: () => Promise<T>,
-  maxRetries = 3,
-  baseDelay = 2000
-): Promise<T> {
-  let lastError: Error | undefined;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error: unknown) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-
-      const errorMessage = lastError.message || '';
-      const is429 = errorMessage.includes('429') ||
-                    errorMessage.includes('RESOURCE_EXHAUSTED') ||
-                    errorMessage.includes('rate');
-
-      if (is429 && attempt < maxRetries) {
-        const retryDelay = baseDelay * Math.pow(2, attempt);
-        console.log(`⏳ Rate limited (attempt ${attempt + 1}/${maxRetries + 1}), waiting ${retryDelay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-        continue;
-      }
-
-      throw lastError;
-    }
-  }
-
-  throw lastError;
 }
 
 /**

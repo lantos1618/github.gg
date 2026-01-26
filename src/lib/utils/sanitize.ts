@@ -22,3 +22,16 @@ export function sanitizeArray(arr: string[] | undefined | null): string[] {
   if (!arr || !Array.isArray(arr)) return [];
   return arr.map(sanitizeText).filter(Boolean);
 }
+
+/**
+ * Escape HTML entities for safe display in HTML content
+ * Use this when displaying user content in HTML (e.g., GitHub comments)
+ */
+export function escapeHtmlEntities(text: string): string {
+  return text
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;');
+}

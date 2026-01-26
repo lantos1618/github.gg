@@ -6,12 +6,12 @@ import { eq, and, gte, desc, sql } from 'drizzle-orm';
 import { generateDeveloperProfileStreaming, findAndStoreDeveloperEmail } from '@/lib/ai/developer-profile';
 import { getProfileData } from '@/lib/profile/service';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForUserOperations, createPublicGitHubService } from '@/lib/github';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import { Octokit } from '@octokit/rest';
 import { handleTRPCGitHubError } from '@/lib/github/error-handler';
-import { getCachedStargazerStatus, setCachedStargazerStatus } from '@/lib/rate-limit';
 import { isPgErrorWithCode } from '@/lib/db/utils';
 import { generateEmbedding, formatEmbeddingForPg } from '@/lib/ai/embeddings';
 
@@ -207,58 +207,21 @@ export const profileRouter = router({
 
         // Check for active subscription
         const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
-        
+
         let effectivePlan = plan;
         let isStargazerPerk = false;
 
-        // If no active subscription, check for star credit
+        // If no active subscription, check for stargazer perk
         if (!subscription || subscription.status !== 'active') {
-          try {
-            // Check cached stargazer status first to reduce GitHub API calls
-            const STARGAZER_REPO = 'lantos1618/github.gg';
-            let hasStarred = await getCachedStargazerStatus(ctx.user.id, STARGAZER_REPO);
+          const perkResult = await checkStargazerPerk(ctx.user.id, ctx.session, 'profile', plan);
 
-            // If not cached, fetch from GitHub and cache
-            if (hasStarred === null) {
-              const githubService = await createGitHubServiceForUserOperations(ctx.session);
-              hasStarred = await githubService.hasStarredRepo('lantos1618', 'github.gg');
-              // Cache the result for 1 hour
-              await setCachedStargazerStatus(ctx.user.id, STARGAZER_REPO, hasStarred);
-            }
-
-            if (hasStarred) {
-              // Check monthly usage
-              const oneMonthAgo = new Date();
-              oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-              
-              const monthlyUsage = await db
-                .select()
-                .from(tokenUsage)
-                .where(
-                  and(
-                    eq(tokenUsage.userId, ctx.user.id),
-                    eq(tokenUsage.feature, 'profile'),
-                    gte(tokenUsage.createdAt, oneMonthAgo)
-                  )
-                );
-                
-              // Allow 1 free analysis per month
-              if (monthlyUsage.length < 1) {
-                isStargazerPerk = true;
-                effectivePlan = 'pro'; // Grant temporary pro access for this run
-              } else {
-                yield { type: 'error', message: 'You have used your 1 free monthly analysis. Upgrade to Pro for more or wait until next month.' };
-                return;
-              }
-            } else {
-               yield { type: 'error', message: 'Active subscription required. Tip: Star our repo (lantos1618/github.gg) to get 1 free analysis/month!' };
-               return;
-            }
-          } catch (e) {
-            console.error('Failed to check stargazer status:', e);
-          yield { type: 'error', message: 'Active subscription required for AI features' };
-          return;
+          if (!perkResult.isStargazerPerk) {
+            yield { type: 'error', message: perkResult.errorMessage };
+            return;
           }
+
+          isStargazerPerk = true;
+          effectivePlan = perkResult.effectivePlan;
         }
 
         // Get appropriate API key

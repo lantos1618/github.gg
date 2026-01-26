@@ -2,11 +2,48 @@
 
 import React, { ReactNode } from 'react';
 import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
-import { LoadingPage } from '@/components/common';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, LogIn } from 'lucide-react';
 import { useAuth } from '@/lib/auth/client';
 import { ReusableSSEFeedback, type SSEStatus, type SSELogItem } from '@/components/analysis/ReusableSSEFeedback';
+
+// Skeleton layout that matches the analysis content structure
+function AnalysisLoadingSkeleton() {
+  return (
+    <div className="max-w-screen-xl w-full mx-auto px-2 sm:px-4 pt-2 sm:pt-4">
+      {/* Header skeleton */}
+      <div className="flex items-center justify-between mb-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="flex gap-2">
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-9 w-24" />
+        </div>
+      </div>
+
+      {/* Metrics skeleton */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="p-4 rounded-lg border">
+            <Skeleton className="h-4 w-20 mb-2" />
+            <Skeleton className="h-8 w-16" />
+          </div>
+        ))}
+      </div>
+
+      {/* Content skeleton */}
+      <div className="space-y-4">
+        <Skeleton className="h-6 w-64" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-32 w-full mt-4" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-5/6" />
+      </div>
+    </div>
+  );
+}
 
 type AnalysisState = 'loading' | 'error' | 'no-data' | 'ready' | 'private' | 'upgrade' | 'auth-error';
 
@@ -53,7 +90,7 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
 
   switch (state) {
     case 'loading':
-      return <LoadingPage text={message || 'Loading analysis...'} />;
+      return <AnalysisLoadingSkeleton />;
 
     case 'error':
       return (

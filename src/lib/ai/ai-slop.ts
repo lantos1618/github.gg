@@ -15,22 +15,14 @@ export const aiSlopSchema = z.object({
   detectedPatterns: z.array(z.string()),
 });
 
-// Partial schema for chunk analysis
+// Simplified schema for chunk analysis - faster to generate
 const partialSlopSchema = z.object({
-  metrics: z.array(z.object({
-    metric: z.string(),
-    score: z.number().min(0).max(100),
-    reason: z.string(),
-  })),
-  detectedPatterns: z.array(z.string()),
   issues: z.array(z.object({
     file: z.string(),
     issue: z.string(),
     severity: z.enum(['low', 'medium', 'high']),
-    snippet: z.string(),
-    fix: z.string(),
-    whyFixMatters: z.string(),
   })),
+  detectedPatterns: z.array(z.string()),
   aiGeneratedPercentage: z.number().min(0).max(100),
   chunkScore: z.number().min(0).max(100),
 });
@@ -40,8 +32,7 @@ export type AISlopData = z.infer<typeof aiSlopSchema>;
 export interface AISlopAnalysisParams {
   files: Array<{ path: string; content: string }>;
   repoName: string;
-  useChunking?: boolean;
-  tokensPerChunk?: number;
+  onProgress?: (message: string, progress: number) => void;
 }
 
 export interface AISlopAnalysisResult {
@@ -62,35 +53,55 @@ function estimateTokens(text: string): number {
 }
 
 /**
- * Wrap a promise with a timeout
+ * Retry wrapper with exponential backoff for rate limits
  */
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, operation: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`${operation} timed out after ${timeoutMs / 1000}s`)), timeoutMs)
-    ),
-  ]);
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelay = 2000
+): Promise<T> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: unknown) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      const errorMessage = lastError.message || '';
+      const is429 = errorMessage.includes('429') ||
+                    errorMessage.includes('RESOURCE_EXHAUSTED') ||
+                    errorMessage.includes('rate');
+
+      if (is429 && attempt < maxRetries) {
+        const retryDelay = baseDelay * Math.pow(2, attempt);
+        console.log(`⏳ Rate limited (attempt ${attempt + 1}/${maxRetries + 1}), waiting ${retryDelay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        continue;
+      }
+
+      throw lastError;
+    }
+  }
+
+  throw lastError;
 }
 
 /**
  * Format files for prompt context with safety truncation
  */
-function formatFilesForPrompt(files: Array<{ path: string; content: string }>): string {
+function formatFilesForPrompt(files: Array<{ path: string; content: string }>, maxCharsPerFile = 30000): string {
   return files.map(file => {
-    // Truncate massive individual files even in chunks to prevent context exhaustion from single files
-    // 50,000 chars ≈ 12.5k tokens
-    const MAX_CHARS = 50000;
     let content = file.content;
-    if (content.length > MAX_CHARS) {
-      content = content.slice(0, MAX_CHARS) + '\n... (file truncated for analysis)';
+    if (content.length > maxCharsPerFile) {
+      content = content.slice(0, maxCharsPerFile) + '\n... (truncated)';
     }
     return `\n--- ${file.path} ---\n${content}`;
   }).join('\n');
 }
 
 /**
- * Analyze a chunk of files for code slop
+ * Analyze a chunk of files using fast model
  */
 async function analyzeSlopChunk(
   files: Array<{ path: string; content: string }>,
@@ -100,108 +111,86 @@ async function analyzeSlopChunk(
 ) {
   const fileContents = formatFilesForPrompt(files);
 
-  const prompt = `You are an expert code quality analyst specializing in detecting "code slop" - low-quality code patterns.
-Analyzing CHUNK ${chunkIndex + 1} of ${totalChunks} for repository: ${repoName}
+  const prompt = `Analyze CHUNK ${chunkIndex + 1}/${totalChunks} of ${repoName} for code quality issues.
 
-TASK:
-Analyze these specific files for CODE QUALITY ISSUES.
-
-🚩 PRIMARY SLOP PATTERNS TO DETECT:
-1. REPETITIVE CODE (Copy-pasted logic)
-2. PERFORMATIVE CODE (Over-engineered, adds no value)
-3. UNNECESSARY COMPLEXITY (Deep nesting, huge functions)
-4. VALUELESS BOILERPLATE (Generic handlers, wrapper functions)
-5. BAD ABSTRACTIONS (Leaky, premature, or inconsistent)
-6. USELESS TESTS (Mock-only verification)
-7. LOOSE TYPESCRIPT TYPES (any/unknown abuse)
-8. INCONSISTENT FILE STRUCTURE
-
-CODEBASE FILES IN THIS CHUNK:
+FILES:
 ${fileContents}
 
-REQUIREMENTS:
-- Identify specific issues in these files with code snippets.
-- Propose concrete fixes.
-- Rate the quality of this chunk.
-- Estimate AI-generated percentage for this chunk.
+Find: repetitive code, unnecessary complexity, bad abstractions, loose types.
+Return JSON with: issues (file, issue, severity), detectedPatterns, aiGeneratedPercentage, chunkScore.`;
 
-Your response must be a valid JSON object following the schema provided.`;
-
-  // 90 second timeout for chunk analysis
-  const { object, usage } = await withTimeout(
-    generateObject({
-      model: google('models/gemini-3-pro-preview'),
+  return retryWithBackoff(async () => {
+    const { object, usage } = await generateObject({
+      model: google('models/gemini-2.5-flash'), // Fast model for chunks
       schema: partialSlopSchema,
       messages: [{ role: 'user', content: prompt }],
-    }),
-    90000,
-    `Chunk ${chunkIndex + 1}/${totalChunks} analysis`
-  );
-
-  return { result: object, usage };
+    });
+    return { result: object, usage };
+  });
 }
 
 /**
- * Stitch together chunk results into a final report
+ * Generate final report from chunk results using quality model
  */
-async function stitchSlopChunks(
+async function generateFinalReport(
   chunkResults: Array<z.infer<typeof partialSlopSchema>>,
   repoName: string
 ) {
-  if (chunkResults.length === 0) {
-    throw new Error('No analysis results to stitch');
-  }
-
   const allIssues = chunkResults.flatMap(c => c.issues);
-  const allPatterns = Array.from(new Set(chunkResults.flatMap(c => c.detectedPatterns)));
-  
-  // Calculate weighted averages for scores
-  const totalScore = chunkResults.reduce((sum, c) => sum + c.chunkScore, 0);
-  const avgScore = Math.round(totalScore / chunkResults.length);
-  
-  const totalAiPercent = chunkResults.reduce((sum, c) => sum + c.aiGeneratedPercentage, 0);
-  const avgAiPercent = Math.round(totalAiPercent / chunkResults.length);
+  const allPatterns = [...new Set(chunkResults.flatMap(c => c.detectedPatterns))];
+  const avgScore = Math.round(chunkResults.reduce((sum, c) => sum + c.chunkScore, 0) / chunkResults.length);
+  const avgAiPercent = Math.round(chunkResults.reduce((sum, c) => sum + c.aiGeneratedPercentage, 0) / chunkResults.length);
 
-  const prompt = `You are a Lead Code Quality Architect. Create a FINAL COMPREHENSIVE REPORT by aggregating analysis from multiple file chunks.
+  const prompt = `Create a code quality report for ${repoName}.
 
-REPOSITORY: ${repoName}
+DATA:
+- Score: ${avgScore}/100
+- AI Generated: ${avgAiPercent}%
+- Patterns: ${allPatterns.join(', ')}
+- Issues (${allIssues.length} total): ${JSON.stringify(allIssues.slice(0, 30))}
 
-AGGREGATED DATA FROM CHUNKS:
-- Average Quality Score: ${avgScore}/100
-- Average AI-Generated %: ${avgAiPercent}%
-- Detected Patterns: ${JSON.stringify(allPatterns)}
+Generate comprehensive markdown report with metrics (Simplicity, DRY, Clarity, Maintainability, Value-to-Complexity).`;
 
-TOP 50 IDENTIFIED ISSUES ACROSS CODEBASE:
-${JSON.stringify(allIssues.slice(0, 50), null, 2)}
-
-TASK:
-Generate a cohesive, final markdown report that summarizes the findings.
-- Don't just list issues; synthesize them into "Key Findings".
-- Use the specific code snippets provided in the issues to show "Before" vs "After" examples.
-- Provide a final "Overall Quality Score" (you can adjust the average based on the severity of issues found).
-- Create a final list of Metrics.
-
-METRICS TO EVALUATE (0-100 scale):
-- Simplicity
-- DRY Principle
-- Clarity
-- Maintainability
-- Value-to-Complexity Ratio
-
-Your response must be a valid JSON object following the schema provided.`;
-
-  // 120 second timeout for stitching results
-  const { object, usage } = await withTimeout(
-    generateObject({
-      model: google('models/gemini-3-pro-preview'),
+  return retryWithBackoff(async () => {
+    const { object, usage } = await generateObject({
+      model: google('models/gemini-3-pro-preview'), // Quality model for final report
       schema: aiSlopSchema,
       messages: [{ role: 'user', content: prompt }],
-    }),
-    120000,
-    'Stitching chunk results'
-  );
+    });
+    return { result: object, usage };
+  });
+}
 
-  return { result: object, usage };
+/**
+ * Process chunks in parallel with concurrency limit
+ */
+async function processChunksParallel<T>(
+  items: T[],
+  processor: (item: T, index: number) => Promise<unknown>,
+  concurrency: number,
+  onProgress?: (completed: number, total: number) => void
+): Promise<unknown[]> {
+  const results: unknown[] = new Array(items.length);
+  let completed = 0;
+  let currentIndex = 0;
+
+  async function processNext(): Promise<void> {
+    const index = currentIndex++;
+    if (index >= items.length) return;
+
+    results[index] = await processor(items[index], index);
+    completed++;
+    onProgress?.(completed, items.length);
+
+    await processNext();
+  }
+
+  const workers = Array(Math.min(concurrency, items.length))
+    .fill(null)
+    .map(() => processNext());
+
+  await Promise.all(workers);
+  return results;
 }
 
 /**
@@ -210,135 +199,93 @@ Your response must be a valid JSON object following the schema provided.`;
 export async function generateAISlopAnalysis({
   files,
   repoName,
-  useChunking = true,
-  tokensPerChunk = 150000, // 150k tokens per chunk for reliable processing
+  onProgress,
 }: AISlopAnalysisParams): Promise<AISlopAnalysisResult> {
+  const TOKENS_PER_CHUNK = 100000; // 100k tokens per chunk
+  const MAX_CONCURRENCY = 3; // Process up to 3 chunks in parallel
+
   try {
-    // Estimate total tokens
-    const totalEstimatedTokens = files.reduce((sum, f) => {
-      return sum + estimateTokens(f.content) + estimateTokens(f.path);
-    }, 0);
+    const totalEstimatedTokens = files.reduce((sum, f) =>
+      sum + estimateTokens(f.content) + estimateTokens(f.path), 0);
 
-    console.log(`🔍 Analyzing ${files.length} files. Estimated tokens: ${totalEstimatedTokens}`);
+    console.log(`🔍 AI Slop: ${files.length} files, ~${totalEstimatedTokens} tokens`);
+    onProgress?.('Preparing analysis...', 15);
 
-    // Decide whether to use chunking
-    const shouldChunk = useChunking && totalEstimatedTokens > tokensPerChunk;
+    // Build chunks
+    const chunks: Array<Array<typeof files[0]>> = [];
+    let currentChunk: Array<typeof files[0]> = [];
+    let currentChunkTokens = 0;
 
-    if (shouldChunk) {
-      console.log(`🔄 Using token-based chunking: >${tokensPerChunk} tokens`);
-      
-      const chunks: Array<Array<typeof files[0]>> = [];
-      let currentChunk: Array<typeof files[0]> = [];
-      let currentChunkTokens = 0;
+    for (const file of files) {
+      const fileTokens = estimateTokens(file.content) + estimateTokens(file.path);
 
-      for (const file of files) {
-        const fileTokens = estimateTokens(file.content) + estimateTokens(file.path);
-
-        // If adding this file would exceed the limit, start a new chunk
-        if (currentChunkTokens + fileTokens > tokensPerChunk && currentChunk.length > 0) {
-          chunks.push(currentChunk);
-          currentChunk = [file];
-          currentChunkTokens = fileTokens;
-        } else {
-          currentChunk.push(file);
-          currentChunkTokens += fileTokens;
-        }
+      if (currentChunkTokens + fileTokens > TOKENS_PER_CHUNK && currentChunk.length > 0) {
+        chunks.push(currentChunk);
+        currentChunk = [file];
+        currentChunkTokens = fileTokens;
+      } else {
+        currentChunk.push(file);
+        currentChunkTokens += fileTokens;
       }
-      // Don't forget the last chunk
-      if (currentChunk.length > 0) chunks.push(currentChunk);
+    }
+    if (currentChunk.length > 0) chunks.push(currentChunk);
 
-      let totalInputTokens = 0;
-      let totalOutputTokens = 0;
-      const chunkResults: Array<z.infer<typeof partialSlopSchema>> = [];
+    console.log(`📦 Split into ${chunks.length} chunk(s)`);
 
-      // Analyze chunks
-      for (let i = 0; i < chunks.length; i++) {
-        console.log(`📝 Analyzing chunk ${i + 1}/${chunks.length} (${chunks[i].length} files)...`);
-        const { result, usage } = await analyzeSlopChunk(chunks[i], i, chunks.length, repoName);
-        chunkResults.push(result);
-        totalInputTokens += usage.inputTokens || 0;
-        totalOutputTokens += usage.outputTokens || 0;
-      }
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
 
-      // Stitch results
-      console.log(`🧵 Stitching ${chunks.length} chunks...`);
-      const { result, usage } = await stitchSlopChunks(chunkResults, repoName);
-      
+    if (chunks.length === 1) {
+      // Single chunk - direct analysis
+      onProgress?.('Analyzing code quality...', 20);
+
+      const { result, usage } = await analyzeSlopChunk(chunks[0], 0, 1, repoName);
       totalInputTokens += usage.inputTokens || 0;
       totalOutputTokens += usage.outputTokens || 0;
 
+      onProgress?.('Generating report...', 70);
+
+      const { result: finalResult, usage: finalUsage } = await generateFinalReport([result], repoName);
+      totalInputTokens += finalUsage.inputTokens || 0;
+      totalOutputTokens += finalUsage.outputTokens || 0;
+
       return {
-        analysis: result,
-        usage: {
-          inputTokens: totalInputTokens,
-          outputTokens: totalOutputTokens,
-          totalTokens: totalInputTokens + totalOutputTokens,
-        },
+        analysis: finalResult,
+        usage: { inputTokens: totalInputTokens, outputTokens: totalOutputTokens, totalTokens: totalInputTokens + totalOutputTokens },
       };
     }
 
-    // Fallback to single-pass analysis for smaller codebases
-    console.log(`⚡ Using single-pass analysis (small codebase)`);
-    
-    const fileContents = formatFilesForPrompt(files);
-    
-    const prompt = `You are an expert code quality analyst specializing in detecting "code slop" - low-quality code patterns.
+    // Multiple chunks - parallel processing
+    onProgress?.(`Analyzing ${chunks.length} chunks in parallel...`, 20);
 
-REPOSITORY: ${repoName}
-FILES: ${files.length} files
+    const chunkResults = await processChunksParallel(
+      chunks,
+      async (chunk, index) => {
+        console.log(`📝 Chunk ${index + 1}/${chunks.length} (${chunk.length} files)`);
+        const { result, usage } = await analyzeSlopChunk(chunk, index, chunks.length, repoName);
+        totalInputTokens += usage.inputTokens || 0;
+        totalOutputTokens += usage.outputTokens || 0;
+        return result;
+      },
+      MAX_CONCURRENCY,
+      (completed, total) => {
+        const progress = 20 + Math.round((completed / total) * 50);
+        onProgress?.(`Analyzed ${completed}/${total} chunks...`, progress);
+      }
+    ) as Array<z.infer<typeof partialSlopSchema>>;
 
-TASK:
-Analyze this codebase for CODE QUALITY ISSUES, focusing on patterns that reduce maintainability and add no real value.
+    onProgress?.('Generating final report...', 75);
 
-🚩 PRIMARY SLOP PATTERNS TO DETECT:
-1. REPETITIVE CODE
-2. PERFORMATIVE CODE
-3. UNNECESSARY COMPLEXITY
-4. VALUELESS BOILERPLATE
-5. BAD ABSTRACTIONS
-6. USELESS TESTS
-7. LOOSE TYPESCRIPT TYPES
-8. INCONSISTENT FILE STRUCTURE
-
-IMPORTANT: In your "How to Fix" section, use REAL CODE from the files provided.
-
-Your response must be a valid JSON object with this exact structure:
-{
-  "metrics": [
-    { "metric": "Simplicity", "score": 0-100, "reason": "..." }
-  ],
-  "markdown": "# 🚩 Code Quality Report...",
-  "overallScore": 0-100,
-  "aiGeneratedPercentage": 0-100,
-  "detectedPatterns": ["..."]
-}
-
-ANALYZE THESE FILES:
-${fileContents}`;
-
-    // 120 second timeout for single-pass analysis
-    const { object, usage } = await withTimeout(
-      generateObject({
-        model: google('models/gemini-3-pro-preview'),
-        schema: aiSlopSchema,
-        messages: [
-          { role: 'user', content: prompt },
-        ],
-      }),
-      120000,
-      'Single-pass AI slop analysis'
-    );
+    const { result, usage } = await generateFinalReport(chunkResults, repoName);
+    totalInputTokens += usage.inputTokens || 0;
+    totalOutputTokens += usage.outputTokens || 0;
 
     return {
-      analysis: object,
-      usage: {
-        inputTokens: usage.inputTokens || 0,
-        outputTokens: usage.outputTokens || 0,
-        totalTokens: (usage.inputTokens || 0) + (usage.outputTokens || 0),
-      },
+      analysis: result,
+      usage: { inputTokens: totalInputTokens, outputTokens: totalOutputTokens, totalTokens: totalInputTokens + totalOutputTokens },
     };
   } catch (error) {
-    console.error('Gemini API error in AI slop detection:', error);
+    console.error('AI slop analysis error:', error);
     throw error;
   }
 }

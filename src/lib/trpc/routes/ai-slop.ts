@@ -1,27 +1,55 @@
 import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
-import { aiSlopAnalyses } from '@/db/schema';
+import { aiSlopAnalyses, tokenUsage } from '@/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { generateAISlopAnalysis, aiSlopSchema } from '@/lib/ai/ai-slop';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceFromSession } from '@/lib/github';
-import { executeAnalysisWithVersioning } from '@/lib/trpc/helpers/analysis-executor';
 import { fetchFilesByPaths } from '@/lib/github/file-fetcher';
+import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { isPgErrorWithCode } from '@/lib/db/utils';
+
+/**
+ * Helper to stream progress events and heartbeats while waiting for a promise.
+ * Yields progress events from the queue and heartbeat pings to keep SSE alive.
+ */
+async function* streamProgressWithHeartbeat(
+  promise: Promise<unknown>,
+  progressQueue: Array<{ message: string; progress: number }>,
+  heartbeatInterval = 2000
+): AsyncGenerator<
+  { type: 'progress'; message: string; progress: number } | { type: 'ping' },
+  void,
+  unknown
+> {
+  let done = false;
+  promise.then(() => { done = true; }).catch(() => { done = true; });
+
+  while (!done) {
+    // Yield any queued progress events
+    while (progressQueue.length > 0) {
+      const event = progressQueue.shift()!;
+      yield { type: 'progress', message: event.message, progress: event.progress };
+    }
+    // Yield heartbeat to keep connection alive
+    yield { type: 'ping' };
+    // Wait before next check
+    await new Promise(r => setTimeout(r, heartbeatInterval));
+  }
+
+  // Yield any remaining progress events after completion
+  while (progressQueue.length > 0) {
+    const event = progressQueue.shift()!;
+    yield { type: 'progress', message: event.message, progress: event.progress };
+  }
+}
 
 /**
  * AI Slop Detection Router
  *
- * NOTE: This router has structural similarity with scorecard.ts. That duplication is intentional!
- *
- * Why we don't abstract this further:
- * - tRPC relies on static type inference - procedures must be explicitly defined
- * - Dynamic router factories break TypeScript's ability to infer types
- * - The "duplication" is mostly declarative configuration, not business logic
- * - The actual business logic IS abstracted in executeAnalysisWithVersioning
- *
- * Remember: Some duplication is healthy when it preserves type safety and clarity.
- * Don't fight the framework - work with tRPC's design, not against it.
+ * This router uses streaming with heartbeats for real-time progress updates
+ * during long-running AI analysis operations.
  */
 export const aiSlopRouter = router({
   detectAISlop: protectedProcedure
@@ -43,6 +71,21 @@ export const aiSlopRouter = router({
         // Validate filePaths
         if (!input.filePaths || input.filePaths.length === 0) {
           yield { type: 'error', message: 'No files selected for analysis. Please select at least one file.' };
+          return;
+        }
+
+        // Check for active subscription
+        yield { type: 'progress', progress: 2, message: 'Verifying subscription...' };
+        const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
+        if (!subscription || subscription.status !== 'active') {
+          yield { type: 'error', message: 'Active subscription required for AI features' };
+          return;
+        }
+
+        // Get appropriate API key
+        const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
+        if (!keyInfo) {
+          yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
           return;
         }
 
@@ -69,46 +112,105 @@ export const aiSlopRouter = router({
           return;
         }
 
-        yield { type: 'progress', progress: 15, message: `Analyzing ${files.length} files with AI (this may take 30-60 seconds)...` };
+        yield { type: 'progress', progress: 10, message: `Analyzing ${files.length} files with AI...` };
 
-        const { insertedRecord } = await executeAnalysisWithVersioning({
+        // Progress queue for streaming updates from AI generation
+        const progressQueue: Array<{ message: string; progress: number }> = [];
+
+        // Start AI analysis with progress callback
+        const analysisPromise = generateAISlopAnalysis({
+          files,
+          repoName: input.repo,
+          onProgress: (message, progress) => {
+            progressQueue.push({ message, progress });
+          },
+        });
+
+        // Stream progress and heartbeats while AI runs
+        for await (const event of streamProgressWithHeartbeat(analysisPromise, progressQueue)) {
+          if (event.type === 'progress') {
+            yield { type: 'progress', progress: event.progress, message: event.message };
+          } else if (event.type === 'ping') {
+            yield { type: 'ping' };
+          }
+        }
+
+        // Get the analysis result
+        const result = await analysisPromise;
+        const analysisData = aiSlopSchema.parse(result.analysis);
+
+        yield { type: 'progress', progress: 85, message: 'Saving results...' };
+
+        // Versioned database insertion with conflict retry
+        const maxRetries = 5;
+        let insertedRecord: typeof aiSlopAnalyses.$inferSelect | null = null;
+
+        for (let attempt = 0; attempt < maxRetries && !insertedRecord; attempt++) {
+          // Get current max version for this analysis group
+          const maxVersionResult = await db
+            .select({ max: sql`MAX(version)` })
+            .from(aiSlopAnalyses)
+            .where(and(
+              eq(aiSlopAnalyses.userId, ctx.user.id),
+              eq(aiSlopAnalyses.repoOwner, repoOwnerNormalized),
+              eq(aiSlopAnalyses.repoName, repoNameNormalized),
+              eq(aiSlopAnalyses.ref, ref),
+            ));
+
+          const rawMax = maxVersionResult[0]?.max;
+          const maxVersion = typeof rawMax === 'number' ? rawMax : Number(rawMax) || 0;
+          const nextVersion = maxVersion + 1;
+
+          try {
+            const results = await db
+              .insert(aiSlopAnalyses)
+              .values({
+                userId: ctx.user.id,
+                repoOwner: repoOwnerNormalized,
+                repoName: repoNameNormalized,
+                ref: ref,
+                version: nextVersion,
+                overallScore: analysisData.overallScore,
+                aiGeneratedPercentage: analysisData.aiGeneratedPercentage,
+                detectedPatterns: analysisData.detectedPatterns,
+                metrics: analysisData.metrics,
+                markdown: analysisData.markdown,
+                updatedAt: new Date(),
+              })
+              .onConflictDoNothing()
+              .returning();
+
+            if (results.length > 0 && results[0]) {
+              insertedRecord = results[0];
+            }
+          } catch (e: unknown) {
+            // If unique constraint violation, retry
+            if (isPgErrorWithCode(e) && e.code === '23505') {
+              continue;
+            }
+            throw e;
+          }
+        }
+
+        if (!insertedRecord) {
+          throw new Error(`Failed to save analysis after ${maxRetries} attempts`);
+        }
+
+        // Log token usage
+        await db.insert(tokenUsage).values({
           userId: ctx.user.id,
           feature: 'ai-slop',
           repoOwner: repoOwnerNormalized,
           repoName: repoNameNormalized,
-          table: aiSlopAnalyses,
-          generateFn: async () => {
-            const result = await generateAISlopAnalysis({
-              files,
-              repoName: input.repo,
-            });
-            return {
-              data: aiSlopSchema.parse(result.analysis),
-              usage: result.usage,
-            };
-          },
-          versioningConditions: [
-            eq(aiSlopAnalyses.userId, ctx.user.id),
-            eq(aiSlopAnalyses.repoOwner, repoOwnerNormalized),
-            eq(aiSlopAnalyses.repoName, repoNameNormalized),
-            eq(aiSlopAnalyses.ref, ref),
-          ],
-          buildInsertValues: (data, version) => ({
-            userId: ctx.user.id,
-            repoOwner: repoOwnerNormalized,
-            repoName: repoNameNormalized,
-            ref: ref,
-            version,
-            overallScore: data.overallScore,
-            aiGeneratedPercentage: data.aiGeneratedPercentage,
-            detectedPatterns: data.detectedPatterns,
-            metrics: data.metrics,
-            markdown: data.markdown,
-            updatedAt: new Date(),
-          }),
+          model: 'gemini-2.5-flash', // Primary model used for chunks
+          inputTokens: result.usage.inputTokens,
+          outputTokens: result.usage.outputTokens,
+          totalTokens: result.usage.totalTokens,
+          isByok: keyInfo.isByok,
+          createdAt: new Date(),
         });
 
-        yield { type: 'progress', progress: 80, message: 'Analysis complete, saving results...' };
+        yield { type: 'progress', progress: 95, message: 'Analysis complete!' };
 
         yield {
           type: 'complete',

@@ -32,7 +32,8 @@ export const initializePostHog = () => {
     posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
       api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://eu.i.posthog.com',
       person_profiles: 'identified_only',
-      capture_pageview: true,
+      capture_pageview: false, // Handled manually in PostHogPageview component for Next.js App Router
+      capture_pageleave: true, // Track when users leave pages
       loaded: (ph) => {
         if (process.env.NODE_ENV === 'development') {
           ph.debug();

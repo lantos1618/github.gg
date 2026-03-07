@@ -20,7 +20,6 @@ import {
   acquireGenerationLock,
   releaseGenerationLock,
 } from '@/lib/rate-limit';
-import { isPgErrorWithCode } from '@/lib/db/utils';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minutes
@@ -78,6 +77,11 @@ export async function GET(req: NextRequest) {
   let heartbeatInterval: NodeJS.Timeout | null = null;
   let lockAcquired = false;
 
+  // Listen for client disconnect via the request signal
+  req.signal.addEventListener('abort', () => {
+    isAborted = true;
+  });
+
   const stream = new ReadableStream({
     async start(controller) {
       const sendEvent = (event: string, data: unknown) => {
@@ -92,6 +96,15 @@ export async function GET(req: NextRequest) {
           // Controller may be closed
           isAborted = true;
         }
+      };
+
+      // Helper to cleanly close the stream (clears heartbeat first)
+      const closeStream = () => {
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval);
+          heartbeatInterval = null;
+        }
+        controller.close();
       };
 
       // Start heartbeat to keep connection alive during long operations
@@ -130,7 +143,7 @@ export async function GET(req: NextRequest) {
                 lastUpdated: profile.updatedAt,
               },
             });
-            controller.close();
+            closeStream();
             return;
           }
         }
@@ -142,7 +155,7 @@ export async function GET(req: NextRequest) {
             type: 'error',
             message: 'Profile generation already in progress for this user. Please wait.',
           });
-          controller.close();
+          closeStream();
           return;
         }
 
@@ -185,7 +198,7 @@ export async function GET(req: NextRequest) {
               },
             });
 
-            controller.close();
+            closeStream();
             return;
           }
         }
@@ -207,7 +220,7 @@ export async function GET(req: NextRequest) {
             message:
               'Active subscription required. Tip: Star our repo (lantos1618/github.gg) to unlock perks in the app.',
           });
-          controller.close();
+          closeStream();
           return;
         }
 
@@ -223,7 +236,7 @@ export async function GET(req: NextRequest) {
             message:
               'Please add your Gemini API key in settings to use this feature',
           });
-          controller.close();
+          closeStream();
           return;
         }
 
@@ -249,7 +262,7 @@ export async function GET(req: NextRequest) {
               message:
                 'Daily limit of 5 profile generations reached. Upgrade to Pro for unlimited generations.',
             });
-            controller.close();
+            closeStream();
             return;
           }
         }
@@ -259,6 +272,9 @@ export async function GET(req: NextRequest) {
           progress: 10,
           message: `Fetching repositories for ${username}...`,
         });
+
+        // Short-circuit if client disconnected
+        if (isAborted) { closeStream(); return; }
 
         // 5. Fetch repositories
         const githubService =
@@ -274,7 +290,7 @@ export async function GET(req: NextRequest) {
               'We can only generate profiles from public GitHub activity. ' +
               'Ask them to make at least one repo public or connect a different account.',
           });
-          controller.close();
+          closeStream();
           return;
         }
 
@@ -464,6 +480,9 @@ export async function GET(req: NextRequest) {
           });
         }
 
+        // Short-circuit if client disconnected
+        if (isAborted) { closeStream(); return; }
+
         sendEvent('progress', {
           type: 'progress',
           progress: 40,
@@ -500,45 +519,28 @@ export async function GET(req: NextRequest) {
           throw new Error('Failed to generate profile');
         }
 
+        // Short-circuit if client disconnected after AI generation
+        if (isAborted) { closeStream(); return; }
+
         sendEvent('progress', {
           type: 'progress',
           progress: 90,
           message: 'Profile generated, saving results...',
         });
 
-        // 8. Cache result with versioning (retry logic handles race conditions)
-        let profileInserted = false;
-        for (let retryCount = 0; retryCount < 3; retryCount++) {
-          const maxVersionResult = await db
-            .select({
-              max: sql<number | null>`COALESCE(MAX(version), 0)`,
-            })
-            .from(developerProfileCache)
-            .where(eq(developerProfileCache.username, normalizedUsername));
-
-          const nextVersion = (maxVersionResult[0]?.max ?? 0) + 1;
-
-          try {
-            const [insertResult] = await db.insert(developerProfileCache).values({
-              username: normalizedUsername,
-              version: nextVersion,
-              profileData: result.profile,
-              updatedAt: new Date(),
-            }).onConflictDoNothing().returning();
-            
-            if (insertResult) {
-              profileInserted = true;
-              break;
-            }
-          } catch (e) {
-            if (isPgErrorWithCode(e) && e.code === '23505') {
-              continue; // Retry with recalculated version
-            }
-            throw e;
-          }
-        }
-        if (!profileInserted) {
-          console.warn(`⚠️ Failed to insert profile cache for ${normalizedUsername} after 3 retries - profile will still be returned to user`);
+        // 8. Cache result with atomic versioning (eliminates SELECT MAX + INSERT race)
+        try {
+          await db.execute(sql`
+            INSERT INTO developer_profile_cache (id, username, version, profile_data, created_at, updated_at)
+            SELECT gen_random_uuid(), ${normalizedUsername},
+                   COALESCE(MAX(version), 0) + 1,
+                   ${JSON.stringify(result.profile)}::jsonb,
+                   NOW(), NOW()
+            FROM developer_profile_cache
+            WHERE username = ${normalizedUsername}
+          `);
+        } catch (e) {
+          console.warn(`Failed to insert profile cache for ${normalizedUsername}:`, e);
         }
 
         // 9. Log token usage (don't fail if this errors)
@@ -646,7 +648,7 @@ export async function GET(req: NextRequest) {
           },
         });
 
-        controller.close();
+        closeStream();
       } catch (error) {
         // Log full error details for Vercel error tracking
         const errorDetails = {
@@ -676,11 +678,12 @@ export async function GET(req: NextRequest) {
           type: 'error',
           message,
         });
-        controller.close();
+        closeStream();
       } finally {
-        // Cleanup: stop heartbeat and release lock
+        // Cleanup: stop heartbeat (in case closeStream wasn't called) and release lock
         if (heartbeatInterval) {
           clearInterval(heartbeatInterval);
+          heartbeatInterval = null;
         }
         if (lockAcquired) {
           await releaseGenerationLock(lockKey);

@@ -111,6 +111,7 @@ export function WikiGenerationButton({ owner, repo, hideViewButton = false }: Wi
           className="gap-2"
           onClick={() => setShowOptions(!showOptions)}
           disabled={status === 'processing'}
+          data-testid="wiki-generate-btn"
         >
           <Book className="h-4 w-4" />
           Generate Wiki Docs

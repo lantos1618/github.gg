@@ -32,7 +32,7 @@ export function DiagramPreview({
   return (
     <>
       <h2 className="font-bold mb-2 text-left">Preview</h2>
-      <div className="relative">
+      <div data-testid="diagram-container" className="relative">
         <MermaidRenderer
           code={code}
           onRenderError={onRenderError}

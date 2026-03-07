@@ -33,11 +33,12 @@ export function InsightsRefreshButton({
           Last updated: {formatLastUpdated(lastUpdated)}
         </div>
       )}
-      <Button 
-        onClick={onRefresh} 
+      <Button
+        onClick={onRefresh}
         disabled={isRefreshing}
         variant="outline"
         size="sm"
+        data-testid="scorecard-refresh-btn"
       >
         {isRefreshing ? (
           <>

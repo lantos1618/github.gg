@@ -297,6 +297,7 @@ export function FileExplorerDrawer({
               placeholder="Search files..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              data-testid="repo-files-search-input"
               className="pl-10"
             />
           </div>
@@ -394,6 +395,7 @@ export function FileExplorerDrawer({
                 return (
                   <div
                     key={file.path}
+                    data-testid="repo-file-item"
                     className={`
                       flex items-center py-2.5 px-3 cursor-pointer rounded-lg mx-2 group
                       ${isSelected ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-900 border border-blue-200' : 'hover:bg-gray-50'}

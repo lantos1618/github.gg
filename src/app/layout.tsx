@@ -102,6 +102,9 @@ export default function RootLayout({
             })
           }}
         />
+        <a href="#main-content" data-testid="layout-skip-to-content-link" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-background focus:text-foreground focus:border focus:rounded-md">
+          Skip to main content
+        </a>
         <PostHogProvider>
           <TRPCProvider>
             <NavbarServer />
@@ -123,7 +126,7 @@ export default function RootLayout({
                 DEV
               </div>
             )}
-            <main className="pt-14 flex-1 min-h-[calc(100vh-3.5rem)]">{children}</main>
+            <main id="main-content" data-testid="layout-main-content" className="pt-14 flex-1 min-h-[calc(100vh-3.5rem)]">{children}</main>
             <ConditionalFooter />
             <Toaster
               position="bottom-right"

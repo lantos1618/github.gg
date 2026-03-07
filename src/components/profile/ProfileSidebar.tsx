@@ -32,7 +32,7 @@ interface ProfileSidebarProps {
 
 export function ProfileSidebar({ profile, scoreHistory }: ProfileSidebarProps) {
   return (
-    <div className="xl:col-span-4 space-y-12">
+    <div data-testid="profile-sidebar" className="xl:col-span-4 space-y-12">
       {scoreHistory && scoreHistory.length > 0 && (
         <section>
           <h3 className="text-lg font-bold text-black mb-4">ELO Trajectory</h3>

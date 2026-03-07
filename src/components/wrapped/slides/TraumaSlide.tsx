@@ -42,7 +42,7 @@ export function TraumaSlide({ stats, aiInsights, user }: TraumaSlideProps) {
   }
 
   return (
-    <WrappedSlide glowPosition="center">
+    <WrappedSlide glowPosition="center" data-testid="wrapped-slide-trauma">
       <div className="text-center space-y-6">
         {user && (
           <div className="flex justify-center mb-4">

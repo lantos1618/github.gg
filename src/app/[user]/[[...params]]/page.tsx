@@ -5,7 +5,7 @@ import PRListClientView from './PRListClientView';
 import PRDetailClientView from './PRDetailClientView';
 import IssueListClientView from './IssueListClientView';
 import IssueDetailClientView from './IssueDetailClientView';
-import ComingSoon from '@/components/ComingSoon';
+import { ComingSoon } from '@/components/ComingSoon';
 import { notFound } from 'next/navigation';
 import { parseRepoPath } from '@/lib/utils';
 import { createGitHubServiceFromSession } from '@/lib/github';
@@ -15,10 +15,11 @@ import type { Metadata } from 'next';
 import { getProfileData } from '@/lib/profile/service';
 import type { DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
 import { buildCanonicalUrl, isInvalidTab } from '@/lib/utils/seo';
+import { ProfileJsonLd } from '@/components/seo/ProfileJsonLd';
+import { RepoJsonLd } from '@/components/seo/RepoJsonLd';
 
-// Force dynamic rendering to ensure fresh profile data on every request
-// This prevents Next.js from caching SSR responses that may have stale profile data
-export const dynamic = 'force-dynamic';
+// Use ISR with 5-minute revalidation to cache profile pages and reduce DB load
+export const revalidate = 300;
 
 interface PageProps {
   params: Promise<{
@@ -124,10 +125,30 @@ export default async function Page({ params }: PageProps) {
     lastUpdated: data.lastUpdated?.toISOString() ?? null,
   };
 
-  if (!rest || rest.length === 0) return <UserClientView user={user} initialProfile={initialProfile} />;
-  
+  if (!rest || rest.length === 0) return (
+    <>
+      <ProfileJsonLd
+        name={user}
+        username={user}
+        avatarUrl={`https://avatars.githubusercontent.com/${user}`}
+        bio={initialProfile.profile?.summary}
+      />
+      <UserClientView user={user} initialProfile={initialProfile} />
+    </>
+  );
+
   const repo = rest[0];
-  if (!repo) return <UserClientView user={user} initialProfile={initialProfile} />;
+  if (!repo) return (
+    <>
+      <ProfileJsonLd
+        name={user}
+        username={user}
+        avatarUrl={`https://avatars.githubusercontent.com/${user}`}
+        bio={initialProfile.profile?.summary}
+      />
+      <UserClientView user={user} initialProfile={initialProfile} />
+    </>
+  );
 
   // Try to get branch names for enhanced parsing
   let branchNames: string[] = [];
@@ -238,6 +259,9 @@ export default async function Page({ params }: PageProps) {
   }
 
   return (
-    <RepoClientView user={user} repo={repo} refName={ref} path={path} />
+    <>
+      <RepoJsonLd name={repo} owner={user} />
+      <RepoClientView user={user} repo={repo} refName={ref} path={path} />
+    </>
   );
 }

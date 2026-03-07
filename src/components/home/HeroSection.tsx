@@ -72,7 +72,7 @@ export function HeroSection() {
   };
 
   return (
-    <div className="relative bg-white overflow-hidden">
+    <div className="relative bg-white overflow-hidden" data-testid="home-hero-section">
       {/* Subtle dot pattern instead of gradient */}
       <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, #000 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
 
@@ -125,6 +125,7 @@ export function HeroSection() {
                   type="text"
                   placeholder="owner/repo or paste URL"
                   aria-label="GitHub repository URL or path"
+                  data-testid="home-hero-repo-input"
                   className="pl-12 pr-28 h-14 text-base border border-gray-200 bg-white rounded-lg focus:border-gray-900 focus:ring-0 transition-colors placeholder:text-gray-400"
                   value={repoUrl}
                   onChange={(e) => setRepoUrl(e.target.value)}
@@ -135,6 +136,7 @@ export function HeroSection() {
                     size="default"
                     type="submit"
                     disabled={isAnalyzing}
+                    data-testid="home-hero-submit-btn"
                     className="h-11 px-5 bg-gray-900 hover:bg-gray-800 text-white rounded-md font-medium"
                   >
                     {isAnalyzing ? (
@@ -161,6 +163,7 @@ export function HeroSection() {
                 <button
                   key={repo.name}
                   onClick={() => setRepoUrl(repo.name)}
+                  data-testid={`home-hero-example-${repo.label}-btn`}
                   className="px-2.5 py-1 rounded border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600 font-mono text-xs transition-colors"
                 >
                   {repo.label}

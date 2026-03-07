@@ -75,6 +75,7 @@ export function LeaderboardTable({ initialLeaderboard }: LeaderboardTableProps) 
           placeholder="Search developers..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          data-testid="arena-leaderboard-search-input"
           className="pl-12 h-14 text-lg border-2 border-gray-100 rounded-xl focus:border-black focus:ring-0 transition-colors"
         />
       </div>

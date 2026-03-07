@@ -58,6 +58,7 @@ export function StarCount({ owner, repo, className = '' }: StarCountProps) {
       onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      data-testid="nav-star-count-btn"
       className={`relative inline-flex items-center gap-2 px-1 sm:px-2 py-1 transition-all duration-300 text-black ${className}`}
       style={{ background: 'none', border: 'none', borderRadius: '9999px', cursor: 'pointer' }}
     >

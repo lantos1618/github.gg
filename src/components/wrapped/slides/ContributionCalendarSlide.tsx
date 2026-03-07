@@ -130,7 +130,7 @@ export function ContributionCalendarSlide({ contributionCalendar, year, totalCom
   }, [showCalendar, weeks.length]);
 
   return (
-    <WrappedSlide glowPosition="top">
+    <WrappedSlide glowPosition="top" data-testid="wrapped-slide-contribution-calendar">
       <div className="text-center space-y-6 w-full">
         {/* Header */}
         <motion.div

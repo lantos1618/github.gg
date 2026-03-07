@@ -5,8 +5,8 @@ import { ArrowLeft, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { WikiPageMenu } from '@/components/wiki/WikiPageMenu';
 import { WikiPageViewers } from '@/components/wiki/WikiPageViewers';
 import { RepoSidebarLayout } from '@/components/layouts/RepoSidebarLayout';
-import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer';
-import { TableOfContents } from '@/components/ui/TableOfContents';
+import { MarkdownRenderer } from '@/components/ui/markdown-renderer';
+import { TableOfContents } from '@/components/ui/table-of-contents';
 
 interface WikiPageClientProps {
   owner: string;

@@ -321,6 +321,7 @@ export function WrappedStory({
             e.stopPropagation();
             goPrev();
           }}
+          data-testid="wrapped-story-prev-btn"
           className={cn(
             'p-3 rounded-full bg-gray-200 hover:bg-gray-300 transition-all shadow-sm',
             currentSlide === 0 && 'opacity-0 pointer-events-none'
@@ -337,6 +338,7 @@ export function WrappedStory({
             e.stopPropagation();
             goNext();
           }}
+          data-testid="wrapped-story-next-btn"
           className="p-3 rounded-full bg-gray-200 hover:bg-gray-300 transition-all shadow-sm"
         >
           <ChevronRight className="w-6 h-6 text-gray-700" />

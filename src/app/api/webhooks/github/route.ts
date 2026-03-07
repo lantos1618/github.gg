@@ -1,7 +1,7 @@
 import { Webhooks } from '@octokit/webhooks';
 import { db } from '@/db';
 import { githubAppInstallations, installationRepositories } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { postPRReviewComment, isPRReviewEnabled } from '@/lib/github/pr-comment-service';
 import { postCommitAnalysisComment, postIssueAnalysisComment, isAnalysisEnabled } from '@/lib/github/commit-issue-comment-service';
 import { createLogger } from '@/lib/logging';
@@ -190,14 +190,14 @@ if (webhooks) {
         repositorySelection: payload.installation.repository_selection,
       });
 
-      if (payload.repositories) {
-        for (const repo of payload.repositories) {
-          await db.insert(installationRepositories).values({
+      if (payload.repositories && payload.repositories.length > 0) {
+        await db.insert(installationRepositories).values(
+          payload.repositories.map((repo) => ({
             installationId: payload.installation.id,
             repositoryId: repo.id,
             fullName: repo.full_name,
-          });
-        }
+          }))
+        );
       }
 
       logger.info('Successfully recorded installation', {
@@ -235,12 +235,14 @@ if (webhooks) {
       logger.info('Installation repositories added', { installationId, count });
 
     try {
-      for (const repo of payload.repositories_added) {
-        await db.insert(installationRepositories).values({
-          installationId: payload.installation.id,
-          repositoryId: repo.id,
-          fullName: repo.full_name,
-        });
+      if (payload.repositories_added.length > 0) {
+        await db.insert(installationRepositories).values(
+          payload.repositories_added.map((repo) => ({
+            installationId: payload.installation.id,
+            repositoryId: repo.id,
+            fullName: repo.full_name,
+          }))
+        );
       }
       logger.info('Successfully added repositories', { installationId, count });
     } catch (error) {
@@ -262,11 +264,12 @@ if (webhooks) {
     logger.info('Installation repositories removed', { installationId, count });
 
     try {
-      for (const repo of payload.repositories_removed) {
+      if (payload.repositories_removed.length > 0) {
+        const repoIds = payload.repositories_removed.map((repo) => repo.id);
         await db.delete(installationRepositories)
           .where(and(
             eq(installationRepositories.installationId, payload.installation.id),
-            eq(installationRepositories.repositoryId, repo.id)
+            inArray(installationRepositories.repositoryId, repoIds)
           ));
       }
       logger.info('Successfully removed repositories', { installationId, count });

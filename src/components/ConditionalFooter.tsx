@@ -16,6 +16,6 @@ export function ConditionalFooter() {
     return null;
   }
   
-  return <Footer />;
+  return <div data-testid="layout-conditional-footer"><Footer /></div>;
 }
 

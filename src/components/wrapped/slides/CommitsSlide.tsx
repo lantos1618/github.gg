@@ -97,7 +97,7 @@ export function CommitsSlide({
   const mergeRate = totalPRs > 0 ? Math.round((totalPRsMerged / totalPRs) * 100) : 0;
 
   return (
-    <WrappedSlide glowPosition="top">
+    <WrappedSlide glowPosition="top" data-testid="wrapped-slide-commits">
       {showConfetti && <Confetti />}
 
       <div className="text-center space-y-8">

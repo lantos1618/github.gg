@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function RepoSkeleton() {
+export function RepoSkeleton() {
   return (
     <div style={{ padding: 24 }}>
       <div style={{ height: 40, width: 320, background: '#e5e7eb', borderRadius: 8, marginBottom: 24 }} />

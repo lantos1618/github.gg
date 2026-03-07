@@ -8,7 +8,7 @@ export function NavbarServer() {
     <nav className={`fixed top-0 z-50 w-full bg-white transition-all duration-300 border-b border-gray-100`}>
       <div className="relative flex h-14 items-center">
         {/* Logo/Brand - Always visible */}
-        <Link href="/" className="flex items-center gap-2 flex-shrink-0 px-4 sm:px-6 z-10 group">
+        <Link href="/" className="flex items-center gap-2 flex-shrink-0 px-4 sm:px-6 z-10 group" data-testid="nav-logo-link">
           <span className="font-bold text-xl tracking-tight text-black group-hover:opacity-80 transition-opacity">
             GG
           </span>

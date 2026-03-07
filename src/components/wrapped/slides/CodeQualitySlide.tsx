@@ -172,7 +172,7 @@ export function CodeQualitySlide({ codeQuality, username, user }: CodeQualitySli
   }, []);
 
   return (
-    <WrappedSlide glowPosition="top">
+    <WrappedSlide glowPosition="top" data-testid="wrapped-slide-code-quality">
       <div className="text-center space-y-6">
         {user && (
           <div className="flex justify-center mb-4">

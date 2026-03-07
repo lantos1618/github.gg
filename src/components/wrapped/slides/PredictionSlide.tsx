@@ -30,7 +30,7 @@ export function PredictionSlide({ year, aiInsights, user }: PredictionSlideProps
   }
 
   return (
-    <WrappedSlide glowPosition="center">
+    <WrappedSlide glowPosition="center" data-testid="wrapped-slide-prediction">
       <div className="text-center space-y-8 relative">
         {user && (
           <div className="flex justify-center mb-4">

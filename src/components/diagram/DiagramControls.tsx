@@ -66,6 +66,7 @@ export function DiagramControls({
           <button
             onClick={() => onRegenerate(renderError)}
             disabled={disabled}
+            data-testid="diagram-controls-regenerate-btn"
             className="bg-yellow-100 hover:bg-yellow-200 text-yellow-700 font-medium py-2 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50"
           >
             Regenerate (Fix)

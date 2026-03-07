@@ -36,7 +36,7 @@ export function CallToAction() {
   };
 
   return (
-    <section className="py-20 bg-gray-900 text-white">
+    <section className="py-20 bg-gray-900 text-white" data-testid="home-cta-section">
       <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -59,6 +59,7 @@ export function CallToAction() {
               <Input
                 type="text"
                 placeholder="owner/repo"
+                data-testid="home-cta-repo-input"
                 className="pl-12 pr-24 h-12 text-base border-gray-700 bg-gray-800 text-white placeholder:text-gray-500 rounded-md focus:border-gray-500 focus:ring-0"
                 value={repoUrl}
                 onChange={(e) => setRepoUrl(e.target.value)}
@@ -68,6 +69,7 @@ export function CallToAction() {
                   size="default"
                   type="submit"
                   disabled={isAnalyzing}
+                  data-testid="home-cta-submit-btn"
                   className="h-9 px-4 bg-white text-gray-900 hover:bg-gray-100 rounded font-medium text-sm"
                 >
                   {isAnalyzing ? '...' : 'Go'}
@@ -78,7 +80,7 @@ export function CallToAction() {
           </div>
 
           <p className="text-sm text-gray-500">
-            Free for public repos. <Link href="/pricing" className="text-gray-300 hover:text-white transition-colors">Pricing</Link> for private.
+            Free for public repos. <Link href="/pricing" className="text-gray-300 hover:text-white transition-colors" data-testid="home-cta-pricing-link">Pricing</Link> for private.
           </p>
         </motion.div>
 

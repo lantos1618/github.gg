@@ -78,7 +78,7 @@ export function ScheduleSlide({
   }, []);
 
   return (
-    <WrappedSlide glowPosition="center">
+    <WrappedSlide glowPosition="center" data-testid="wrapped-slide-schedule">
       <div className="relative z-10 flex flex-col items-center justify-center min-h-[500px] md:min-h-[600px]">
         {user && (
           <motion.div

@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
-import RepoPageLayout from '@/components/layouts/RepoPageLayout';
+import { RepoPageLayout } from '@/components/layouts/RepoPageLayout';
 import { DiagramType } from '@/lib/types/diagram';
 import { useDiagramGeneration } from '@/lib/hooks/useDiagramGeneration';
 import { useRepoData } from '@/lib/hooks/useRepoData';
@@ -12,7 +12,7 @@ import {
   DiagramErrorHandler,
 } from '@/components/diagram';
 import { Skeleton } from '@/components/ui/skeleton';
-import { UpgradePrompt } from '@/components/UpgradePrompt';
+import { UpgradePrompt } from '@/components/upgrade';
 import { trpc } from '@/lib/trpc/client';
 import { VersionDropdown } from '@/components/VersionDropdown';
 import { Button } from '@/components/ui/button';

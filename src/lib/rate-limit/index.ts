@@ -91,8 +91,8 @@ export async function checkAIRateLimit(userId: string): Promise<{
   reset: number;
 }> {
   if (!aiRateLimiter) {
-    logger.warn('AI rate limiter not configured (KV not available), allowing request');
-    return { success: true, limit: 5, remaining: 5, reset: Date.now() + 60000 };
+    logger.warn('AI rate limiter not configured (KV not available), blocking request to protect expensive AI calls');
+    return { success: false, limit: 5, remaining: 0, reset: Date.now() + 60000 };
   }
 
   const result = await aiRateLimiter.limit(userId);

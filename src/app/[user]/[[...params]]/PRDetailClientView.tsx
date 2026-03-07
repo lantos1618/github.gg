@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { GitPullRequest, Clock, FileCode } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer';
+import { MarkdownRenderer } from '@/components/ui/markdown-renderer';
 import { ResourceDetailView } from '@/components/analysis/ResourceDetailView';
 
 interface PRDetailClientViewProps {

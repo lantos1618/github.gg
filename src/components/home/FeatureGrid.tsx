@@ -56,7 +56,7 @@ const fadeInVariants = {
 
 export function FeatureGrid() {
   return (
-    <section className="py-20 bg-gray-50">
+    <section className="py-20 bg-gray-50" data-testid="home-feature-grid">
       <div className="container mx-auto px-4">
         <div className="max-w-2xl mx-auto text-center mb-12">
           <h2 className="text-3xl font-bold text-gray-900 mb-3 tracking-tight">What you get</h2>

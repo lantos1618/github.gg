@@ -62,19 +62,19 @@ const FEATURE_CONTEXTS = {
 
 export type UpgradeFeature = keyof typeof FEATURE_CONTEXTS;
 
-interface ContextualUpgradeProps {
+interface UpgradePromptProps {
   feature?: UpgradeFeature;
   className?: string;
   variant?: 'card' | 'inline' | 'banner';
   showPrice?: boolean;
 }
 
-export function ContextualUpgrade({
+export function UpgradePrompt({
   feature = 'general',
   className = '',
   variant = 'card',
   showPrice = true,
-}: ContextualUpgradeProps) {
+}: UpgradePromptProps) {
   const { isSignedIn, signIn } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const createCheckout = trpc.billing.createCheckoutSession.useMutation();
@@ -103,7 +103,7 @@ export function ContextualUpgrade({
 
   if (variant === 'banner') {
     return (
-      <div className={`bg-gradient-to-r from-gray-900 to-gray-800 text-white p-4 rounded-lg ${className}`}>
+      <div data-testid="pricing-upgrade-prompt" className={`bg-gradient-to-r from-gray-900 to-gray-800 text-white p-4 rounded-lg ${className}`}>
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <Icon className="h-5 w-5 text-gray-300" />
@@ -113,6 +113,7 @@ export function ContextualUpgrade({
             </div>
           </div>
           <Button
+            data-testid="pricing-upgrade-btn"
             onClick={handleUpgrade}
             disabled={isLoading}
             className="bg-white text-gray-900 hover:bg-gray-100"
@@ -127,10 +128,11 @@ export function ContextualUpgrade({
 
   if (variant === 'inline') {
     return (
-      <div className={`flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 ${className}`}>
+      <div data-testid="pricing-upgrade-prompt" className={`flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 ${className}`}>
         <Icon className="h-5 w-5 text-gray-500 flex-shrink-0" />
         <p className="text-sm text-gray-600 flex-1">{context.subtext}</p>
         <Button
+          data-testid="pricing-upgrade-btn"
           onClick={handleUpgrade}
           disabled={isLoading}
           size="sm"
@@ -144,7 +146,7 @@ export function ContextualUpgrade({
 
   // Default card variant
   return (
-    <div className={`max-w-md mx-auto ${className}`}>
+    <div data-testid="pricing-upgrade-prompt" className={`max-w-md mx-auto ${className}`}>
       <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
         {/* Icon */}
         <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
@@ -167,19 +169,20 @@ export function ContextualUpgrade({
 
         {/* CTA */}
         <Button
+          data-testid="pricing-upgrade-btn"
           onClick={handleUpgrade}
           disabled={isLoading}
           className="w-full bg-gray-900 hover:bg-gray-800"
           size="lg"
         >
           {isLoading ? 'Loading...' : context.cta}
-          {showPrice && <span className="ml-2 text-gray-400">· $20/mo</span>}
+          {showPrice && <span className="ml-2 text-gray-400">&middot; $20/mo</span>}
         </Button>
 
         {/* Trust signals */}
         <div className="mt-4 flex items-center justify-center gap-4 text-xs text-gray-500">
           <span>Cancel anytime</span>
-          <span>·</span>
+          <span>&middot;</span>
           <span>7-day guarantee</span>
         </div>
 
@@ -213,7 +216,7 @@ export function UpgradeTeaser({ feature = 'general' }: { feature?: UpgradeFeatur
             {context.headline}
           </p>
           <p className="text-xs text-gray-500">
-            Upgrade to Pro →
+            Upgrade to Pro &rarr;
           </p>
         </div>
       </div>

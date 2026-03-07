@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { ExternalLink, AlertCircle, Sparkles, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { MarkdownCardRenderer } from '@/components/MarkdownCardRenderer';
-import RepoPageLayout from '@/components/layouts/RepoPageLayout';
+import { RepoPageLayout } from '@/components/layouts/RepoPageLayout';
 import { trpc } from '@/lib/trpc/client';
 import { ReusableSSEFeedback, type SSELogItem, type SSEStatus } from '@/components/analysis/ReusableSSEFeedback';
 import { sanitizeText } from '@/lib/utils/sanitize';

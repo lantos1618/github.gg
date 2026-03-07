@@ -6,7 +6,7 @@ import { Search } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
-interface DashboardSidebarProps {
+interface RepositoryListSidebarProps {
   repositories: Array<{
     fullName: string;
     owner: string;
@@ -20,7 +20,7 @@ interface DashboardSidebarProps {
   className?: string;
 }
 
-export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
+export const RepositoryListSidebar: React.FC<RepositoryListSidebarProps> = ({
   repositories,
   reposLoading,
   repoSearch,
@@ -30,7 +30,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   className,
 }) => {
   return (
-    <aside className={cn(
+    <aside data-testid="dashboard-sidebar" className={cn(
       "flex flex-col bg-background h-full w-full",
       className
     )}>
@@ -42,6 +42,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
+            data-testid="dashboard-sidebar-search-input"
             type="text"
             placeholder="Find repository..."
             aria-label="Search repositories"
@@ -73,6 +74,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
           ) : repositories && repositories.length > 0 ? (
             repositories.map((repo) => (
               <Link
+                data-testid="dashboard-sidebar-repo-link"
                 key={repo.fullName}
                 href={`/${repo.owner}/${repo.name}`}
                 className={cn(

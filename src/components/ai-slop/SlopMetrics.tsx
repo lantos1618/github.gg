@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AnalysisData } from "@/components/analysis/GenericAnalysisView";
+import { AnalysisData } from "@/components/analysis/AnalysisPageView";
 import { AlertTriangle, CheckCircle2, XCircle, AlertOctagon } from "lucide-react";
 
 interface SlopMetricsProps {
@@ -12,7 +12,7 @@ export function SlopMetrics({ data }: SlopMetricsProps) {
   const qualityScore = data.overallScore || 0;
 
   return (
-    <div className="mb-8 space-y-6">
+    <div data-testid="slop-metrics-container" className="mb-8 space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* AI Slop Score Card */}
         <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-6 flex flex-col justify-between relative overflow-hidden">

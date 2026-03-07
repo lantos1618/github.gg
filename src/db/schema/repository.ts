@@ -176,4 +176,8 @@ export const developerProfileCache = pgTable('developer_profile_cache', {
 }, (table) => ({
   // Ensure unique profile per username and version
   usernameIdx: uniqueIndex('username_idx').on(table.username, table.version),
+  // Index for partition queries by username
+  dpcUsernameIdx: index('dpc_username_idx').on(table.username),
+  // Index for ROW_NUMBER window function over (username, version)
+  dpcUsernameVersionDescIdx: index('dpc_username_version_desc_idx').on(table.username, table.version),
 }));

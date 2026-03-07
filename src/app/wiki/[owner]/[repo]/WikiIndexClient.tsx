@@ -5,7 +5,7 @@ import { Book, FileText, ChevronRight } from 'lucide-react';
 import { WikiGenerationButton } from '@/components/WikiGenerationButton';
 import { WikiIndexMenu } from '@/components/wiki/WikiIndexMenu';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import RepoPageLayout from '@/components/layouts/RepoPageLayout';
+import { RepoPageLayout } from '@/components/layouts/RepoPageLayout';
 
 interface WikiIndexClientProps {
   owner: string;

@@ -1,0 +1,32 @@
+# github.gg
+
+> AI-powered GitHub repository analysis platform
+
+## Overview
+github.gg provides AI-powered code analysis, developer profiles, repository insights, and documentation generation for GitHub repositories.
+
+## Key Features
+- Repository Analysis: Code quality analysis, architecture diagrams, and scorecards
+- Developer Profiles: AI-generated developer scorecards and portfolios
+- Wiki Generation: Automated documentation and wiki pages from code
+- Code Arena: Compare and rank code solutions
+- Developer Wrapped: Annual developer statistics and highlights
+
+## Key Pages
+- / - Homepage and dashboard
+- /[user] - Developer profile page
+- /[owner]/[repo] - Repository analysis page
+- /[owner]/[repo]/diagram - Architecture diagrams
+- /[owner]/[repo]/wiki - Generated wiki documentation
+- /[owner]/[repo]/scorecard - Repository quality scorecard
+- /arena - Code arena and leaderboard
+- /pricing - Subscription plans
+
+## API
+- Repository analysis is triggered by visiting github.gg/[owner]/[repo]
+- Developer profiles at github.gg/[username]
+- Replace github.com URLs with github.gg to analyze any repository
+
+## Contact
+- Website: https://github.gg
+- GitHub: https://github.com/nicepkg/github.gg

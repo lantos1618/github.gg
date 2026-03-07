@@ -7,18 +7,18 @@ import { LogOut, Settings, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { User as UserType } from '@/lib/auth/types';
 
-interface UserNavProps {
+interface ProfileDropdownMenuProps {
   user: UserType | null;
   onSignOut: () => Promise<void>;
 }
 
-export function UserNav({ user, onSignOut }: UserNavProps) {
+export function ProfileDropdownMenu({ user, onSignOut }: ProfileDropdownMenuProps) {
   if (!user) return null;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+        <Button variant="ghost" className="relative h-10 w-10 rounded-full" data-testid="nav-user-avatar-btn">
           <Avatar className="h-10 w-10">
             <AvatarImage src={user.image} alt={user.name} />
             <AvatarFallback>{user.name?.[0]}</AvatarFallback>
@@ -35,21 +35,21 @@ export function UserNav({ user, onSignOut }: UserNavProps) {
         <DropdownMenuSeparator />
 
         <DropdownMenuItem asChild>
-          <Link href="/automations">
+          <Link href="/automations" data-testid="nav-user-automations-link">
             <Zap className="mr-2 h-4 w-4" />
             <span>Automations</span>
           </Link>
         </DropdownMenuItem>
 
         <DropdownMenuItem asChild>
-          <Link href="/settings">
+          <Link href="/settings" data-testid="nav-user-settings-link">
             <Settings className="mr-2 h-4 w-4" />
             <span>Settings</span>
           </Link>
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onSignOut}>
+        <DropdownMenuItem onClick={onSignOut} data-testid="nav-user-signout-btn">
           <LogOut className="mr-2 h-4 w-4" />
           <span>Sign out</span>
         </DropdownMenuItem>

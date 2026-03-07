@@ -65,7 +65,7 @@ export function RepoHeader({
       <div className="flex flex-col gap-3 sm:gap-4 mb-8 bg-white p-3 sm:p-8 rounded-xl shadow-lg border border-gray-200 mt-4 sm:mt-8">
         {/* Title row */}
         <div className="flex flex-col gap-3">
-          <h1 className="text-lg sm:text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-1 break-all">
+          <h1 data-testid="repo-header-title" className="text-lg sm:text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-1 break-all">
             <Link
               href={`/${user}`}
               className="hover:text-gray-600 transition-colors"
@@ -100,7 +100,7 @@ export function RepoHeader({
                 onValueChange={handleBranchChange}
                 disabled={loadingBranches}
               >
-                <SelectTrigger className="w-full sm:w-[120px] text-xs">
+                <SelectTrigger data-testid="repo-header-branch-select" className="w-full sm:w-[120px] text-xs">
                   <SelectValue placeholder="Select branch" />
                 </SelectTrigger>
                 <SelectContent>

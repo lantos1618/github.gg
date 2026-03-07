@@ -1,5 +1,5 @@
 "use client";
-import RepoPageLayout from "@/components/layouts/RepoPageLayout";
+import { RepoPageLayout } from "@/components/layouts/RepoPageLayout";
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { GitBranch, Box, Boxes, Workflow, Cog, Wrench } from 'lucide-react';
@@ -27,7 +27,7 @@ interface ComingSoonProps {
   showContributeSection?: boolean;
 }
 
-export default function ComingSoon({
+export function ComingSoon({
   user,
   repo,
   refName,

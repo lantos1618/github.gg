@@ -49,7 +49,7 @@ export function IntroSlide({ year, username, avatarUrl }: IntroSlideProps) {
   const userAvatarUrl = avatarUrl || `https://avatars.githubusercontent.com/${username}`;
 
   return (
-    <WrappedSlide glowPosition="center">
+    <WrappedSlide glowPosition="center" data-testid="wrapped-slide-intro">
       <div className="text-center space-y-8 relative min-h-[70vh] flex flex-col items-center justify-center">
         <AnimatePresence mode="wait">
           {(phase === 'year' || phase === 'shatter') && (

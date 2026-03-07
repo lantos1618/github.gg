@@ -19,7 +19,10 @@
     "db:studio": "bun --env-file=.env.local drizzle-kit studio",
     "db:start": "docker-compose up -d postgres",
     "db:stop": "docker-compose down",
-    "db:reset": "docker-compose down -v && docker-compose up -d postgres && sleep 5 && bun --env-file=.env.local drizzle-kit push"
+    "db:reset": "docker-compose down -v && docker-compose up -d postgres && sleep 5 && bun --env-file=.env.local drizzle-kit push",
+    "test:e2e": "bunx playwright test",
+    "test:e2e:headed": "bunx playwright test --headed",
+    "test:e2e:ui": "bunx playwright test --ui"
   },
   "dependencies": {
     "@ai-sdk/google": "^2.0.20",
@@ -119,6 +122,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4.1.14",
     "@types/chroma-js": "^3.1.1",
     "@types/node": "24.7.2",

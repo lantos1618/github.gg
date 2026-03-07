@@ -23,9 +23,10 @@ export function ProfileHeader({ username, profile, totalScore, arenaRanking, pro
   const isSpecial = username.toLowerCase() === 'knottedbrains';
 
   return (
-    <div className="flex gap-8">
+    <div data-testid="profile-header" className="flex gap-8">
       <div className="relative">
         <Avatar
+          data-testid="profile-header-avatar"
           className={`h-24 w-24 border-2 shadow-sm ${
             crackedInfo.isCracked
               ? `${crackedInfo.colors.border} ring-4 ${crackedInfo.colors.ring}`
@@ -48,6 +49,7 @@ export function ProfileHeader({ username, profile, totalScore, arenaRanking, pro
       <div>
         <div className="flex items-baseline gap-4 flex-wrap">
           <a
+            data-testid="profile-header-github-link"
             href={`https://github.com/${username}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -66,6 +68,7 @@ export function ProfileHeader({ username, profile, totalScore, arenaRanking, pro
             </Badge>
           )}
           <div
+            data-testid="profile-header-score-badge"
             className={`flex items-center gap-2 px-3 py-1 rounded-full border ${
               crackedInfo.isCracked
                 ? `${crackedInfo.colors.bgLight} ${crackedInfo.colors.borderLight} ${crackedInfo.colors.textLight}`
@@ -76,7 +79,7 @@ export function ProfileHeader({ username, profile, totalScore, arenaRanking, pro
              <span className="text-sm font-medium">Score: {totalScore}</span>
           </div>
           {arenaRanking && (
-            <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-200">
+            <div data-testid="profile-header-elo-badge" className="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-200">
               <Trophy className="h-3.5 w-3.5 text-yellow-600" />
               <span className="text-sm font-medium text-gray-900">{arenaRanking.eloRating} ELO</span>
             </div>

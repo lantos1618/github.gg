@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/lib/auth/factory';
 import { SignInButton } from './SignInButton';
-import { UserNav } from './profile/UserNav';
+import { ProfileDropdownMenu } from './profile/ProfileDropdownMenu';
 
 export function NavbarClient() {
   const { user, isSignedIn, signOut } = useAuth();
@@ -10,7 +10,7 @@ export function NavbarClient() {
   return (
     <>
       {isSignedIn ? (
-        <UserNav user={user} onSignOut={signOut} />
+        <ProfileDropdownMenu user={user} onSignOut={signOut} />
       ) : (
         <SignInButton />
       )}

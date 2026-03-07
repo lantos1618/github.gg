@@ -11,7 +11,7 @@ interface AddPageButtonProps {
 
 export function AddPageButton({ owner, repo }: AddPageButtonProps) {
   return (
-    <Button variant="outline" size="sm" asChild>
+    <Button variant="outline" size="sm" asChild data-testid="wiki-add-page-btn">
       <Link href={`/wiki/${owner}/${repo}/new`}>
         <Plus className="h-4 w-4 mr-2" />
         New Page

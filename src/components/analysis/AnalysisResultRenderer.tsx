@@ -18,7 +18,7 @@ interface AnalysisData {
   aiGeneratedPercentage?: number; // Add this to support SlopMetrics
 }
 
-interface AnalysisContentProps {
+interface AnalysisResultRendererProps {
   data: AnalysisData;
   title: string;
   showMetricsBar?: boolean;
@@ -26,7 +26,7 @@ interface AnalysisContentProps {
   getMetricColor?: (score: number) => string;
 }
 
-export const AnalysisContent: React.FC<AnalysisContentProps> = ({
+export const AnalysisResultRenderer: React.FC<AnalysisResultRendererProps> = ({
   data,
   title,
   showMetricsBar = false,
@@ -34,7 +34,7 @@ export const AnalysisContent: React.FC<AnalysisContentProps> = ({
   getMetricColor,
 }) => {
   return (
-    <div className="space-y-6">
+    <div data-testid="analysis-result-container" className="space-y-6">
       {data.metrics && (
         <AnalysisMetrics
           metrics={data.metrics}

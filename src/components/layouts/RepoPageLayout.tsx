@@ -73,7 +73,7 @@ function RepoPageLayoutContent({
   );
 }
 
-export default function RepoPageLayout(props: RepoPageLayoutProps) {
+export function RepoPageLayout(props: RepoPageLayoutProps) {
   return (
     <SidebarProvider>
       <RepoPageLayoutContent {...props} />

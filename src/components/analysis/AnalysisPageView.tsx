@@ -1,15 +1,15 @@
 "use client";
-import RepoPageLayout from "@/components/layouts/RepoPageLayout";
+import { RepoPageLayout } from "@/components/layouts/RepoPageLayout";
 import { useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import { useSelectedFiles } from '@/contexts/SelectedFilesContext';
-import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
+import { UpgradePrompt } from '@/components/upgrade';
 import { FolderTree } from 'lucide-react';
 import { FileExplorerDrawer } from '@/components/FileExplorerDrawer';
 import { ReusableSSEFeedback, type SSELogItem, type SSEStatus } from '@/components/analysis/ReusableSSEFeedback';
 
 import { AnalysisHeader } from './AnalysisHeader';
-import { AnalysisContent } from './AnalysisContent';
+import { AnalysisResultRenderer } from './AnalysisResultRenderer';
 import { AnalysisStateHandler } from './AnalysisStateHandler';
 
 import { trpc } from '@/lib/trpc/client';
@@ -72,7 +72,7 @@ export interface AnalysisViewConfig<TResponse> {
   upgradeFeature?: 'scorecard' | 'ai-slop' | 'wiki' | 'diagram' | 'review' | 'general'; // For contextual upgrade prompts
 }
 
-interface GenericAnalysisViewProps<TResponse> {
+interface AnalysisPageViewProps<TResponse> {
   user: string;
   repo: string;
   refName?: string;
@@ -80,7 +80,7 @@ interface GenericAnalysisViewProps<TResponse> {
   config: AnalysisViewConfig<TResponse>;
 }
 
-interface GenericAnalysisViewInnerProps<TResponse> extends GenericAnalysisViewProps<TResponse> {
+interface AnalysisPageViewInnerProps<TResponse> extends AnalysisPageViewProps<TResponse> {
   files: any[];
   filesLoading: boolean;
   actualRef: string | undefined;
@@ -89,7 +89,7 @@ interface GenericAnalysisViewInnerProps<TResponse> extends GenericAnalysisViewPr
 }
 
 // Inner component that uses the context
-function GenericAnalysisViewInner<TResponse>({
+function AnalysisPageViewInner<TResponse>({
   user,
   repo,
   refName,
@@ -100,7 +100,7 @@ function GenericAnalysisViewInner<TResponse>({
   actualRef,
   totalFiles,
   isFilesAuthError,
-}: GenericAnalysisViewInnerProps<TResponse>) {
+}: AnalysisPageViewInnerProps<TResponse>) {
   const [analysisData, setAnalysisData] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -274,10 +274,11 @@ function GenericAnalysisViewInner<TResponse>({
 
   const renderContent = () => {
     return (
-      <div className="max-w-screen-xl w-full mx-auto px-2 sm:px-4 pt-2 sm:pt-4">
+      <div data-testid="analysis-page-view" className="max-w-screen-xl w-full mx-auto px-2 sm:px-4 pt-2 sm:pt-4">
         {/* File Explorer Tab Button */}
         <button
           onClick={() => setIsFileExplorerOpen(true)}
+          data-testid="repo-files-drawer-trigger"
           className="fixed right-0 top-20 z-30 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-l-lg shadow-lg transition-all duration-200 flex items-center gap-2 border border-r-0 border-blue-700"
           style={{
             writingMode: 'vertical-rl',
@@ -315,7 +316,7 @@ function GenericAnalysisViewInner<TResponse>({
           </div>
 
           {analysisDataObj && (
-            <AnalysisContent
+            <AnalysisResultRenderer
               data={analysisDataObj}
               title={config.title}
               showMetricsBar={config.showMetricsBar}
@@ -325,7 +326,7 @@ function GenericAnalysisViewInner<TResponse>({
           )}
 
           {markdownContent && !analysisDataObj && (
-            <AnalysisContent
+            <AnalysisResultRenderer
               data={{ markdown: markdownContent }}
               title={config.title}
             />
@@ -384,14 +385,14 @@ function GenericAnalysisViewInner<TResponse>({
       sseLogs={logs}
       sseTitle={config.generatingMessage}
     >
-      {currentState === 'upgrade' ? <SubscriptionUpgrade feature={config.upgradeFeature || 'general'} /> : renderContent()}
+      {currentState === 'upgrade' ? <UpgradePrompt feature={config.upgradeFeature || 'general'} /> : renderContent()}
     </AnalysisStateHandler>
   );
 }
 
 // Outer wrapper that provides context
-export function GenericAnalysisView<TResponse>(
-  props: GenericAnalysisViewProps<TResponse>
+export function AnalysisPageView<TResponse>(
+  props: AnalysisPageViewProps<TResponse>
 ) {
   // Fetch files once at the top level
   const { files, isLoading: filesLoading, totalFiles, actualRef, isAuthError } = useRepoData({
@@ -409,7 +410,7 @@ export function GenericAnalysisView<TResponse>(
       files={files}
       totalFiles={files.length}
     >
-      <GenericAnalysisViewInner
+      <AnalysisPageViewInner
         {...props}
         files={files}
         filesLoading={filesLoading}

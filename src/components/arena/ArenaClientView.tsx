@@ -92,6 +92,7 @@ export function ArenaClientView({ initialLeaderboard }: ArenaClientViewProps) {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
+                data-testid={`arena-tab-${tab}-btn`}
                 className={`px-8 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
                   activeTab === tab
                     ? 'bg-white text-black shadow-sm'

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from 'react';
-import { GenericAnalysisView } from '@/components/analysis/GenericAnalysisView';
+import { AnalysisPageView } from '@/components/analysis/AnalysisPageView';
 import { createAnalysisConfig, type AnalysisType } from '@/lib/analysis/configFactory';
 
 interface AnalysisClientViewProps {
@@ -21,5 +21,5 @@ export default function AnalysisClientView({
 }: AnalysisClientViewProps) {
   // Memoize config creation to prevent recreating hooks on every render
   const config = useMemo(() => createAnalysisConfig(analysisType), [analysisType]);
-  return <GenericAnalysisView user={user} repo={repo} refName={refName} path={path} config={config} />;
+  return <AnalysisPageView user={user} repo={repo} refName={refName} path={path} config={config} />;
 }

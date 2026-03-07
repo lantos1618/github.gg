@@ -381,9 +381,10 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <Input 
-                      type={showKey ? 'text' : 'password'} 
-                      placeholder="Your API key..." 
+                    <Input
+                      data-testid="settings-apikey-input"
+                      type={showKey ? 'text' : 'password'}
+                      placeholder="Your API key..."
                       value={apiKey}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKey(e.target.value)}
                       className="pr-10"
@@ -398,8 +399,9 @@ export default function SettingsPage() {
                       {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
                   </div>
-                  <Button 
-                    onClick={handleSaveKey} 
+                  <Button
+                    data-testid="settings-apikey-save-btn"
+                    onClick={handleSaveKey}
                     disabled={saveApiKey.isPending || !apiKey.trim()}
                   >
                     {saveApiKey.isPending ? 'Saving...' : 'Save Key'}

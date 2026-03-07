@@ -20,6 +20,7 @@ export function DiagramTypeSelector({
           <button
             key={dt.value}
             onClick={() => onDiagramTypeChange(dt.value as DiagramType)}
+            data-testid={`diagram-type-${dt.value}-btn`}
             className={`px-4 py-1 rounded border transition-colors duration-150 font-medium
               ${diagramType === dt.value
                 ? 'bg-blue-600 text-white border-blue-700 shadow'

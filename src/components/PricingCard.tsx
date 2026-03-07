@@ -70,6 +70,7 @@ export function PricingCard({
             ))}
           </ul>
           <Button
+            data-testid={`pricing-card-${plan.name.toLowerCase().replace(/\s+/g, '-')}-btn`}
             onClick={() => !isSignedIn ? onSignIn?.() : (isPro ? onUpgrade?.('pro') : onUpgrade?.('byok'))}
             disabled={isLoading || isCurrent}
             className={!isSignedIn ? "w-full bg-blue-600 hover:bg-blue-700" : "w-full bg-purple-600 hover:bg-purple-700"}
@@ -105,19 +106,20 @@ export function PricingCard({
             ))}
           </ul>
           {isLoading ? (
-            <Button className="w-full" variant="outline" disabled>
+            <Button data-testid={`pricing-card-${plan.name.toLowerCase().replace(/\s+/g, '-')}-btn`} className="w-full" variant="outline" disabled>
               Loading...
             </Button>
           ) : !isSignedIn ? (
-            <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" onClick={onSignIn}>
+            <Button data-testid={`pricing-card-${plan.name.toLowerCase().replace(/\s+/g, '-')}-btn`} className="w-full bg-blue-600 hover:bg-blue-700 text-white" onClick={onSignIn}>
               Sign in to continue
             </Button>
           ) : isCurrent ? (
-            <Button className="w-full" variant="outline" disabled>
+            <Button data-testid={`pricing-card-${plan.name.toLowerCase().replace(/\s+/g, '-')}-btn`} className="w-full" variant="outline" disabled>
               Current Plan
             </Button>
           ) : canUpgrade ? (
             <Button
+              data-testid={`pricing-card-${plan.name.toLowerCase().replace(/\s+/g, '-')}-btn`}
               className={isPro ? 'w-full bg-purple-600 hover:bg-purple-700 text-white font-bold' : 'w-full'}
               variant={isPro ? 'default' : 'outline'}
               onClick={() => onUpgrade?.(plan.planType as 'byok' | 'pro')}
@@ -126,7 +128,7 @@ export function PricingCard({
               {getButtonText()}
             </Button>
           ) : (
-            <Button className="w-full" variant="outline" disabled>
+            <Button data-testid={`pricing-card-${plan.name.toLowerCase().replace(/\s+/g, '-')}-btn`} className="w-full" variant="outline" disabled>
               Current Plan
             </Button>
           )}
@@ -136,7 +138,7 @@ export function PricingCard({
   };
 
   return (
-    <Card className={getPricingCardClassName(isPro, variant, className)} style={getPricingCardStyle(isPro)}>
+    <Card data-testid={`pricing-card-${plan.name.toLowerCase().replace(/\s+/g, '-')}`} className={getPricingCardClassName(isPro, variant, className)} style={getPricingCardStyle(isPro)}>
       {renderContent()}
     </Card>
   );

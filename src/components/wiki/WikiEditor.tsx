@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 
 // Lazy load MilkdownEditor - Milkdown is a heavy rich text editor (~150KB+)
 const MilkdownEditor = dynamic(
-  () => import('@/components/ui/MilkdownEditor').then(mod => ({ default: mod.MilkdownEditor })),
+  () => import('@/components/ui/milkdown-editor').then(mod => ({ default: mod.MilkdownEditor })),
   {
     ssr: false,
     loading: () => (

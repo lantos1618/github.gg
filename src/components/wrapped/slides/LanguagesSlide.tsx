@@ -109,7 +109,7 @@ export function LanguagesSlide({ languages, user, aiInsights }: LanguagesSlidePr
   const isSpecialist = languageSpread > 40;
 
   return (
-    <WrappedSlide glowPosition="center">
+    <WrappedSlide glowPosition="center" data-testid="wrapped-slide-languages">
       <div className="space-y-8">
         {user && (
           <div className="flex justify-center mb-4">

@@ -69,7 +69,7 @@ export function RepoSelector({ open, onOpenChange, repos, onConfirm, defaultSele
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] sm:rounded-xl">
+      <DialogContent data-testid="profile-repo-selector-dialog" className="max-w-3xl max-h-[80vh] sm:rounded-xl">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-black">Select Repositories</DialogTitle>
           <DialogDescription className="text-gray-500">

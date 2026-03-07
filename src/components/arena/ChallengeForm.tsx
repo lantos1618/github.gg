@@ -444,6 +444,7 @@ export function ChallengeForm() {
               onClick={handleChallenge}
               disabled={!isFormValid || isPending}
               size="lg"
+              data-testid="arena-challenge-start-btn"
               className="w-full h-16 text-lg font-bold bg-black hover:bg-gray-800 rounded-xl transition-all"
             >
               {isPending ? (

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Search, AlertCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import RepoPageLayout from '@/components/layouts/RepoPageLayout';
+import { RepoPageLayout } from '@/components/layouts/RepoPageLayout';
 
 // Simple type for the useQuery hook - just what we need
 type UseQueryHook<TItem> = (input: {

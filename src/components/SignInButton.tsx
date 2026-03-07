@@ -13,6 +13,7 @@ export function SignInButton() {
       size="sm"
       className="px-2 sm:px-3"
       disabled={isLoading}
+      data-testid="nav-signin-btn"
     >
       <Github className="h-4 w-4 sm:mr-2" />
       <span className="hidden sm:inline">

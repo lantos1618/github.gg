@@ -20,7 +20,7 @@ export function BattleCard({ battle }: BattleCardProps) {
   const isPending = battle.status === 'pending' || battle.status === 'in_progress';
 
   return (
-    <div className="border border-gray-100 rounded-xl overflow-hidden bg-white hover:border-gray-200 transition-colors">
+    <div data-testid="arena-battle-card" className="border border-gray-100 rounded-xl overflow-hidden bg-white hover:border-gray-200 transition-colors">
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">

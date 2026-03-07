@@ -1,5 +1,5 @@
 "use client";
-import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
+import { AnalysisErrorDisplay } from '@/components/ui/analysis-error-display';
 
 interface DiagramErrorHandlerProps {
   error: string | null;
@@ -20,7 +20,7 @@ export function DiagramErrorHandler({
 
   return (
     <div className="my-8">
-      <ErrorDisplay
+      <AnalysisErrorDisplay
         error={error}
         isPending={isPending}
         onRetry={onRetry}

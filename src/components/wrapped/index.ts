@@ -1,14 +1,28 @@
+// Theme constants and types
+export { WRAPPED_THEME, WRAPPED_STYLES } from './wrapped-theme';
+export type { UserHeaderProps, SlideCardProps, StatPillProps, AnimatedCounterProps, StaggeredTextProps } from './wrapped-theme';
+
+// Presentational primitives
+export { UserHeader, SlideCard, AIBadge, StatPill } from './wrapped-primitives';
+
+// Animation components
+export { AnimatedCounter, StaggeredText, Confetti } from './wrapped-animations';
+
+// Main slide container
+export { WrappedSlide } from './WrappedSlide';
+
+// Story & generation
 export { WrappedStory } from './WrappedStory';
-export { WrappedSlide, AnimatedCounter, StaggeredText, Confetti } from './WrappedSlide';
 export { StarGate } from './StarGate';
-export { 
-  useWrappedGeneration, 
+export {
+  useWrappedGeneration,
   useGenerateForFriend,
   type GenerationOptions,
   type GenerateForFriendOptions,
   type LogEntry,
 } from './hooks/useWrappedGeneration';
 
+// Slide components
 export { IntroSlide } from './slides/IntroSlide';
 export { CommitsSlide } from './slides/CommitsSlide';
 export { LanguagesSlide } from './slides/LanguagesSlide';

@@ -26,6 +26,7 @@ export function ProfileActions({
     <div className="flex flex-wrap gap-3">
       {showChallengeButton && (
         <Button
+          data-testid="profile-action-challenge-btn"
           onClick={onChallenge}
           variant="outline"
           className="h-12 px-6 border-gray-200 hover:border-black transition-colors"
@@ -37,6 +38,7 @@ export function ProfileActions({
       
       {isOwnProfile && (
         <Button
+          data-testid="profile-action-configure-btn"
           onClick={onConfigure}
           disabled={isGenerating || reposLoading}
           variant="outline"
@@ -49,6 +51,7 @@ export function ProfileActions({
 
       {canRefresh && (
         <Button
+          data-testid="profile-refresh-btn"
           onClick={onRefresh}
           disabled={isGenerating}
           className="h-12 px-6 bg-black hover:bg-gray-800 text-white shadow-none rounded-lg"

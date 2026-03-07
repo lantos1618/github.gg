@@ -58,7 +58,7 @@ export function CandidateMatchCard({
   topSkills,
 }: CandidateMatchCardProps) {
   return (
-    <Card className="overflow-hidden hover:shadow-md transition-shadow">
+    <Card data-testid={`hire-candidate-${username}-card`} className="overflow-hidden hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
@@ -164,6 +164,7 @@ export function CandidateMatchCard({
         {/* View full report link */}
         <div className="pt-2">
           <Link
+            data-testid="hire-candidate-view-btn"
             href={`/hire/${username}`}
             className="text-sm text-blue-600 hover:underline"
           >

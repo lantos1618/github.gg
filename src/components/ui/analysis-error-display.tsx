@@ -1,8 +1,8 @@
 "use client";
 import { getErrorDisplayConfig } from '@/lib/utils/errorHandling';
-import { SubscriptionUpgrade } from '@/components/SubscriptionUpgrade';
+import { UpgradePrompt } from '@/components/upgrade';
 
-interface ErrorDisplayProps {
+interface AnalysisErrorDisplayProps {
   error: string | null;
   isPending?: boolean;
   onRetry?: () => void;
@@ -11,14 +11,14 @@ interface ErrorDisplayProps {
   className?: string;
 }
 
-export function ErrorDisplay({
+export function AnalysisErrorDisplay({
   error,
   isPending = false,
   onRetry,
   onRetryWithContext,
   hasPreviousResult = false,
   className = ""
-}: ErrorDisplayProps) {
+}: AnalysisErrorDisplayProps) {
   if (!error) return null;
 
   const config = getErrorDisplayConfig(error);
@@ -41,7 +41,7 @@ export function ErrorDisplay({
           </div>
         </div>
         
-        <SubscriptionUpgrade />
+        <UpgradePrompt />
       </div>
     );
   }

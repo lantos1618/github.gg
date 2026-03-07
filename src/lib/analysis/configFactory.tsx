@@ -1,6 +1,6 @@
 import React from 'react';
 import { trpc } from '@/lib/trpc/client';
-import type { AnalysisViewConfig, AnalysisData } from '@/components/analysis/GenericAnalysisView';
+import type { AnalysisViewConfig, AnalysisData } from '@/components/analysis/AnalysisPageView';
 
 export type AnalysisType = 'scorecard' | 'ai-slop';
 

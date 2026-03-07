@@ -65,7 +65,7 @@ export function QualityMetrics({ quality }: QualityMetricsProps) {
           
             <div className="grid grid-cols-2 sm:grid-cols-2 gap-x-8 gap-y-6">
               {Object.entries(quality.metrics).map(([key, value]) => (
-                <div key={key} className="flex flex-col group">
+                <div key={key} data-testid={`scorecard-metric-${key}-card`} className="flex flex-col group">
                   <div className="flex justify-between items-end mb-2">
                      <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                         {key.replace(/([A-Z])/g, ' $1').trim()}

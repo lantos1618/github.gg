@@ -37,7 +37,7 @@ export function HighlightsSlide({
   const hasAIContent = topProjects || commitAnalysis || biggestWin;
 
   return (
-    <WrappedSlide glowPosition="center">
+    <WrappedSlide glowPosition="center" data-testid="wrapped-slide-highlights">
       <div className="w-full space-y-6">
         <div className="text-center space-y-3">
           <UserHeader username={username} avatarUrl={avatarUrl} className="justify-center" />

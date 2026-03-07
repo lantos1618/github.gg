@@ -1,10 +1,10 @@
 "use client";
 import { useState, useMemo } from 'react';
 import React from 'react';
-import RepoPageLayout from '@/components/layouts/RepoPageLayout';
+import { RepoPageLayout } from '@/components/layouts/RepoPageLayout';
 import { FileExplorerDrawer } from '@/components/FileExplorerDrawer';
 import { EnhancedCodeViewer } from '@/components/EnhancedCodeViewer';
-import RepoSkeleton from '@/components/RepoSkeleton';
+import { RepoSkeleton } from '@/components/RepoSkeleton';
 import { RepoStatus } from '@/components/RepoStatus';
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import { useSelectedFiles } from '@/contexts/SelectedFilesContext';
@@ -48,6 +48,7 @@ function RepoClientViewInner({ user, repo, refName, path, files, isLoading, erro
       {/* File Explorer Tab Button */}
       <button
         onClick={() => setIsFileExplorerOpen(true)}
+        data-testid="repo-files-drawer-trigger"
         className="fixed right-0 top-20 z-30 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-l-lg shadow-lg transition-all duration-200 flex items-center gap-2 border border-r-0 border-blue-700"
         style={{
           writingMode: 'vertical-rl',

@@ -1,0 +1,107 @@
+# github.gg
+
+> AI-powered GitHub repository analysis platform
+
+## Overview
+github.gg provides AI-powered code analysis, developer profiles, repository insights, and documentation generation for GitHub repositories.
+
+## Key Features
+- Repository Analysis: Code quality analysis, architecture diagrams, and scorecards
+- Developer Profiles: AI-generated developer scorecards and portfolios
+- Wiki Generation: Automated documentation and wiki pages from code
+- Code Arena: Compare and rank code solutions
+- Developer Wrapped: Annual developer statistics and highlights
+
+## Key Pages
+- / - Homepage and dashboard
+- /[user] - Developer profile page
+- /[owner]/[repo] - Repository analysis page
+- /[owner]/[repo]/diagram - Architecture diagrams
+- /[owner]/[repo]/wiki - Generated wiki documentation
+- /[owner]/[repo]/scorecard - Repository quality scorecard
+- /arena - Code arena and leaderboard
+- /pricing - Subscription plans
+
+## API
+- Repository analysis is triggered by visiting github.gg/[owner]/[repo]
+- Developer profiles at github.gg/[username]
+- Replace github.com URLs with github.gg to analyze any repository
+
+## Data Schemas
+
+### Developer Profile
+- name: string - Display name of the developer
+- bio: string - Short biography or tagline
+- skills: string[] - List of programming languages and technologies
+- repos: object[] - Top repositories with name, description, stars, language
+- scores: object - Skill scores across categories (e.g., frontend, backend, devops)
+- summary: string - AI-generated summary of the developer's work
+- avatarUrl: string - GitHub avatar URL
+- location: string - Developer location (if public)
+- followers: number - GitHub follower count
+- publicRepos: number - Number of public repositories
+
+### Repository Analysis
+- scorecard: object - Code quality metrics (maintainability, documentation, testing, security)
+- diagram: object - Architecture diagram data (components, connections, layers)
+- wiki: object[] - Generated documentation pages with title, content, category
+
+## Analysis Types
+- diagram: Architecture and component diagrams generated from code structure
+- wiki: Automated documentation pages generated from source code
+- scorecard: Repository quality scorecard with metrics for maintainability, documentation, testing, and security
+- ai-slop: AI-generated code detection analysis
+- pulls: Pull request listing and detail views
+- issues: Issue listing and detail views
+
+## Supported Languages and Frameworks
+github.gg supports analysis of repositories in all major programming languages including:
+- JavaScript / TypeScript (React, Next.js, Vue, Angular, Node.js)
+- Python (Django, Flask, FastAPI)
+- Java (Spring Boot, Maven, Gradle)
+- Go
+- Rust
+- C / C++
+- Ruby (Rails)
+- PHP (Laravel)
+- Swift
+- Kotlin
+- And many more
+
+## Rate Limiting
+- Unauthenticated users: Limited analysis requests per day
+- Free tier: Standard analysis quota with basic features
+- Pro tier: Higher analysis quota with advanced features
+- Team tier: Unlimited analysis with team collaboration features
+
+## Example URLs and Usage Patterns
+
+### Analyze a repository
+Replace github.com with github.gg in any GitHub URL:
+- https://github.gg/facebook/react - Analyze the React repository
+- https://github.gg/vercel/next.js - Analyze the Next.js repository
+
+### View architecture diagrams
+- https://github.gg/facebook/react/diagram
+
+### View repository scorecard
+- https://github.gg/facebook/react/scorecard
+
+### View generated wiki
+- https://github.gg/facebook/react/wiki
+
+### View developer profiles
+- https://github.gg/torvalds - Linus Torvalds' developer profile
+- https://github.gg/gaearon - Dan Abramov's developer profile
+
+### View pull requests
+- https://github.gg/facebook/react/pulls - All pull requests
+- https://github.gg/facebook/react/pulls/12345 - Specific PR
+
+### View issues
+- https://github.gg/facebook/react/issues - All issues
+- https://github.gg/facebook/react/issues/12345 - Specific issue
+
+## Contact
+- Website: https://github.gg
+- GitHub: https://github.com/nicepkg/github.gg

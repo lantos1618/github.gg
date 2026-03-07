@@ -36,9 +36,9 @@ export function TopRepos({ repos, compact = false, username }: TopReposProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div data-testid="profile-top-repos" className="space-y-6">
       {repos.map((repo, index) => (
-        <div key={index} className="group relative border-b border-gray-100 pb-6 last:border-0">
+        <div key={index} data-testid="profile-repo-card" className="group relative border-b border-gray-100 pb-6 last:border-0">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-3 mb-1">

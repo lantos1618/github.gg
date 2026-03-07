@@ -46,10 +46,10 @@ export function ReusableSSEFeedback({
   if (status === 'idle') return null;
 
   return (
-    <div className={cn("space-y-6 animate-in fade-in duration-300", className)}>
-      <div className="space-y-2">
+    <div data-testid="analysis-sse-container" className={cn("space-y-6 animate-in fade-in duration-300", className)}>
+      <div className="space-y-2" role="status" aria-live="polite" data-testid="analysis-sse-status">
         <div className="flex items-center justify-between text-sm">
-          <span className="font-medium text-primary flex items-center gap-2">
+          <span className="font-medium text-primary flex items-center gap-2" data-testid="analysis-sse-progress-text">
             {status === 'processing' || status === 'connecting' ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : status === 'complete' ? (
@@ -61,7 +61,7 @@ export function ReusableSSEFeedback({
           </span>
           <span className="text-muted-foreground font-mono text-xs">{Math.round(progress)}%</span>
         </div>
-        <Progress value={progress} className="h-2 transition-all duration-500" />
+        <Progress data-testid="analysis-sse-progress" value={progress} className="h-2 transition-all duration-500" />
       </div>
 
       <div className="border rounded-lg bg-card shadow-sm overflow-hidden">

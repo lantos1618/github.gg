@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
 import { Footer } from '@/components/Footer';
 // ResizablePanel removed in favor of CSS transitions for smooth animations
-import { DashboardSidebar } from '@/components/DashboardSidebar';
+import { RepositoryListSidebar } from '@/components/RepositoryListSidebar';
 import { ActivityFeed } from '@/components/ActivityFeed';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -230,7 +230,7 @@ export const GitHubDashboard = () => {
     const unreadCount = activities.filter(a => a.unread).length;
 
     return (
-      <div className="h-[calc(100vh-3.5rem)] bg-background text-foreground overflow-hidden flex flex-col">
+      <div data-testid="dashboard-container" className="h-[calc(100vh-3.5rem)] bg-background text-foreground overflow-hidden flex flex-col">
         {/* Mobile Header - Enhanced */}
         <div className="flex-shrink-0 sticky top-0 z-30 bg-background/95 backdrop-blur-xl border-b border-border">
           <div className="px-4 py-3 flex items-center justify-between">
@@ -305,7 +305,7 @@ export const GitHubDashboard = () => {
               </Button>
             </div>
           </div>
-          <DashboardSidebar
+          <RepositoryListSidebar
             repositories={repositories}
             reposLoading={reposLoading}
             repoSearch={repoSearch}
@@ -379,7 +379,7 @@ export const GitHubDashboard = () => {
 
   // Desktop Layout - using CSS transitions instead of ResizablePanel for smooth animations
   return (
-    <div className="h-[calc(100vh-3.5rem)] bg-background text-foreground overflow-hidden flex">
+    <div data-testid="dashboard-container" className="h-[calc(100vh-3.5rem)] bg-background text-foreground overflow-hidden flex">
       {/* Left Sidebar */}
       <div
         className={cn(
@@ -418,7 +418,7 @@ export const GitHubDashboard = () => {
                 </Button>
               </div>
             </div>
-            <DashboardSidebar
+            <RepositoryListSidebar
               repositories={repositories}
               reposLoading={reposLoading}
               repoSearch={repoSearch}

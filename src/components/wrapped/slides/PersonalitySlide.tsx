@@ -60,7 +60,7 @@ export function PersonalitySlide({ aiInsights, stats, user }: PersonalitySlidePr
   }, []);
 
   return (
-    <WrappedSlide glowPosition="center">
+    <WrappedSlide glowPosition="center" data-testid="wrapped-slide-personality">
       {showConfetti && <Confetti />}
 
       <div className="text-center space-y-8">

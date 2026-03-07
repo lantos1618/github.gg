@@ -15,11 +15,6 @@ const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
-// Utility function to check if an error is a PostgreSQL error with a code
-function isPgErrorWithCode(e: unknown): e is { code: string } {
-  return typeof e === 'object' && e !== null && 'code' in e && typeof (e as { code?: unknown }).code === 'string';
-}
-
 /**
  * Extract email from a git patch format
  * Parses lines like "From: Name <email@example.com>" or "Author: Name <email@example.com>"
@@ -299,62 +294,24 @@ export async function* generateDeveloperProfileStreaming({
 
           console.log(`✅ Scorecard generated for ${repoData.repoName}`);
 
-          // Save the generated scorecard to the database
-          // Retry logic handles race conditions by recalculating version on each attempt
-          let inserted = null;
-          for (let retryCount = 0; retryCount < 3; retryCount++) {
-            // Normalize username and repo name to lowercase for consistency
-            const normalizedUsername = username.toLowerCase();
-            const normalizedRepoName = repoData.repoName.toLowerCase();
-            // Recalculate version on each retry to handle concurrent inserts
-            const maxVersionResult = await db
-              .select({ max: sql<number>`COALESCE(MAX(version), 0)` })
-              .from(repositoryScorecards)
-              .where(and(
-                eq(repositoryScorecards.userId, userId),
-                eq(repositoryScorecards.repoOwner, normalizedUsername),
-                eq(repositoryScorecards.repoName, normalizedRepoName)
-              ));
-            const nextVersion = (maxVersionResult[0]?.max || 0) + 1;
-
-            try {
-              // Normalize username and repo name to lowercase for consistency (GitHub is case-insensitive)
-              const normalizedUsername = username.toLowerCase();
-              const normalizedRepoName = repoData.repoName.toLowerCase();
-              console.log(`💾 Saving scorecard for ${normalizedUsername}/${normalizedRepoName}, version ${nextVersion}, userId: ${userId}`);
-              const insertValues = {
-                userId,
-                repoOwner: normalizedUsername,
-                repoName: normalizedRepoName,
-                ref: 'main',
-                version: nextVersion,
-                isPrivate: false, // Profile generation only uses public repos (filtered in getUserRepositories)
-                overallScore: scorecardResult.scorecard.overallScore,
-                metrics: scorecardResult.scorecard.metrics,
-                markdown: scorecardResult.scorecard.markdown,
-              };
-              const [insertResult] = await db.insert(repositoryScorecards).values(insertValues).onConflictDoNothing().returning();
-              
-              if (insertResult) {
-                console.log(`✅ Successfully saved scorecard for ${username}/${repoData.repoName}, id: ${insertResult.id}`);
-                inserted = insertResult;
-                break;
-              } else {
-                console.warn(`⚠️ Insert returned no result (conflict) for ${username}/${repoData.repoName}, version ${nextVersion}, retry ${retryCount + 1}`);
-              }
-              // If insertResult is null, onConflictDoNothing prevented insert - retry with new version
-            } catch (e) {
-              console.error(`❌ Database insert error for ${username}/${repoData.repoName}:`, e);
-              if (isPgErrorWithCode(e) && e.code === '23505') {
-                // Unique constraint violation - retry with recalculated version
-                console.log(`🔄 Retrying with new version due to conflict...`);
-                continue;
-              }
-              throw e;
-            }
-          }
-          if (!inserted) {
-            console.error(`❌ Failed to insert scorecard for ${repoData.repoName} after 3 retries - scorecard will not be available on individual repo page`);
+          // Save the generated scorecard with atomic versioning (eliminates SELECT MAX + INSERT race)
+          const normalizedRepoName = repoData.repoName.toLowerCase();
+          console.log(`Saving scorecard for ${normalizedUsername}/${normalizedRepoName}, userId: ${userId}`);
+          try {
+            await db.execute(sql`
+              INSERT INTO repository_scorecards (id, "userId", repo_owner, repo_name, ref, version, is_private, overall_score, metrics, markdown, created_at, updated_at)
+              SELECT gen_random_uuid(), ${userId}, ${normalizedUsername}, ${normalizedRepoName}, 'main',
+                     COALESCE(MAX(version), 0) + 1,
+                     false, ${scorecardResult.scorecard.overallScore},
+                     ${JSON.stringify(scorecardResult.scorecard.metrics)}::jsonb,
+                     ${scorecardResult.scorecard.markdown},
+                     NOW(), NOW()
+              FROM repository_scorecards
+              WHERE "userId" = ${userId} AND repo_owner = ${normalizedUsername} AND repo_name = ${normalizedRepoName}
+            `);
+            console.log(`Successfully saved scorecard for ${username}/${repoData.repoName}`);
+          } catch (e) {
+            console.error(`Failed to insert scorecard for ${username}/${repoData.repoName}:`, e);
           }
 
           result = {

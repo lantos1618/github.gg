@@ -1,7 +1,7 @@
 'use client';
 
 import React, { ReactNode } from 'react';
-import { ErrorDisplay } from '@/components/ui/ErrorDisplay';
+import { AnalysisErrorDisplay } from '@/components/ui/analysis-error-display';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, LogIn } from 'lucide-react';
@@ -94,7 +94,7 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
 
     case 'error':
       return (
-        <ErrorDisplay
+        <AnalysisErrorDisplay
           error={error || 'An error occurred'}
           isPending={isRegenerating}
           onRetry={onRegenerate}
@@ -104,9 +104,9 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
     case 'no-data':
       // Show SSE feedback when generating (similar to wiki page)
       const showSSEFeedback = isRegenerating && sseStatus && sseStatus !== 'idle';
-      
+
       return (
-        <div className="flex flex-col items-center justify-center min-h-[400px] px-4">
+        <div data-testid="analysis-state-handler" className="flex flex-col items-center justify-center min-h-[400px] px-4">
           {!showSSEFeedback && (
             <>
               <h2 className="text-xl font-semibold text-gray-600 mb-2">
@@ -172,7 +172,7 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
       );
 
     case 'ready':
-      return <>{children}</>;
+      return <div data-testid="analysis-state-handler">{children}</div>;
 
     case 'auth-error':
       return (

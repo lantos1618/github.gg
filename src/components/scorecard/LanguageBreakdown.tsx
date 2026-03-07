@@ -8,7 +8,7 @@ interface LanguageBreakdownProps {
 
 export function LanguageBreakdown({ languages }: LanguageBreakdownProps) {
   return (
-    <Card className="border-none shadow-md">
+    <Card data-testid="scorecard-language-breakdown" className="border-none shadow-md">
       <CardHeader className="bg-white/50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-800 pb-4">
         <CardTitle className="text-lg font-semibold flex items-center gap-2">
           <Code2 className="w-5 h-5 text-primary" />

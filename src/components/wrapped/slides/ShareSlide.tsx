@@ -75,7 +75,7 @@ Get yours at github.gg/wrapped`;
     : null;
 
   return (
-    <WrappedSlide glowPosition="top">
+    <WrappedSlide glowPosition="top" data-testid="wrapped-slide-share">
       <div className="space-y-6">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -200,6 +200,7 @@ Get yours at github.gg/wrapped`;
           <div className="grid grid-cols-2 gap-3">
             <Button
               onClick={handleTwitterShare}
+              data-testid="wrapped-story-share-btn"
               className="h-11 bg-white/80 hover:bg-slate-100 text-slate-800 border border-slate-200/60 font-medium"
             >
               <Share2 className="w-4 h-4 mr-2" />

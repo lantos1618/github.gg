@@ -12,7 +12,7 @@ interface EditPageButtonProps {
 
 export function EditPageButton({ owner, repo, slug }: EditPageButtonProps) {
   return (
-    <Button variant="ghost" size="sm" asChild>
+    <Button variant="ghost" size="sm" asChild data-testid="wiki-edit-page-btn">
       <Link href={`/wiki/${owner}/${repo}/${slug}/edit`}>
         <Edit className="h-4 w-4" />
       </Link>

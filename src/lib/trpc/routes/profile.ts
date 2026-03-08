@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { developerProfileCache, tokenUsage, user, developerEmails } from '@/db/schema';
-import { eq, and, gte, desc, sql } from 'drizzle-orm';
+import { eq, and, gte, desc, sql, inArray } from 'drizzle-orm';
 import { generateDeveloperProfileStreaming, findAndStoreDeveloperEmail } from '@/lib/ai/developer-profile';
 import { getProfileData } from '@/lib/profile/service';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
@@ -600,9 +600,18 @@ export const profileRouter = router({
     .input(z.object({
       username: z.string().min(1, 'Username is required'),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const { username } = input;
       const normalizedUsername = username.toLowerCase();
+
+      // Verify the user owns this profile
+      const currentUsername = ctx.user.githubUsername?.toLowerCase() ?? ctx.user.name?.toLowerCase();
+      if (currentUsername !== normalizedUsername) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You can only clear your own profile cache',
+        });
+      }
 
       await db
         .delete(developerProfileCache)
@@ -698,13 +707,14 @@ export const profileRouter = router({
 
       // Get all userIds for the usernames in profiles
       const usernames = profilesArray.map(p => p.username);
+      const lowercaseUsernames = usernames.map(u => u.toLowerCase());
       const users = await db
         .select({
           id: user.id,
           name: user.name,
         })
         .from(user)
-        .where(sql`LOWER(${user.name}) IN (${sql.raw(usernames.map(u => `'${u.toLowerCase()}'`).join(','))})`);
+        .where(inArray(sql`LOWER(${user.name})`, lowercaseUsernames));
 
       // Create a map of username -> userId
       const usernameToUserIdMap = new Map(
@@ -722,7 +732,7 @@ export const profileRouter = router({
             totalTokens: sql<number>`SUM(${tokenUsage.totalTokens})`,
           })
           .from(tokenUsage)
-          .where(sql`${tokenUsage.userId} IN (${sql.raw(userIds.map(id => `'${id}'`).join(','))})`)
+          .where(inArray(tokenUsage.userId, userIds))
           .groupBy(tokenUsage.userId);
       }
 

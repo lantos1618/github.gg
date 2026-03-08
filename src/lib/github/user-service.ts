@@ -14,6 +14,7 @@ type RawGitHubRepo = {
   language: string | null;
   topics?: string[];
   html_url: string;
+  default_branch: string;
   private?: boolean;
   fork?: boolean;
 };
@@ -53,6 +54,7 @@ export class UserService {
           topics: repo.topics || undefined,
           url: repo.html_url,
           fork: repo.fork,
+          defaultBranch: repo.default_branch,
         }));
       }
 
@@ -78,6 +80,7 @@ export class UserService {
         topics: repo.topics || undefined,
         url: repo.html_url,
         fork: repo.fork,
+        defaultBranch: repo.default_branch,
       }));
     } catch (error: unknown) {
       const errorMessage = parseError(error);

@@ -371,7 +371,7 @@ export async function GET(req: NextRequest) {
                 githubService.getRepositoryFiles(
                   username,
                   repo.name,
-                  'main',
+                  repo.defaultBranch || 'main',
                 ),
                 timeoutPromise,
               ]);

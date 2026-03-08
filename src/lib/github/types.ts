@@ -22,6 +22,7 @@ export interface RepoSummary {
   topics?: string[];
   url: string;
   fork?: boolean;
+  defaultBranch?: string;
 }
 
 export interface GitHubFilesResponse {

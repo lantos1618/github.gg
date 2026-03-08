@@ -5,6 +5,25 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import type { AnimatedCounterProps, StaggeredTextProps } from './wrapped-theme';
 
+function useAnimatedCount(value: number, duration: number) {
+  const [count, setCount] = React.useState(0);
+  React.useEffect(() => {
+    const step = value / (duration * 60);
+    let current = 0;
+    const timer = setInterval(() => {
+      current += step;
+      if (current >= value) {
+        setCount(value);
+        clearInterval(timer);
+      } else {
+        setCount(Math.floor(current));
+      }
+    }, 1000 / 60);
+    return () => clearInterval(timer);
+  }, [value, duration]);
+  return count;
+}
+
 export function AnimatedCounter({
   value,
   duration = 1.5,
@@ -12,6 +31,8 @@ export function AnimatedCounter({
   suffix = '',
   prefix = '',
 }: AnimatedCounterProps) {
+  const count = useAnimatedCount(value, duration);
+
   return (
     <motion.span
       className={cn('tabular-nums', className)}
@@ -29,27 +50,7 @@ export function AnimatedCounter({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
-        {(() => {
-          const Counter = () => {
-            const [count, setCount] = React.useState(0);
-            React.useEffect(() => {
-              const step = value / (duration * 60);
-              let current = 0;
-              const timer = setInterval(() => {
-                current += step;
-                if (current >= value) {
-                  setCount(value);
-                  clearInterval(timer);
-                } else {
-                  setCount(Math.floor(current));
-                }
-              }, 1000 / 60);
-              return () => clearInterval(timer);
-            }, []);
-            return count.toLocaleString();
-          };
-          return <Counter />;
-        })()}
+        {count.toLocaleString()}
       </motion.span>
       <motion.span
         initial={{ opacity: 0 }}

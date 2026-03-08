@@ -108,6 +108,16 @@ export function ChallengeForm() {
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
+  // Clean up EventSource on unmount to prevent leaked SSE connections
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const opponentFromQuery = searchParams.get('opponent');
     if (opponentFromQuery) {

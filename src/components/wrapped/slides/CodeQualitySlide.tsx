@@ -80,13 +80,14 @@ function AnimatedGauge({
   const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
     const timer = setTimeout(() => {
       const duration = 1200;
       const steps = 60;
       const stepDuration = duration / steps;
       let current = 0;
 
-      const interval = setInterval(() => {
+      interval = setInterval(() => {
         current += value / steps;
         if (current >= value) {
           setDisplayValue(value);
@@ -95,11 +96,12 @@ function AnimatedGauge({
           setDisplayValue(Math.floor(current));
         }
       }, stepDuration);
-
-      return () => clearInterval(interval);
     }, delay);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
   }, [value, delay]);
 
   const circumference = 2 * Math.PI * 32;

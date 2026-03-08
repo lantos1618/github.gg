@@ -196,25 +196,25 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     router.push(`/arena?opponent=${username}`);
   }, [router, username]);
 
-  // Version selector UI
-  const VersionSelector = () => {
-    if (versionsLoading) return <span>Loading...</span>;
-    if (!versions || versions.length === 0) return null;
-    return (
-      <select
-        data-testid="profile-version-select"
-        className="ml-2 border-b border-gray-300 bg-transparent py-0.5 text-sm focus:border-black focus:outline-none cursor-pointer"
-        value={selectedVersion ?? versions[0].version}
-        onChange={e => setSelectedVersion(Number(e.target.value))}
-      >
-        {versions.map(v => (
-          <option key={v.version} value={v.version}>
-            v{v.version} ({new Date(v.updatedAt).toLocaleDateString()})
-          </option>
-        ))}
-      </select>
-    );
-  };
+  // Version selector UI - rendered inline to avoid component identity issues
+  const versionSelectorElement = versionsLoading
+    ? <span>Loading...</span>
+    : (!versions || versions.length === 0)
+      ? null
+      : (
+        <select
+          data-testid="profile-version-select"
+          className="ml-2 border-b border-gray-300 bg-transparent py-0.5 text-sm focus:border-black focus:outline-none cursor-pointer"
+          value={selectedVersion ?? versions[0].version}
+          onChange={e => setSelectedVersion(Number(e.target.value))}
+        >
+          {versions.map(v => (
+            <option key={v.version} value={v.version}>
+              v{v.version} ({new Date(v.updatedAt).toLocaleDateString()})
+            </option>
+          ))}
+        </select>
+      );
 
   const getVersionInfo = () => {
     if (!versions || versions.length === 0) return null;
@@ -275,7 +275,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
           {versionInfo && (
             <div className="text-sm text-gray-400 flex items-center gap-2 mt-2">
               <span>Analysis Version</span>
-              <VersionSelector />
+              {versionSelectorElement}
             </div>
           )}
         </div>

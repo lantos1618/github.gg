@@ -297,10 +297,11 @@ export async function* generateDeveloperProfileStreaming({
           // Save the generated scorecard with atomic versioning (eliminates SELECT MAX + INSERT race)
           const normalizedRepoName = repoData.repoName.toLowerCase();
           console.log(`Saving scorecard for ${normalizedUsername}/${normalizedRepoName}, userId: ${userId}`);
+          const repoRef = repos.find(r => r.name.toLowerCase() === normalizedRepoName)?.defaultBranch || 'main';
           try {
             await db.execute(sql`
               INSERT INTO repository_scorecards (id, "userId", repo_owner, repo_name, ref, version, is_private, overall_score, metrics, markdown, created_at, updated_at)
-              SELECT gen_random_uuid(), ${userId}, ${normalizedUsername}, ${normalizedRepoName}, 'main',
+              SELECT gen_random_uuid(), ${userId}, ${normalizedUsername}, ${normalizedRepoName}, ${repoRef},
                      COALESCE(MAX(version), 0) + 1,
                      false, ${scorecardResult.scorecard.overallScore},
                      ${JSON.stringify(scorecardResult.scorecard.metrics)}::jsonb,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, Lock, ExternalLink, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -210,14 +210,15 @@ function TeaserLine({
 }
 
 function FloatingStars() {
-  const stars = Array.from({ length: 20 }, (_, i) => ({
+  const stars = React.useMemo(() => Array.from({ length: 20 }, (_, i) => ({
     id: i,
     x: Math.random() * 100,
     y: Math.random() * 100,
     size: Math.random() * 3 + 1,
     duration: Math.random() * 3 + 2,
     delay: Math.random() * 2,
-  }));
+    color: Math.random() > 0.5 ? '147, 51, 234' : '6, 182, 212',
+  })), []);
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -230,7 +231,7 @@ function FloatingStars() {
             top: `${star.y}%`,
             width: star.size,
             height: star.size,
-            background: `rgba(${Math.random() > 0.5 ? '147, 51, 234' : '6, 182, 212'}, 0.4)`,
+            background: `rgba(${star.color}, 0.4)`,
           }}
           animate={{
             opacity: [0.3, 0.7, 0.3],

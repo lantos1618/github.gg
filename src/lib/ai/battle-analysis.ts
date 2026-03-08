@@ -151,12 +151,13 @@ export function calculateEloChange(
 }
 
 export function determineTier(eloRating: number): string {
-  for (const [, tier] of Object.entries(ELO_TIERS)) {
+  const tiers = Object.values(ELO_TIERS).sort((a, b) => b.minRating - a.minRating);
+  for (const tier of tiers) {
     if (eloRating >= tier.minRating) {
       return tier.name;
     }
   }
-  return ELO_TIERS.BRONZE.name; // Default fallback
+  return ELO_TIERS.BRONZE.name;
 }
 
 export function prepareRepositoriesForAnalysis(repos: Array<{ name: string; description: string | null; language: string | null; stargazers_count: number; forks_count: number; updated_at: string }>) {

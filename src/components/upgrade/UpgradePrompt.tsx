@@ -153,7 +153,6 @@ export function UpgradePrompt({
           <Icon className="h-6 w-6 text-gray-700" />
         </div>
 
-        {/* Content */}
         <h3 className="text-xl font-semibold text-gray-900 mb-2">
           {context.headline}
         </h3>

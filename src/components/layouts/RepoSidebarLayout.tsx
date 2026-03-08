@@ -70,7 +70,6 @@ function RepoSidebarLayoutInner({
           defaultBranch={defaultBranch}
         />
 
-        {/* Main Content */}
         <main className={`flex-1 flex flex-col overflow-y-auto transition-all duration-300 ${isExpanded ? 'lg:ml-64' : 'lg:ml-16'} ${showHeader ? 'pt-32' : ''}`}>
           <div className="flex-1">
             {children}

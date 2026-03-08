@@ -16,7 +16,6 @@ export function NewWikiClient({ owner, repo, wikiPages }: NewWikiClientProps) {
     <RepoSidebarLayout owner={owner} repo={repo} wikiPages={wikiPages}>
       <div className="min-h-screen bg-background">
         <div className="max-w-6xl mx-auto px-6 py-8">
-          {/* Header */}
           <div className="mb-8 pb-6 border-b border-border">
             <Link
               href={`/wiki/${owner}/${repo}`}

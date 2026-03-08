@@ -361,7 +361,6 @@ export const GitHubDashboard = () => {
           </div>
         </div>
 
-        {/* Main Content */}
         <main className="flex flex-col overflow-y-auto flex-1 bg-background">
           <DashboardContent
             pullRequests={pullRequests || []}
@@ -429,7 +428,6 @@ export const GitHubDashboard = () => {
         )}
       </div>
 
-      {/* Main content */}
       <main className="flex-1 flex flex-col overflow-y-auto min-w-0 bg-background">
         <DashboardContent
           pullRequests={pullRequests || []}

@@ -110,7 +110,6 @@ export function ProfileContent({
 
       {/* Profile Content */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-12">
-        {/* Main Content */}
         <div className="xl:col-span-8 space-y-16">
           <section>
             <h3 className="text-2xl font-bold text-black mb-6">Executive Summary</h3>

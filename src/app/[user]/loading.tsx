@@ -30,7 +30,6 @@ export default function UserLoading() {
 
           {/* Content Grid Skeleton */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Main content */}
             <div className="lg:col-span-2 space-y-6">
               {/* Section header */}
               <Skeleton className="h-6 w-40" />
@@ -50,7 +49,6 @@ export default function UserLoading() {
               ))}
             </div>
 
-            {/* Sidebar */}
             <div className="space-y-6">
               <div className="border rounded-xl p-6 space-y-4">
                 <Skeleton className="h-5 w-32" />

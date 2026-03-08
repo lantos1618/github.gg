@@ -20,7 +20,7 @@ export function ProfileDropdownMenu({ user, onSignOut }: ProfileDropdownMenuProp
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-10 w-10 rounded-full" data-testid="nav-user-avatar-btn">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={user.image} alt={user.name} />
+            <AvatarImage src={user.image ?? undefined} alt={user.name} />
             <AvatarFallback>{user.name?.[0]}</AvatarFallback>
           </Avatar>
         </Button>

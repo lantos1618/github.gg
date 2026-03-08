@@ -285,8 +285,6 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
       >
         {isExpanded ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
-
-      {/* Sidebar */}
       <aside
         className={cn(
           'fixed left-0 top-14 bg-white border-r border-gray-200 transition-all duration-300 z-40',
@@ -304,21 +302,36 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
               <li>
                 {isExpanded ? (
                   <div className="flex items-center gap-2">
-                    <Link
-                      href={baseUrl}
+                    <div
                       className={cn(
                         'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group flex-1 min-w-0',
                         isRepoRootActive
                           ? 'bg-blue-600 text-white font-medium shadow-sm'
                           : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
                       )}
-                      title={`${owner}/${repo}`}
                     >
                       <FolderGit2 className={cn('h-5 w-5 flex-shrink-0', isRepoRootActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
                       <span className="text-sm truncate min-w-0">
-                        {owner}/{repo}
+                        <Link
+                          href={`/${owner}`}
+                          className={cn(
+                            'hover:underline',
+                            isRepoRootActive ? 'text-blue-100 hover:text-white' : 'text-gray-500 hover:text-gray-900'
+                          )}
+                          title={`View ${owner}'s profile`}
+                        >
+                          {owner}
+                        </Link>
+                        <span className={isRepoRootActive ? 'text-blue-200' : 'text-gray-400'}>/</span>
+                        <Link
+                          href={baseUrl}
+                          className="hover:underline"
+                          title={`${owner}/${repo}`}
+                        >
+                          {repo}
+                        </Link>
                       </span>
-                    </Link>
+                    </div>
                     <a
                       href={`https://github.com/${owner}/${repo}`}
                       target="_blank"

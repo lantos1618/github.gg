@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Star } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
-import { useAuth } from '@/lib/auth/factory';
+import { useAuth } from '@/lib/auth/client';
 
 interface StarCountProps {
   owner: string;

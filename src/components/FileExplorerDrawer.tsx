@@ -216,7 +216,6 @@ export function FileExplorerDrawer({
         )}
         style={{ height: 'calc(100vh - 3.5rem)' }}
       >
-        {/* Header */}
         <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-gray-100/50">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center">

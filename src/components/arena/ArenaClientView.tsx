@@ -53,7 +53,6 @@ export function ArenaClientView({ initialLeaderboard }: ArenaClientViewProps) {
   return (
     <div className="min-h-screen bg-white pt-20 pb-20">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
-        {/* Header */}
         <div className="text-center space-y-6">
           <h1 className="text-6xl md:text-8xl font-bold text-black tracking-tighter">
             Dev Rank
@@ -105,7 +104,6 @@ export function ArenaClientView({ initialLeaderboard }: ArenaClientViewProps) {
           </div>
         </div>
 
-        {/* Content */}
         <div className="min-h-[400px] max-w-5xl mx-auto">
           {activeTab === 'leaderboard' && (
             <LeaderboardTable initialLeaderboard={initialLeaderboard} />

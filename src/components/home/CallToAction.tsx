@@ -84,7 +84,6 @@ export function CallToAction() {
           </p>
         </motion.div>
 
-        {/* Footer */}
         <div className="mt-16 pt-6 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-500">
           <p>&copy; {new Date().getFullYear()} GG</p>
           <div className="flex gap-6">

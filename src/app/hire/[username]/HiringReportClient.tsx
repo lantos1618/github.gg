@@ -189,7 +189,6 @@ export function HiringReportClient({ username }: HiringReportClientProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between mb-4">
@@ -220,7 +219,6 @@ export function HiringReportClient({ username }: HiringReportClientProps) {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Summary */}
         <div className="bg-white border border-gray-200 p-6 mb-6">

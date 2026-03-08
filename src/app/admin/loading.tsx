@@ -5,7 +5,6 @@ export default function AdminLoading() {
     <div className="min-h-[calc(100vh-3.5rem)] bg-background">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
           <div className="mb-8">
             <Skeleton className="h-8 w-48 mb-2" />
             <Skeleton className="h-5 w-72" />

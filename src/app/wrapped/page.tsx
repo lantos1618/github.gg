@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, RefreshCw, Eye, Gift, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StarGate, useWrappedGeneration } from '@/components/wrapped';
-import { useAuth } from '@/lib/auth/factory';
+import { useAuth } from '@/lib/auth/client';
 import { trpc } from '@/lib/trpc/client';
 import { getWrappedYear } from '@/lib/utils/wrapped-year';
 

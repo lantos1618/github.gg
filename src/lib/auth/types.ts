@@ -2,8 +2,8 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  image: string;
-  githubUsername?: string;
+  image?: string | null;
+  githubUsername?: string | null;
 }
 
 export interface AuthInterface {

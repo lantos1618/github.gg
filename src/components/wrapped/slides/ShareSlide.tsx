@@ -95,7 +95,6 @@ Get yours at github.gg/wrapped`;
           transition={{ delay: 0.15 }}
         >
           <SlideCard glow className="overflow-hidden">
-            {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <img

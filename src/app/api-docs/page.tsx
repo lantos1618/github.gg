@@ -154,7 +154,6 @@ const archetypes = [
 export default function ApiDocsPage() {
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
       <div className="border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <Link href="/" className="text-sm text-gray-500 hover:text-gray-900 flex items-center gap-1 mb-4">
@@ -168,7 +167,6 @@ export default function ApiDocsPage() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Base URL */}
         <section className="mb-12">

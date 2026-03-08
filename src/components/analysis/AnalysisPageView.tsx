@@ -290,7 +290,6 @@ function AnalysisPageViewInner<TResponse>({
           <FolderTree className="h-4 w-4" />
         </button>
 
-        {/* Main Content */}
         <div>
           <AnalysisHeader
             versions={versions || []}

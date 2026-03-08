@@ -4,7 +4,6 @@ export default function UsersLoading() {
   return (
     <div className="min-h-screen bg-white pt-20 pb-20">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="mb-16">
           <Skeleton className="h-12 w-72 mb-4" />
           <Skeleton className="h-6 w-[450px]" />

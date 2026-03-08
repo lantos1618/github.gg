@@ -58,7 +58,6 @@ export function BattleAnalysis() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="text-center">
         <h2 className="text-2xl font-bold mb-2">Battle Analysis</h2>
         <p className="text-muted-foreground">

@@ -99,7 +99,6 @@ export default function DevelopersPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
       <div className="border-b">
         <div className="max-w-4xl mx-auto px-4 py-8">
           <Link href="/" className="text-sm text-gray-500 hover:text-gray-900 flex items-center gap-1 mb-4">
@@ -155,7 +154,6 @@ export default function DevelopersPage() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* CLI Tab */}
         {activeTab === 'cli' && (

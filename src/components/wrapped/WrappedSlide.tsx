@@ -74,7 +74,6 @@ export function WrappedSlide({
         />
       )}
 
-      {/* Content */}
       <div className="relative z-10 w-full max-w-2xl mx-auto">
         {children}
       </div>

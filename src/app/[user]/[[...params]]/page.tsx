@@ -47,17 +47,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!user) return {};
 
-  // Try to get branch names for enhanced parsing
+  // Only fetch branches when there are 3+ path segments that could be ambiguous
   let branchNames: string[] = [];
-  try {
-    const headersList = await headers();
-    const session = await auth.api.getSession({ headers: headersList } as Request);
-    const githubService = await createGitHubServiceFromSession(session);
-    if (rest && rest.length > 0) {
+  if (rest && rest.length >= 3) {
+    try {
+      const headersList = await headers();
+      const session = await auth.api.getSession({ headers: headersList } as Request);
+      const githubService = await createGitHubServiceFromSession(session);
       branchNames = await githubService.getBranches(user, rest[0]);
+    } catch (error) {
+      // Silently fail - we'll use basic canonical logic
     }
-  } catch (error) {
-    // Silently fail - we'll use basic canonical logic
   }
 
   // Parse the path to determine if it's a coming soon page
@@ -84,12 +84,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     }
   }
 
-  const { profile } = await getProfileData(user);
+  const isProfileRoute = !rest || rest.length === 0;
+  // Only fetch profile data for metadata when on a profile route
+  const profile = isProfileRoute ? (await getProfileData(user)).profile : null;
 
-  const title = profile ? `${user} | GitHub.gg Profile` : `${user} - GitHub Developer Analysis`;
-  const description = profile?.summary 
-    ? `${profile.summary.slice(0, 150)}...` 
-    : `Generate an AI-powered analysis to uncover insights about ${user}. View coding style, skills, and top repositories.`;
+  const isRepoRoute = rest && rest.length > 0;
+  const repoName = isRepoRoute ? rest[0] : null;
+  const title = isRepoRoute
+    ? `${user}/${repoName} - Code Analysis | GG`
+    : profile
+      ? `${user} | GitHub.gg Profile`
+      : `${user} - GitHub Developer Analysis`;
+  const description = isRepoRoute
+    ? `Explore ${user}/${repoName} with AI-powered code quality scores, architecture diagrams, and generated documentation.`
+    : profile?.summary
+      ? `${profile.summary.slice(0, 150)}...`
+      : `Generate an AI-powered analysis to uncover insights about ${user}. View coding style, skills, and top repositories.`;
 
   return {
     title,
@@ -118,48 +128,43 @@ export default async function Page({ params }: PageProps) {
   
   if (!user) return notFound();
 
-  // Fetch initial profile data for SSR
-  const data = await getProfileData(user);
-  const initialProfile: SerializableInitialProfileData = {
-    ...data,
-    lastUpdated: data.lastUpdated?.toISOString() ?? null,
-  };
+  const isProfileRoute = !rest || rest.length === 0 || !rest[0];
 
-  if (!rest || rest.length === 0) return (
-    <>
-      <ProfileJsonLd
-        name={user}
-        username={user}
-        avatarUrl={`https://avatars.githubusercontent.com/${user}`}
-        bio={initialProfile.profile?.summary}
-      />
-      <UserClientView user={user} initialProfile={initialProfile} />
-    </>
-  );
+  if (isProfileRoute) {
+    // Only fetch profile data for profile routes (not repo pages)
+    const data = await getProfileData(user);
+    const initialProfile: SerializableInitialProfileData = {
+      ...data,
+      lastUpdated: data.lastUpdated?.toISOString() ?? null,
+    };
+    return (
+      <>
+        <ProfileJsonLd
+          name={user}
+          username={user}
+          avatarUrl={`https://avatars.githubusercontent.com/${user}`}
+          bio={initialProfile.profile?.summary}
+        />
+        <UserClientView user={user} initialProfile={initialProfile} />
+      </>
+    );
+  }
 
   const repo = rest[0];
-  if (!repo) return (
-    <>
-      <ProfileJsonLd
-        name={user}
-        username={user}
-        avatarUrl={`https://avatars.githubusercontent.com/${user}`}
-        bio={initialProfile.profile?.summary}
-      />
-      <UserClientView user={user} initialProfile={initialProfile} />
-    </>
-  );
 
-  // Try to get branch names for enhanced parsing
+  // Only fetch branches when there are 3+ path segments that could be ambiguous
+  // e.g., /user/repo/somebranch/path — not for simple /user/repo or /user/repo/tab
   let branchNames: string[] = [];
-  try {
-    const headersList = await headers();
-    const session = await auth.api.getSession({ headers: headersList } as Request);
-    const githubService = await createGitHubServiceFromSession(session);
-    branchNames = await githubService.getBranches(user, repo);
-  } catch (error) {
-    console.warn('Failed to fetch branch names for enhanced parsing:', error);
-    // Fall back to basic parsing
+  if (rest.length >= 3) {
+    try {
+      const headersList = await headers();
+      const session = await auth.api.getSession({ headers: headersList } as Request);
+      const githubService = await createGitHubServiceFromSession(session);
+      branchNames = await githubService.getBranches(user, repo);
+    } catch (error) {
+      console.warn('Failed to fetch branch names for enhanced parsing:', error);
+      // Fall back to basic parsing
+    }
   }
 
   // Use parseRepoPath with branch names for enhanced parsing (if available)

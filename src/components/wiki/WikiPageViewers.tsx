@@ -66,7 +66,6 @@ export function WikiPageViewers({ owner, repo, slug, version, totalViewCount }: 
         }`}
       >
         <div className="flex flex-col h-full">
-          {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-border">
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -95,7 +94,6 @@ export function WikiPageViewers({ owner, repo, slug, version, totalViewCount }: 
             </button>
           </div>
 
-          {/* Content */}
           <div className="flex-1 overflow-y-auto p-6">
             <div className="space-y-6">
               {/* Registered Users Section */}

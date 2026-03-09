@@ -21,7 +21,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { trpc } from '@/lib/trpc/client';
 import type { AiAnalysis } from '@/lib/types/arena';
-import { LoadingPage } from '@/components/common';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function BattleAnalysis() {
   const router = useRouter();
@@ -53,7 +53,32 @@ export function BattleAnalysis() {
   };
 
   if (isLoading) {
-    return <LoadingPage text="Loading battle history..." />;
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <Skeleton className="h-8 w-48 mx-auto mb-2" />
+          <Skeleton className="h-4 w-80 mx-auto" />
+        </div>
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-4">
+                    <Skeleton className="h-10 w-10 rounded-lg" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-5 w-48" />
+                      <Skeleton className="h-3 w-32" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (

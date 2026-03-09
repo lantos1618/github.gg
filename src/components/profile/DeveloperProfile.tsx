@@ -6,7 +6,8 @@ import { trpc } from '@/lib/trpc/client';
 import { Mail } from 'lucide-react';
 import { developerProfileSchema, type DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
 import { useRouter } from 'next/navigation';
-import { LoadingPage, LoadingInline } from '@/components/common';
+import { LoadingInline } from '@/components/common';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useProfileGeneration } from './hooks/useProfileGeneration';
 import { ProfileEmptyState } from './ProfileEmptyState';
 import { ProfileContent } from './ProfileContent';
@@ -21,6 +22,66 @@ interface SerializableInitialProfileData {
 interface DeveloperProfileProps {
   username: string;
   initialData?: SerializableInitialProfileData;
+}
+
+function ProfileSkeleton() {
+  return (
+    <div className="max-w-[1200px] mx-auto px-4 py-16 space-y-16">
+      {/* Header skeleton */}
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8 border-b border-gray-100 pb-12">
+        <div className="flex items-start gap-6">
+          <Skeleton className="h-24 w-24 rounded-full" />
+          <div className="space-y-3">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <Skeleton className="h-10 w-28 rounded" />
+          <Skeleton className="h-10 w-28 rounded" />
+        </div>
+      </div>
+
+      {/* Content skeleton */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-12">
+        <div className="xl:col-span-8 space-y-16">
+          {/* Summary */}
+          <div className="space-y-3">
+            <Skeleton className="h-7 w-48" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+          {/* Tech stack */}
+          <div className="space-y-3">
+            <Skeleton className="h-7 w-40" />
+            <div className="flex flex-wrap gap-2">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} className="h-8 w-20 rounded-full" />
+              ))}
+            </div>
+          </div>
+          {/* Repos */}
+          <div className="space-y-3">
+            <Skeleton className="h-7 w-44" />
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="border rounded-lg p-4 space-y-2">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-2/3" />
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Sidebar */}
+        <div className="xl:col-span-4 space-y-6">
+          <Skeleton className="h-48 w-full rounded-lg" />
+          <Skeleton className="h-32 w-full rounded-lg" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function SparkleEffects({ chars = ['✨', '💖', '🌸', '🧚', '⭐', '🎀'] }: { chars?: string[] }) {
@@ -198,7 +259,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
 
   // Version selector UI - rendered inline to avoid component identity issues
   const versionSelectorElement = versionsLoading
-    ? <span>Loading...</span>
+    ? <Skeleton className="ml-2 h-5 w-32 inline-block" />
     : (!versions || versions.length === 0)
       ? null
       : (
@@ -247,7 +308,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
 
   const renderContent = () => {
     if (planLoading || publicLoading) {
-      return <LoadingPage text="Loading profile..." />;
+      return <ProfileSkeleton />;
     }
 
     const parsedProfile = developerProfileSchema.safeParse(getProfileData());
@@ -311,7 +372,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
 
     const isLoading = publicLoading || planLoading;
     if (isLoading && !publicProfile) {
-      return <LoadingPage text="Loading profile..." />;
+      return <ProfileSkeleton />;
     }
 
     return (

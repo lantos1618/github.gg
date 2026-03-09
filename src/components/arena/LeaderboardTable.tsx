@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc/client';
 import { useAuth } from '@/lib/auth/client';
 import { Search, ArrowUp, ArrowDown } from 'lucide-react';
-import { LoadingPage } from '@/components/common';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { LeaderboardEntry } from '@/lib/types/leaderboard';
 
 type SortField = 'eloRating' | 'winRate' | 'winStreak' | 'totalBattles' | 'wins';
@@ -81,7 +81,40 @@ export function LeaderboardTable({ initialLeaderboard }: LeaderboardTableProps) 
       </div>
 
       {isLoading ? (
-        <LoadingPage text="Loading leaderboard..." />
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="py-6 pl-4 pr-8 text-sm font-medium text-gray-500 w-24">Rank</th>
+                <th className="py-6 px-8 text-sm font-medium text-gray-500">Developer</th>
+                <th className="py-6 px-8 text-center text-sm font-medium text-gray-500">ELO</th>
+                <th className="py-6 px-8 text-center text-sm font-medium text-gray-500 hidden sm:table-cell">Win Rate</th>
+                <th className="py-6 px-8 text-center text-sm font-medium text-gray-500 hidden md:table-cell">Streak</th>
+                <th className="py-6 px-8 text-center text-sm font-medium text-gray-500 hidden lg:table-cell">Record</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <tr key={i}>
+                  <td className="py-6 pl-4 pr-8"><Skeleton className="h-5 w-8" /></td>
+                  <td className="py-6 px-8">
+                    <div className="flex items-center gap-4">
+                      <Skeleton className="h-10 w-10 rounded-full" />
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-4 w-28" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-6 px-8 text-center"><Skeleton className="h-5 w-12 mx-auto" /></td>
+                  <td className="py-6 px-8 text-center hidden sm:table-cell"><Skeleton className="h-4 w-14 mx-auto" /></td>
+                  <td className="py-6 px-8 text-center hidden md:table-cell"><Skeleton className="h-4 w-8 mx-auto" /></td>
+                  <td className="py-6 px-8 text-center hidden lg:table-cell"><Skeleton className="h-4 w-16 mx-auto" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : filteredAndSortedLeaderboard.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">

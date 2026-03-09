@@ -10,7 +10,6 @@ import { Search, Sparkles, ArrowUpDown, ChevronLeft, ChevronRight, Trophy, Flame
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import type { DeveloperProfile } from '@/lib/types/profile';
-import { LoadingPage } from '@/components/common';
 import { getCrackedInfo } from '@/lib/utils/cracked';
 
 type SortField = 'date' | 'score' | 'username' | 'elo' | 'tokens';

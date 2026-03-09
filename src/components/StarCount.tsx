@@ -103,7 +103,7 @@ export function StarCount({ owner, repo, className = '' }: StarCountProps) {
         )}
       </span>
       <span className="font-semibold hidden sm:inline">Stargazers</span>
-      <span className={`px-2 py-0.5 rounded-full text-base font-semibold w-16 text-center flex items-center justify-center ${isLoading ? 'text-gray-400' : ''}`}>
+      <span className={`px-2 py-0.5 rounded-full text-base font-semibold min-w-fit text-center flex items-center justify-center ${isLoading ? 'text-gray-400' : ''}`}>
         {starCountDisplay}
       </span>
       <style jsx>{`

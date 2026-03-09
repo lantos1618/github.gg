@@ -1,7 +1,4 @@
-'use client';
-
 import { BarChart3, Network, FileText, Shield, Zap, Bot } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 const features = [
@@ -49,11 +46,6 @@ const features = [
   }
 ];
 
-const fadeInVariants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0 }
-};
-
 export function FeatureGrid() {
   return (
     <section className="py-20 bg-gray-50" data-testid="home-feature-grid">
@@ -73,13 +65,8 @@ export function FeatureGrid() {
             }[feature.span];
 
             return (
-              <motion.div
+              <div
                 key={idx}
-                initial="hidden"
-                whileInView="visible"
-                variants={fadeInVariants}
-                transition={{ delay: idx * 0.05, duration: 0.4 }}
-                viewport={{ once: true, margin: "-40px" }}
                 className={cn(
                   "bg-white border border-gray-200 border-l-4 p-6 hover:border-gray-300 transition-colors",
                   spanClass,
@@ -93,7 +80,7 @@ export function FeatureGrid() {
                 <p className="text-gray-600 text-sm leading-relaxed pl-8">
                   {feature.description}
                 </p>
-              </motion.div>
+              </div>
             );
           })}
         </div>

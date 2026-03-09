@@ -189,8 +189,8 @@ export function HeroSection() {
               >
                 <prop.icon className={`h-4 w-4 ${prop.accent}`} />
                 <span className="font-medium text-gray-900 text-sm">{prop.title}</span>
-                <span className="text-gray-400 text-sm hidden sm:inline">·</span>
-                <span className="text-gray-500 text-sm hidden sm:inline">{prop.desc}</span>
+                <span className="text-gray-400 text-sm">·</span>
+                <span className="text-gray-500 text-sm">{prop.desc}</span>
               </motion.div>
             ))}
           </motion.div>

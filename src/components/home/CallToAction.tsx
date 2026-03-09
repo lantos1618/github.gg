@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowRight, Github } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
@@ -38,10 +37,7 @@ export function CallToAction() {
   return (
     <section className="py-20 bg-gray-900 text-white" data-testid="home-cta-section">
       <div className="container mx-auto px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
+        <div
           className="max-w-2xl mx-auto text-center"
         >
           <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight">
@@ -82,7 +78,7 @@ export function CallToAction() {
           <p className="text-sm text-gray-500">
             Free for public repos. <Link href="/pricing" className="text-gray-300 hover:text-white transition-colors" data-testid="home-cta-pricing-link">Pricing</Link> for private.
           </p>
-        </motion.div>
+        </div>
 
         <div className="mt-16 pt-6 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-500">
           <p>&copy; {new Date().getFullYear()} GG</p>

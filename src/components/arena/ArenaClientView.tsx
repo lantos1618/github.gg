@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { trpc } from '@/lib/trpc/client';
 import { LeaderboardTable } from './LeaderboardTable';
 import { ChallengeForm } from './ChallengeForm';
@@ -39,16 +38,8 @@ export function ArenaClientView({ initialLeaderboard }: ArenaClientViewProps) {
     { enabled: myRankingQueryEnabled }
   );
 
-  const canBattle = isSignedIn && currentPlan && currentPlan.plan !== 'free';
-
-  if (authLoading || planLoading) {
-    return (
-      <div className="max-w-[1400px] mx-auto px-6 py-20 space-y-12">
-        <Skeleton className="h-32 w-full max-w-md mx-auto" />
-        <Skeleton className="h-96 w-full" />
-      </div>
-    );
-  }
+  const isAuthReady = !authLoading && !planLoading;
+  const canBattle = isAuthReady && isSignedIn && currentPlan && currentPlan.plan !== 'free';
 
   return (
     <div className="min-h-screen bg-white pt-20 pb-20">

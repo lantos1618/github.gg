@@ -5,7 +5,12 @@ import { SignInButton } from './SignInButton';
 import { ProfileDropdownMenu } from './profile/ProfileDropdownMenu';
 
 export function NavbarClient() {
-  const { user, isSignedIn, signOut } = useAuth();
+  const { user, isSignedIn, isLoading, signOut } = useAuth();
+
+  // Always render SignInButton during SSR and loading to prevent hydration mismatch
+  if (isLoading) {
+    return <SignInButton />;
+  }
 
   return (
     <>

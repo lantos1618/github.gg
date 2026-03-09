@@ -8,6 +8,7 @@ import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import { getOrCreateRanking } from '@/lib/arena/battle-helpers';
 import { BYOK_DAILY_BATTLE_LIMIT, ALL_BATTLE_CRITERIA } from '@/lib/constants/arena';
+import { determineTier } from '@/lib/ai/battle-analysis';
 import { validateBattle } from '@/lib/arena/repository';
 import { executeBattleAsync } from '@/lib/arena/battle-executor';
 import { sendBattleChallengeNotification } from '@/lib/arena/notifications';
@@ -38,7 +39,8 @@ export const arenaRouter = router({
         const { data: authenticatedUser } = await octokit.rest.users.getAuthenticated();
         const githubUsername = authenticatedUser.login.toLowerCase();
 
-        return await getOrCreateRanking(input.userId, githubUsername);
+        const ranking = await getOrCreateRanking(input.userId, githubUsername);
+        return { ...ranking, tier: determineTier(ranking.eloRating) };
       } else if (input.username) {
         const normalizedUsername = input.username.toLowerCase();
         const existing = await db
@@ -46,7 +48,8 @@ export const arenaRouter = router({
           .from(developerRankings)
           .where(eq(developerRankings.username, normalizedUsername))
           .limit(1);
-        return existing[0] || null;
+        if (!existing[0]) return null;
+        return { ...existing[0], tier: determineTier(existing[0].eloRating) };
       } else {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'userId or username required' });
       }
@@ -73,7 +76,7 @@ export const arenaRouter = router({
         rank: offset + index + 1,
         username: ranking.username,
         eloRating: ranking.eloRating,
-        tier: ranking.tier,
+        tier: determineTier(ranking.eloRating),
         wins: ranking.wins,
         losses: ranking.losses,
         winRate: ranking.totalBattles > 0 ? (ranking.wins / ranking.totalBattles) * 100 : 0,

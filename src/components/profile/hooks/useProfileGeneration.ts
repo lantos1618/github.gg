@@ -133,12 +133,14 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
         setCurrentStep('Connection interrupted, checking if profile completed...');
         addLog('Connection interrupted, checking status...', 'info');
 
-        // Poll a few times with delays — the server may still be finishing
-        const pollForProfile = async (attempts: number, delayMs: number) => {
-          for (let i = 0; i < attempts; i++) {
-            if (i > 0) {
-              await new Promise(resolve => setTimeout(resolve, delayMs));
-            }
+        // Poll for completion — keep going as long as the server lock is held
+        const pollForProfile = async () => {
+          const MAX_POLL_TIME_MS = 120_000; // Give up after 2 minutes
+          const POLL_INTERVAL_MS = 5_000;
+          const startTime = Date.now();
+
+          while (Date.now() - startTime < MAX_POLL_TIME_MS) {
+            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
             try {
               const result = await checkGenerationStatus();
               const status = result.data;
@@ -153,10 +155,13 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
                 utils.profile.getProfileVersions.invalidate({ username });
                 return true;
               }
-              // If lock no longer exists and no profile, generation truly failed
+              // If lock released with no profile, server finished but failed
               if (!status?.lockExists) {
                 return false;
               }
+              // Lock still held — server is still working, keep polling
+              const elapsed = Math.round((Date.now() - startTime) / 1000);
+              setCurrentStep(`Server still generating profile... (${elapsed}s)`);
             } catch (err) {
               console.error('Failed to check generation status:', err);
             }
@@ -164,7 +169,7 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
           return false;
         };
 
-        pollForProfile(4, 5000).then((recovered) => {
+        pollForProfile().then((recovered) => {
           if (!recovered) {
             setIsGenerating(false);
             setSseStatus('error');

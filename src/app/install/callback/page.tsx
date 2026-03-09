@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth/client';
 
@@ -163,12 +164,10 @@ export default function InstallCallbackPage() {
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="flex justify-center mb-4">
-              <Loader2 className="h-12 w-12 animate-spin text-blue-500" />
-            </div>
-            <CardTitle>Loading...</CardTitle>
-            <CardDescription>Processing installation...</CardDescription>
+          <CardHeader className="text-center space-y-4">
+            <Skeleton className="h-12 w-12 rounded-full mx-auto" />
+            <Skeleton className="h-6 w-48 mx-auto" />
+            <Skeleton className="h-4 w-64 mx-auto" />
           </CardHeader>
         </Card>
       </div>

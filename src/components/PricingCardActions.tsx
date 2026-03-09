@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc/client';
 import { useAuth } from '@/lib/auth/client';
 import { toast } from 'sonner';
-import { ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface PricingCardActionsProps {
   planType: 'free' | 'pro' | null;
@@ -57,13 +58,7 @@ export function PricingCardActions({ planType, isPro }: PricingCardActionsProps)
   // Pro plan button - loading state
   if (isLoading) {
     return (
-      <Button
-        className="w-full h-10 bg-gray-900 text-white font-medium rounded"
-        disabled
-      >
-        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-        Loading...
-      </Button>
+      <Skeleton className="w-full h-10 rounded" />
     );
   }
 

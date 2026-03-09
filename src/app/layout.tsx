@@ -73,7 +73,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full">
+    <html lang="en" className="h-full" suppressHydrationWarning>
       <head>
         {/* Preconnect to critical third-party origins for faster resource loading */}
         <link rel="preconnect" href="https://avatars.githubusercontent.com" />
@@ -83,6 +83,7 @@ export default function RootLayout({
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
+        suppressHydrationWarning
       >
         <script
           type="application/ld+json"

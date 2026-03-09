@@ -307,7 +307,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   };
 
   const renderContent = () => {
-    if (planLoading || publicLoading) {
+    if (publicLoading) {
       return <ProfileSkeleton />;
     }
 
@@ -370,8 +370,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
       );
     }
 
-    const isLoading = publicLoading || planLoading;
-    if (isLoading && !publicProfile) {
+    if (publicLoading && !publicProfile) {
       return <ProfileSkeleton />;
     }
 

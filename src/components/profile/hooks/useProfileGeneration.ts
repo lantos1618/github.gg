@@ -102,8 +102,6 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
       if (hasCompletedRef.current) {
         return;
       }
-      setIsGenerating(false);
-      setSseStatus('error');
 
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
@@ -111,41 +109,76 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
       }
 
       let errorMessage = 'Failed to generate profile';
+      let isServerError = false;
       try {
         const messageEvent = rawEvent as MessageEvent;
         if (messageEvent.data) {
           const parsed = JSON.parse(messageEvent.data);
           if (parsed.message) {
             errorMessage = parsed.message;
+            isServerError = true;
           }
         }
       } catch {
-        // Parsing failed, use default message
-      }
-
-      // If "already in progress" error, check for recent profile that might have completed
-      if (errorMessage.includes('already in progress')) {
-        checkGenerationStatus().then((result) => {
-          const status = result.data;
-          if (status?.hasRecentProfile && status.profile) {
-            setProgress(100);
-            setSseStatus('complete');
-            setCurrentStep('Profile generated successfully');
-            setGenerationError(null);
-            addLog('Profile generated successfully', 'success');
-            utils.profile.publicGetProfile.invalidate({ username });
-            utils.profile.getProfileVersions.invalidate({ username });
-            return;
-          }
-        }).catch((err) => {
-          console.error('Failed to check generation status:', err);
-        });
+        // No parseable data = native connection drop, not a server-sent error
       }
 
       if (errorMessage.includes('No original (non-forked) public repositories')) {
         errorMessage = "This user doesn't have enough original public repositories to generate a meaningful profile yet.";
       }
 
+      // For connection drops and "already in progress" errors, the server may still be
+      // running and the profile may have been saved. Poll for completion before giving up.
+      if (!isServerError || errorMessage.includes('already in progress')) {
+        setCurrentStep('Connection interrupted, checking if profile completed...');
+        addLog('Connection interrupted, checking status...', 'info');
+
+        // Poll a few times with delays — the server may still be finishing
+        const pollForProfile = async (attempts: number, delayMs: number) => {
+          for (let i = 0; i < attempts; i++) {
+            if (i > 0) {
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+            try {
+              const result = await checkGenerationStatus();
+              const status = result.data;
+              if (status?.hasRecentProfile && status.profile) {
+                setProgress(100);
+                setSseStatus('complete');
+                setIsGenerating(false);
+                setCurrentStep('Profile generated successfully');
+                setGenerationError(null);
+                addLog('Profile generated successfully', 'success');
+                utils.profile.publicGetProfile.invalidate({ username });
+                utils.profile.getProfileVersions.invalidate({ username });
+                return true;
+              }
+              // If lock no longer exists and no profile, generation truly failed
+              if (!status?.lockExists) {
+                return false;
+              }
+            } catch (err) {
+              console.error('Failed to check generation status:', err);
+            }
+          }
+          return false;
+        };
+
+        pollForProfile(4, 5000).then((recovered) => {
+          if (!recovered) {
+            setIsGenerating(false);
+            setSseStatus('error');
+            setCurrentStep(errorMessage);
+            setGenerationError(errorMessage);
+            addLog(errorMessage, 'error');
+          }
+        });
+        return;
+      }
+
+      // Server explicitly sent an error — show it immediately
+      setIsGenerating(false);
+      setSseStatus('error');
       setCurrentStep(errorMessage);
       setGenerationError(errorMessage);
       addLog(errorMessage, 'error');

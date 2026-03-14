@@ -108,5 +108,8 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
   },
+  onAPIError: {
+    errorURL: '/auth/error',
+  },
   secret: process.env.BETTER_AUTH_SECRET!,
 }); 

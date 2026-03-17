@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import { useAuth } from '@/lib/auth/client';
 
 const ERROR_MESSAGES: Record<string, { title: string; description: string }> = {
   please_restart_the_process: {
@@ -32,6 +33,7 @@ function AuthErrorContent() {
   const searchParams = useSearchParams();
   const errorCode = searchParams.get('error') || 'unknown';
   const { title, description } = ERROR_MESSAGES[errorCode] || DEFAULT_ERROR;
+  const { signIn } = useAuth();
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center">
@@ -45,12 +47,12 @@ function AuthErrorContent() {
           </p>
         )}
         <div className="flex gap-4 justify-center">
-          <Link
-            href="/api/auth/signin/github"
+          <button
+            onClick={() => signIn('/')}
             className="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
           >
             Sign in again
-          </Link>
+          </button>
           <Link
             href="/"
             className="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 transition-colors"

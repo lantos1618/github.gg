@@ -58,14 +58,13 @@ export const AnalysisHeader: React.FC<AnalysisHeaderProps> = ({
             Copy Markdown
           </Button>
         )}
-        {canAccess && (
+        {canAccess && !isRegenerating && (
           <Button
             onClick={onRegenerate}
-            disabled={isRegenerating}
             className="flex items-center gap-2"
           >
-            <RefreshCw className={`h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
-            {isRegenerating ? 'Generating...' : 'Regenerate'}
+            <RefreshCw className="h-4 w-4" />
+            Regenerate
           </Button>
         )}
       </div>

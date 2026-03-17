@@ -150,11 +150,11 @@ export async function createGitHubServiceForRepo(
   if (!session?.user?.id) {
     // Even without a session, try repo-owner's installation
     try {
-      const { getInstallationIdForRepo, getInstallationOctokit } = await import('./app');
+      const { getInstallationIdForRepo, getInstallationToken } = await import('./app');
       const installationId = await getInstallationIdForRepo(owner, repo);
       if (installationId) {
-        const octokit = await getInstallationOctokit(installationId);
-        return new GitHubService(octokit as Octokit);
+        const token = await getInstallationToken(installationId);
+        return new GitHubService(new Octokit({ auth: token }));
       }
     } catch {
       // Fall through
@@ -176,11 +176,11 @@ export async function createGitHubServiceForRepo(
 
   // 2. Try the repo-owner's GitHub App installation (covers collaborator access)
   try {
-    const { getInstallationIdForRepo, getInstallationOctokit } = await import('./app');
+    const { getInstallationIdForRepo, getInstallationToken } = await import('./app');
     const installationId = await getInstallationIdForRepo(owner, repo);
     if (installationId) {
-      const octokit = await getInstallationOctokit(installationId);
-      return new GitHubService(octokit as Octokit);
+      const token = await getInstallationToken(installationId);
+      return new GitHubService(new Octokit({ auth: token }));
     }
   } catch {
     // Fall through

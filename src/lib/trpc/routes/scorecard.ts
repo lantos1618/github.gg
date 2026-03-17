@@ -6,7 +6,7 @@ import { eq, and, desc, sql } from 'drizzle-orm';
 import { generateScorecardAnalysis } from '@/lib/ai/scorecard';
 import { TRPCError } from '@trpc/server';
 import { scorecardSchema } from '@/lib/types/scorecard';
-import { createGitHubServiceFromSession } from '@/lib/github';
+import { createGitHubServiceForRepo } from '@/lib/github';
 import { executeAnalysisWithVersioning } from '@/lib/trpc/helpers/analysis-executor';
 import { fetchFilesByPaths } from '@/lib/github/file-fetcher';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
@@ -36,7 +36,7 @@ export const scorecardRouter = router({
 
         yield { type: 'progress', progress: 3, message: 'Authenticating with GitHub...' };
 
-        const githubService = await createGitHubServiceFromSession(ctx.session);
+        const githubService = await createGitHubServiceForRepo(input.user, input.repo, ctx.session);
 
         yield { type: 'progress', progress: 4, message: 'Fetching repository info...' };
         // Use original casing for GitHub API calls
@@ -209,9 +209,9 @@ export const scorecardRouter = router({
       
       // Check repository access and privacy
       try {
-        const githubService = await createGitHubServiceFromSession(ctx.session);
+        const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
         const repoInfo = await githubService.getRepositoryInfo(user, repo);
-        
+
         // If the repository is private, check if user has access
         if (repoInfo.private === true) {
           // If user is not authenticated, block access

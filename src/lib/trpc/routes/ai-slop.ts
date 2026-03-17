@@ -5,7 +5,7 @@ import { aiSlopAnalyses, tokenUsage } from '@/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { generateAISlopAnalysis, aiSlopSchema } from '@/lib/ai/ai-slop';
 import { TRPCError } from '@trpc/server';
-import { createGitHubServiceFromSession } from '@/lib/github';
+import { createGitHubServiceForRepo } from '@/lib/github';
 import { fetchFilesByPaths } from '@/lib/github/file-fetcher';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { isPgErrorWithCode } from '@/lib/db/utils';
@@ -92,7 +92,7 @@ export const aiSlopRouter = router({
         yield { type: 'progress', progress: 3, message: 'Authenticating with GitHub...' };
 
         // Create authenticated GitHub service
-        const githubService = await createGitHubServiceFromSession(ctx.session);
+        const githubService = await createGitHubServiceForRepo(input.user, input.repo, ctx.session);
 
         // Fetch repo info to get actual default branch if not provided
         let ref = input.ref;
@@ -250,7 +250,7 @@ export const aiSlopRouter = router({
 
       // Check repository access and privacy
       try {
-        const githubService = await createGitHubServiceFromSession(ctx.session);
+        const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
         const repoInfo = await githubService.getRepositoryInfo(user, repo);
 
         // If the repository is private, check if user has access

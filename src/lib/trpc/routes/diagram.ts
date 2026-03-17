@@ -8,7 +8,7 @@ import { tokenUsage, repositoryDiagrams } from '@/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import { createGitHubServiceFromSession } from '@/lib/github';
+import { createGitHubServiceForRepo } from '@/lib/github';
 
 export const diagramRouter = router({
   getDiagram: protectedProcedure
@@ -65,7 +65,7 @@ export const diagramRouter = router({
 
       // Check repository access and privacy
       try {
-        const githubService = await createGitHubServiceFromSession(ctx.session);
+        const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
         const repoInfo = await githubService.getRepositoryInfo(user, repo);
 
         // If the repository is private, check if user has access
@@ -219,7 +219,7 @@ export const diagramRouter = router({
         yield { type: 'progress', progress: 10, message: 'Fetching repository files...' };
 
         // NEW: Fetch files on the server-side
-        const githubService = await createGitHubServiceFromSession(ctx.session);
+        const githubService = await createGitHubServiceForRepo(owner, repo, ctx.session);
         const { files: repoFiles } = await githubService.getRepositoryFiles(
           owner,
           repo,

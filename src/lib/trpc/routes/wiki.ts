@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
-import { createGitHubServiceFromSession } from '@/lib/github';
+import { createGitHubServiceForRepo } from '@/lib/github';
 import { generateWikiWithCacheStreaming } from '@/lib/ai/wiki-generator';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
@@ -70,7 +70,7 @@ export const wikiRouter = router({
 
         yield { type: 'progress', progress: 5, message: 'Authenticating with GitHub...' };
 
-        const githubService = await createGitHubServiceFromSession(ctx.session);
+        const githubService = await createGitHubServiceForRepo(owner, repo, ctx.session);
 
         // Fetch all metadata in parallel
         yield { type: 'progress', progress: 10, message: 'Fetching repository metadata...' };

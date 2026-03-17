@@ -8,7 +8,7 @@ import IssueDetailClientView from './IssueDetailClientView';
 import { ComingSoon } from '@/components/ComingSoon';
 import { notFound } from 'next/navigation';
 import { parseRepoPath } from '@/lib/utils';
-import { createGitHubServiceFromSession } from '@/lib/github';
+import { createGitHubServiceForRepo } from '@/lib/github';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
@@ -53,7 +53,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     try {
       const headersList = await headers();
       const session = await auth.api.getSession({ headers: headersList } as Request);
-      const githubService = await createGitHubServiceFromSession(session);
+      const githubService = await createGitHubServiceForRepo(user, rest[0], session);
       branchNames = await githubService.getBranches(user, rest[0]);
     } catch (error) {
       // Silently fail - we'll use basic canonical logic
@@ -159,7 +159,7 @@ export default async function Page({ params }: PageProps) {
     try {
       const headersList = await headers();
       const session = await auth.api.getSession({ headers: headersList } as Request);
-      const githubService = await createGitHubServiceFromSession(session);
+      const githubService = await createGitHubServiceForRepo(user, repo, session);
       branchNames = await githubService.getBranches(user, repo);
     } catch (error) {
       console.warn('Failed to fetch branch names for enhanced parsing:', error);

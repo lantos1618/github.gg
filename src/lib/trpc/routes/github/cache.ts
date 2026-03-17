@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, publicProcedure } from '@/lib/trpc/trpc';
-import { createGitHubServiceFromSession } from '@/lib/github';
+import { createGitHubServiceForRepo } from '@/lib/github';
 import { db } from '@/db';
 import { cachedRepos, user } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -18,7 +18,7 @@ export const cacheRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       try {
-        const githubService = await createGitHubServiceFromSession(ctx.session);
+        const githubService = await createGitHubServiceForRepo(input.owner, input.repo, ctx.session);
         const details = await githubService.getRepositoryDetails(input.owner, input.repo);
         const userId = ctx.session?.user?.id ?? null;
         

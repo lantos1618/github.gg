@@ -140,6 +140,62 @@ export async function createGitHubServiceFromSession(session: BetterAuthSession 
   return GitHubService.createPublic();
 }
 
+// Repo-aware variant that also checks if the target repo's owner has a GitHub App installation.
+// Use this when the caller knows the target owner/repo (e.g. files, scorecard, diagram routes).
+export async function createGitHubServiceForRepo(
+  owner: string,
+  repo: string,
+  session: BetterAuthSession | null
+): Promise<GitHubService> {
+  if (!session?.user?.id) {
+    // Even without a session, try repo-owner's installation
+    try {
+      const { getInstallationIdForRepo, getInstallationOctokit } = await import('./app');
+      const installationId = await getInstallationIdForRepo(owner, repo);
+      if (installationId) {
+        const octokit = await getInstallationOctokit(installationId);
+        return new GitHubService(octokit as Octokit);
+      }
+    } catch {
+      // Fall through
+    }
+    return GitHubService.createPublic();
+  }
+
+  // 1. Try logged-in user's own GitHub App installation
+  const appService = await GitHubService.createWithApp(session);
+  if (appService) {
+    // Verify the user's installation can actually access this repo
+    try {
+      await appService.getRepositoryInfo(owner, repo);
+      return appService;
+    } catch {
+      // User's installation can't access this repo, continue
+    }
+  }
+
+  // 2. Try the repo-owner's GitHub App installation (covers collaborator access)
+  try {
+    const { getInstallationIdForRepo, getInstallationOctokit } = await import('./app');
+    const installationId = await getInstallationIdForRepo(owner, repo);
+    if (installationId) {
+      const octokit = await getInstallationOctokit(installationId);
+      return new GitHubService(octokit as Octokit);
+    }
+  } catch {
+    // Fall through
+  }
+
+  // 3. Try OAuth token (works for private repos user has access to IF scope includes 'repo')
+  const oauthService = await GitHubService.createWithOAuth(session);
+  if (oauthService) {
+    return oauthService;
+  }
+
+  // 4. Fallback to public service
+  return GitHubService.createPublic();
+}
+
 // Specialized function for user operations that prioritizes OAuth
 export async function createGitHubServiceForUserOperations(session: BetterAuthSession | null): Promise<GitHubService> {
   if (!session?.user?.id) {

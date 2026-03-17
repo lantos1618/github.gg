@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
-import { createGitHubServiceFromSession, createPublicGitHubService } from '@/lib/github';
+import { createGitHubServiceForRepo, createPublicGitHubService } from '@/lib/github';
 import { analyzePullRequest } from '@/lib/ai/pr-analysis';
 import { analyzeIssue } from '@/lib/ai/issue-analysis';
 import { TRPCError } from '@trpc/server';
@@ -160,7 +160,7 @@ export const githubAnalysisRouter = router({
           message: 'Authenticating with GitHub...',
         };
 
-        const githubService = await createGitHubServiceFromSession(ctx.session);
+        const githubService = await createGitHubServiceForRepo(owner, repo, ctx.session);
 
         const [pr, files] = await Promise.all([
           githubService['octokit'].pulls.get({
@@ -427,7 +427,7 @@ export const githubAnalysisRouter = router({
 
         yield { type: 'progress' as const, progress: 3, message: 'Authenticating with GitHub...' };
 
-        const githubService = await createGitHubServiceFromSession(ctx.session);
+        const githubService = await createGitHubServiceForRepo(owner, repo, ctx.session);
 
         const [issue, repoData] = await Promise.all([
           githubService['octokit'].issues.get({

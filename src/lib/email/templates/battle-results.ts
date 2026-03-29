@@ -11,132 +11,78 @@ export interface BattleResultsTemplateData {
 
 export function renderBattleResultsEmail(data: BattleResultsTemplateData): string {
   const { recipientUsername, opponentUsername, won, yourScore, opponentScore, eloChange, newElo, reason } = data;
+
   return `
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:#f5f6f8; color:#0f172a; padding:24px; }
-    .wrap { max-width:680px; margin:0 auto; }
-    .topbar { background:#0b1020; color:#fff; padding:14px 20px; border-radius:12px 12px 0 0; }
-    .brand { display:flex; align-items:center; gap:12px; font-weight:800; }
-    .brand-badge { background:#10b981; color:#031; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; opacity:.85; }
-    .hero { background:${won ? '#0ea5e9' : '#ef4444'}14; border:1px solid ${won ? '#0ea5e9' : '#ef4444'}33; border-top:none; padding:36px 24px; text-align:center; }
-    .hero-title { font-size:28px; font-weight:900; letter-spacing:.6px; color:${won ? '#065f46' : '#991b1b'}; }
-    .sub { color:#475569; margin-top:6px; }
-    .circle { width:64px; height:64px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:14px; background:${won ? '#10b981' : '#ef4444'}1a; border:2px solid ${won ? '#10b981' : '#ef4444'}40; font-size:28px; }
-    .card { background:#fff; border-radius:0 0 12px 12px; overflow:hidden; box-shadow:0 8px 20px rgba(2,6,23,.08); }
-    .vs-row { display:flex; justify-content:space-between; gap:16px; padding:22px; border-bottom:1px solid #e2e8f0; }
-    .col { flex:1; text-align:center; }
-    .label { font-size:12px; color:#64748b; letter-spacing:1px; text-transform:uppercase; font-weight:700; margin-bottom:6px; }
-    .name { font-weight:800; color:#0f172a; }
-    .score { font-size:38px; font-weight:900; color:${won ? '#059669' : '#dc2626'}; }
-    .vs-dot { font-weight:900; color:#334155; font-size:14px; margin-top:10px; }
-    .metrics { display:flex; gap:16px; padding:18px 22px; }
-    .metric { flex:1; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; text-align:center; }
-    .metric .value { font-size:24px; font-weight:900; color:${eloChange >= 0 ? '#10b981' : '#ef4444'}; }
-    .section { margin:18px 22px; padding:18px; background:#f8fafc; border-left:4px solid ${won ? '#10b981' : '#ef4444'}; border-radius:10px; }
-    .section h3 { font-size:16px; margin-bottom:8px; }
-    .cta-row { display:flex; gap:12px; padding:0 22px 22px; }
-    .btn { display:block; flex:1; text-decoration:none; text-align:center; padding:14px 18px; border-radius:10px; font-weight:800; font-size:16px; }
-    .btn-primary { background:#0f766e; color:#fff; }
-    .btn-secondary { background:#111827; color:#fff; }
-    .features { margin:12px 22px 22px; padding:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; }
-    .features h4 { font-size:12px; text-transform:uppercase; letter-spacing:.8px; color:#64748b; margin-bottom:10px; }
-    .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .chip { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size:14px; font-weight:600; color:#0f172a; }
-    .stats { text-align:center; padding:0 22px 22px; }
-    .stats a { color:#0ea5e9; text-decoration:none; font-weight:800; }
-    .footer { text-align:center; color:#94a3b8; font-size:12px; margin-top:14px; }
-    @media (max-width: 520px){ .grid{ grid-template-columns:1fr; } .cta-row{ flex-direction:column; } .vs-row{ flex-direction:column; } }
-  </style>
-  <title>github.gg battle results</title>
 </head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <div class="topbar">
-        <div class="brand">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div style="background:#16a34a; width:28px; height:28px; border-radius:6px; display:inline-block;"></div>
-            <div style="font-size:18px;">github.gg</div>
-          </div>
-          <span class="brand-badge">BETA</span>
-        </div>
-      </div>
+<body style="margin:0;padding:0;background:#fafafa;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1a1a;line-height:1.6">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa">
+    <tr><td align="center" style="padding:40px 20px">
+      <table width="700" cellpadding="0" cellspacing="0" style="max-width:700px;width:100%;background:#ffffff;border:1px solid #e8e8e8">
 
-      <div class="hero">
-        <div class="circle">${won ? '✓' : '✕'}</div>
-        <div class="hero-title">${won ? 'VICTORY' : 'DEFEAT'}</div>
-        <div class="sub">Learn and come back stronger</div>
-      </div>
+        <!-- Header -->
+        <tr><td style="padding:48px 48px 32px;border-bottom:1px solid #e8e8e8">
+          <span style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#999">github.gg · Arena</span>
+          <h1 style="margin:12px 0 0;font-size:24px;font-weight:400;letter-spacing:-0.3px">${recipientUsername} vs ${opponentUsername}</h1>
+        </td></tr>
 
-      <div class="vs-row">
-        <div class="col">
-          <div class="label">You</div>
-          <div class="name">${recipientUsername}</div>
-          <div class="score">${yourScore.toFixed(2)}</div>
-        </div>
-        <div class="col" style="align-self:center; max-width:60px;">
-          <div class="vs-dot">VS</div>
-        </div>
-        <div class="col">
-          <div class="label">Opponent</div>
-          <div class="name">${opponentUsername}</div>
-          <div class="score" style="color:#16a34a;">${opponentScore.toFixed(2)}</div>
-        </div>
-      </div>
+        <!-- Body -->
+        <tr><td style="padding:40px 48px">
 
-      <div class="metrics">
-        <div class="metric">
-          <div class="label">Elo Change</div>
-          <div class="value">${eloChange >= 0 ? '+' : ''}${eloChange}</div>
-        </div>
-        <div class="metric">
-          <div class="label">New Rating</div>
-          <div class="value" style="color:#0f172a;">${newElo}</div>
-        </div>
-      </div>
+          <p style="margin:0 0 32px;font-size:15px">${recipientUsername}, your battle is in. ${won ? 'You won.' : 'You lost.'}</p>
 
-      <div class="section">
-        <h3>🤖 AI Battle Analysis</h3>
-        <p style="color:#334155; line-height:1.7; font-size:14px;">${reason}</p>
-      </div>
+          <!-- Scores -->
+          <h2 style="margin:0 0 20px;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:#999;border-bottom:1px solid #e8e8e8;padding-bottom:8px">Scores</h2>
 
-      <div class="cta-row">
-        <a class="btn btn-primary" href="https://github.gg/arena?rematch=${encodeURIComponent(opponentUsername)}">Rematch ${opponentUsername}</a>
-        <a class="btn btn-secondary" href="https://github.gg/arena">Find New Challenger</a>
-      </div>
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 32px">
+            <tr>
+              <td style="padding:8px 0;font-size:14px;font-weight:600;width:180px">${recipientUsername}</td>
+              <td style="padding:8px 0;font-size:14px">${yourScore.toFixed(1)}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;font-size:14px;font-weight:600;border-top:1px solid #f0f0f0">${opponentUsername}</td>
+              <td style="padding:8px 0;font-size:14px;border-top:1px solid #f0f0f0">${opponentScore.toFixed(1)}</td>
+            </tr>
+          </table>
 
-      <div class="features">
-        <h4>What you get with github.gg</h4>
-        <div class="grid">
-          <div class="chip">AI Code Review</div>
-          <div class="chip">PR Analysis</div>
-          <div class="chip">Better Dashboard</div>
-          <div class="chip">Slop Detection</div>
-        </div>
-      </div>
+          <!-- Rating -->
+          <h2 style="margin:0 0 20px;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:#999;border-bottom:1px solid #e8e8e8;padding-bottom:8px">Rating</h2>
 
-      <div class="stats">
-        <a href="https://github.gg/arena">View Full Battle Stats →</a>
-      </div>
-    </div>
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 32px">
+            <tr>
+              <td style="padding:8px 0;font-size:14px;font-weight:600;width:180px">Elo change</td>
+              <td style="padding:8px 0;font-size:14px">${eloChange >= 0 ? '+' : ''}${eloChange}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;font-size:14px;font-weight:600;border-top:1px solid #f0f0f0">New rating</td>
+              <td style="padding:8px 0;font-size:14px;border-top:1px solid #f0f0f0">${newElo}</td>
+            </tr>
+          </table>
 
-    <div class="footer">
-      <div><a href="https://github.gg" style="color:#0ea5e9; text-decoration:none; font-weight:700;">github.gg</a> · AI-powered code analytics & battles</div>
-      <div style="margin-top:8px;">
-        <a href="https://github.gg/dashboard" style="color:#64748b; text-decoration:none;">Dashboard</a> ·
-        <a href="https://github.gg/rankings" style="color:#64748b; text-decoration:none;">Rankings</a> ·
-        <a href="https://github.gg/settings" style="color:#64748b; text-decoration:none;">Settings</a>
-      </div>
-    </div>
-  </div>
+          <!-- Analysis -->
+          <h2 style="margin:0 0 20px;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:#999;border-bottom:1px solid #e8e8e8;padding-bottom:8px">Analysis</h2>
+          <p style="margin:0 0 32px;font-size:15px">${reason}</p>
+
+          <p style="margin:0 0 8px;font-size:15px;border-top:1px solid #e8e8e8;padding-top:24px">
+            <a href="https://github.gg/arena?rematch=${encodeURIComponent(opponentUsername)}" style="color:#1a1a1a">Rematch ${opponentUsername}</a> · <a href="https://github.gg/arena" style="color:#1a1a1a">Arena</a>
+          </p>
+
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="padding:24px 48px;border-top:1px solid #e8e8e8;background:#fafafa">
+          <span style="font-size:13px;color:#999">&mdash; github.gg</span><br>
+          <span style="font-size:11px;color:#bbb">arena@github.gg</span>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
 </body>
 </html>
   `;
 }
-
-

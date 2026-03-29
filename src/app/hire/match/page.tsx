@@ -187,10 +187,10 @@ Include:
               <Button
                 onClick={handleSearch}
                 disabled={matchMutation.isPending || jobDescription.trim().length < 50}
-                className="w-full"
+                className={`w-full ${matchMutation.isPending ? 'animate-pulse' : ''}`}
               >
                 <Search className="h-4 w-4 mr-2" />
-                {matchMutation.isPending ? 'Finding Matches...' : 'Find Candidates'}
+                Find Candidates
               </Button>
 
               {matchMutation.isPending && (

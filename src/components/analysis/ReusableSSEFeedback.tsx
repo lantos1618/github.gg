@@ -28,7 +28,7 @@ export function ReusableSSEFeedback({
   progress,
   currentStep,
   logs,
-  title = 'Processing...',
+  title = '',
   className,
 }: ReusableSSEFeedbackProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);

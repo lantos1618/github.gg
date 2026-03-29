@@ -57,7 +57,7 @@ export default function PRDetailClientView({ user, repo, number }: PRDetailClien
       resourceTypePlural="pulls"
       backLinkText="Back to Pull Requests"
       analyzeButtonText={(isPending, hasAnalysis) =>
-        isPending ? 'Processing...' : hasAnalysis ? 'Regenerate Analysis' : 'Analyze PR'
+        hasAnalysis ? 'Regenerate Analysis' : 'Analyze PR'
       }
       getTitle={(pr) => pr.title}
       getNumber={(pr) => pr.number}

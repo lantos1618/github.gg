@@ -39,9 +39,10 @@ export function InsightsRefreshButton({
         variant="outline"
         size="sm"
         data-testid="scorecard-refresh-btn"
+        className={isRefreshing ? 'animate-pulse' : ''}
       >
         <RefreshCw className="mr-2 h-4 w-4" />
-        {isRefreshing ? 'Refreshing...' : 'Refresh Analysis'}
+        Refresh Analysis
       </Button>
     </div>
   );

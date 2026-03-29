@@ -54,10 +54,10 @@ export function ProfileActions({
           data-testid="profile-refresh-btn"
           onClick={onRefresh}
           disabled={isGenerating}
-          className="h-12 px-6 bg-black hover:bg-gray-800 text-white shadow-none rounded-lg"
+          className={`h-12 px-6 bg-black hover:bg-gray-800 text-white shadow-none rounded-lg ${isGenerating ? 'animate-pulse' : ''}`}
         >
           <RefreshCw className="h-4 w-4 mr-2" />
-          {isGenerating ? 'Refreshing...' : 'Refresh Analysis'}
+          Refresh Analysis
         </Button>
       )}
     </div>

@@ -50,7 +50,7 @@ export default function IssueDetailClientView({ user, repo, number }: IssueDetai
       resourceTypePlural="issues"
       backLinkText="Back to Issues"
       analyzeButtonText={(isPending, hasAnalysis) =>
-        isPending ? 'Processing...' : hasAnalysis ? 'Regenerate Analysis' : 'Analyze Issue'
+        hasAnalysis ? 'Regenerate Analysis' : 'Analyze Issue'
       }
       getTitle={(issue) => issue.title}
       getNumber={(issue) => issue.number}

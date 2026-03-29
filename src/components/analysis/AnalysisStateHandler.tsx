@@ -118,11 +118,11 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
               <Button
                 onClick={onRegenerate}
                 disabled={isRegenerating}
-                className="flex items-center gap-2"
+                className={`flex items-center gap-2 ${isRegenerating ? 'animate-pulse' : ''}`}
                 size="lg"
               >
                 <RefreshCw className="h-4 w-4" />
-                {isRegenerating ? 'Generating...' : 'Generate Analysis'}
+                Generate Analysis
               </Button>
               {filesSelected && (
                 <p className="text-sm text-gray-400 mt-4">
@@ -149,7 +149,7 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
                 progress={sseProgress || 0}
                 currentStep={sseCurrentStep || ''}
                 logs={sseLogs || []}
-                title={sseTitle || 'Generating...'}
+                title={sseTitle || ''}
               />
             </div>
           )}

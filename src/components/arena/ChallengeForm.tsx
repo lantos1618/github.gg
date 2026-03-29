@@ -454,10 +454,10 @@ export function ChallengeForm() {
               disabled={!isFormValid || isPending}
               size="lg"
               data-testid="arena-challenge-start-btn"
-              className="w-full h-16 text-lg font-bold bg-black hover:bg-gray-800 rounded-xl transition-all"
+              className={`w-full h-16 text-lg font-bold bg-black hover:bg-gray-800 rounded-xl transition-all ${isPending ? 'animate-pulse' : ''}`}
             >
               <Sword className="h-5 w-5 mr-2" />
-              {isPending ? 'Starting Battle...' : 'Start Battle'}
+              Start Battle
             </Button>
 
             {/* Progress Indicator */}

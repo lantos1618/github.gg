@@ -243,10 +243,10 @@ function DiagramClientView({
               <Button
                 onClick={diagramToShow ? handleRegenerate : () => handleRetryWithContext()}
                 disabled={isPending}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                className={`flex items-center gap-2 bg-blue-600 hover:bg-blue-700 ${isPending ? 'animate-pulse' : ''}`}
               >
                 <RefreshCw className="h-4 w-4" />
-                {isPending ? 'Generating...' : (diagramToShow ? 'Regenerate Diagram' : 'Generate Diagram')}
+                {diagramToShow ? 'Regenerate Diagram' : 'Generate Diagram'}
               </Button>
             )}
           </div>

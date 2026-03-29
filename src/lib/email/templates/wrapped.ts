@@ -16,71 +16,65 @@ export interface WrappedGiftEmailData extends WrappedEmailData {
 
 export function renderWrappedReadyEmail(data: WrappedEmailData): string {
   const { recipientUsername, year, wrappedUrl, stats } = data;
-  
+
   return `
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f5f6f8; color: #0f172a; padding: 24px; }
-    .wrap { max-width: 580px; margin: 0 auto; }
-    .card { background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 30px rgba(2,6,23,.1); }
-    .header { background: linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%); padding: 40px 24px; text-align: center; }
-    .emoji { font-size: 64px; margin-bottom: 16px; }
-    .title { color: #fff; font-size: 32px; font-weight: 900; margin-bottom: 8px; }
-    .subtitle { color: rgba(255,255,255,0.9); font-size: 18px; }
-    .stats { display: flex; justify-content: center; gap: 24px; padding: 32px 24px; background: #f8fafc; }
-    .stat { text-align: center; }
-    .stat-value { font-size: 32px; font-weight: 900; color: #7c3aed; }
-    .stat-label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
-    .body { padding: 32px 24px; text-align: center; }
-    .message { font-size: 16px; color: #475569; line-height: 1.6; margin-bottom: 24px; }
-    .cta { display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%); color: #fff; padding: 16px 40px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 18px; }
-    .cta:hover { opacity: 0.9; }
-    .footer { text-align: center; padding: 24px; color: #94a3b8; font-size: 12px; }
-    .footer a { color: #7c3aed; text-decoration: none; }
-    @media (max-width: 520px) { .stats { flex-direction: column; gap: 16px; } }
-  </style>
 </head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <div class="header">
-        <div class="emoji">🎁</div>
-        <div class="title">${year} Wrapped</div>
-        <div class="subtitle">Your year in code is ready, @${recipientUsername}!</div>
-      </div>
+<body style="margin:0;padding:0;background:#fafafa;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1a1a;line-height:1.6">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa">
+    <tr><td align="center" style="padding:40px 20px">
+      <table width="700" cellpadding="0" cellspacing="0" style="max-width:700px;width:100%;background:#ffffff;border:1px solid #e8e8e8">
 
-      <div class="stats">
-        <div class="stat">
-          <div class="stat-value">${stats.totalCommits.toLocaleString()}</div>
-          <div class="stat-label">Commits</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value">${stats.topLanguage}</div>
-          <div class="stat-label">Top Language</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value">${stats.longestStreak}</div>
-          <div class="stat-label">Day Streak</div>
-        </div>
-      </div>
+        <!-- Header -->
+        <tr><td style="padding:48px 48px 32px;border-bottom:1px solid #e8e8e8">
+          <span style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#999">github.gg · Wrapped</span>
+          <h1 style="margin:12px 0 0;font-size:24px;font-weight:400;letter-spacing:-0.3px">Your ${year} is ready</h1>
+        </td></tr>
 
-      <div class="body">
-        <p class="message">
-          We've analyzed your ${year} GitHub activity and prepared a personalized wrapped experience just for you. 
-          See your coding patterns, personality type, and more!
-        </p>
-        <a class="cta" href="${wrappedUrl}">View My Wrapped →</a>
-      </div>
-    </div>
+        <!-- Body -->
+        <tr><td style="padding:40px 48px">
 
-    <div class="footer">
-      <p><a href="https://github.gg">github.gg</a> · AI-powered code analytics</p>
-    </div>
-  </div>
+          <p style="margin:0 0 32px;font-size:15px">${recipientUsername},</p>
+
+          <p style="margin:0 0 32px;font-size:15px">We analyzed your ${year} GitHub activity and put together a wrapped for you. Coding patterns, personality type, the whole thing.</p>
+
+          <!-- Stats -->
+          <h2 style="margin:0 0 20px;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:#999;border-bottom:1px solid #e8e8e8;padding-bottom:8px">Highlights</h2>
+
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 32px">
+            <tr>
+              <td style="padding:8px 0;font-size:14px;font-weight:600;width:160px">Commits</td>
+              <td style="padding:8px 0;font-size:14px">${stats.totalCommits.toLocaleString()}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;font-size:14px;font-weight:600;border-top:1px solid #f0f0f0">Top language</td>
+              <td style="padding:8px 0;font-size:14px;border-top:1px solid #f0f0f0">${stats.topLanguage}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;font-size:14px;font-weight:600;border-top:1px solid #f0f0f0">Longest streak</td>
+              <td style="padding:8px 0;font-size:14px;border-top:1px solid #f0f0f0">${stats.longestStreak} days</td>
+            </tr>
+          </table>
+
+          <p style="margin:0;font-size:15px;border-top:1px solid #e8e8e8;padding-top:24px">
+            See the full thing at <a href="${wrappedUrl}" style="color:#1a1a1a">${wrappedUrl.replace('https://', '')}</a>
+          </p>
+
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="padding:24px 48px;border-top:1px solid #e8e8e8;background:#fafafa">
+          <span style="font-size:13px;color:#999">&mdash; github.gg</span><br>
+          <span style="font-size:11px;color:#bbb">hello@github.gg</span>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
 </body>
 </html>
   `;
@@ -88,86 +82,69 @@ export function renderWrappedReadyEmail(data: WrappedEmailData): string {
 
 export function renderWrappedGiftEmail(data: WrappedGiftEmailData): string {
   const { recipientUsername, senderUsername, year, wrappedUrl, stats, personalMessage } = data;
-  
+
   return `
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f5f6f8; color: #0f172a; padding: 24px; }
-    .wrap { max-width: 580px; margin: 0 auto; }
-    .card { background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 30px rgba(2,6,23,.1); }
-    .header { background: linear-gradient(135deg, #f97316 0%, #ec4899 50%, #7c3aed 100%); padding: 40px 24px; text-align: center; }
-    .emoji { font-size: 64px; margin-bottom: 16px; }
-    .title { color: #fff; font-size: 28px; font-weight: 900; margin-bottom: 8px; }
-    .subtitle { color: rgba(255,255,255,0.9); font-size: 16px; }
-    .sender-box { background: #fef3c7; border: 1px solid #fcd34d; border-radius: 12px; padding: 20px; margin: 24px; text-align: center; }
-    .sender-label { font-size: 12px; color: #92400e; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-    .sender-name { font-size: 20px; font-weight: 800; color: #78350f; }
-    .personal-message { background: #f1f5f9; border-left: 4px solid #7c3aed; padding: 16px; margin: 0 24px; border-radius: 0 8px 8px 0; font-style: italic; color: #475569; }
-    .stats { display: flex; justify-content: center; gap: 24px; padding: 32px 24px; background: #f8fafc; }
-    .stat { text-align: center; }
-    .stat-value { font-size: 28px; font-weight: 900; color: #7c3aed; }
-    .stat-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
-    .body { padding: 32px 24px; text-align: center; }
-    .message { font-size: 16px; color: #475569; line-height: 1.6; margin-bottom: 24px; }
-    .cta { display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%); color: #fff; padding: 16px 40px; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 18px; }
-    .footer { text-align: center; padding: 24px; color: #94a3b8; font-size: 12px; }
-    .footer a { color: #7c3aed; text-decoration: none; }
-    @media (max-width: 520px) { .stats { flex-direction: column; gap: 16px; } }
-  </style>
 </head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <div class="header">
-        <div class="emoji">🎁✨</div>
-        <div class="title">You've Been Wrapped!</div>
-        <div class="subtitle">@${senderUsername} created a ${year} Wrapped for you</div>
-      </div>
+<body style="margin:0;padding:0;background:#fafafa;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1a1a;line-height:1.6">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa">
+    <tr><td align="center" style="padding:40px 20px">
+      <table width="700" cellpadding="0" cellspacing="0" style="max-width:700px;width:100%;background:#ffffff;border:1px solid #e8e8e8">
 
-      <div class="sender-box">
-        <div class="sender-label">Gift from</div>
-        <div class="sender-name">@${senderUsername}</div>
-      </div>
+        <!-- Header -->
+        <tr><td style="padding:48px 48px 32px;border-bottom:1px solid #e8e8e8">
+          <span style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#999">github.gg · Wrapped</span>
+          <h1 style="margin:12px 0 0;font-size:24px;font-weight:400;letter-spacing:-0.3px">${senderUsername} wrapped your ${year}</h1>
+        </td></tr>
 
-      ${personalMessage ? `
-      <div class="personal-message">
-        "${personalMessage}"
-      </div>
-      ` : ''}
+        <!-- Body -->
+        <tr><td style="padding:40px 48px">
 
-      <div class="stats">
-        <div class="stat">
-          <div class="stat-value">${stats.totalCommits.toLocaleString()}</div>
-          <div class="stat-label">Commits</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value">${stats.topLanguage}</div>
-          <div class="stat-label">Top Language</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value">${stats.longestStreak}</div>
-          <div class="stat-label">Day Streak</div>
-        </div>
-      </div>
+          <p style="margin:0 0 32px;font-size:15px">${recipientUsername},</p>
 
-      <div class="body">
-        <p class="message">
-          Your friend analyzed your ${year} GitHub activity and created a personalized wrapped experience for you!
-          See your coding patterns, personality type, and more.
-        </p>
-        <a class="cta" href="${wrappedUrl}">Unwrap My Year →</a>
-      </div>
-    </div>
+          <p style="margin:0 0 32px;font-size:15px">${senderUsername} analyzed your ${year} GitHub activity and created a wrapped for you.</p>
 
-    <div class="footer">
-      <p><a href="https://github.gg">github.gg</a> · AI-powered code analytics</p>
-      <p style="margin-top: 8px;">Want to create one for a friend? <a href="https://github.gg/wrapped">Generate a Wrapped</a></p>
-    </div>
-  </div>
+          ${personalMessage ? `
+          <p style="margin:0 0 32px;font-size:15px;font-style:italic;color:#555">&ldquo;${personalMessage}&rdquo;</p>
+          ` : ''}
+
+          <!-- Stats -->
+          <h2 style="margin:0 0 20px;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:#999;border-bottom:1px solid #e8e8e8;padding-bottom:8px">Highlights</h2>
+
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 32px">
+            <tr>
+              <td style="padding:8px 0;font-size:14px;font-weight:600;width:160px">Commits</td>
+              <td style="padding:8px 0;font-size:14px">${stats.totalCommits.toLocaleString()}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;font-size:14px;font-weight:600;border-top:1px solid #f0f0f0">Top language</td>
+              <td style="padding:8px 0;font-size:14px;border-top:1px solid #f0f0f0">${stats.topLanguage}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;font-size:14px;font-weight:600;border-top:1px solid #f0f0f0">Longest streak</td>
+              <td style="padding:8px 0;font-size:14px;border-top:1px solid #f0f0f0">${stats.longestStreak} days</td>
+            </tr>
+          </table>
+
+          <p style="margin:0;font-size:15px;border-top:1px solid #e8e8e8;padding-top:24px">
+            See the full thing at <a href="${wrappedUrl}" style="color:#1a1a1a">${wrappedUrl.replace('https://', '')}</a>
+          </p>
+
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="padding:24px 48px;border-top:1px solid #e8e8e8;background:#fafafa">
+          <span style="font-size:13px;color:#999">&mdash; github.gg</span><br>
+          <span style="font-size:11px;color:#bbb">hello@github.gg</span>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
 </body>
 </html>
   `;

@@ -129,7 +129,7 @@ export function FeatureRequestBox() {
               whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
             >
               <Send className="w-5 h-5" />
-              {isSubmitting ? 'Sending...' : 'Send Feature Request'}
+              Send Feature Request
             </motion.button>
           </form>
         </div>

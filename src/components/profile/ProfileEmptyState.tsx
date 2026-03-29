@@ -60,10 +60,10 @@ export function ProfileEmptyState({
             data-testid="profile-generate-btn"
             onClick={onGenerate}
             disabled={isGenerating}
-            className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white text-lg rounded-xl shadow-lg hover:shadow-xl transition-all"
+            className={`h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white text-lg rounded-xl shadow-lg hover:shadow-xl transition-all ${isGenerating ? 'animate-pulse' : ''}`}
           >
             <RefreshCw className="h-5 w-5 mr-2" />
-            {isGenerating ? 'Generating...' : 'Generate Analysis'}
+            Generate Analysis
           </Button>
         ) : (
           <UpgradePrompt />

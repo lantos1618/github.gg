@@ -2,43 +2,37 @@ export function renderFeatureRequestEmail(data: { userEmail: string; featureRequ
   const { userEmail, featureRequest } = data;
   return `
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #1f2937; background: #f3f4f6; padding: 20px; }
-    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.07); }
-    .header { background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; padding: 48px 32px; text-align: center; }
-    .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
-    .content { padding: 32px; }
-    .label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; font-weight: 600; margin-bottom: 8px; }
-    .email { background: #f3f4f6; padding: 12px 16px; border-radius: 8px; font-size: 16px; color: #1f2937; margin-bottom: 24px; font-weight: 600; }
-    .request-box { background: #f9fafb; border-left: 4px solid #3b82f6; padding: 20px; border-radius: 8px; margin: 20px 0; }
-    .request-text { color: #374151; font-size: 15px; line-height: 1.7; white-space: pre-wrap; }
-    .footer { text-align: center; color: #9ca3af; font-size: 13px; padding: 24px 32px; border-top: 1px solid #e5e7eb; }
-  </style>
 </head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>🚀 New Feature Request</h1>
-    </div>
-    <div class="content">
-      <div class="label">From</div>
-      <div class="email">${userEmail}</div>
-      <div class="label">Feature Request</div>
-      <div class="request-box">
-        <div class="request-text">${featureRequest}</div>
-      </div>
-    </div>
-    <div class="footer">
-      <p>Feature request submitted via github.gg</p>
-    </div>
-  </div>
+<body style="margin:0;padding:0;background:#fafafa;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1a1a;line-height:1.6">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa">
+    <tr><td align="center" style="padding:40px 20px">
+      <table width="700" cellpadding="0" cellspacing="0" style="max-width:700px;width:100%;background:#ffffff;border:1px solid #e8e8e8">
+
+        <!-- Header -->
+        <tr><td style="padding:48px 48px 32px;border-bottom:1px solid #e8e8e8">
+          <span style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#999">github.gg · Feedback</span>
+          <h1 style="margin:12px 0 0;font-size:24px;font-weight:400;letter-spacing:-0.3px">Feature request from ${userEmail}</h1>
+        </td></tr>
+
+        <!-- Body -->
+        <tr><td style="padding:40px 48px">
+          <p style="margin:0 0 32px;font-size:15px;white-space:pre-wrap">${featureRequest}</p>
+          <p style="margin:0;font-size:14px;color:#999">Reply to this email to respond to ${userEmail}.</p>
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="padding:24px 48px;border-top:1px solid #e8e8e8;background:#fafafa">
+          <span style="font-size:11px;color:#bbb">Submitted via github.gg</span>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
 </body>
 </html>
   `;
 }
-
-

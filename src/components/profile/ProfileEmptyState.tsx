@@ -83,6 +83,7 @@ export function ProfileEmptyState({
   canGenerate,
   sseStatus,
   progress,
+  logs,
   generationError,
   onConfigure,
   onGenerate,
@@ -93,7 +94,7 @@ export function ProfileEmptyState({
   if (isActivelyGenerating) {
     return (
       <div data-testid="profile-empty-state" className="py-8">
-        <ReusableSSEFeedback status={sseStatus} progress={progress} className="mb-6" />
+        <ReusableSSEFeedback status={sseStatus} progress={progress} logs={logs} className="mb-6" />
         <ProfileGeneratingSkeleton />
       </div>
     );

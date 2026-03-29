@@ -308,6 +308,7 @@ function AnalysisPageViewInner<TResponse>({
             <ReusableSSEFeedback
               status={sseStatus}
               progress={progress}
+              logs={logs}
             />
           </div>
 

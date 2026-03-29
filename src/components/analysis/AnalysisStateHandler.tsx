@@ -137,6 +137,7 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
               <ReusableSSEFeedback
                 status={sseStatus}
                 progress={sseProgress || 0}
+                logs={sseLogs || []}
               />
               <AnalysisLoadingSkeleton />
             </div>

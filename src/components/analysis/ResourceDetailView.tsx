@@ -211,6 +211,7 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
         <ReusableSSEFeedback
           status={sseStatus}
           progress={progress}
+          logs={logs}
         />
 
         {/* Resource Header */}

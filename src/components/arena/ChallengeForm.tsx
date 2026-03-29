@@ -14,7 +14,6 @@ import {
   X,
   Check,
   Target,
-  Loader2
 } from 'lucide-react';
 import type { BattleCriteria } from '@/lib/types/arena';
 import { DEFAULT_BATTLE_CRITERIA } from '@/lib/constants/arena';
@@ -457,17 +456,8 @@ export function ChallengeForm() {
               data-testid="arena-challenge-start-btn"
               className="w-full h-16 text-lg font-bold bg-black hover:bg-gray-800 rounded-xl transition-all"
             >
-              {isPending ? (
-                <>
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Analyzing Repositories...
-                </>
-              ) : (
-                <>
-                  <Sword className="h-5 w-5 mr-2" />
-                  Start Battle
-                </>
-              )}
+              <Sword className="h-5 w-5 mr-2" />
+              {isPending ? 'Starting Battle...' : 'Start Battle'}
             </Button>
 
             {/* Progress Indicator */}

@@ -173,7 +173,7 @@ function AnalysisPageViewInner<TResponse>({
   const handleSubscriptionData = useCallback((event: any) => {
     if (event.type === 'progress') {
       const nextProgress = event.progress || 0;
-      const message = sanitizeText(event.message || config.generatingMessage || 'Analyzing repository...');
+      const message = sanitizeText(event.message || config.generatingMessage || 'Generating...');
       setIsLoading(true);
       setSseStatus('processing');
       setProgress(nextProgress);

@@ -56,8 +56,8 @@ export function ProfileActions({
           disabled={isGenerating}
           className="h-12 px-6 bg-black hover:bg-gray-800 text-white shadow-none rounded-lg"
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
-          {isGenerating ? 'Analyzing...' : 'Refresh Analysis'}
+          <RefreshCw className="h-4 w-4 mr-2" />
+          {isGenerating ? 'Refreshing...' : 'Refresh Analysis'}
         </Button>
       )}
     </div>

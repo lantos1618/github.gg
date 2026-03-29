@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Download, Loader2, Check } from 'lucide-react';
+import { Calendar, Download, Check } from 'lucide-react';
 import { WikiGenerationButton } from './WikiGenerationButton';
 
 interface RepoHeaderProps {
@@ -127,7 +127,7 @@ export function RepoHeader({
               <span>
                 {isCopying ? 'Copying...' : copied ? 'Copied!' : 'Copy Code'}
               </span>
-              {isCopying && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isCopying && <div className="h-4 w-4 rounded-full bg-muted-foreground/30 animate-pulse" />}
               {copied && <Check className="h-4 w-4 text-green-500" />}
             </button>
             <button

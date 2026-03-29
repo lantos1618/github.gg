@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth/client';
 
 function InstallCallbackContent() {
@@ -111,7 +111,7 @@ function InstallCallbackContent() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            {status === 'loading' && <Loader2 className="h-12 w-12 animate-spin text-blue-500" />}
+            {status === 'loading' && <div className="h-12 w-12 rounded-full bg-blue-100 animate-pulse" />}
             {status === 'success' && <CheckCircle className="h-12 w-12 text-green-500" />}
             {status === 'error' && <XCircle className="h-12 w-12 text-red-500" />}
             {status === 'needs-auth' && <AlertCircle className="h-12 w-12 text-yellow-500" />}

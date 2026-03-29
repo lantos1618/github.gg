@@ -315,7 +315,7 @@ export default function AdminDashboard() {
                 onClick={handleTriggerAnalysis}
                 disabled={triggerAnalysisMutation.isPending || loadingUsers}
               >
-                <RefreshCw className={`mr-2 h-4 w-4 ${triggerAnalysisMutation.isPending ? 'animate-spin' : ''}`} />
+                <RefreshCw className="mr-2 h-4 w-4" />
                 Refresh Profiles
               </Button>
               {sortedUsers && sortedUsers.length > 0 && (
@@ -450,7 +450,7 @@ export default function AdminDashboard() {
                       disabled={generatingUser === user.id || (!user.name && !user.githubUsername)}
                       title="Run Profile Analysis"
                     >
-                      <Play className={`h-4 w-4 ${generatingUser === user.id ? 'animate-spin text-blue-500' : 'text-gray-500'}`} />
+                      <Play className={`h-4 w-4 ${generatingUser === user.id ? 'text-blue-500 opacity-50' : 'text-gray-500'}`} />
                     </Button>
                   ),
                 }

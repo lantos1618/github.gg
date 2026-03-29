@@ -116,7 +116,7 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
       onData: (event) => {
         if (event.type === 'progress') {
           const pct = event.progress || 0;
-          const message = sanitizeText(event.message || 'Analyzing...');
+          const message = sanitizeText(event.message || 'Processing...');
           setSseStatus('processing');
           setProgress(pct);
           setProgressMessage(message);
@@ -204,7 +204,7 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
           progress={progress}
           currentStep={progressMessage}
           logs={logs}
-          title="Analyzing..."
+          title="Processing..."
         />
 
         {/* Resource Header */}

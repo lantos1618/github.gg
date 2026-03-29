@@ -62,8 +62,8 @@ export function ProfileEmptyState({
             disabled={isGenerating}
             className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white text-lg rounded-xl shadow-lg hover:shadow-xl transition-all"
           >
-            <RefreshCw className={`h-5 w-5 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
-            {isGenerating ? 'Analyzing...' : 'Generate Analysis'}
+            <RefreshCw className="h-5 w-5 mr-2" />
+            {isGenerating ? 'Generating...' : 'Generate Analysis'}
           </Button>
         ) : (
           <UpgradePrompt />

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Send, Loader2 } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -128,17 +128,8 @@ export function FeatureRequestBox() {
               whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
               whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
             >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Send className="w-5 h-5" />
-                  Send Feature Request
-                </>
-              )}
+              <Send className="w-5 h-5" />
+              {isSubmitting ? 'Sending...' : 'Send Feature Request'}
             </motion.button>
           </form>
         </div>

@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Loader2 } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 interface InsightsRefreshButtonProps {
   onRefresh: () => void;
@@ -40,17 +40,8 @@ export function InsightsRefreshButton({
         size="sm"
         data-testid="scorecard-refresh-btn"
       >
-        {isRefreshing ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Analyzing...
-          </>
-        ) : (
-          <>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh Analysis
-          </>
-        )}
+        <RefreshCw className="mr-2 h-4 w-4" />
+        {isRefreshing ? 'Refreshing...' : 'Refresh Analysis'}
       </Button>
     </div>
   );

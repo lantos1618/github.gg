@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { CandidateMatchCard } from '@/components/hire/CandidateMatchCard';
 import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
-import { Search, Loader2, Sparkles, Users, Filter, ArrowLeft } from 'lucide-react';
+import { Search, Sparkles, Users, Filter, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 const ARCHETYPES = [
@@ -189,17 +189,8 @@ Include:
                 disabled={matchMutation.isPending || jobDescription.trim().length < 50}
                 className="w-full"
               >
-                {matchMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Finding Matches...
-                  </>
-                ) : (
-                  <>
-                    <Search className="h-4 w-4 mr-2" />
-                    Find Candidates
-                  </>
-                )}
+                <Search className="h-4 w-4 mr-2" />
+                {matchMutation.isPending ? 'Finding Matches...' : 'Find Candidates'}
               </Button>
 
               {matchMutation.isPending && (

@@ -6,7 +6,6 @@ import { trpc } from '@/lib/trpc/client';
 import { Mail } from 'lucide-react';
 import { developerProfileSchema, type DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
 import { useRouter } from 'next/navigation';
-import { LoadingInline } from '@/components/common';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useProfileGeneration } from './hooks/useProfileGeneration';
 import { ProfileEmptyState } from './ProfileEmptyState';
@@ -324,7 +323,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
         <div className="mt-2 space-y-1">
           {currentUser?.user ? (
             emailLoading ? (
-              <LoadingInline />
+              <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
             ) : emailData?.email ? (
               <div className="flex items-center gap-2 text-gray-500">
                 <Mail className="h-4 w-4" />

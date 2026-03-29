@@ -181,12 +181,11 @@ const FileItem = memo(function FileItem({ file, fileIndex, copiedFile, onCopy, o
           <>
             <div className="relative shiki-wrapper text-sm">
               {isHighlighting && (
-                <div className="absolute inset-0 bg-[#0d1117] flex items-center justify-center z-10">
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm animate-pulse">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" />
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:0.1s]" />
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:0.2s]" />
-                  </div>
+                <div className="absolute inset-0 bg-[#0d1117] p-4 z-10 space-y-2">
+                  <div className="h-4 w-3/4 bg-white/5 rounded animate-pulse" />
+                  <div className="h-4 w-1/2 bg-white/5 rounded animate-pulse" />
+                  <div className="h-4 w-5/6 bg-white/5 rounded animate-pulse" />
+                  <div className="h-4 w-2/3 bg-white/5 rounded animate-pulse" />
                 </div>
               )}
               <ShikiHighlighter

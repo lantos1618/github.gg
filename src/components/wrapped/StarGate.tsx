@@ -151,17 +151,8 @@ export function StarGate({ username, onUnlocked, teaserStats }: StarGateProps) {
                     disabled={isChecking}
                     className="w-full h-12 border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700"
                   >
-                    {isChecking ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        Checking...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        I&apos;ve Starred! Check Again
-                      </>
-                    )}
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    {isChecking ? 'Checking...' : "I've Starred! Check Again"}
                   </Button>
                 </div>
               </div>

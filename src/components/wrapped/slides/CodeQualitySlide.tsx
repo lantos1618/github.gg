@@ -201,36 +201,15 @@ export function CodeQualitySlide({ codeQuality, username, user }: CodeQualitySli
                   <Sparkles className="w-12 h-12 mx-auto text-violet-400" />
               </motion.div>
 
-              <motion.p
-                className="text-xl text-slate-500"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-              >
-                Analyzing your code quality...
-              </motion.p>
-
               <motion.div
-                className="flex justify-center gap-2"
+                className="space-y-3 w-full max-w-xs mx-auto mt-4"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.5 }}
+                transition={{ delay: 0.3 }}
               >
-                {[0, 1, 2, 3].map((i) => (
-                  <motion.div
-                    key={i}
-                    className="w-2 h-2 rounded-full bg-violet-400"
-                    animate={{
-                      scale: [1, 1.4, 1],
-                      opacity: [0.5, 1, 0.5],
-                    }}
-                    transition={{
-                      duration: 1,
-                      delay: i * 0.15,
-                      repeat: Infinity,
-                    }}
-                  />
-                ))}
+                <div className="h-4 w-3/4 bg-violet-200/30 rounded animate-pulse" />
+                <div className="h-4 w-full bg-violet-200/30 rounded animate-pulse" />
+                <div className="h-4 w-1/2 bg-violet-200/30 rounded animate-pulse" />
               </motion.div>
             </motion.div>
           )}

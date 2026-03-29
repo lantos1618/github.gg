@@ -121,7 +121,7 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
                 className="flex items-center gap-2"
                 size="lg"
               >
-                <RefreshCw className={`h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
+                <RefreshCw className="h-4 w-4" />
                 {isRegenerating ? 'Generating...' : 'Generate Analysis'}
               </Button>
               {filesSelected && (

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect } from 'react';
-import { Loader2, Terminal, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Terminal, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -51,7 +51,7 @@ export function ReusableSSEFeedback({
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-primary flex items-center gap-2" data-testid="analysis-sse-progress-text">
             {status === 'processing' || status === 'connecting' ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <div className="h-3.5 w-3.5 rounded-full bg-primary/30 animate-pulse" />
             ) : status === 'complete' ? (
               <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
             ) : status === 'error' ? (

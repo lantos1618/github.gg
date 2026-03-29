@@ -245,7 +245,7 @@ function DiagramClientView({
                 disabled={isPending}
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
               >
-                <RefreshCw className={`h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
+                <RefreshCw className="h-4 w-4" />
                 {isPending ? 'Generating...' : (diagramToShow ? 'Regenerate Diagram' : 'Generate Diagram')}
               </Button>
             )}

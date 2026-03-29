@@ -212,8 +212,10 @@ const FileItem = memo(function FileItem({ file, fileIndex, copiedFile, onCopy, o
             )}
           </>
         ) : (
-          <div className="flex items-center justify-center py-12 text-gray-500 text-sm">
-            Loading content...
+          <div className="p-4 space-y-2">
+            <div className="h-4 w-3/4 bg-white/5 rounded animate-pulse" />
+            <div className="h-4 w-1/2 bg-white/5 rounded animate-pulse" />
+            <div className="h-4 w-5/6 bg-white/5 rounded animate-pulse" />
           </div>
         )}
       </div>

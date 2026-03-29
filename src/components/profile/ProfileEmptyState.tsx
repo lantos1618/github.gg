@@ -1,9 +1,63 @@
 "use client";
 
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { UpgradePrompt } from '@/components/upgrade';
 import { RefreshCw, FolderGit2, AlertCircle } from 'lucide-react';
 import { ReusableSSEFeedback, type SSEStatus, type SSELogItem } from '@/components/analysis/ReusableSSEFeedback';
+
+function ProfileGeneratingSkeleton() {
+  return (
+    <div className="w-full max-w-4xl mx-auto px-4 space-y-8">
+      {/* Header skeleton */}
+      <div className="flex items-start gap-6">
+        <Skeleton className="h-24 w-24 rounded-full shrink-0" />
+        <div className="flex-1 space-y-3 pt-2">
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-4 w-64" />
+          <Skeleton className="h-4 w-40" />
+        </div>
+      </div>
+
+      {/* Score skeleton */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="p-4 rounded-lg border">
+            <Skeleton className="h-3 w-16 mb-2" />
+            <Skeleton className="h-8 w-12" />
+          </div>
+        ))}
+      </div>
+
+      {/* Summary skeleton */}
+      <div className="space-y-3">
+        <Skeleton className="h-5 w-32" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-3/4" />
+      </div>
+
+      {/* Skills skeleton */}
+      <div className="space-y-3">
+        <Skeleton className="h-5 w-24" />
+        <div className="flex gap-2">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-8 w-20 rounded-full" />
+          ))}
+        </div>
+      </div>
+
+      {/* Content skeleton */}
+      <div className="space-y-3">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-5/6" />
+        <Skeleton className="h-32 w-full mt-2" />
+      </div>
+    </div>
+  );
+}
 
 interface ProfileEmptyStateProps {
   username: string;
@@ -29,13 +83,22 @@ export function ProfileEmptyState({
   canGenerate,
   sseStatus,
   progress,
-  currentStep,
-  logs,
   generationError,
   onConfigure,
   onGenerate,
   onReconnect,
 }: ProfileEmptyStateProps) {
+  const isActivelyGenerating = isGenerating && sseStatus !== 'idle';
+
+  if (isActivelyGenerating) {
+    return (
+      <div data-testid="profile-empty-state" className="py-8">
+        <ReusableSSEFeedback status={sseStatus} progress={progress} className="mb-6" />
+        <ProfileGeneratingSkeleton />
+      </div>
+    );
+  }
+
   return (
     <div data-testid="profile-empty-state" className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center">
       <h2 className="text-3xl font-bold text-black mb-4">No Profile Available</h2>
@@ -68,17 +131,6 @@ export function ProfileEmptyState({
         ) : (
           <UpgradePrompt />
         )}
-      </div>
-
-      {/* Progress Bar for Empty State */}
-      <div className="w-full max-w-xl mt-8">
-        <ReusableSSEFeedback
-          status={sseStatus}
-          progress={progress}
-          currentStep={currentStep}
-          logs={logs}
-          title="Profile Generation"
-        />
       </div>
 
       {/* Error Display */}

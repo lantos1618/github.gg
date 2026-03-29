@@ -14,7 +14,7 @@ interface VersionDropdownProps {
 }
 
 export function VersionDropdown({ versions, isLoading, selectedVersion, onVersionChange }: VersionDropdownProps) {
-  if (isLoading) return <div>Loading versions...</div>;
+  if (isLoading) return <div className="h-9 w-32 bg-muted rounded animate-pulse" />;
   if (!versions || versions.length === 0) return null;
   
   return (

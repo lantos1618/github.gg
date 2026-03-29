@@ -91,7 +91,7 @@ export function RepoHeader({
               </p>
             )}
             {loadingBranches ? (
-              <span className="text-xs text-gray-400">Loading branches...</span>
+              <span className="inline-block h-4 w-24 bg-gray-200 rounded animate-pulse" />
             ) : branchError ? (
               <span className="text-xs text-red-500">{branchError.message || 'Failed to load branches'}</span>
             ) : branches.length > 0 ? (

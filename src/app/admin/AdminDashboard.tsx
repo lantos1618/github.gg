@@ -59,7 +59,7 @@ export default function AdminDashboard() {
       onData: (event: any) => {
         if (event.type === 'progress') {
           const pct = event.progress || 0;
-          const message = sanitizeText(event.message || 'Processing...');
+          const message = sanitizeText(event.message || '');
           setSseStatus('processing');
           setProgress(pct);
           setCurrentStep(message);
@@ -360,7 +360,7 @@ export default function AdminDashboard() {
         </CardHeader>
         <CardContent>
           {loadingUsers ? (
-            <div className="text-center py-8 text-muted-foreground">Loading users...</div>
+            <div className="space-y-3 py-4">{[1,2,3,4,5].map(i => <div key={i} className="h-10 w-full bg-muted rounded animate-pulse" />)}</div>
           ) : sortedUsers && sortedUsers.length > 0 ? (
             <SortableTable
               data={sortedUsers}
@@ -529,7 +529,7 @@ export default function AdminDashboard() {
         <h2 className="text-xl font-semibold mb-4">Cost & Revenue (Last 30 Days)</h2>
         <div className="w-full h-72 bg-white rounded-lg border p-4">
           {loadingDailyStats ? (
-            <div className="text-center text-muted-foreground py-16">Loading chart...</div>
+            <div className="flex items-end gap-2 h-full px-4 pb-4">{[40,65,30,80,55,70,45,60,75,50].map((h,i) => <div key={i} className="flex-1 bg-muted rounded-t animate-pulse" style={{height:`${h}%`}} />)}</div>
           ) : dailyStats && dailyStats.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={dailyStats} margin={{ top: 16, right: 24, left: 0, bottom: 0 }}>

@@ -133,15 +133,11 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
           )}
           
           {showSSEFeedback && (
-            <div className="w-full space-y-6">
-              <div className="max-w-2xl mx-auto">
-                <ReusableSSEFeedback
-                  status={sseStatus}
-                  progress={sseProgress || 0}
-                  currentStep={sseCurrentStep || ''}
-                  logs={sseLogs || []}
-                />
-              </div>
+            <div className="w-full">
+              <ReusableSSEFeedback
+                status={sseStatus}
+                progress={sseProgress || 0}
+              />
               <AnalysisLoadingSkeleton />
             </div>
           )}

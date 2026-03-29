@@ -173,7 +173,7 @@ function AnalysisPageViewInner<TResponse>({
   const handleSubscriptionData = useCallback((event: any) => {
     if (event.type === 'progress') {
       const nextProgress = event.progress || 0;
-      const message = sanitizeText(event.message || config.generatingMessage || 'Generating...');
+      const message = sanitizeText(event.message || config.generatingMessage || '');
       setIsLoading(true);
       setSseStatus('processing');
       setProgress(nextProgress);
@@ -308,9 +308,6 @@ function AnalysisPageViewInner<TResponse>({
             <ReusableSSEFeedback
               status={sseStatus}
               progress={progress}
-              currentStep={currentStep}
-              logs={logs}
-              title={config.generatingMessage}
             />
           </div>
 

@@ -128,7 +128,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                   {isLoading ? (
                     <Skeleton className="h-8 w-full" />
                   ) : (
-                    <div className="text-[11px] text-muted-foreground">Loading more...</div>
+                    <Skeleton className="h-8 w-full" />
                   )}
                 </div>
               )}

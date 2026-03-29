@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ExternalLink, AlertCircle, Sparkles, ArrowLeft } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { MarkdownCardRenderer } from '@/components/MarkdownCardRenderer';
 import { RepoPageLayout } from '@/components/layouts/RepoPageLayout';
@@ -116,7 +117,7 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
       onData: (event) => {
         if (event.type === 'progress') {
           const pct = event.progress || 0;
-          const message = sanitizeText(event.message || 'Processing...');
+          const message = sanitizeText(event.message || '');
           setSseStatus('processing');
           setProgress(pct);
           setProgressMessage(message);
@@ -173,9 +174,17 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
       <RepoPageLayout user={user} repo={repo} files={[]} totalFiles={0}>
         <div className="container py-8 max-w-6xl">
           <Card>
-            <CardContent className="pt-6">
-              <div className="text-center py-8 text-muted-foreground">
-                Loading {resourceType}...
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Skeleton className="h-8 w-3/4" />
+                <Skeleton className="h-6 w-16 rounded-full" />
+              </div>
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+              <div className="flex gap-2 mt-6">
+                <Skeleton className="h-9 w-32" />
+                <Skeleton className="h-9 w-36" />
               </div>
             </CardContent>
           </Card>
@@ -202,9 +211,6 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
         <ReusableSSEFeedback
           status={sseStatus}
           progress={progress}
-          currentStep={progressMessage}
-          logs={logs}
-          title=""
         />
 
         {/* Resource Header */}

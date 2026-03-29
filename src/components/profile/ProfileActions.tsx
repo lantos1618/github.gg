@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Sword, FolderGit2 } from 'lucide-react';
+import { RefreshCw, Sword, Settings } from 'lucide-react';
 
 interface ProfileActionsProps {
   isOwnProfile: boolean;
@@ -23,29 +23,31 @@ export function ProfileActions({
   onRefresh,
 }: ProfileActionsProps) {
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="flex items-center gap-1">
       {showChallengeButton && (
         <Button
           data-testid="profile-action-challenge-btn"
           onClick={onChallenge}
-          variant="outline"
-          className="h-12 px-6 border-gray-200 hover:border-black transition-colors"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-gray-400 hover:text-black"
+          title="Challenge to battle"
         >
-          <Sword className="h-4 w-4 mr-2" />
-          Challenge
+          <Sword className="h-4 w-4" />
         </Button>
       )}
-      
+
       {isOwnProfile && (
         <Button
           data-testid="profile-action-configure-btn"
           onClick={onConfigure}
           disabled={isGenerating || reposLoading}
-          variant="outline"
-          className="h-12 px-6 border-gray-200 hover:border-black transition-colors"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-gray-400 hover:text-black"
+          title="Configure repositories"
         >
-          <FolderGit2 className="h-4 w-4 mr-2" />
-          Configure
+          <Settings className="h-4 w-4" />
         </Button>
       )}
 
@@ -54,10 +56,12 @@ export function ProfileActions({
           data-testid="profile-refresh-btn"
           onClick={onRefresh}
           disabled={isGenerating}
-          className={`h-12 px-6 bg-black hover:bg-gray-800 text-white shadow-none rounded-lg ${isGenerating ? 'animate-pulse' : ''}`}
+          variant="ghost"
+          size="icon"
+          className={`h-8 w-8 text-gray-400 hover:text-black ${isGenerating ? 'animate-pulse' : ''}`}
+          title="Refresh analysis"
         >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh Analysis
+          <RefreshCw className="h-4 w-4" />
         </Button>
       )}
     </div>

@@ -133,24 +133,16 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
           )}
           
           {showSSEFeedback && (
-            <div className="w-full max-w-2xl space-y-6">
-              <div className="text-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-600 mb-2">
-                  {title || 'No analysis available'}
-                </h2>
-                {filesSelected && (
-                  <p className="text-sm text-gray-400">
-                    Files selected: {filesSelected.selected} of {filesSelected.total}
-                  </p>
-                )}
+            <div className="w-full space-y-6">
+              <div className="max-w-2xl mx-auto">
+                <ReusableSSEFeedback
+                  status={sseStatus}
+                  progress={sseProgress || 0}
+                  currentStep={sseCurrentStep || ''}
+                  logs={sseLogs || []}
+                />
               </div>
-              <ReusableSSEFeedback
-                status={sseStatus}
-                progress={sseProgress || 0}
-                currentStep={sseCurrentStep || ''}
-                logs={sseLogs || []}
-                title={sseTitle || ''}
-              />
+              <AnalysisLoadingSkeleton />
             </div>
           )}
         </div>

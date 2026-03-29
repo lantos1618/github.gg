@@ -204,7 +204,7 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
           progress={progress}
           currentStep={progressMessage}
           logs={logs}
-          title="Processing..."
+          title=""
         />
 
         {/* Resource Header */}

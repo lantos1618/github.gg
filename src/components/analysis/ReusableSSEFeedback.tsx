@@ -57,7 +57,7 @@ export function ReusableSSEFeedback({
             ) : status === 'error' ? (
               <AlertCircle className="h-3.5 w-3.5 text-destructive" />
             ) : null}
-            {currentStep || title}
+            {currentStep || title || <span className="inline-block h-4 w-32 bg-muted rounded animate-pulse" />}
           </span>
           <span className="text-muted-foreground font-mono text-xs">{Math.round(progress)}%</span>
         </div>

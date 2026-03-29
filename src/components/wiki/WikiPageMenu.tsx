@@ -14,14 +14,6 @@ import { useState } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { getBaseUrl } from '@/lib/constants';
 
 interface WikiPageMenuProps {
@@ -34,7 +26,7 @@ interface WikiPageMenuProps {
 
 export function WikiPageMenu({ owner, repo, slug, pageTitle, pageContent }: WikiPageMenuProps) {
   const router = useRouter();
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   const deletePage = trpc.wiki.deleteWikiPage.useMutation({
     onSuccess: () => {
@@ -49,7 +41,7 @@ export function WikiPageMenu({ owner, repo, slug, pageTitle, pageContent }: Wiki
 
   const handleDelete = () => {
     deletePage.mutate({ owner, repo, slug });
-    setIsDeleteDialogOpen(false);
+    setIsConfirmingDelete(false);
   };
 
   const handleCopy = () => {
@@ -140,41 +132,23 @@ export function WikiPageMenu({ owner, repo, slug, pageTitle, pageContent }: Wiki
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem
-            onClick={() => setIsDeleteDialogOpen(true)}
-            className="text-destructive focus:text-destructive"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete Page
-          </DropdownMenuItem>
+          {isConfirmingDelete ? (
+            <div className="flex items-center gap-1 px-2 py-1.5">
+              <span className="text-xs text-destructive font-medium mr-auto">Delete page?</span>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleDelete} disabled={deletePage.isPending}>Yes</Button>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setIsConfirmingDelete(false)}>No</Button>
+            </div>
+          ) : (
+            <DropdownMenuItem
+              onClick={(e) => { e.preventDefault(); setIsConfirmingDelete(true); }}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Page
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete This Page?</DialogTitle>
-            <DialogDescription>
-              This will permanently delete this wiki page. This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setIsDeleteDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="default"
-              onClick={handleDelete}
-              disabled={deletePage.isPending}
-            >
-              {deletePage.isPending ? 'Deleting...' : 'Delete Page'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

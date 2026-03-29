@@ -4,15 +4,6 @@ import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { useRouter } from 'next/navigation';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
 interface DeleteWikiButtonProps {
@@ -22,59 +13,47 @@ interface DeleteWikiButtonProps {
 
 export function DeleteWikiButton({ owner, repo }: DeleteWikiButtonProps) {
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const deleteWiki = trpc.wiki.deleteRepositoryWiki.useMutation({
     onSuccess: () => {
-      // Redirect to repository page after successful deletion
       router.push(`/${owner}/${repo}`);
       router.refresh();
     },
     onError: (error) => {
       console.error('Failed to delete wiki:', error);
-      alert(`Failed to delete wiki: ${error.message}`);
+      setConfirming(false);
     },
   });
 
-  const handleDelete = () => {
-    deleteWiki.mutate({ owner, repo });
-    setIsOpen(false);
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
+  if (confirming) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-destructive font-medium mr-1">Delete wiki?</span>
         <Button
           variant="ghost"
           size="sm"
+          className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={() => { deleteWiki.mutate({ owner, repo }); }}
+          disabled={deleteWiki.isPending}
         >
-          <Trash2 className="h-4 w-4" />
+          {deleteWiki.isPending ? <span className="h-3 w-8 bg-destructive/20 rounded animate-pulse" /> : 'Yes'}
         </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete Repository Wiki?</DialogTitle>
-          <DialogDescription>
-            This will permanently delete all wiki documentation for {owner}/{repo}.
-            This action cannot be undone.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setIsOpen(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="default"
-            onClick={handleDelete}
-            disabled={deleteWiki.isPending}
-          >
-            {deleteWiki.isPending ? 'Deleting...' : 'Delete All'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          onClick={() => setConfirming(false)}
+        >
+          No
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Button variant="ghost" size="sm" onClick={() => setConfirming(true)}>
+      <Trash2 className="h-4 w-4" />
+    </Button>
   );
 }

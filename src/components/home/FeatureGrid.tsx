@@ -1,88 +1,90 @@
-import { BarChart3, Network, FileText, Shield, Zap, Bot } from 'lucide-react';
-import { cn } from '@/lib/utils';
-
-const features = [
-  {
-    icon: BarChart3,
-    title: "Scorecards",
-    description: "Get A-F grades for code quality and complexity. Per file, per function.",
-    span: "large",
-    accent: "border-l-orange-500"
-  },
-  {
-    icon: Network,
-    title: "Diagrams",
-    description: "Auto-generated architecture maps. Dependencies, data flow, class hierarchies.",
-    span: "medium",
-    accent: "border-l-violet-500"
-  },
-  {
-    icon: Bot,
-    title: "Slop Detector",
-    description: "Find low-quality AI code.",
-    span: "small",
-    accent: "border-l-gray-400"
-  },
-  {
-    icon: Shield,
-    title: "Security",
-    description: "Catch vulnerabilities early.",
-    span: "small",
-    accent: "border-l-red-500"
-  },
-  {
-    icon: FileText,
-    title: "Wiki",
-    description: "Docs from your codebase.",
-    span: "small",
-    accent: "border-l-teal-500"
-  },
-  {
-    icon: Zap,
-    title: "PR Reviews",
-    description: "Automated reviews on every pull request. Catch bugs, suggest improvements, enforce standards.",
-    span: "wide",
-    accent: "border-l-amber-500"
-  }
-];
-
 export function FeatureGrid() {
+  const steps = [
+    {
+      num: '1',
+      color: '#f59e0b',
+      label: 'Scorecards',
+      desc: 'A-F quality grades for every file. Architecture patterns, complexity, test coverage — scored and explained.',
+      detail: 'Per file, per function. Identify what needs attention before it becomes tech debt.',
+    },
+    {
+      num: '2',
+      color: '#8b5cf6',
+      label: 'Diagrams',
+      desc: 'Auto-generated architecture maps. Dependencies, data flow, class hierarchies — rendered as interactive Mermaid diagrams.',
+    },
+    {
+      num: '3',
+      color: '#14b8a6',
+      label: 'Wiki',
+      desc: 'Documentation generated from your codebase. API references, component guides, onboarding docs — maintained automatically.',
+    },
+    {
+      num: '4',
+      color: '#f43f5e',
+      label: 'PR Reviews',
+      desc: 'Automated code review on every pull request. Catch bugs, suggest improvements, enforce standards before merge.',
+    },
+    {
+      num: '5',
+      color: '#6b7280',
+      label: 'Slop Detector',
+      desc: 'Find low-quality AI-generated code. Pattern matching against known LLM outputs, hallucinated imports, and dead logic.',
+    },
+  ];
+
   return (
-    <section className="py-20 bg-gray-50" data-testid="home-feature-grid">
-      <div className="container mx-auto px-4">
-        <div className="max-w-2xl mx-auto text-center mb-12">
-          <h2 className="text-3xl font-bold text-gray-900 mb-3 tracking-tight">What you get</h2>
-          <p className="text-lg text-gray-500">From architecture overview to line-by-line analysis.</p>
+    <section className="bg-white border-t border-[#eee]" data-testid="home-feature-grid">
+      <div className="w-[90%] max-w-[800px] mx-auto py-20">
+
+        {/* Section label */}
+        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+          What You Get
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto">
-          {features.map((feature, idx) => {
-            const spanClass = {
-              large: "md:col-span-2 md:row-span-2",
-              medium: "md:col-span-1 md:row-span-2",
-              small: "md:col-span-1",
-              wide: "md:col-span-3"
-            }[feature.span];
+        <div className="text-[26px] font-semibold text-[#111] mb-2">
+          Five layers of analysis
+        </div>
 
-            return (
+        <p className="text-[13px] text-[#aaa] mb-8">
+          From architecture overview to line-by-line quality scores
+        </p>
+
+        {/* Eve-style numbered steps */}
+        <div className="space-y-[2px] mb-8">
+          {steps.map((step) => (
+            <div key={step.num} className="flex">
               <div
-                key={idx}
-                className={cn(
-                  "bg-white border border-gray-200 border-l-4 p-6 hover:border-gray-300 transition-colors",
-                  spanClass,
-                  feature.accent
-                )}
+                className="min-w-[32px] text-[20px] font-bold pt-[10px]"
+                style={{ color: step.color }}
               >
-                <div className="flex items-start gap-3 mb-3">
-                  <feature.icon className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <h3 className="text-lg font-semibold text-gray-900">{feature.title}</h3>
-                </div>
-                <p className="text-gray-600 text-sm leading-relaxed pl-8">
-                  {feature.description}
-                </p>
+                {step.num}
               </div>
-            );
-          })}
+              <div
+                className="bg-[#f8f9fa] py-[14px] px-[16px] flex-1"
+                style={{ borderLeft: `3px solid ${step.color}` }}
+              >
+                <div
+                  className="text-[12px] font-semibold uppercase tracking-[1px] mb-1"
+                  style={{ color: step.color }}
+                >
+                  {step.label}
+                </div>
+                <div className="text-[13px] text-[#333] leading-[1.6]">
+                  {step.desc}
+                </div>
+                {step.detail && (
+                  <div className="text-[12px] text-[#888] mt-2 italic">
+                    {step.detail}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="text-[12px] text-[#aaa]">
+          Works with any public GitHub repository. Private repos supported with GitHub App installation.
         </div>
       </div>
     </section>

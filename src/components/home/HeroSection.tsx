@@ -4,46 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { motion } from 'framer-motion';
-import { ArrowRight, Github, FileCode2, Network, BarChart3, BookOpen, Sparkles } from 'lucide-react';
+import { ArrowRight, Github } from 'lucide-react';
 import { toast } from 'sonner';
-
-const fadeUpVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0 }
-};
-
-// Visual feature cards - varied sizes and emphasis
-const valueProps = [
-  {
-    icon: BarChart3,
-    title: "Quality Scores",
-    desc: "A-F grades per file",
-    accent: "text-orange-600",
-    bg: "bg-orange-50 border-orange-100"
-  },
-  {
-    icon: Network,
-    title: "Diagrams",
-    desc: "Auto-generated maps",
-    accent: "text-violet-600",
-    bg: "bg-violet-50 border-violet-100"
-  },
-  {
-    icon: BookOpen,
-    title: "Wiki",
-    desc: "Docs from code",
-    accent: "text-teal-600",
-    bg: "bg-teal-50 border-teal-100"
-  },
-  {
-    icon: Sparkles,
-    title: "Reviews",
-    desc: "Catch bugs early",
-    accent: "text-rose-600",
-    bg: "bg-rose-50 border-rose-100"
-  }
-];
 
 export function HeroSection() {
   const router = useRouter();
@@ -72,138 +34,86 @@ export function HeroSection() {
   };
 
   return (
-    <div className="relative bg-white overflow-hidden" data-testid="home-hero-section">
-      {/* Subtle dot pattern instead of gradient */}
-      <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, #000 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+    <div className="relative bg-white" data-testid="home-hero-section">
+      <div className="w-[90%] max-w-[800px] mx-auto pt-24 pb-20">
 
-      <div className="container mx-auto px-4 relative z-10">
-        <div className="max-w-5xl mx-auto pt-20 pb-24">
+        {/* Section label */}
+        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">
+          GitHub Intelligence
+        </div>
 
-          {/* Main hero content */}
-          <motion.div
-            className="text-center mb-14"
-            initial="hidden"
-            animate="visible"
-            variants={{
-              visible: { transition: { staggerChildren: 0.08 } }
-            }}
-          >
-            {/* Simple badge - no generic icons */}
-            <motion.div
-              variants={fadeUpVariants}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-gray-100 text-sm text-gray-700 mb-8 font-medium"
-            >
-              Free for public repos · No signup
-            </motion.div>
+        {/* Headline */}
+        <h1 className="text-[32px] sm:text-[42px] font-semibold text-[#111] leading-[1.2] mb-2 tracking-tight">
+          Read any repository like you wrote it
+        </h1>
 
-            {/* Main headline - more direct */}
-            <motion.h1
-              className="text-4xl sm:text-5xl md:text-6xl font-bold text-gray-900 mb-5 tracking-tight leading-[1.15]"
-              variants={fadeUpVariants}
-            >
-              Read any repo like you wrote it
-            </motion.h1>
+        {/* Subtitle */}
+        <p className="text-[13px] text-[#aaa] mb-10">
+          Quality scores, architecture diagrams, and generated docs — from any public GitHub URL
+        </p>
 
-            {/* Subheadline - shorter, punchier */}
-            <motion.p
-              className="text-lg md:text-xl text-gray-500 mb-10 max-w-2xl mx-auto leading-relaxed"
-              variants={fadeUpVariants}
-            >
-              Paste a GitHub URL. Get quality scores, architecture diagrams, and generated docs.
-            </motion.p>
+        {/* Divider */}
+        <div className="border-b border-[#eee] mb-10" />
 
-            {/* Search input - clean, functional */}
-            <motion.div
-              variants={fadeUpVariants}
-              className="max-w-xl mx-auto mb-6"
-            >
-              <form onSubmit={handleAnalyze} className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 z-10">
-                  <Github className="h-5 w-5" />
-                </div>
-                <Input
-                  type="text"
-                  placeholder="owner/repo or paste URL"
-                  aria-label="GitHub repository URL or path"
-                  data-testid="home-hero-repo-input"
-                  className="pl-12 pr-28 h-14 text-base border border-gray-200 bg-white rounded-lg focus:border-gray-900 focus:ring-0 transition-colors placeholder:text-gray-400"
-                  value={repoUrl}
-                  onChange={(e) => setRepoUrl(e.target.value)}
-                  autoFocus
-                />
-                <div className="absolute right-1.5 top-1/2 -translate-y-1/2 z-10">
-                  <Button
-                    size="default"
-                    type="submit"
-                    disabled={isAnalyzing}
-                    data-testid="home-hero-submit-btn"
-                    className="h-11 px-5 bg-gray-900 hover:bg-gray-800 text-white rounded-md font-medium"
-                  >
-                    {isAnalyzing ? (
-                      <span>...</span>
-                    ) : (
-                      <>
-                        Go
-                        <ArrowRight className="h-4 w-4 ml-1.5" />
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </motion.div>
+        {/* Body text */}
+        <p className="text-[14px] text-[#666] leading-[1.6] mb-10">
+          Paste a GitHub URL or <code className="bg-[#eee] px-1.5 py-0.5 rounded text-[12px]">owner/repo</code> below.
+          Get an instant analysis — scorecards, architecture diagrams, auto-generated wiki, and AI code review.
+          No signup required for public repositories.
+        </p>
 
-            {/* Quick examples - inline */}
-            <motion.div variants={fadeUpVariants} className="flex flex-wrap justify-center gap-2 text-sm">
-              <span className="text-gray-400 py-1">Try</span>
-              {[
-                { name: 'facebook/react', label: 'react' },
-                { name: 'vercel/next.js', label: 'next.js' },
-                { name: 'denoland/deno', label: 'deno' },
-              ].map((repo) => (
-                <button
-                  key={repo.name}
-                  onClick={() => setRepoUrl(repo.name)}
-                  data-testid={`home-hero-example-${repo.label}-btn`}
-                  className="px-2.5 py-1 rounded border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600 font-mono text-xs transition-colors"
-                >
-                  {repo.label}
-                </button>
-              ))}
-            </motion.div>
-          </motion.div>
-
-          {/* Value props - horizontal strip */}
-          <motion.div
-            className="flex flex-wrap justify-center gap-3 mt-16"
-            initial="hidden"
-            animate="visible"
-            variants={{
-              visible: { transition: { staggerChildren: 0.06, delayChildren: 0.2 } }
-            }}
-          >
-            {valueProps.map((prop, idx) => (
-              <motion.div
-                key={idx}
-                variants={fadeUpVariants}
-                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-lg border ${prop.bg}`}
+        {/* Search */}
+        <div className="mb-6">
+          <form onSubmit={handleAnalyze} className="relative">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#ccc]">
+              <Github className="h-5 w-5" />
+            </div>
+            <Input
+              type="text"
+              placeholder="owner/repo or paste URL"
+              aria-label="GitHub repository URL or path"
+              data-testid="home-hero-repo-input"
+              className="pl-12 pr-32 h-14 text-[15px] border border-[#ddd] bg-white rounded-lg focus:border-[#111] focus:ring-0 transition-colors placeholder:text-[#ccc] text-[#333]"
+              value={repoUrl}
+              onChange={(e) => setRepoUrl(e.target.value)}
+              autoFocus
+            />
+            <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
+              <Button
+                size="default"
+                type="submit"
+                disabled={isAnalyzing}
+                data-testid="home-hero-submit-btn"
+                className="h-11 px-6 bg-[#111] hover:bg-[#333] text-white rounded-md font-medium text-[14px]"
               >
-                <prop.icon className={`h-4 w-4 ${prop.accent}`} />
-                <span className="font-medium text-gray-900 text-sm">{prop.title}</span>
-                <span className="text-gray-400 text-sm">·</span>
-                <span className="text-gray-500 text-sm">{prop.desc}</span>
-              </motion.div>
-            ))}
-          </motion.div>
+                {isAnalyzing ? '...' : (
+                  <>
+                    Analyze
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </div>
 
-          {/* Simple stat - less generic */}
-          <motion.p
-            className="mt-12 text-center text-sm text-gray-400"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-          >
-            Works with any public GitHub repository
-          </motion.p>
+        {/* Quick examples */}
+        <div className="flex flex-wrap items-center gap-2 text-[13px]">
+          <span className="text-[#aaa]">Try</span>
+          {[
+            { name: 'facebook/react', label: 'react' },
+            { name: 'vercel/next.js', label: 'next.js' },
+            { name: 'denoland/deno', label: 'deno' },
+          ].map((repo) => (
+            <button
+              key={repo.name}
+              onClick={() => setRepoUrl(repo.name)}
+              data-testid={`home-hero-example-${repo.label}-btn`}
+              className="px-2.5 py-1 rounded border border-[#e0e0e0] hover:border-[#ccc] hover:bg-[#fafafa] text-[#666] font-mono text-[12px] transition-colors"
+            >
+              {repo.label}
+            </button>
+          ))}
         </div>
       </div>
     </div>

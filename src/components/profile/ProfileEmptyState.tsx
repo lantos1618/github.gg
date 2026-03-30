@@ -3,12 +3,12 @@
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UpgradePrompt } from '@/components/upgrade';
-import { RefreshCw, FolderGit2, AlertCircle } from 'lucide-react';
+import { RefreshCw, FolderGit2 } from 'lucide-react';
 import { ReusableSSEFeedback, type SSEStatus, type SSELogItem } from '@/components/analysis/ReusableSSEFeedback';
 
 function ProfileGeneratingSkeleton() {
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 space-y-8">
+    <div className="w-full max-w-[800px] mx-auto space-y-8">
       {/* Header skeleton */}
       <div className="flex items-start gap-6">
         <Skeleton className="h-24 w-24 rounded-full shrink-0" />
@@ -22,7 +22,7 @@ function ProfileGeneratingSkeleton() {
       {/* Score skeleton */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="p-4 rounded-lg border">
+          <div key={i} className="py-3">
             <Skeleton className="h-3 w-16 mb-2" />
             <Skeleton className="h-8 w-12" />
           </div>
@@ -42,18 +42,9 @@ function ProfileGeneratingSkeleton() {
         <Skeleton className="h-5 w-24" />
         <div className="flex gap-2">
           {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-8 w-20 rounded-full" />
+            <Skeleton key={i} className="h-8 w-20 rounded" />
           ))}
         </div>
-      </div>
-
-      {/* Content skeleton */}
-      <div className="space-y-3">
-        <Skeleton className="h-5 w-40" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-5/6" />
-        <Skeleton className="h-32 w-full mt-2" />
       </div>
     </div>
   );
@@ -94,28 +85,39 @@ export function ProfileEmptyState({
   if (isActivelyGenerating) {
     return (
       <div data-testid="profile-empty-state" className="py-8">
-        <ReusableSSEFeedback status={sseStatus} progress={progress} logs={logs} className="mb-6" />
+        <div className="w-full max-w-[800px] mx-auto">
+          <ReusableSSEFeedback status={sseStatus} progress={progress} logs={logs} className="mb-8" />
+        </div>
         <ProfileGeneratingSkeleton />
       </div>
     );
   }
 
   return (
-    <div data-testid="profile-empty-state" className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center">
-      <h2 className="text-3xl font-bold text-black mb-4">No Profile Available</h2>
-      <p className="text-xl text-gray-500 font-light mb-10 max-w-lg">
-        Generate an AI-powered analysis to uncover insights about {username}.
+    <div data-testid="profile-empty-state" className="w-[90%] max-w-[800px] mx-auto py-20 text-center">
+      {/* Section label */}
+      <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">
+        Developer Profile
+      </div>
+
+      <h2 className="text-[26px] font-semibold text-[#111] mb-2">
+        No profile available
+      </h2>
+
+      <p className="text-[14px] text-[#666] leading-[1.6] mb-10 max-w-md mx-auto">
+        Generate an AI-powered analysis to uncover insights about <strong className="text-[#111]">{username}</strong>'s GitHub activity.
       </p>
-      <div className="flex justify-center items-center gap-4">
+
+      <div className="flex justify-center items-center gap-3">
         {isOwnProfile && (
           <Button
             data-testid="profile-configure-btn"
             onClick={onConfigure}
             disabled={isGenerating || reposLoading}
             variant="outline"
-            className="h-14 px-8 border-gray-200 hover:border-black transition-colors text-lg rounded-xl"
+            className="h-11 px-6 border-[#ddd] hover:border-[#111] text-[14px] text-[#333] rounded-md transition-colors"
           >
-            <FolderGit2 className="h-5 w-5 mr-2" />
+            <FolderGit2 className="h-4 w-4 mr-2" />
             Configure
           </Button>
         )}
@@ -124,9 +126,9 @@ export function ProfileEmptyState({
             data-testid="profile-generate-btn"
             onClick={onGenerate}
             disabled={isGenerating}
-            className={`h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white text-lg rounded-xl shadow-lg hover:shadow-xl transition-all ${isGenerating ? 'animate-pulse' : ''}`}
+            className={`h-11 px-6 bg-[#111] hover:bg-[#333] text-white text-[14px] font-medium rounded-md ${isGenerating ? 'animate-pulse' : ''}`}
           >
-            <RefreshCw className="h-5 w-5 mr-2" />
+            <RefreshCw className="h-4 w-4 mr-2" />
             Generate Analysis
           </Button>
         ) : (
@@ -136,31 +138,29 @@ export function ProfileEmptyState({
 
       {/* Error Display */}
       {generationError && !isGenerating && (
-        <div className="w-full max-w-xl mt-8 bg-red-50 border border-red-200 rounded-xl p-6 animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-start gap-4">
-            <div className="flex-shrink-0">
-              <AlertCircle className="h-6 w-6 text-red-500" />
+        <div className="max-w-xl mx-auto mt-10 text-left">
+          <div className="bg-[#f8f9fa] py-[14px] px-[16px]" style={{ borderLeft: '3px solid #ea4335' }}>
+            <div className="text-[12px] font-semibold uppercase tracking-[1px] text-[#ea4335] mb-1">
+              Error
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-red-800 mb-2">Unable to Generate Profile</h3>
-              <p className="text-red-700 text-sm leading-relaxed">{generationError}</p>
-              {generationError.includes('already in progress') ? (
-                <div className="mt-4">
-                  <Button
-                    onClick={onReconnect}
-                    variant="outline"
-                    className="border-red-300 text-red-700 hover:bg-red-100"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Reconnect
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-red-600 text-xs mt-3">
-                  This user may not have enough public activity on GitHub to generate a meaningful profile analysis.
-                </p>
-              )}
+            <div className="text-[13px] text-[#333] leading-[1.6] mb-2">
+              {generationError}
             </div>
+            {generationError.includes('already in progress') ? (
+              <Button
+                onClick={onReconnect}
+                variant="outline"
+                size="sm"
+                className="mt-2 border-[#ddd] text-[13px]"
+              >
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                Reconnect
+              </Button>
+            ) : (
+              <div className="text-[12px] text-[#888] italic mt-2">
+                This user may not have enough public activity to generate a meaningful profile.
+              </div>
+            )}
           </div>
         </div>
       )}

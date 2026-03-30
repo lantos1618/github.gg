@@ -1,5 +1,5 @@
 import { FEATURE_COMPARISON } from '@/data/plans';
-import { Check, X, Zap, BookOpen, BarChart3, Network, MessageSquare, Lock } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import type { Metadata } from 'next';
 import { PricingCardActions } from '@/components/PricingCardActions';
 
@@ -12,221 +12,177 @@ export const metadata: Metadata = {
   },
 };
 
-// Pro features with benefits, not just names
 const PRO_FEATURES = [
-  {
-    icon: BookOpen,
-    name: 'AI Wiki Generation',
-    benefit: 'Complete documentation generated in minutes, not days',
-  },
-  {
-    icon: BarChart3,
-    name: 'Code Quality Scorecards',
-    benefit: 'Instant A-F grades with actionable improvement suggestions',
-  },
-  {
-    icon: Network,
-    name: 'Architecture Diagrams',
-    benefit: 'Auto-generated visual maps of how code connects',
-  },
-  {
-    icon: MessageSquare,
-    name: 'AI Code Reviews',
-    benefit: 'Catch bugs and security issues before they ship',
-  },
-  {
-    icon: Lock,
-    name: 'Private Repo Access',
-    benefit: 'Full analysis on your proprietary codebases',
-  },
-  {
-    icon: Zap,
-    name: '5M AI Tokens/Month',
-    benefit: 'Analyze hundreds of repos per month',
-  },
+  { label: 'Wiki', name: 'AI Wiki Generation', benefit: 'Complete documentation generated in minutes, not days', color: '#14b8a6' },
+  { label: 'Scores', name: 'Code Quality Scorecards', benefit: 'Instant A-F grades with actionable improvement suggestions', color: '#f59e0b' },
+  { label: 'Diagrams', name: 'Architecture Diagrams', benefit: 'Auto-generated visual maps of how code connects', color: '#8b5cf6' },
+  { label: 'Reviews', name: 'AI Code Reviews', benefit: 'Catch bugs and security issues before they ship', color: '#f43f5e' },
+  { label: 'Private', name: 'Private Repo Access', benefit: 'Full analysis on your proprietary codebases', color: '#111' },
+  { label: 'Tokens', name: '5M AI Tokens/Month', benefit: 'Analyze hundreds of repos per month', color: '#6b7280' },
 ];
 
 export default function PricingPage() {
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero - Value-focused */}
-      <div className="pt-16 pb-12 text-center px-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-50 text-green-700 text-sm font-medium mb-6">
-          <span className="w-2 h-2 bg-green-500 rounded-full" />
-          Free for public repos
+      {/* Hero */}
+      <div className="w-[90%] max-w-[800px] mx-auto pt-16 pb-12">
+        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">
+          Pricing
         </div>
-        <h1 className="text-3xl md:text-5xl font-bold text-gray-900 mb-4 tracking-tight">
+        <h1 className="text-[32px] sm:text-[42px] font-semibold text-[#111] leading-[1.2] mb-2 tracking-tight">
           Stop wasting hours reading unfamiliar code
         </h1>
-        <p className="text-lg md:text-xl text-gray-500 max-w-2xl mx-auto">
-          Pro gives you AI-generated docs, diagrams, and reviews for any repo.
-          <span className="text-gray-900 font-medium"> Understand codebases in minutes.</span>
+        <p className="text-[13px] text-[#aaa] mb-4">
+          Pro gives you AI-generated docs, diagrams, and reviews for any repo
+        </p>
+        <div className="border-b border-[#eee] mb-10" />
+
+        <p className="text-[14px] text-[#666] leading-[1.6] mb-10">
+          Public repos are free, forever. <strong className="text-[#111]">Pro</strong> unlocks AI features, private repo access, and priority support.
+          Understand codebases in minutes, not hours.
         </p>
       </div>
 
       {/* Pricing Cards */}
-      <div className="max-w-4xl mx-auto px-4 pb-16">
-        <div className="grid md:grid-cols-2 gap-8">
+      <div className="w-[90%] max-w-[800px] mx-auto pb-16">
+        <div className="grid md:grid-cols-2 gap-6">
           {/* Free Plan */}
-          <div className="border border-gray-200 rounded-lg p-6 bg-gray-50/50">
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-1">Free</h2>
-              <div className="flex items-baseline gap-1 mb-3">
-                <span className="text-4xl font-bold text-gray-900">$0</span>
-                <span className="text-gray-500 text-sm">forever</span>
-              </div>
-              <p className="text-sm text-gray-600">Browse and explore any public repo</p>
+          <div className="bg-[#f8f9fa] p-6" style={{ borderLeft: '3px solid #6b7280' }}>
+            <div className="text-[12px] font-semibold uppercase tracking-[1px] text-[#6b7280] mb-3">
+              Free
             </div>
+            <div className="flex items-baseline gap-1 mb-1">
+              <span className="text-[36px] font-semibold text-[#111]">$0</span>
+              <span className="text-[13px] text-[#aaa]">forever</span>
+            </div>
+            <p className="text-[13px] text-[#666] mb-6">Browse and explore any public repo</p>
 
-            <ul className="space-y-3 mb-6 text-sm">
-              <li className="flex items-start gap-2">
-                <Check className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                <span className="text-gray-600">Unlimited public repo browsing</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                <span className="text-gray-600">File tree navigation</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                <span className="text-gray-600">Syntax highlighting</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                <span className="text-gray-600">Community support</span>
-              </li>
-            </ul>
+            <div className="space-y-2 mb-6">
+              {['Unlimited public repo browsing', 'File tree navigation', 'Syntax highlighting', 'Community support'].map((item) => (
+                <div key={item} className="flex items-start gap-2">
+                  <Check className="h-3.5 w-3.5 text-[#aaa] mt-0.5 flex-shrink-0" />
+                  <span className="text-[13px] text-[#666]">{item}</span>
+                </div>
+              ))}
+            </div>
 
             <PricingCardActions planType="free" isPro={false} />
           </div>
 
-          {/* Pro Plan - Highlighted */}
-          <div className="border-2 border-gray-900 rounded-lg p-6 relative bg-white shadow-lg">
-            <div className="absolute -top-3 left-4 px-3 py-0.5 bg-gray-900 text-white text-xs font-medium rounded-full">
-              MOST POPULAR
+          {/* Pro Plan */}
+          <div className="bg-white p-6 border-2 border-[#111] relative">
+            <div className="absolute -top-3 left-4 px-2.5 py-0.5 bg-[#111] text-white text-[11px] font-semibold tracking-[1px] uppercase">
+              Most Popular
             </div>
 
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-1">Pro</h2>
-              <div className="flex items-baseline gap-1 mb-3">
-                <span className="text-4xl font-bold text-gray-900">$20</span>
-                <span className="text-gray-500 text-sm">/month</span>
-              </div>
-              <p className="text-sm text-gray-600">Everything you need to master any codebase</p>
+            <div className="text-[12px] font-semibold uppercase tracking-[1px] text-[#111] mb-3">
+              Pro
             </div>
+            <div className="flex items-baseline gap-1 mb-1">
+              <span className="text-[36px] font-semibold text-[#111]">$20</span>
+              <span className="text-[13px] text-[#aaa]">/month</span>
+            </div>
+            <p className="text-[13px] text-[#666] mb-6">Everything you need to master any codebase</p>
 
-            <ul className="space-y-4 mb-6">
+            <div className="space-y-3 mb-6">
               {PRO_FEATURES.map((feature, idx) => (
-                <li key={idx} className="flex items-start gap-3">
-                  <div className="p-1 bg-gray-100 rounded">
-                    <feature.icon className="h-4 w-4 text-gray-700" />
-                  </div>
+                <div key={idx} className="flex items-start gap-3">
+                  <div
+                    className="w-1 h-4 mt-0.5 flex-shrink-0 rounded-sm"
+                    style={{ backgroundColor: feature.color }}
+                  />
                   <div>
-                    <span className="text-sm font-medium text-gray-900">{feature.name}</span>
-                    <p className="text-xs text-gray-500">{feature.benefit}</p>
+                    <span className="text-[13px] font-medium text-[#111]">{feature.name}</span>
+                    <p className="text-[12px] text-[#888]">{feature.benefit}</p>
                   </div>
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
 
             <PricingCardActions planType="pro" isPro={true} />
 
-            <p className="text-xs text-center text-gray-500 mt-3">
-              Cancel anytime · 7-day money-back guarantee
+            <p className="text-[12px] text-center text-[#aaa] mt-3">
+              Cancel anytime
             </p>
           </div>
         </div>
       </div>
 
-      {/* Social proof / Use case */}
-      <div className="max-w-3xl mx-auto px-4 pb-16">
-        <div className="bg-gray-50 rounded-lg p-6 md:p-8 text-center">
-          <p className="text-lg text-gray-700 mb-4">
-            "I used to spend <span className="line-through text-gray-400">3 hours</span> understanding a new codebase.
-            Now it takes <span className="font-semibold text-gray-900">15 minutes</span>."
+      {/* Quote */}
+      <div className="w-[90%] max-w-[800px] mx-auto pb-16">
+        <div className="bg-[#f8f9fa] rounded p-8 text-center" style={{ borderLeft: '3px solid #111' }}>
+          <p className="text-[14px] text-[#333] leading-[1.7] mb-3">
+            "I used to spend <span className="line-through text-[#aaa]">3 hours</span> understanding a new codebase.
+            Now it takes <strong className="text-[#111]">15 minutes</strong>."
           </p>
-          <p className="text-sm text-gray-500">
+          <p className="text-[12px] text-[#aaa]">
             — Every developer who's ever joined a new project
           </p>
         </div>
       </div>
 
-      {/* Feature Comparison Table */}
-      <div className="max-w-2xl mx-auto px-4 pb-16">
-        <h2 className="text-lg font-semibold text-gray-900 text-center mb-6">
-          Compare
-        </h2>
-        <div className="border border-gray-200">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left p-3 font-medium text-gray-700">Feature</th>
-                <th className="p-3 font-medium text-gray-700 text-center w-20">Free</th>
-                <th className="p-3 font-medium text-gray-700 text-center w-20">Pro</th>
-              </tr>
-            </thead>
-            <tbody>
-              {FEATURE_COMPARISON.map((row, idx) => (
-                <tr key={idx} className="border-b border-gray-100 last:border-0">
-                  <td className="p-3 text-gray-600">{row.feature}</td>
-                  <td className="p-3 text-center">
-                    {row.free ? (
-                      <Check className="h-4 w-4 text-gray-900 mx-auto" />
-                    ) : (
-                      <X className="h-4 w-4 text-gray-300 mx-auto" />
-                    )}
-                  </td>
-                  <td className="p-3 text-center">
-                    {row.pro ? (
-                      <Check className="h-4 w-4 text-gray-900 mx-auto" />
-                    ) : (
-                      <X className="h-4 w-4 text-gray-300 mx-auto" />
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Feature Comparison */}
+      <div className="w-[90%] max-w-[800px] mx-auto pb-16">
+        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">
+          Feature Comparison
         </div>
+
+        <table className="w-full text-[13px] border-collapse">
+          <thead>
+            <tr className="border-b border-[#ddd]">
+              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold">Feature</td>
+              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold text-center w-16">Free</td>
+              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold text-center w-16">Pro</td>
+            </tr>
+          </thead>
+          <tbody>
+            {FEATURE_COMPARISON.map((row, idx) => (
+              <tr key={idx} className="border-b border-[#f0f0f0]">
+                <td className="py-2 px-2 text-[#333]">{row.feature}</td>
+                <td className="py-2 px-2 text-center">
+                  {row.free ? (
+                    <Check className="h-3.5 w-3.5 text-[#111] mx-auto" />
+                  ) : (
+                    <X className="h-3.5 w-3.5 text-[#ddd] mx-auto" />
+                  )}
+                </td>
+                <td className="py-2 px-2 text-center">
+                  {row.pro ? (
+                    <Check className="h-3.5 w-3.5 text-[#111] mx-auto" />
+                  ) : (
+                    <X className="h-3.5 w-3.5 text-[#ddd] mx-auto" />
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* Simple trust line */}
-      <div className="max-w-2xl mx-auto px-4 pb-12 text-center">
-        <p className="text-sm text-gray-500">
+      {/* Trust */}
+      <div className="w-[90%] max-w-[800px] mx-auto pb-12 text-center">
+        <p className="text-[12px] text-[#aaa]">
           Cancel anytime · Secure payment via Stripe · Your code stays private
         </p>
       </div>
 
       {/* FAQ */}
-      <div className="max-w-2xl mx-auto px-4 pb-20">
-        <h2 className="text-lg font-semibold text-gray-900 text-center mb-6">
-          FAQ
-        </h2>
-        <div className="space-y-4 text-sm">
-          {[
-            {
-              q: "What happens when I run out of tokens?",
-              a: "AI features pause until next month. You can still browse repos for free."
-            },
-            {
-              q: "Can I switch between plans?",
-              a: "Yes. Upgrade or downgrade anytime, changes are prorated."
-            },
-            {
-              q: "Team plans?",
-              a: "Coming soon. Contact us if interested."
-            },
-            {
-              q: "Payment methods?",
-              a: "All major credit cards via Stripe."
-            }
-          ].map((faq, idx) => (
-            <div key={idx} className="border-b border-gray-100 pb-4 last:border-0">
-              <h3 className="font-medium text-gray-900 mb-1">{faq.q}</h3>
-              <p className="text-gray-500">{faq.a}</p>
-            </div>
-          ))}
+      <div className="w-[90%] max-w-[800px] mx-auto pb-20">
+        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">
+          Questions
         </div>
+
+        {[
+          { q: 'What happens when I run out of tokens?', a: 'AI features pause until next month. You can still browse repos for free.' },
+          { q: 'Can I switch between plans?', a: 'Yes. Upgrade or downgrade anytime, changes are prorated.' },
+          { q: 'Team plans?', a: 'Coming soon. Contact us if interested.' },
+          { q: 'Payment methods?', a: 'All major credit cards via Stripe.' },
+        ].map((faq, idx) => (
+          <div key={idx} className="border-b border-[#f0f0f0] py-3">
+            <div className="text-[14px] font-medium text-[#111] mb-1">{faq.q}</div>
+            <div className="text-[13px] text-[#666]">{faq.a}</div>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -1,22 +1,31 @@
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FeatureCardProps {
   title: string;
   description: string;
-  icon: LucideIcon;
+  label?: string;
+  color?: string;
+  icon?: LucideIcon;
   className?: string;
 }
 
-export function FeatureCard({ title, description, icon: Icon, className }: FeatureCardProps) {
+export function FeatureCard({ title, description, label, color = '#111', icon: _icon, className }: FeatureCardProps) {
   return (
-    <Card className={className}>
-      <CardHeader>
-        <Icon className="h-10 w-10 text-primary mb-2" />
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-    </Card>
+    <div
+      className={cn('bg-[#f8f9fa] py-[14px] px-[16px]', className)}
+      style={{ borderLeft: `3px solid ${color}` }}
+    >
+      {label && (
+        <div
+          className="text-[12px] font-semibold uppercase tracking-[1px] mb-1"
+          style={{ color }}
+        >
+          {label}
+        </div>
+      )}
+      <div className="text-[14px] font-medium text-[#111] mb-1">{title}</div>
+      <div className="text-[13px] text-[#666] leading-[1.6]">{description}</div>
+    </div>
   );
 }

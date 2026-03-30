@@ -1,4 +1,3 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -15,27 +14,24 @@ interface CardWithHeaderProps {
 export function CardWithHeader({
   title,
   description,
-  icon: Icon,
+  icon: _icon,
   action,
   children,
   className,
   contentClassName,
 }: CardWithHeaderProps) {
   return (
-    <Card className={className}>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              {Icon && <Icon className="h-5 w-5" />}
-              {title}
-            </CardTitle>
-            {description && <CardDescription className="mt-1.5">{description}</CardDescription>}
+    <div className={cn('border-b border-[#eee] pb-8 mb-8', className)}>
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-1">
+            {title}
           </div>
-          {action && <div>{action}</div>}
+          {description && <p className="text-[14px] text-[#888]">{description}</p>}
         </div>
-      </CardHeader>
-      <CardContent className={contentClassName}>{children}</CardContent>
-    </Card>
+        {action && <div className="flex-shrink-0 ml-4">{action}</div>}
+      </div>
+      <div className={contentClassName}>{children}</div>
+    </div>
   );
 }

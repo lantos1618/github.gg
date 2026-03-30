@@ -3,58 +3,49 @@
 import { trpc } from '@/lib/trpc/client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth/client';
-import { BookOpen, BarChart3, Network, MessageSquare, Lock, Sparkles, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
-// Feature-specific messaging for contextual upsells
 const FEATURE_CONTEXTS = {
   wiki: {
-    icon: BookOpen,
     headline: 'Generate complete documentation in minutes',
-    subtext: 'AI Wiki creates comprehensive docs from your codebase automatically. No more outdated READMEs.',
+    subtext: 'AI Wiki creates comprehensive docs from your codebase automatically.',
     benefit: 'Save hours of documentation work',
     cta: 'Unlock AI Wiki',
   },
   scorecard: {
-    icon: BarChart3,
     headline: 'Get instant code quality insights',
-    subtext: 'Scorecards analyze every file and give you actionable grades. Know exactly where to improve.',
+    subtext: 'Scorecards analyze every file and give you actionable grades.',
     benefit: 'Find issues before they become problems',
     cta: 'Unlock Scorecards',
   },
   diagram: {
-    icon: Network,
     headline: 'See how your code connects',
-    subtext: 'Auto-generated architecture diagrams show data flow, dependencies, and system design.',
+    subtext: 'Auto-generated architecture diagrams show data flow and dependencies.',
     benefit: 'Understand complex codebases visually',
     cta: 'Unlock Diagrams',
   },
   'ai-slop': {
-    icon: Sparkles,
     headline: 'Detect AI-generated code issues',
-    subtext: 'Find quality problems commonly introduced by AI coding tools. Keep your codebase clean.',
+    subtext: 'Find quality problems commonly introduced by AI coding tools.',
     benefit: 'Maintain code quality standards',
     cta: 'Unlock AI Analysis',
   },
   review: {
-    icon: MessageSquare,
     headline: 'Get AI-powered code reviews',
-    subtext: 'Catch bugs, security issues, and performance problems before they ship to production.',
+    subtext: 'Catch bugs, security issues, and performance problems before they ship.',
     benefit: 'Ship with confidence',
     cta: 'Unlock Code Reviews',
   },
   private: {
-    icon: Lock,
     headline: 'Analyze your private repositories',
-    subtext: 'Get full AI-powered analysis on your proprietary codebases. Your code stays secure.',
+    subtext: 'Get full AI-powered analysis on your proprietary codebases.',
     benefit: 'Full feature access for private repos',
     cta: 'Unlock Private Repos',
   },
   general: {
-    icon: Sparkles,
     headline: 'Unlock AI-powered code intelligence',
-    subtext: 'Get docs, diagrams, scorecards, and reviews for any repository. Understand code faster.',
+    subtext: 'Get docs, diagrams, scorecards, and reviews for any repository.',
     benefit: 'Master any codebase in minutes',
     cta: 'Upgrade to Pro',
   },
@@ -80,20 +71,16 @@ export function UpgradePrompt({
   const createCheckout = trpc.billing.createCheckoutSession.useMutation();
 
   const context = FEATURE_CONTEXTS[feature];
-  const Icon = context.icon;
 
   const handleUpgrade = async () => {
     if (!isSignedIn) {
       signIn('/pricing');
       return;
     }
-
     setIsLoading(true);
     try {
       const result = await createCheckout.mutateAsync({ plan: 'pro' });
-      if (result.url) {
-        window.location.href = result.url;
-      }
+      if (result.url) window.location.href = result.url;
     } catch (error) {
       console.error('Failed to create checkout session:', error);
     } finally {
@@ -103,24 +90,21 @@ export function UpgradePrompt({
 
   if (variant === 'banner') {
     return (
-      <div data-testid="pricing-upgrade-prompt" className={`bg-gradient-to-r from-gray-900 to-gray-800 text-white p-4 rounded-lg ${className}`}>
+      <div data-testid="pricing-upgrade-prompt" className={`bg-[#111] text-white py-3 px-4 rounded ${className}`}>
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <Icon className="h-5 w-5 text-gray-300" />
-            <div>
-              <p className="font-medium">{context.headline}</p>
-              <p className="text-sm text-gray-400">{context.benefit}</p>
-            </div>
+          <div>
+            <p className="text-[14px] font-medium">{context.headline}</p>
+            <p className="text-[12px] text-[#888]">{context.benefit}</p>
           </div>
-          <Button
+          <button
             data-testid="pricing-upgrade-btn"
             onClick={handleUpgrade}
             disabled={isLoading}
-            className="bg-white text-gray-900 hover:bg-gray-100"
+            className="px-4 py-1.5 bg-white text-[#111] text-[13px] font-medium rounded hover:bg-[#eee] transition-colors disabled:opacity-50 flex items-center gap-1.5"
           >
             {isLoading ? 'Loading...' : context.cta}
-            <ArrowRight className="h-4 w-4 ml-1" />
-          </Button>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
     );
@@ -128,66 +112,55 @@ export function UpgradePrompt({
 
   if (variant === 'inline') {
     return (
-      <div data-testid="pricing-upgrade-prompt" className={`flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 ${className}`}>
-        <Icon className="h-5 w-5 text-gray-500 flex-shrink-0" />
-        <p className="text-sm text-gray-600 flex-1">{context.subtext}</p>
-        <Button
+      <div data-testid="pricing-upgrade-prompt" className={`flex items-center gap-3 py-3 px-4 bg-[#f8f9fa] border border-[#eee] rounded ${className}`}>
+        <p className="text-[13px] text-[#666] flex-1">{context.subtext}</p>
+        <button
           data-testid="pricing-upgrade-btn"
           onClick={handleUpgrade}
           disabled={isLoading}
-          size="sm"
-          variant="outline"
+          className="px-3 py-1.5 bg-[#f8f9fa] text-[#333] text-[13px] font-medium rounded border border-[#ddd] hover:border-[#111] transition-colors disabled:opacity-50"
         >
           {isLoading ? '...' : 'Upgrade'}
-        </Button>
+        </button>
       </div>
     );
   }
 
-  // Default card variant
   return (
     <div data-testid="pricing-upgrade-prompt" className={`max-w-md mx-auto ${className}`}>
-      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-        {/* Icon */}
-        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
-          <Icon className="h-6 w-6 text-gray-700" />
+      <div className="border border-[#eee] p-6">
+        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+          Pro Feature
         </div>
-
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+        <h3 className="text-[20px] font-semibold text-[#111] mb-2">
           {context.headline}
         </h3>
-        <p className="text-gray-600 mb-4">
+        <p className="text-[13px] text-[#666] leading-[1.6] mb-4">
           {context.subtext}
         </p>
 
-        {/* Benefit highlight */}
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-          <Sparkles className="h-4 w-4" />
-          <span>{context.benefit}</span>
+        <div className="text-[12px] text-[#888] mb-6 italic">
+          {context.benefit}
         </div>
 
-        {/* CTA */}
-        <Button
+        <button
           data-testid="pricing-upgrade-btn"
           onClick={handleUpgrade}
           disabled={isLoading}
-          className="w-full bg-gray-900 hover:bg-gray-800"
-          size="lg"
+          className="w-full py-2.5 bg-[#111] text-white text-[14px] font-medium rounded hover:bg-[#333] transition-colors disabled:opacity-50"
         >
           {isLoading ? 'Loading...' : context.cta}
-          {showPrice && <span className="ml-2 text-gray-400">&middot; $20/mo</span>}
-        </Button>
+          {showPrice && <span className="ml-2 text-[#888]">&middot; $20/mo</span>}
+        </button>
 
-        {/* Trust signals */}
-        <div className="mt-4 flex items-center justify-center gap-4 text-xs text-gray-500">
+        <div className="mt-3 flex items-center justify-center gap-3 text-[12px] text-[#aaa]">
           <span>Cancel anytime</span>
           <span>&middot;</span>
           <span>7-day guarantee</span>
         </div>
 
-        {/* Link to full pricing */}
-        <p className="text-center mt-4">
-          <Link href="/pricing" className="text-sm text-gray-500 hover:text-gray-700 underline">
+        <p className="text-center mt-3">
+          <Link href="/pricing" className="text-[12px] text-[#888] hover:text-[#111] transition-colors">
             Compare all plans
           </Link>
         </p>
@@ -196,29 +169,20 @@ export function UpgradePrompt({
   );
 }
 
-// Smaller teaser component for sidebar or inline use
 export function UpgradeTeaser({ feature = 'general' }: { feature?: UpgradeFeature }) {
   const context = FEATURE_CONTEXTS[feature];
-  const Icon = context.icon;
 
   return (
     <Link
       href="/pricing"
-      className="block p-3 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors group"
+      className="block py-3 px-4 bg-[#f8f9fa] border border-[#eee] rounded hover:border-[#aaa] transition-colors group"
     >
-      <div className="flex items-start gap-3">
-        <div className="p-1.5 bg-white rounded border border-gray-200 group-hover:border-gray-300">
-          <Icon className="h-4 w-4 text-gray-600" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-900 truncate">
-            {context.headline}
-          </p>
-          <p className="text-xs text-gray-500">
-            Upgrade to Pro &rarr;
-          </p>
-        </div>
-      </div>
+      <p className="text-[13px] font-medium text-[#111] truncate">
+        {context.headline}
+      </p>
+      <p className="text-[12px] text-[#888]">
+        Upgrade to Pro &rarr;
+      </p>
     </Link>
   );
 }

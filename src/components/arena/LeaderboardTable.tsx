@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc/client';
 import { useAuth } from '@/lib/auth/client';
@@ -67,151 +66,110 @@ export function LeaderboardTable({ initialLeaderboard }: LeaderboardTableProps) 
   });
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-8">
       {/* Search */}
-      <div className="relative max-w-xl">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ccc]" />
         <Input
           placeholder="Search developers..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           data-testid="arena-leaderboard-search-input"
-          className="pl-12 h-14 text-lg border-2 border-gray-100 rounded-xl focus:border-black focus:ring-0 transition-colors"
+          className="pl-10 h-10 text-[14px] border border-[#ddd] rounded focus:border-[#111] focus:ring-0 transition-colors placeholder:text-[#ccc]"
         />
       </div>
 
       {isLoading ? (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-gray-100">
-                <th className="py-6 pl-4 pr-8 text-sm font-medium text-gray-500 w-24">Rank</th>
-                <th className="py-6 px-8 text-sm font-medium text-gray-500">Developer</th>
-                <th className="py-6 px-8 text-center text-sm font-medium text-gray-500">ELO</th>
-                <th className="py-6 px-8 text-center text-sm font-medium text-gray-500 hidden sm:table-cell">Win Rate</th>
-                <th className="py-6 px-8 text-center text-sm font-medium text-gray-500 hidden md:table-cell">Streak</th>
-                <th className="py-6 px-8 text-center text-sm font-medium text-gray-500 hidden lg:table-cell">Record</th>
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-[#ddd]">
+              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold w-16">Rank</td>
+              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold">Developer</td>
+              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold text-center">ELO</td>
+              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold text-center hidden sm:table-cell">Win Rate</td>
+              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold text-center hidden md:table-cell">Streak</td>
+              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold text-center hidden lg:table-cell">Record</td>
+            </tr>
+          </thead>
+          <tbody>
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <tr key={i} className="border-b border-[#f0f0f0]">
+                <td className="py-3 px-2"><Skeleton className="h-4 w-8" /></td>
+                <td className="py-3 px-2"><div className="flex items-center gap-3"><Skeleton className="h-8 w-8 rounded-full" /><Skeleton className="h-4 w-24" /></div></td>
+                <td className="py-3 px-2 text-center"><Skeleton className="h-4 w-10 mx-auto" /></td>
+                <td className="py-3 px-2 text-center hidden sm:table-cell"><Skeleton className="h-4 w-12 mx-auto" /></td>
+                <td className="py-3 px-2 text-center hidden md:table-cell"><Skeleton className="h-4 w-6 mx-auto" /></td>
+                <td className="py-3 px-2 text-center hidden lg:table-cell"><Skeleton className="h-4 w-14 mx-auto" /></td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                <tr key={i}>
-                  <td className="py-6 pl-4 pr-8"><Skeleton className="h-5 w-8" /></td>
-                  <td className="py-6 px-8">
-                    <div className="flex items-center gap-4">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="space-y-1.5">
-                        <Skeleton className="h-4 w-28" />
-                        <Skeleton className="h-3 w-16" />
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-6 px-8 text-center"><Skeleton className="h-5 w-12 mx-auto" /></td>
-                  <td className="py-6 px-8 text-center hidden sm:table-cell"><Skeleton className="h-4 w-14 mx-auto" /></td>
-                  <td className="py-6 px-8 text-center hidden md:table-cell"><Skeleton className="h-4 w-8 mx-auto" /></td>
-                  <td className="py-6 px-8 text-center hidden lg:table-cell"><Skeleton className="h-4 w-16 mx-auto" /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       ) : filteredAndSortedLeaderboard.length > 0 ? (
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-[13px] border-collapse">
             <thead>
-              <tr className="border-b border-gray-100">
-                <th className="py-6 pl-4 pr-8 text-sm font-medium text-gray-500 w-24">Rank</th>
-                <th className="py-6 px-8 text-sm font-medium text-gray-500">Developer</th>
-                <th 
-                  className="py-6 px-8 text-center text-sm font-medium text-gray-500 cursor-pointer hover:text-black transition-colors"
+              <tr className="border-b border-[#ddd]">
+                <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold w-16">Rank</td>
+                <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold">Developer</td>
+                <td
+                  className="py-2 px-2 text-[11px] text-[#aaa] font-semibold text-center cursor-pointer hover:text-[#111] transition-colors"
                   onClick={() => handleSort('eloRating')}
                 >
-                  <div className="flex items-center justify-center gap-2">
-                    ELO {getSortIcon('eloRating')}
-                  </div>
-                </th>
-                <th 
-                  className="py-6 px-8 text-center text-sm font-medium text-gray-500 cursor-pointer hover:text-black transition-colors hidden sm:table-cell"
+                  <span className="inline-flex items-center">ELO {getSortIcon('eloRating')}</span>
+                </td>
+                <td
+                  className="py-2 px-2 text-[11px] text-[#aaa] font-semibold text-center cursor-pointer hover:text-[#111] transition-colors hidden sm:table-cell"
                   onClick={() => handleSort('winRate')}
                 >
-                  <div className="flex items-center justify-center gap-2">
-                    Win Rate {getSortIcon('winRate')}
-                  </div>
-                </th>
-                <th 
-                  className="py-6 px-8 text-center text-sm font-medium text-gray-500 cursor-pointer hover:text-black transition-colors hidden md:table-cell"
+                  <span className="inline-flex items-center">Win Rate {getSortIcon('winRate')}</span>
+                </td>
+                <td
+                  className="py-2 px-2 text-[11px] text-[#aaa] font-semibold text-center cursor-pointer hover:text-[#111] transition-colors hidden md:table-cell"
                   onClick={() => handleSort('winStreak')}
                 >
-                  <div className="flex items-center justify-center gap-2">
-                    Streak {getSortIcon('winStreak')}
-                  </div>
-                </th>
-                <th className="py-6 px-8 text-center text-sm font-medium text-gray-500 hidden lg:table-cell">Record</th>
-                {canBattle && <th className="py-6 pr-4 text-right text-sm font-medium text-gray-500">Action</th>}
+                  <span className="inline-flex items-center">Streak {getSortIcon('winStreak')}</span>
+                </td>
+                <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold text-center hidden lg:table-cell">Record</td>
+                {canBattle && <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold text-right">Action</td>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filteredAndSortedLeaderboard.map((entry, index) => {
+            <tbody>
+              {filteredAndSortedLeaderboard.map((entry) => {
                 const isCurrentUser = entry.username.toLowerCase() === currentUsername;
                 return (
-                  <tr
-                    key={entry.username}
-                    className="group hover:bg-gray-50/50 transition-colors"
-                  >
-                    <td className="py-6 pl-4 pr-8">
-                      <span className={`font-mono font-bold text-lg ${
-                        entry.rank <= 3 ? 'text-black' : 'text-gray-400'
-                      }`}>
+                  <tr key={entry.username} className="border-b border-[#f0f0f0] hover:bg-[#fafafa] transition-colors">
+                    <td className="py-3 px-2">
+                      <span className={`font-mono font-semibold ${entry.rank <= 3 ? 'text-[#111]' : 'text-[#aaa]'}`}>
                         #{entry.rank}
                       </span>
                     </td>
-                    <td className="py-6 px-8">
-                      <Link href={`/${entry.username}`} className="flex items-center gap-4 group/link">
-                        <div className="relative h-10 w-10 rounded-full overflow-hidden border border-gray-200 bg-gray-50 group-hover/link:border-gray-300 transition-colors">
-                          <Image
-                            src={`https://github.com/${entry.username}.png`}
-                            alt={entry.username}
-                            fill
-                            className="object-cover"
-                            unoptimized
-                          />
+                    <td className="py-3 px-2">
+                      <Link href={`/${entry.username}`} className="flex items-center gap-3 group">
+                        <div className="relative h-8 w-8 rounded-full overflow-hidden border border-[#eee] bg-[#f8f9fa]">
+                          <Image src={`https://github.com/${entry.username}.png`} alt={entry.username} fill className="object-cover" unoptimized />
                         </div>
                         <div>
-                          <div className="font-bold text-black flex items-center gap-2 text-base group-hover/link:text-blue-600 transition-colors">
+                          <div className="font-medium text-[#111] group-hover:text-[#666] transition-colors flex items-center gap-1.5">
                             {entry.username}
-                            {isCurrentUser && (
-                              <div className="h-1.5 w-1.5 rounded-full bg-blue-600" title="You" />
-                            )}
+                            {isCurrentUser && <div className="h-1.5 w-1.5 rounded-full bg-[#4285f4]" title="You" />}
                           </div>
-                          <div className="text-xs text-gray-400 font-mono uppercase tracking-wide mt-0.5">{entry.tier}</div>
+                          <div className="text-[11px] text-[#aaa] font-mono uppercase tracking-[1px]">{entry.tier}</div>
                         </div>
                       </Link>
                     </td>
-                    <td className="py-6 px-8 text-center">
-                      <span className="font-bold text-black text-lg">{entry.eloRating}</span>
-                    </td>
-                    <td className="py-6 px-8 text-center hidden sm:table-cell">
-                      <span className="text-gray-600 font-medium">{entry.winRate.toFixed(1)}%</span>
-                    </td>
-                    <td className="py-6 px-8 text-center hidden md:table-cell">
-                      <span className="text-gray-600 font-medium">{entry.winStreak}</span>
-                    </td>
-                    <td className="py-6 px-8 text-center hidden lg:table-cell">
-                      <span className="text-sm font-mono text-gray-500">
-                        {entry.wins}W - {entry.losses}L
-                      </span>
-                    </td>
+                    <td className="py-3 px-2 text-center font-semibold text-[#111]">{entry.eloRating}</td>
+                    <td className="py-3 px-2 text-center text-[#666] hidden sm:table-cell">{entry.winRate.toFixed(1)}%</td>
+                    <td className="py-3 px-2 text-center text-[#666] hidden md:table-cell">{entry.winStreak}</td>
+                    <td className="py-3 px-2 text-center font-mono text-[#888] hidden lg:table-cell">{entry.wins}W-{entry.losses}L</td>
                     {canBattle && (
-                      <td className="py-6 pr-4 text-right">
+                      <td className="py-3 px-2 text-right">
                         {!isCurrentUser && (
-                          <Button
-                            size="sm"
-                            variant="outline"
+                          <button
                             onClick={() => handleChallenge(entry.username)}
-                            className="border-gray-200 hover:border-black hover:bg-transparent h-9 px-4 font-medium transition-colors"
+                            className="px-3 py-1 text-[12px] font-medium text-[#666] border border-[#ddd] rounded hover:border-[#111] hover:text-[#111] transition-colors"
                           >
                             Challenge
-                          </Button>
+                          </button>
                         )}
                       </td>
                     )}
@@ -222,8 +180,8 @@ export function LeaderboardTable({ initialLeaderboard }: LeaderboardTableProps) 
           </table>
         </div>
       ) : (
-        <div className="py-20 text-center border-t border-gray-100">
-          <p className="text-gray-400 text-lg">No developers found matching your search.</p>
+        <div className="py-16 text-center">
+          <p className="text-[14px] text-[#aaa]">No developers found matching your search.</p>
         </div>
       )}
     </div>

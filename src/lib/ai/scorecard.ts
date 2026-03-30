@@ -95,11 +95,16 @@ Write a thorough analysis that includes:
 
 Be thorough and specific. Reference actual file names and code patterns you observed. Write as much as needed to provide genuine value - this report should help developers understand what to prioritize.
 
+CRITICAL FORMATTING RULES:
+- The "markdown" field MUST use standard Markdown syntax (# for h1, ## for h2, **bold**, etc.)
+- Do NOT use HTML tags like <h1>, <h2>, <p>, <strong>, <ul>, <li> etc.
+- Use only pure Markdown formatting throughout the entire report.
+
 OUTPUT FORMAT:
 {
   "overallScore": number,
   "metrics": [{"metric": "Name", "score": number, "reason": "Specific justification with examples"}],
-  "markdown": "Full markdown report following the structure above"
+  "markdown": "Full markdown report using standard Markdown syntax (NOT HTML)"
 }
 
 ---

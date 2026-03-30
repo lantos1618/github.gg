@@ -66,7 +66,7 @@ interface NavItemsListProps {
 
 function NavItemsList({ items, isExpanded, isActive, expandedSections, toggleSection }: NavItemsListProps) {
   return (
-    <ul className="space-y-1">
+    <ul className="space-y-0.5">
       {items.map((item) => {
         const Icon = item.icon;
         const active = isActive(item.path);
@@ -81,27 +81,24 @@ function NavItemsList({ items, isExpanded, isActive, expandedSections, toggleSec
                   <Link
                     href={item.path}
                     className={cn(
-                      'flex-1 flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group',
+                      'flex-1 flex items-center gap-3 px-3 py-2 rounded transition-colors group',
                       active
-                        ? 'bg-blue-600 text-white font-medium shadow-sm'
-                        : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                        ? 'bg-[#111] text-white font-medium'
+                        : 'text-[#666] hover:text-[#111] hover:bg-[#f8f9fa]'
                     )}
                   >
-                    <Icon className={cn('h-5 w-5 flex-shrink-0', active ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
-                    <span className="text-sm flex-1 text-left">{item.label}</span>
+                    <Icon className={cn('h-4 w-4 flex-shrink-0', active ? 'text-white' : 'text-[#aaa] group-hover:text-[#111]')} />
+                    <span className="text-[13px] flex-1 text-left">{item.label}</span>
                   </Link>
                   <button
                     onClick={() => toggleSection(item.key as ExpandableSection)}
-                    className={cn(
-                      'p-2 rounded-lg transition-all duration-200 hover:bg-gray-100',
-                      active ? 'text-white' : 'text-gray-500'
-                    )}
+                    className="p-2 rounded transition-colors hover:bg-[#f8f9fa] text-[#aaa]"
                   >
-                    {isItemExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    {isItemExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                   </button>
                 </div>
                 {isItemExpanded && (
-                  <ul className="mt-1 ml-8 space-y-1">
+                  <ul className="mt-0.5 ml-7 space-y-0.5 border-l border-[#eee] pl-3">
                     {item.children!.map((child) => {
                       const ChildIcon = child.icon;
                       const childActive = isActive(child.path);
@@ -110,13 +107,13 @@ function NavItemsList({ items, isExpanded, isActive, expandedSections, toggleSec
                           <Link
                             href={child.path}
                             className={cn(
-                              'flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-all duration-200 group',
+                              'flex items-center gap-2.5 px-3 py-1.5 rounded text-[13px] transition-colors group',
                               childActive
-                                ? 'bg-blue-500 text-white font-medium shadow-sm'
-                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                                ? 'bg-[#111] text-white font-medium'
+                                : 'text-[#888] hover:text-[#111] hover:bg-[#f8f9fa]'
                             )}
                           >
-                            <ChildIcon className={cn('h-4 w-4', childActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
+                            <ChildIcon className={cn('h-3.5 w-3.5', childActive ? 'text-white' : 'text-[#ccc] group-hover:text-[#111]')} />
                             <span>{child.label}</span>
                           </Link>
                         </li>
@@ -129,15 +126,15 @@ function NavItemsList({ items, isExpanded, isActive, expandedSections, toggleSec
               <Link
                 href={item.path}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group',
+                  'flex items-center gap-3 px-3 py-2 rounded transition-colors group',
                   active
-                    ? 'bg-blue-600 text-white font-medium shadow-sm'
-                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                    ? 'bg-[#111] text-white font-medium'
+                    : 'text-[#666] hover:text-[#111] hover:bg-[#f8f9fa]'
                 )}
                 title={!isExpanded ? item.label : undefined}
               >
-                <Icon className={cn('h-5 w-5 flex-shrink-0', active ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
-                {isExpanded && <span className="text-sm">{item.label}</span>}
+                <Icon className={cn('h-4 w-4 flex-shrink-0', active ? 'text-white' : 'text-[#aaa] group-hover:text-[#111]')} />
+                {isExpanded && <span className="text-[13px]">{item.label}</span>}
               </Link>
             )}
           </li>
@@ -161,49 +158,37 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
 
-  // Check if we're on a wiki page (wiki has different URL structure)
   const isOnWikiPage = pathname.startsWith(`/wiki/${owner}/${repo}`);
 
-  // Parse the URL differently based on whether we're on wiki or regular route
   let currentBranch: string;
   let currentTab: string | undefined;
   let baseUrl: string;
 
   if (isOnWikiPage) {
-    // Wiki pages don't have branches in their URLs - always use default branch
     currentBranch = defaultBranch;
     currentTab = undefined;
     baseUrl = `/${owner}/${repo}`;
   } else {
-    // Regular route - parse the pathname to extract branch and tab
     const pathParts = pathname.split('/').filter(Boolean);
-    const params = { user: owner, params: pathParts.slice(1) }; // Skip owner, keep rest
+    const params = { user: owner, params: pathParts.slice(1) };
     const parsed = parseRepoPath(params, branches || []);
-
     currentBranch = parsed.ref || defaultBranch;
     currentTab = parsed.tab;
-
-    // Build base URL with /tree/ prefix for non-default branches
     baseUrl = currentBranch === defaultBranch
       ? `/${owner}/${repo}`
       : `/${owner}/${repo}/tree/${currentBranch}`;
   }
 
   const handleBranchChange = (newBranch: string) => {
-    // If on wiki page, extract the slug and try to navigate to same page
     if (isOnWikiPage) {
       const wikiSlugMatch = pathname.match(/^\/wiki\/[^/]+\/[^/]+\/(.+)$/);
       const slug = wikiSlugMatch ? wikiSlugMatch[1] : '';
-
-      // Navigate to the same wiki slug (wikis don't actually have branches, but we switch to file browser)
-      // If there was a slug, try to preserve it by going to that path in the file browser
       if (slug) {
         const targetUrl = newBranch === defaultBranch
           ? `/${owner}/${repo}/${slug}`
           : `/${owner}/${repo}/tree/${newBranch}/${slug}`;
         router.push(targetUrl);
       } else {
-        // Just wiki index, go to repo root
         const targetUrl = newBranch === defaultBranch
           ? `/${owner}/${repo}`
           : `/${owner}/${repo}/tree/${newBranch}`;
@@ -212,24 +197,19 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
       return;
     }
 
-    // Build the target URL based on the new branch for regular routes
     let targetUrl: string;
-
     if (newBranch === defaultBranch) {
-      // Switching to default branch - no /tree/ prefix needed
       targetUrl = currentTab ? `/${owner}/${repo}/${currentTab}` : `/${owner}/${repo}`;
     } else {
-      // Switching to non-default branch - use /tree/ prefix
       targetUrl = currentTab
         ? `/${owner}/${repo}/tree/${newBranch}/${currentTab}`
         : `/${owner}/${repo}/tree/${newBranch}`;
     }
-
     router.push(targetUrl);
   };
 
   const intelligenceSection: NavSection = {
-    title: 'INTELLIGENCE',
+    title: 'Intelligence',
     items: [
       { key: 'scorecard', label: 'Scorecard', path: `${baseUrl}/scorecard`, icon: BarChart3 },
       { key: 'ai-slop', label: 'AI Slop', path: `${baseUrl}/ai-slop`, icon: Bot },
@@ -248,7 +228,7 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
   };
 
   const documentationSection: NavSection = {
-    title: 'DOCUMENTATION',
+    title: 'Documentation',
     items: [
       {
         key: 'diagram',
@@ -266,9 +246,7 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
   };
 
   const isActive = (path: string) => {
-    if (path === baseUrl) {
-      return pathname === baseUrl || pathname === `${baseUrl}/`;
-    }
+    if (path === baseUrl) return pathname === baseUrl || pathname === `${baseUrl}/`;
     return pathname.startsWith(path);
   };
 
@@ -277,173 +255,138 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
 
   return (
     <>
-      {/* Mobile Toggle Button */}
+      {/* Mobile Toggle */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="lg:hidden fixed top-16 left-4 z-50 p-3 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+        className="lg:hidden fixed top-16 left-4 z-50 p-3 bg-white rounded border border-[#eee] hover:bg-[#f8f9fa] transition-colors"
         aria-label={isExpanded ? 'Close sidebar' : 'Open sidebar'}
       >
-        {isExpanded ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        {isExpanded ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
       </button>
+
       <aside
         className={cn(
-          'fixed left-0 top-14 bg-white border-r border-gray-200 transition-all duration-300 z-40',
-          'flex flex-col',
-          // Mobile: slide off-screen when closed, Desktop: always visible with dynamic width
-          isExpanded ? 'w-64 translate-x-0' : 'w-16 -translate-x-full lg:translate-x-0'
+          'fixed left-0 top-14 bg-white border-r border-[#eee] transition-all duration-300 z-40 flex flex-col',
+          isExpanded ? 'w-60 translate-x-0' : 'w-14 -translate-x-full lg:translate-x-0'
         )}
         style={{ height: 'calc(100vh - 3.5rem)' }}
       >
-        {/* Scrollable Content */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-3">
-          {/* Repo Root Link */}
+          {/* Repo Root */}
           <div>
-            <ul className="space-y-1">
+            <ul className="space-y-0.5">
               <li>
                 {isExpanded ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <div
                       className={cn(
-                        'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group flex-1 min-w-0',
+                        'flex items-center gap-2.5 px-3 py-2 rounded transition-colors group flex-1 min-w-0',
                         isRepoRootActive
-                          ? 'bg-blue-600 text-white font-medium shadow-sm'
-                          : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                          ? 'bg-[#111] text-white font-medium'
+                          : 'text-[#666] hover:text-[#111] hover:bg-[#f8f9fa]'
                       )}
                     >
-                      <FolderGit2 className={cn('h-5 w-5 flex-shrink-0', isRepoRootActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
-                      <span className="text-sm truncate min-w-0">
+                      <FolderGit2 className={cn('h-4 w-4 flex-shrink-0', isRepoRootActive ? 'text-white' : 'text-[#aaa]')} />
+                      <span className="text-[13px] truncate min-w-0">
                         <Link
                           href={`/${owner}`}
-                          className={cn(
-                            'hover:underline',
-                            isRepoRootActive ? 'text-blue-100 hover:text-white' : 'text-gray-500 hover:text-gray-900'
-                          )}
-                          title={`View ${owner}'s profile`}
+                          className={cn('hover:underline', isRepoRootActive ? 'text-white/70 hover:text-white' : 'text-[#aaa] hover:text-[#111]')}
                         >
                           {owner}
                         </Link>
-                        <span className={isRepoRootActive ? 'text-blue-200' : 'text-gray-400'}>/</span>
-                        <Link
-                          href={baseUrl}
-                          className="hover:underline"
-                          title={`${owner}/${repo}`}
-                        >
-                          {repo}
-                        </Link>
+                        <span className={isRepoRootActive ? 'text-white/40' : 'text-[#ccc]'}>/</span>
+                        <Link href={baseUrl} className="hover:underline">{repo}</Link>
                       </span>
                     </div>
                     <a
                       href={`https://github.com/${owner}/${repo}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-2 rounded-md hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors flex-shrink-0"
+                      className="p-1.5 rounded hover:bg-[#f8f9fa] text-[#aaa] hover:text-[#111] transition-colors flex-shrink-0"
                       title="View on GitHub"
                     >
-                      <Github className="h-4 w-4" />
+                      <Github className="h-3.5 w-3.5" />
                     </a>
                   </div>
                 ) : (
                   <Link
                     href={baseUrl}
                     className={cn(
-                      'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group',
-                      isRepoRootActive
-                        ? 'bg-blue-600 text-white font-medium shadow-sm'
-                        : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                      'flex items-center justify-center p-2 rounded transition-colors',
+                      isRepoRootActive ? 'bg-[#111] text-white' : 'text-[#aaa] hover:text-[#111] hover:bg-[#f8f9fa]'
                     )}
                     title={`${owner}/${repo}`}
                   >
-                    <FolderGit2 className={cn('h-5 w-5 flex-shrink-0', isRepoRootActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
+                    <FolderGit2 className="h-4 w-4" />
                   </Link>
                 )}
               </li>
             </ul>
-            {/* Commit SHA display */}
             {commitSha && isExpanded && (
               <a
                 href={`https://github.com/${owner}/${repo}/commit/${commitSha}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-3 py-1.5 mt-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                className="flex items-center gap-2 px-3 py-1 mt-1 text-[11px] text-[#aaa] hover:text-[#666] transition-colors"
                 title={`Commit: ${commitSha}`}
               >
-                <GitCommit className="h-3.5 w-3.5" />
+                <GitCommit className="h-3 w-3" />
                 <span className="font-mono">{commitSha.slice(0, 7)}</span>
               </a>
             )}
           </div>
 
-          {/* Separator */}
-          <div className="border-t border-gray-200" />
+          <div className="border-t border-[#eee]" />
 
-          {/* Intelligence Section */}
+          {/* Intelligence */}
           <div>
             {isExpanded && (
-              <h3 className="px-3 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <div className="px-3 mb-2 text-[11px] font-semibold text-[#aaa] uppercase tracking-[1.5px]">
                 {intelligenceSection.title}
-              </h3>
+              </div>
             )}
-            <NavItemsList
-              items={intelligenceSection.items}
-              isExpanded={isExpanded}
-              isActive={isActive}
-              expandedSections={expandedSections}
-              toggleSection={toggleSection}
-            />
+            <NavItemsList items={intelligenceSection.items} isExpanded={isExpanded} isActive={isActive} expandedSections={expandedSections} toggleSection={toggleSection} />
           </div>
 
-          {/* Separator */}
-          <div className="border-t border-gray-200" />
+          <div className="border-t border-[#eee]" />
 
-          {/* Documentation Section */}
+          {/* Documentation */}
           <div>
             {isExpanded && (
-              <h3 className="px-3 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <div className="px-3 mb-2 text-[11px] font-semibold text-[#aaa] uppercase tracking-[1.5px]">
                 {documentationSection.title}
-              </h3>
+              </div>
             )}
-            <NavItemsList
-              items={documentationSection.items}
-              isExpanded={isExpanded}
-              isActive={isActive}
-              expandedSections={expandedSections}
-              toggleSection={toggleSection}
-            />
+            <NavItemsList items={documentationSection.items} isExpanded={isExpanded} isActive={isActive} expandedSections={expandedSections} toggleSection={toggleSection} />
 
-            {/* Wiki Subsection */}
-            <div className="mt-3" suppressHydrationWarning>
+            {/* Wiki */}
+            <div className="mt-1" suppressHydrationWarning>
               <div className="flex items-center gap-1">
                 <Link
                   href={`/wiki/${owner}/${repo}`}
                   className={cn(
-                    'flex-1 flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group',
-                    isWikiActive
-                      ? 'bg-blue-600 text-white font-medium shadow-sm'
-                      : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                    'flex-1 flex items-center gap-2.5 px-3 py-2 rounded transition-colors group',
+                    isWikiActive ? 'bg-[#111] text-white font-medium' : 'text-[#666] hover:text-[#111] hover:bg-[#f8f9fa]'
                   )}
                 >
-                  <BookOpen className={cn('h-5 w-5 flex-shrink-0', isWikiActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-900')} />
-                  <span className={cn('text-sm flex-1 text-left', !isExpanded && 'hidden')}>Wiki</span>
+                  <BookOpen className={cn('h-4 w-4 flex-shrink-0', isWikiActive ? 'text-white' : 'text-[#aaa] group-hover:text-[#111]')} />
+                  <span className={cn('text-[13px] flex-1 text-left', !isExpanded && 'hidden')}>Wiki</span>
                 </Link>
                 {wikiPages.length > 0 && isExpanded && (
                   <button
                     onClick={() => toggleSection('wiki')}
-                    className={cn(
-                      'p-2 rounded-lg transition-all duration-200 hover:bg-gray-100',
-                      isWikiActive ? 'text-white' : 'text-gray-500'
-                    )}
+                    className="p-2 rounded transition-colors hover:bg-[#f8f9fa] text-[#aaa]"
                     aria-label={expandedSections.wiki ? 'Collapse wiki pages' : 'Expand wiki pages'}
                   >
-                    {expandedSections.wiki ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    {expandedSections.wiki ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                   </button>
                 )}
               </div>
 
-              {/* Wiki Pages - Always render for SSR, control visibility with CSS */}
               {wikiPages.length > 0 && (
                 <ul
                   className={cn(
-                    'mt-1 ml-4 space-y-1 border-l-2 border-gray-200 pl-3 transition-all duration-200',
+                    'mt-0.5 ml-4 space-y-0.5 border-l border-[#eee] pl-3 transition-all duration-200',
                     !isExpanded || !expandedSections.wiki ? 'hidden' : 'block'
                   )}
                   suppressHydrationWarning
@@ -456,10 +399,8 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
                         <Link
                           href={wikiPagePath}
                           className={cn(
-                            'block px-3 py-1.5 text-sm rounded-md transition-colors',
-                            wikiActive
-                              ? 'bg-blue-500 text-white font-medium shadow-sm'
-                              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                            'block px-3 py-1.5 text-[13px] rounded transition-colors',
+                            wikiActive ? 'bg-[#111] text-white font-medium' : 'text-[#888] hover:text-[#111] hover:bg-[#f8f9fa]'
                           )}
                         >
                           {page.title}
@@ -473,23 +414,20 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
           </div>
         </nav>
 
-        {/* Collapse/Expand Button at Bottom (Desktop Only) */}
-        <div className="hidden lg:block p-3 border-t border-gray-200">
+        {/* Collapse button */}
+        <div className="hidden lg:block p-3 border-t border-[#eee]">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className={cn(
-              'w-full flex items-center justify-center gap-3 px-3 py-2 rounded-lg transition-all duration-200',
-              'hover:bg-gray-100 text-gray-700 hover:text-gray-900'
-            )}
+            className="w-full flex items-center justify-center gap-2.5 px-3 py-2 rounded transition-colors hover:bg-[#f8f9fa] text-[#888] hover:text-[#111]"
             title={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
           >
-            <ChevronRight className={cn('h-5 w-5 flex-shrink-0 text-gray-500 transition-transform', isExpanded ? 'rotate-180' : '')} />
-            {isExpanded && <span className="text-sm">Collapse</span>}
+            <ChevronRight className={cn('h-4 w-4 flex-shrink-0 transition-transform', isExpanded ? 'rotate-180' : '')} />
+            {isExpanded && <span className="text-[13px]">Collapse</span>}
           </button>
         </div>
       </aside>
 
-      {/* Overlay for mobile when sidebar is open */}
+      {/* Mobile overlay */}
       <div
         className={cn(
           'lg:hidden fixed top-14 left-0 right-0 bottom-0 bg-black/20 z-30 transition-opacity',

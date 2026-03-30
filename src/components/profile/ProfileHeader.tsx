@@ -51,7 +51,7 @@ export function ProfileHeader({ username, profile, totalScore, arenaRanking, pro
       {/* Info */}
       <div className="min-w-0">
         {/* Section label */}
-        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-1">
+        <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-1">
           Developer Profile
         </div>
 
@@ -71,7 +71,7 @@ export function ProfileHeader({ username, profile, totalScore, arenaRanking, pro
         <div className="flex items-center gap-3 mt-3 flex-wrap">
           {crackedInfo.isCracked && (
             <Badge
-              className={`${crackedInfo.colors.bg} ${crackedInfo.colors.bgHover} text-white border-none px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[1px] flex items-center gap-1`}
+              className={`${crackedInfo.colors.bg} ${crackedInfo.colors.bgHover} text-white border-none px-2.5 py-0.5 text-[12px] font-semibold uppercase tracking-[1px] flex items-center gap-1`}
               style={profileStyles?.primaryColor ? { backgroundColor: profileStyles.primaryColor } : undefined}
             >
               {isSpecial ? <Heart className="h-3 w-3 fill-current" /> : <Flame className="h-3 w-3 fill-current" />}
@@ -81,14 +81,14 @@ export function ProfileHeader({ username, profile, totalScore, arenaRanking, pro
 
           <div
             data-testid="profile-header-score-badge"
-            className="text-[13px] font-medium text-[#111] px-2.5 py-0.5 bg-[#f8f9fa] border border-[#eee] rounded"
+            className="text-[14px] font-medium text-[#111] px-2.5 py-0.5 bg-[#f8f9fa] border border-[#eee] rounded"
             style={profileStyles?.primaryColor ? { borderColor: profileStyles.primaryColor, color: profileStyles.primaryColor } : undefined}
           >
             Score: {totalScore}
           </div>
 
           {arenaRanking && (
-            <div data-testid="profile-header-elo-badge" className="flex items-center gap-1.5 text-[13px] font-medium text-[#111] px-2.5 py-0.5 bg-[#f8f9fa] border border-[#eee] rounded">
+            <div data-testid="profile-header-elo-badge" className="flex items-center gap-1.5 text-[14px] font-medium text-[#111] px-2.5 py-0.5 bg-[#f8f9fa] border border-[#eee] rounded">
               <Trophy className="h-3 w-3 text-[#f59e0b]" />
               {arenaRanking.eloRating} ELO
             </div>
@@ -97,7 +97,7 @@ export function ProfileHeader({ username, profile, totalScore, arenaRanking, pro
           {profile.developerArchetype && (() => {
             const archetypeInfo = getArchetypeInfo(profile.developerArchetype);
             return (
-              <div className={`flex items-center gap-1 text-[13px] font-medium px-2.5 py-0.5 rounded border ${archetypeInfo.bgColor} ${archetypeInfo.color}`}>
+              <div className={`flex items-center gap-1 text-[14px] font-medium px-2.5 py-0.5 rounded border ${archetypeInfo.bgColor} ${archetypeInfo.color}`}>
                 {archetypeInfo.icon}
                 {archetypeInfo.label}
               </div>

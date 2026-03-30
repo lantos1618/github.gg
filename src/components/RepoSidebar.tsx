@@ -88,7 +88,7 @@ function NavItemsList({ items, isExpanded, isActive, expandedSections, toggleSec
                     )}
                   >
                     <Icon className={cn('h-4 w-4 flex-shrink-0', active ? 'text-white' : 'text-[#aaa] group-hover:text-[#111]')} />
-                    <span className="text-[13px] flex-1 text-left">{item.label}</span>
+                    <span className="text-[14px] flex-1 text-left">{item.label}</span>
                   </Link>
                   <button
                     onClick={() => toggleSection(item.key as ExpandableSection)}
@@ -107,7 +107,7 @@ function NavItemsList({ items, isExpanded, isActive, expandedSections, toggleSec
                           <Link
                             href={child.path}
                             className={cn(
-                              'flex items-center gap-2.5 px-3 py-1.5 rounded text-[13px] transition-colors group',
+                              'flex items-center gap-2.5 px-3 py-1.5 rounded text-[14px] transition-colors group',
                               childActive
                                 ? 'bg-[#111] text-white font-medium'
                                 : 'text-[#888] hover:text-[#111] hover:bg-[#f8f9fa]'
@@ -134,7 +134,7 @@ function NavItemsList({ items, isExpanded, isActive, expandedSections, toggleSec
                 title={!isExpanded ? item.label : undefined}
               >
                 <Icon className={cn('h-4 w-4 flex-shrink-0', active ? 'text-white' : 'text-[#aaa] group-hover:text-[#111]')} />
-                {isExpanded && <span className="text-[13px]">{item.label}</span>}
+                {isExpanded && <span className="text-[14px]">{item.label}</span>}
               </Link>
             )}
           </li>
@@ -287,7 +287,7 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
                       )}
                     >
                       <FolderGit2 className={cn('h-4 w-4 flex-shrink-0', isRepoRootActive ? 'text-white' : 'text-[#aaa]')} />
-                      <span className="text-[13px] truncate min-w-0">
+                      <span className="text-[14px] truncate min-w-0">
                         <Link
                           href={`/${owner}`}
                           className={cn('hover:underline', isRepoRootActive ? 'text-white/70 hover:text-white' : 'text-[#aaa] hover:text-[#111]')}
@@ -327,7 +327,7 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
                 href={`https://github.com/${owner}/${repo}/commit/${commitSha}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-3 py-1 mt-1 text-[11px] text-[#aaa] hover:text-[#666] transition-colors"
+                className="flex items-center gap-2 px-3 py-1 mt-1 text-[12px] text-[#aaa] hover:text-[#666] transition-colors"
                 title={`Commit: ${commitSha}`}
               >
                 <GitCommit className="h-3 w-3" />
@@ -341,7 +341,7 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
           {/* Intelligence */}
           <div>
             {isExpanded && (
-              <div className="px-3 mb-2 text-[11px] font-semibold text-[#aaa] uppercase tracking-[1.5px]">
+              <div className="px-3 mb-2 text-[12px] font-semibold text-[#aaa] uppercase tracking-[1.5px]">
                 {intelligenceSection.title}
               </div>
             )}
@@ -353,7 +353,7 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
           {/* Documentation */}
           <div>
             {isExpanded && (
-              <div className="px-3 mb-2 text-[11px] font-semibold text-[#aaa] uppercase tracking-[1.5px]">
+              <div className="px-3 mb-2 text-[12px] font-semibold text-[#aaa] uppercase tracking-[1.5px]">
                 {documentationSection.title}
               </div>
             )}
@@ -370,7 +370,7 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
                   )}
                 >
                   <BookOpen className={cn('h-4 w-4 flex-shrink-0', isWikiActive ? 'text-white' : 'text-[#aaa] group-hover:text-[#111]')} />
-                  <span className={cn('text-[13px] flex-1 text-left', !isExpanded && 'hidden')}>Wiki</span>
+                  <span className={cn('text-[14px] flex-1 text-left', !isExpanded && 'hidden')}>Wiki</span>
                 </Link>
                 {wikiPages.length > 0 && isExpanded && (
                   <button
@@ -399,7 +399,7 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
                         <Link
                           href={wikiPagePath}
                           className={cn(
-                            'block px-3 py-1.5 text-[13px] rounded transition-colors',
+                            'block px-3 py-1.5 text-[14px] rounded transition-colors',
                             wikiActive ? 'bg-[#111] text-white font-medium' : 'text-[#888] hover:text-[#111] hover:bg-[#f8f9fa]'
                           )}
                         >
@@ -422,7 +422,7 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
             title={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
           >
             <ChevronRight className={cn('h-4 w-4 flex-shrink-0 transition-transform', isExpanded ? 'rotate-180' : '')} />
-            {isExpanded && <span className="text-[13px]">Collapse</span>}
+            {isExpanded && <span className="text-[14px]">Collapse</span>}
           </button>
         </div>
       </aside>

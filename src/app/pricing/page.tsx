@@ -26,13 +26,13 @@ export default function PricingPage() {
     <div className="min-h-screen bg-white">
       {/* Hero */}
       <div className="w-[90%] max-w-[800px] mx-auto pt-16 pb-12">
-        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">
+        <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
           Pricing
         </div>
         <h1 className="text-[32px] sm:text-[42px] font-semibold text-[#111] leading-[1.2] mb-2 tracking-tight">
           Stop wasting hours reading unfamiliar code
         </h1>
-        <p className="text-[13px] text-[#aaa] mb-4">
+        <p className="text-[14px] text-[#aaa] mb-4">
           Pro gives you AI-generated docs, diagrams, and reviews for any repo
         </p>
         <div className="border-b border-[#eee] mb-10" />
@@ -53,15 +53,15 @@ export default function PricingPage() {
             </div>
             <div className="flex items-baseline gap-1 mb-1">
               <span className="text-[36px] font-semibold text-[#111]">$0</span>
-              <span className="text-[13px] text-[#aaa]">forever</span>
+              <span className="text-[14px] text-[#aaa]">forever</span>
             </div>
-            <p className="text-[13px] text-[#666] mb-6">Browse and explore any public repo</p>
+            <p className="text-[14px] text-[#666] mb-6">Browse and explore any public repo</p>
 
             <div className="space-y-2 mb-6">
               {['Unlimited public repo browsing', 'File tree navigation', 'Syntax highlighting', 'Community support'].map((item) => (
                 <div key={item} className="flex items-start gap-2">
                   <Check className="h-3.5 w-3.5 text-[#aaa] mt-0.5 flex-shrink-0" />
-                  <span className="text-[13px] text-[#666]">{item}</span>
+                  <span className="text-[14px] text-[#666]">{item}</span>
                 </div>
               ))}
             </div>
@@ -71,7 +71,7 @@ export default function PricingPage() {
 
           {/* Pro Plan */}
           <div className="bg-white p-6 border-2 border-[#111] relative">
-            <div className="absolute -top-3 left-4 px-2.5 py-0.5 bg-[#111] text-white text-[11px] font-semibold tracking-[1px] uppercase">
+            <div className="absolute -top-3 left-4 px-2.5 py-0.5 bg-[#111] text-white text-[12px] font-semibold tracking-[1px] uppercase">
               Most Popular
             </div>
 
@@ -80,9 +80,9 @@ export default function PricingPage() {
             </div>
             <div className="flex items-baseline gap-1 mb-1">
               <span className="text-[36px] font-semibold text-[#111]">$20</span>
-              <span className="text-[13px] text-[#aaa]">/month</span>
+              <span className="text-[14px] text-[#aaa]">/month</span>
             </div>
-            <p className="text-[13px] text-[#666] mb-6">Everything you need to master any codebase</p>
+            <p className="text-[14px] text-[#666] mb-6">Everything you need to master any codebase</p>
 
             <div className="space-y-3 mb-6">
               {PRO_FEATURES.map((feature, idx) => (
@@ -92,7 +92,7 @@ export default function PricingPage() {
                     style={{ backgroundColor: feature.color }}
                   />
                   <div>
-                    <span className="text-[13px] font-medium text-[#111]">{feature.name}</span>
+                    <span className="text-[14px] font-medium text-[#111]">{feature.name}</span>
                     <p className="text-[12px] text-[#888]">{feature.benefit}</p>
                   </div>
                 </div>
@@ -123,16 +123,16 @@ export default function PricingPage() {
 
       {/* Feature Comparison */}
       <div className="w-[90%] max-w-[800px] mx-auto pb-16">
-        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">
+        <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
           Feature Comparison
         </div>
 
-        <table className="w-full text-[13px] border-collapse">
+        <table className="w-full text-[14px] border-collapse">
           <thead>
             <tr className="border-b border-[#ddd]">
-              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold">Feature</td>
-              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold text-center w-16">Free</td>
-              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold text-center w-16">Pro</td>
+              <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold">Feature</td>
+              <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold text-center w-16">Free</td>
+              <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold text-center w-16">Pro</td>
             </tr>
           </thead>
           <tbody>
@@ -168,7 +168,7 @@ export default function PricingPage() {
 
       {/* FAQ */}
       <div className="w-[90%] max-w-[800px] mx-auto pb-20">
-        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">
+        <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
           Questions
         </div>
 
@@ -180,7 +180,7 @@ export default function PricingPage() {
         ].map((faq, idx) => (
           <div key={idx} className="border-b border-[#f0f0f0] py-3">
             <div className="text-[14px] font-medium text-[#111] mb-1">{faq.q}</div>
-            <div className="text-[13px] text-[#666]">{faq.a}</div>
+            <div className="text-[14px] text-[#666]">{faq.a}</div>
           </div>
         ))}
       </div>

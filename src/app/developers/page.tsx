@@ -79,11 +79,11 @@ export default function DevelopersPage() {
       <div className="w-[90%] max-w-[800px] mx-auto pt-12 pb-20">
         {/* Header */}
         <div className="mb-10">
-          <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
             Developer Tools
           </div>
           <h1 className="text-[32px] font-semibold text-[#111] mb-2">Developers</h1>
-          <p className="text-[13px] text-[#aaa]">
+          <p className="text-[14px] text-[#aaa]">
             Integrate github.gg into your workflow with CLI tools, REST API, and AI assistants
           </p>
         </div>
@@ -94,7 +94,7 @@ export default function DevelopersPage() {
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              className={`px-4 py-2 text-[13px] font-medium rounded transition-colors ${
+              className={`px-4 py-2 text-[14px] font-medium rounded transition-colors ${
                 activeTab === key
                   ? 'bg-[#111] text-white'
                   : 'bg-[#f8f9fa] text-[#666] border border-[#eee] hover:border-[#aaa] hover:text-[#111]'
@@ -112,7 +112,7 @@ export default function DevelopersPage() {
         {activeTab === 'cli' && (
           <div className="space-y-8">
             <div>
-              <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-2">Terminal Shortcuts</div>
+              <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">Terminal Shortcuts</div>
               <p className="text-[14px] text-[#666] leading-[1.6]">
                 Open any repo on github.gg directly from your terminal. Just type <code className="bg-[#eee] px-1.5 py-0.5 rounded text-[12px]">gg</code> in any git repository.
               </p>
@@ -126,8 +126,8 @@ export default function DevelopersPage() {
               ].map((item) => (
                 <div key={item.cmd} className="bg-[#f8f9fa] py-[14px] px-[16px]" style={{ borderLeft: `3px solid ${item.color}` }}>
                   <div className="flex items-center gap-3 mb-1">
-                    <code className="text-[13px] font-mono font-semibold text-[#111]">{item.cmd}</code>
-                    <span className="text-[13px] text-[#333]">{item.desc}</span>
+                    <code className="text-[14px] font-mono font-semibold text-[#111]">{item.cmd}</code>
+                    <span className="text-[14px] text-[#333]">{item.desc}</span>
                   </div>
                   <div className="text-[12px] text-[#888]">{item.detail}</div>
                 </div>
@@ -136,17 +136,17 @@ export default function DevelopersPage() {
 
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase">Installation</div>
+                <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase">Installation</div>
                 <CopyButton text={BASH_SCRIPT} label="Copy" />
               </div>
-              <p className="text-[13px] text-[#666] mb-3">
+              <p className="text-[14px] text-[#666] mb-3">
                 Add to <code className="bg-[#eee] px-1.5 py-0.5 rounded text-[12px]">~/.bashrc</code> or <code className="bg-[#eee] px-1.5 py-0.5 rounded text-[12px]">~/.zshrc</code>:
               </p>
               <pre className="bg-[#1a1a1a] text-[#ddd] rounded p-4 overflow-x-auto text-[12px] font-mono leading-relaxed max-h-72">
                 <code>{BASH_SCRIPT}</code>
               </pre>
               <div className="mt-3 bg-[#f8f9fa] py-[10px] px-[14px] text-[12px] text-[#666]" style={{ borderLeft: '3px solid #f59e0b' }}>
-                Run <code className="bg-[#eee] px-1 py-0.5 rounded text-[11px]">source ~/.bashrc</code> or restart your terminal to activate.
+                Run <code className="bg-[#eee] px-1 py-0.5 rounded text-[12px]">source ~/.bashrc</code> or restart your terminal to activate.
               </div>
             </div>
           </div>
@@ -156,7 +156,7 @@ export default function DevelopersPage() {
         {activeTab === 'api' && (
           <div className="space-y-8">
             <div>
-              <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-2">REST API</div>
+              <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">REST API</div>
               <p className="text-[14px] text-[#666] leading-[1.6]">
                 Programmatic access to developer profiles, scorecards, and arena rankings.
               </p>
@@ -164,7 +164,7 @@ export default function DevelopersPage() {
 
             <div className="bg-[#f8f9fa] py-[14px] px-[16px]" style={{ borderLeft: '3px solid #111' }}>
               <div className="text-[12px] font-semibold uppercase tracking-[1px] text-[#111] mb-2">Authentication</div>
-              <div className="text-[13px] text-[#666] mb-2">Include your API key in requests:</div>
+              <div className="text-[14px] text-[#666] mb-2">Include your API key in requests:</div>
               <code className="block bg-[#1a1a1a] text-[#ddd] rounded px-3 py-2 font-mono text-[12px]">
                 Authorization: Bearer gg_your_api_key
               </code>
@@ -174,16 +174,16 @@ export default function DevelopersPage() {
             </div>
 
             <div>
-              <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">Endpoints</div>
+              <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">Endpoints</div>
               <div className="space-y-[2px]">
                 {endpoints.map((endpoint, idx) => (
                   <div key={idx} className="bg-[#f8f9fa] py-[14px] px-[16px]" style={{ borderLeft: '3px solid #34a853' }}>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[11px] font-semibold uppercase tracking-[1px] text-[#34a853]">{endpoint.method}</span>
-                      <code className="font-mono text-[13px] text-[#111]">{endpoint.path}</code>
+                      <span className="text-[12px] font-semibold uppercase tracking-[1px] text-[#34a853]">{endpoint.method}</span>
+                      <code className="font-mono text-[14px] text-[#111]">{endpoint.path}</code>
                     </div>
-                    <div className="text-[13px] text-[#666] mb-2">{endpoint.description}</div>
-                    <pre className="bg-[#1a1a1a] text-[#ddd] rounded px-3 py-2 font-mono text-[11px] overflow-x-auto">
+                    <div className="text-[14px] text-[#666] mb-2">{endpoint.description}</div>
+                    <pre className="bg-[#1a1a1a] text-[#ddd] rounded px-3 py-2 font-mono text-[12px] overflow-x-auto">
                       {endpoint.example}
                     </pre>
                   </div>
@@ -191,7 +191,7 @@ export default function DevelopersPage() {
               </div>
             </div>
 
-            <Link href="/api-docs" className="text-[13px] text-[#888] hover:text-[#111] transition-colors inline-block">
+            <Link href="/api-docs" className="text-[14px] text-[#888] hover:text-[#111] transition-colors inline-block">
               Full API documentation &rarr;
             </Link>
           </div>
@@ -201,7 +201,7 @@ export default function DevelopersPage() {
         {activeTab === 'mcp' && (
           <div className="space-y-8">
             <div>
-              <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-2">Model Context Protocol</div>
+              <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">Model Context Protocol</div>
               <p className="text-[14px] text-[#666] leading-[1.6]">
                 Connect AI assistants like Claude, Cursor, and Windsurf directly to github.gg.
               </p>
@@ -219,7 +219,7 @@ export default function DevelopersPage() {
             </div>
 
             <div>
-              <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">What you'll be able to do</div>
+              <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">What you'll be able to do</div>
               <div className="space-y-[2px]">
                 {[
                   { label: 'Search', desc: '"Find React repos with good test coverage"' },
@@ -227,7 +227,7 @@ export default function DevelopersPage() {
                   { label: 'Analysis', desc: '"Analyze the code quality of this repo"' },
                 ].map((item) => (
                   <div key={item.label} className="bg-[#f8f9fa] py-[12px] px-[16px]" style={{ borderLeft: '3px solid #f59e0b' }}>
-                    <div className="text-[13px] font-medium text-[#111]">{item.label}</div>
+                    <div className="text-[14px] font-medium text-[#111]">{item.label}</div>
                     <div className="text-[12px] text-[#888] italic">{item.desc}</div>
                   </div>
                 ))}

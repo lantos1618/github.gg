@@ -39,7 +39,7 @@ export function CallToAction() {
       <div className="w-[90%] max-w-[800px] mx-auto py-20">
 
         {/* Section label */}
-        <div className="text-[11px] text-[#666] font-semibold tracking-[1.5px] uppercase mb-4">
+        <div className="text-[12px] text-[#666] font-semibold tracking-[1.5px] uppercase mb-4">
           Get Started
         </div>
 
@@ -47,7 +47,7 @@ export function CallToAction() {
           Try it now
         </h2>
 
-        <p className="text-[13px] text-[#666] mb-8">
+        <p className="text-[14px] text-[#666] mb-8">
           Paste any public repo and see what you get
         </p>
 
@@ -70,7 +70,7 @@ export function CallToAction() {
                 type="submit"
                 disabled={isAnalyzing}
                 data-testid="home-cta-submit-btn"
-                className="h-9 px-4 bg-white text-[#111] hover:bg-[#eee] rounded font-medium text-[13px]"
+                className="h-9 px-4 bg-white text-[#111] hover:bg-[#eee] rounded font-medium text-[14px]"
               >
                 {isAnalyzing ? '...' : 'Go'}
                 {!isAnalyzing && <ArrowRight className="h-3.5 w-3.5 ml-1" />}
@@ -79,13 +79,13 @@ export function CallToAction() {
           </form>
         </div>
 
-        <p className="text-[13px] text-[#555] mb-16">
+        <p className="text-[14px] text-[#555] mb-16">
           Free for public repos. <Link href="/pricing" className="text-[#888] hover:text-white transition-colors" data-testid="home-cta-pricing-link">Pricing</Link> for private.
         </p>
 
         {/* Footer */}
         <div className="pt-4 border-t border-[#222]">
-          <table className="w-full text-[13px]">
+          <table className="w-full text-[14px]">
             <tbody>
               <tr>
                 <td className="text-[#555] py-1">&copy; {new Date().getFullYear()} GG</td>

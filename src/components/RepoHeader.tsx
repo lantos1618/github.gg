@@ -55,7 +55,7 @@ export function RepoHeader({
     <div className="w-[90%] max-w-[800px] mx-auto pt-6 sm:pt-8">
       <div className="mb-8">
         {/* Section label */}
-        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-2">
+        <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">
           Repository
         </div>
 
@@ -73,7 +73,7 @@ export function RepoHeader({
         {/* Meta row */}
         <div className="flex items-center gap-4 mt-2 mb-6">
           {fileCount !== undefined && (
-            <span className="text-[13px] text-[#aaa]">
+            <span className="text-[14px] text-[#aaa]">
               {fileCount} file{fileCount !== 1 ? 's' : ''}
             </span>
           )}
@@ -106,7 +106,7 @@ export function RepoHeader({
           <button
             onClick={onCopyAll}
             disabled={isCopying}
-            className="px-4 py-2 bg-[#111] text-white text-[13px] font-medium rounded-md hover:bg-[#333] transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+            className="px-4 py-2 bg-[#111] text-white text-[14px] font-medium rounded-md hover:bg-[#333] transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer"
           >
             {isCopying ? 'Copying...' : copied ? (
               <><Check className="h-3.5 w-3.5" /> Copied</>
@@ -114,7 +114,7 @@ export function RepoHeader({
           </button>
           <button
             onClick={onDownloadAll}
-            className="px-4 py-2 bg-[#f8f9fa] text-[#333] text-[13px] font-medium rounded-md border border-[#ddd] hover:border-[#aaa] transition-colors flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2 bg-[#f8f9fa] text-[#333] text-[14px] font-medium rounded-md border border-[#ddd] hover:border-[#aaa] transition-colors flex items-center gap-2 cursor-pointer"
           >
             <Download className="h-3.5 w-3.5" />
             Download
@@ -158,10 +158,10 @@ export function VersionedResourceHeader({
             </span>
           )}
           {cached && (
-            <span className="text-[11px] text-[#aaa] font-semibold tracking-[1px] uppercase px-2 py-0.5 bg-[#f8f9fa] border border-[#eee] rounded">Cached</span>
+            <span className="text-[12px] text-[#aaa] font-semibold tracking-[1px] uppercase px-2 py-0.5 bg-[#f8f9fa] border border-[#eee] rounded">Cached</span>
           )}
           {stale && (
-            <span className="text-[11px] text-[#ea4335] font-semibold tracking-[1px] uppercase px-2 py-0.5 bg-red-50 border border-red-100 rounded">Stale</span>
+            <span className="text-[12px] text-[#ea4335] font-semibold tracking-[1px] uppercase px-2 py-0.5 bg-red-50 border border-red-100 rounded">Stale</span>
           )}
         </div>
         {regenerateButton}

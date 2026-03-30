@@ -29,7 +29,7 @@ export function InsightsRefreshButton({ onRefresh, isRefreshing, lastUpdated }: 
         variant="outline"
         size="sm"
         data-testid="scorecard-refresh-btn"
-        className={`border-[#ddd] text-[13px] hover:border-[#111] ${isRefreshing ? 'animate-pulse' : ''}`}
+        className={`border-[#ddd] text-[14px] hover:border-[#111] ${isRefreshing ? 'animate-pulse' : ''}`}
       >
         <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
         Refresh

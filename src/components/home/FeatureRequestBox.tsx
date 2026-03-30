@@ -35,13 +35,13 @@ export function FeatureRequestBox() {
   return (
     <div className="mt-16">
       <div className="w-[90%] max-w-[600px] mx-auto">
-        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+        <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
           Feature Request
         </div>
         <h3 className="text-[22px] font-semibold text-[#111] mb-2">
           Have an idea?
         </h3>
-        <p className="text-[13px] text-[#666] leading-[1.6] mb-6">
+        <p className="text-[14px] text-[#666] leading-[1.6] mb-6">
           Share your thoughts or <a href="https://github.com/lantos1618/github.gg" target="_blank" rel="noopener noreferrer" className="text-[#111] hover:text-[#666] transition-colors font-medium">contribute directly on GitHub</a>.
         </p>
 

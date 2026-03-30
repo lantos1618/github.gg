@@ -96,7 +96,7 @@ export const RepositoryListSidebar: React.FC<RepositoryListSidebarProps> = ({
                 <div className="flex-1 min-w-0">
                   <span className={cn(
                     "block truncate font-medium",
-                    isMobile ? "text-sm" : "text-[13px]"
+                    isMobile ? "text-sm" : "text-[14px]"
                   )}>
                     {repo.name}
                   </span>

@@ -37,7 +37,7 @@ function AuthErrorContent() {
   return (
     <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center">
       <div className="w-[90%] max-w-[500px]">
-        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+        <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
           Authentication
         </div>
         <h1 className="text-[26px] font-semibold text-[#111] mb-2">{title}</h1>
@@ -50,13 +50,13 @@ function AuthErrorContent() {
         <div className="flex gap-3">
           <button
             onClick={() => signIn('/')}
-            className="px-4 py-2 bg-[#111] text-white text-[13px] font-medium rounded-md hover:bg-[#333] transition-colors"
+            className="px-4 py-2 bg-[#111] text-white text-[14px] font-medium rounded-md hover:bg-[#333] transition-colors"
           >
             Sign in again
           </button>
           <Link
             href="/"
-            className="px-4 py-2 bg-[#f8f9fa] text-[#333] text-[13px] font-medium rounded-md border border-[#ddd] hover:border-[#aaa] transition-colors"
+            className="px-4 py-2 bg-[#f8f9fa] text-[#333] text-[14px] font-medium rounded-md border border-[#ddd] hover:border-[#aaa] transition-colors"
           >
             Go Home
           </Link>
@@ -72,7 +72,7 @@ export default function AuthErrorPage() {
       fallback={
         <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center">
           <div className="w-[90%] max-w-[500px]">
-            <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+            <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
               Authentication
             </div>
             <h1 className="text-[26px] font-semibold text-[#111] mb-2">Authentication Error</h1>

@@ -38,7 +38,7 @@ export function FeatureGrid() {
       <div className="w-[90%] max-w-[800px] mx-auto py-20">
 
         {/* Section label */}
-        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+        <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
           What You Get
         </div>
 
@@ -46,7 +46,7 @@ export function FeatureGrid() {
           Five layers of analysis
         </div>
 
-        <p className="text-[13px] text-[#aaa] mb-8">
+        <p className="text-[14px] text-[#aaa] mb-8">
           From architecture overview to line-by-line quality scores
         </p>
 
@@ -70,7 +70,7 @@ export function FeatureGrid() {
                 >
                   {step.label}
                 </div>
-                <div className="text-[13px] text-[#333] leading-[1.6]">
+                <div className="text-[14px] text-[#333] leading-[1.6]">
                   {step.desc}
                 </div>
                 {step.detail && (

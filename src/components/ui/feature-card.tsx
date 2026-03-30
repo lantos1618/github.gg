@@ -25,7 +25,7 @@ export function FeatureCard({ title, description, label, color = '#111', icon: _
         </div>
       )}
       <div className="text-[14px] font-medium text-[#111] mb-1">{title}</div>
-      <div className="text-[13px] text-[#666] leading-[1.6]">{description}</div>
+      <div className="text-[14px] text-[#666] leading-[1.6]">{description}</div>
     </div>
   );
 }

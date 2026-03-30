@@ -28,7 +28,7 @@ export function RepoStatus({
             <div className="text-[12px] font-semibold uppercase tracking-[1px] mb-1" style={{ color }}>
               {title}
             </div>
-            <div className="text-[13px] text-[#333] leading-[1.6]">
+            <div className="text-[14px] text-[#333] leading-[1.6]">
               {desc}
             </div>
             {isNotFound && (

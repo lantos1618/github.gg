@@ -41,7 +41,7 @@ export function ComingSoon({
   return (
     <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
       <div className="w-[90%] max-w-[800px] mx-auto py-16">
-        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+        <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
           Coming Soon
         </div>
         <h2 className="text-[26px] font-semibold text-[#111] mb-2">{title}</h2>
@@ -52,14 +52,14 @@ export function ComingSoon({
             <div className="text-[12px] font-semibold uppercase tracking-[1px] text-[#4285f4] mb-1">
               Contribute
             </div>
-            <div className="text-[13px] text-[#333] leading-[1.6] mb-3">
+            <div className="text-[14px] text-[#333] leading-[1.6] mb-3">
               GG is open source. You can help implement this feature by contributing to the repository.
             </div>
             <a
               href="https://github.com/lantos1618/github.gg"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[13px] text-[#4285f4] hover:text-[#111] transition-colors font-medium"
+              className="text-[14px] text-[#4285f4] hover:text-[#111] transition-colors font-medium"
             >
               View on GitHub &rarr;
             </a>

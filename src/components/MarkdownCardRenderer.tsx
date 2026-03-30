@@ -18,11 +18,11 @@ export function MarkdownCardRenderer({
   return (
     <div data-testid="markdown-card">
       {/* Section label */}
-      <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-2">
+      <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">
         {title}
       </div>
       {description && (
-        <p className="text-[13px] text-[#aaa] mb-4">{description}</p>
+        <p className="text-[14px] text-[#aaa] mb-4">{description}</p>
       )}
       <div className="border-b border-[#eee] mb-6" />
       <MarkdownRenderer content={markdown} />

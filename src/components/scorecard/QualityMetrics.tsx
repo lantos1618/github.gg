@@ -16,7 +16,7 @@ export function QualityMetrics({ quality }: QualityMetricsProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Quality Score */}
         <div className="flex flex-col items-center justify-center py-8">
-          <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">Quality Score</div>
+          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">Quality Score</div>
           <div className="text-[64px] font-semibold leading-none" style={{ color: getScoreColor(quality.score) }}>
             {quality.score}
           </div>
@@ -25,7 +25,7 @@ export function QualityMetrics({ quality }: QualityMetricsProps) {
 
         {/* Detailed Metrics */}
         <div className="lg:col-span-2">
-          <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">Detailed Metrics</div>
+          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">Detailed Metrics</div>
           <div className="grid grid-cols-2 gap-x-8 gap-y-4">
             {Object.entries(quality.metrics).map(([key, value]) => {
               const color = getScoreColor(value);
@@ -36,7 +36,7 @@ export function QualityMetrics({ quality }: QualityMetricsProps) {
                       {key.replace(/([A-Z])/g, ' $1').trim()}
                     </span>
                     <span className="text-[16px] font-semibold" style={{ color }}>
-                      {value}<span className="text-[11px] text-[#aaa] ml-0.5">/100</span>
+                      {value}<span className="text-[12px] text-[#aaa] ml-0.5">/100</span>
                     </span>
                   </div>
                   <div className="h-1 w-full bg-[#eee] overflow-hidden">
@@ -52,15 +52,15 @@ export function QualityMetrics({ quality }: QualityMetricsProps) {
       {/* Issues */}
       {quality.issues.length > 0 && (
         <div>
-          <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">Identified Issues</div>
+          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">Identified Issues</div>
           <div className="space-y-[2px]">
             {quality.issues.map((issue, index) => {
               const color = issue.severity === 'high' ? '#ea4335' : issue.severity === 'medium' ? '#f59e0b' : '#34a853';
               return (
                 <div key={index} className="bg-[#f8f9fa] py-[12px] px-[16px]" style={{ borderLeft: `3px solid ${color}` }}>
                   <div className="flex items-start justify-between gap-3">
-                    <div className="text-[13px] text-[#333] leading-[1.6]">{issue.message}</div>
-                    <span className="text-[11px] font-semibold uppercase tracking-[1px] flex-shrink-0" style={{ color }}>{issue.severity}</span>
+                    <div className="text-[14px] text-[#333] leading-[1.6]">{issue.message}</div>
+                    <span className="text-[12px] font-semibold uppercase tracking-[1px] flex-shrink-0" style={{ color }}>{issue.severity}</span>
                   </div>
                   {issue.file && <div className="text-[12px] text-[#888] font-mono mt-1">{issue.file}</div>}
                 </div>

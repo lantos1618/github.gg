@@ -2,92 +2,32 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { trpc } from '@/lib/trpc/client';
-import {
-  Sword,
-  User,
-  Trophy,
-  X,
-  Check,
-  Target,
-} from 'lucide-react';
+import { User, Check } from 'lucide-react';
 import type { BattleCriteria } from '@/lib/types/arena';
 import { DEFAULT_BATTLE_CRITERIA } from '@/lib/constants/arena';
 import { sanitizeText, sanitizeArray } from '@/lib/utils/sanitize';
 import { toast } from 'sonner';
 
 const CRITERIA_LABELS: Record<BattleCriteria, { label: string; description: string }> = {
-  code_quality: { 
-    label: 'Code Quality', 
-    description: 'Clean, maintainable, and well-structured code' 
-  },
-  project_complexity: { 
-    label: 'Project Complexity', 
-    description: 'Sophisticated and challenging projects' 
-  },
-  skill_diversity: { 
-    label: 'Skill Diversity', 
-    description: 'Range of technologies and languages' 
-  },
-  innovation: { 
-    label: 'Innovation', 
-    description: 'Creative solutions and novel approaches' 
-  },
-  documentation: { 
-    label: 'Documentation', 
-    description: 'Quality of READMEs and code comments' 
-  },
-  testing: { 
-    label: 'Testing', 
-    description: 'Test coverage and testing practices' 
-  },
-  architecture: { 
-    label: 'Architecture', 
-    description: 'System design and architectural patterns' 
-  },
-  performance: { 
-    label: 'Performance', 
-    description: 'Optimization and efficiency' 
-  },
-  security: { 
-    label: 'Security', 
-    description: 'Security best practices and awareness' 
-  },
-  maintainability: { 
-    label: 'Maintainability', 
-    description: 'Code maintainability and scalability' 
-  },
+  code_quality: { label: 'Code Quality', description: 'Clean, maintainable, and well-structured code' },
+  project_complexity: { label: 'Project Complexity', description: 'Sophisticated and challenging projects' },
+  skill_diversity: { label: 'Skill Diversity', description: 'Range of technologies and languages' },
+  innovation: { label: 'Innovation', description: 'Creative solutions and novel approaches' },
+  documentation: { label: 'Documentation', description: 'Quality of READMEs and code comments' },
+  testing: { label: 'Testing', description: 'Test coverage and testing practices' },
+  architecture: { label: 'Architecture', description: 'System design and architectural patterns' },
+  performance: { label: 'Performance', description: 'Optimization and efficiency' },
+  security: { label: 'Security', description: 'Security best practices and awareness' },
+  maintainability: { label: 'Maintainability', description: 'Code maintainability and scalability' },
 };
 
 interface BattleResult {
   error?: string;
-  analysis?: {
-    winner: string;
-    reason: string;
-    highlights: string[];
-    recommendations: string[];
-  };
-  battle?: {
-    id: string;
-    scores: {
-      challenger: { 
-        total: number;
-        breakdown: Record<string, number>;
-      };
-      opponent: { 
-        total: number;
-        breakdown: Record<string, number>;
-      };
-    } | null;
-  };
-  eloChange?: {
-    challenger: { change: number; newRating: number };
-    opponent: { change: number; newRating: number };
-  };
+  analysis?: { winner: string; reason: string; highlights: string[]; recommendations: string[] };
+  battle?: { id: string; scores: { challenger: { total: number; breakdown: Record<string, number> }; opponent: { total: number; breakdown: Record<string, number> } } | null };
+  eloChange?: { challenger: { change: number; newRating: number }; opponent: { change: number; newRating: number } };
 }
 
 export function ChallengeForm() {
@@ -102,172 +42,55 @@ export function ChallengeForm() {
   const activeToastId = useRef<string | number | null>(null);
 
   const challengeMutation = trpc.arena.challengeDeveloper.useMutation();
-  const { data: currentUser } = trpc.me.useQuery(undefined, {
-    refetchOnWindowFocus: false,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-  });
+  const { data: currentUser } = trpc.me.useQuery(undefined, { refetchOnWindowFocus: false, staleTime: 2 * 60 * 1000 });
 
-  // Clean up EventSource on unmount to prevent leaked SSE connections
   useEffect(() => {
-    return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-    };
+    return () => { if (eventSourceRef.current) { eventSourceRef.current.close(); eventSourceRef.current = null; } };
   }, []);
 
   useEffect(() => {
     const opponentFromQuery = searchParams.get('opponent');
-    if (opponentFromQuery) {
-      setOpponentUsername(opponentFromQuery);
-    }
+    if (opponentFromQuery) setOpponentUsername(opponentFromQuery);
   }, [searchParams]);
 
   const handleChallenge = async () => {
     if (!opponentUsername.trim()) return;
-
-    // Prevent self-challenge
-    if (currentUser?.user?.name === opponentUsername.trim()) {
-      setBattleResult({ error: 'You cannot challenge yourself!' });
-      return;
-    }
+    if (currentUser?.user?.name === opponentUsername.trim()) { setBattleResult({ error: 'You cannot challenge yourself!' }); return; }
 
     try {
-      setBattleResult(null);
-      setIsBattling(true);
-      setProgress(0);
-      setStatusMessage('Creating battle challenge...');
-      
-      const toastId = toast.loading('Creating battle challenge...');
-      activeToastId.current = toastId;
+      setBattleResult(null); setIsBattling(true); setProgress(0); setStatusMessage('Creating battle challenge...');
+      const toastId = toast.loading('Creating battle challenge...'); activeToastId.current = toastId;
 
-      // Create challenge
-      const battle = await challengeMutation.mutateAsync({
-        opponentUsername: opponentUsername.trim(),
-        criteria: selectedCriteria,
-      });
-
-      // Connect to SSE endpoint for real-time progress
+      const battle = await challengeMutation.mutateAsync({ opponentUsername: opponentUsername.trim(), criteria: selectedCriteria });
       const eventSource = new EventSource(`/api/arena/battle?battleId=${battle.id}`);
       eventSourceRef.current = eventSource;
 
       eventSource.addEventListener('progress', (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          setProgress(data.progress || 0);
-          const message = sanitizeText(data.message);
-          setStatusMessage(message);
-          
-          if (activeToastId.current) {
-            toast.loading(`${message} (${data.progress || 0}%)`, { id: activeToastId.current });
-          }
-        } catch (error) {
-          console.error('Failed to parse progress event:', error);
-        }
+        try { const data = JSON.parse(event.data); setProgress(data.progress || 0); const message = sanitizeText(data.message); setStatusMessage(message); if (activeToastId.current) toast.loading(`${message} (${data.progress || 0}%)`, { id: activeToastId.current }); } catch (error) { console.error('Failed to parse progress:', error); }
       });
 
       eventSource.addEventListener('complete', (event) => {
         try {
-          const data = JSON.parse(event.data);
-          setProgress(100);
-          setIsBattling(false);
-          eventSource.close();
-          
-          if (activeToastId.current) {
-            toast.success('Battle complete! Results ready.', { id: activeToastId.current });
-            activeToastId.current = null;
-          }
-
-          setBattleResult({
-            battle: {
-              id: battle.id,
-              scores: {
-                challenger: data.result?.challengerScore,
-                opponent: data.result?.opponentScore,
-              },
-            },
-            analysis: {
-              winner: sanitizeText(data.result?.winner) || 'Unknown',
-              reason: sanitizeText(data.result?.reason) || '',
-              highlights: sanitizeArray(data.result?.highlights),
-              recommendations: sanitizeArray(data.result?.recommendations),
-            },
-            eloChange: data.result?.eloChange,
-          });
-
-          // Reset form
-          setOpponentUsername('');
-          setSelectedCriteria([...DEFAULT_BATTLE_CRITERIA]);
-        } catch (error) {
-          console.error('Failed to parse battle complete event:', error);
-          setIsBattling(false);
-          eventSource.close();
-          
-          if (activeToastId.current) {
-            toast.error('Failed to process results', { id: activeToastId.current });
-            activeToastId.current = null;
-          }
-          setBattleResult({ error: 'Battle completed but failed to parse results' });
-        }
+          const data = JSON.parse(event.data); setProgress(100); setIsBattling(false); eventSource.close();
+          if (activeToastId.current) { toast.success('Battle complete!', { id: activeToastId.current }); activeToastId.current = null; }
+          setBattleResult({ battle: { id: battle.id, scores: { challenger: data.result?.challengerScore, opponent: data.result?.opponentScore } }, analysis: { winner: sanitizeText(data.result?.winner) || 'Unknown', reason: sanitizeText(data.result?.reason) || '', highlights: sanitizeArray(data.result?.highlights), recommendations: sanitizeArray(data.result?.recommendations) }, eloChange: data.result?.eloChange });
+          setOpponentUsername(''); setSelectedCriteria([...DEFAULT_BATTLE_CRITERIA]);
+        } catch (error) { console.error('Failed to parse complete:', error); setIsBattling(false); eventSource.close(); if (activeToastId.current) { toast.error('Failed to process results', { id: activeToastId.current }); activeToastId.current = null; } setBattleResult({ error: 'Battle completed but failed to parse results' }); }
       });
 
       eventSource.addEventListener('error', (event) => {
-        try {
-          const messageEvent = event as MessageEvent;
-          const data = messageEvent.data ? JSON.parse(messageEvent.data) : {};
-          setIsBattling(false);
-          eventSource.close();
-
-          const errorMsg = sanitizeText(data.message) || 'Battle failed. Please try again.';
-          if (activeToastId.current) {
-            toast.error(errorMsg, { id: activeToastId.current });
-            activeToastId.current = null;
-          }
-
-          setBattleResult({ error: errorMsg });
-        } catch (error) {
-          console.error('Failed to parse error event:', error);
-          setIsBattling(false);
-          eventSource.close();
-          
-          if (activeToastId.current) {
-            toast.error('An error occurred', { id: activeToastId.current });
-            activeToastId.current = null;
-          }
-          setBattleResult({ error: 'An error occurred during the battle' });
-        }
+        try { const messageEvent = event as MessageEvent; const data = messageEvent.data ? JSON.parse(messageEvent.data) : {}; setIsBattling(false); eventSource.close(); const errorMsg = sanitizeText(data.message) || 'Battle failed.'; if (activeToastId.current) { toast.error(errorMsg, { id: activeToastId.current }); activeToastId.current = null; } setBattleResult({ error: errorMsg }); } catch { setIsBattling(false); eventSource.close(); if (activeToastId.current) { toast.error('An error occurred', { id: activeToastId.current }); activeToastId.current = null; } setBattleResult({ error: 'An error occurred during the battle' }); }
       });
 
-      eventSource.onerror = () => {
-        setIsBattling(false);
-        eventSource.close();
-        
-        if (activeToastId.current) {
-          toast.error('Connection lost', { id: activeToastId.current });
-          activeToastId.current = null;
-        }
-
-        setBattleResult({ error: 'Connection error. Please try again.' });
-      };
-
+      eventSource.onerror = () => { setIsBattling(false); eventSource.close(); if (activeToastId.current) { toast.error('Connection lost', { id: activeToastId.current }); activeToastId.current = null; } setBattleResult({ error: 'Connection error. Please try again.' }); };
     } catch (error) {
-      console.error('Battle failed:', error);
-      if (activeToastId.current) {
-        toast.error(error instanceof Error ? error.message : 'Unknown error', { id: activeToastId.current });
-        activeToastId.current = null;
-      }
-      setBattleResult({ error: error instanceof Error ? error.message : 'Unknown error' });
-      setIsBattling(false);
+      console.error('Battle failed:', error); if (activeToastId.current) { toast.error(error instanceof Error ? error.message : 'Unknown error', { id: activeToastId.current }); activeToastId.current = null; }
+      setBattleResult({ error: error instanceof Error ? error.message : 'Unknown error' }); setIsBattling(false);
     }
   };
 
   const handleCriteriaToggle = (criterion: BattleCriteria) => {
-    setSelectedCriteria(prev => 
-      prev.includes(criterion)
-        ? prev.filter(c => c !== criterion)
-        : [...prev, criterion]
-    );
+    setSelectedCriteria(prev => prev.includes(criterion) ? prev.filter(c => c !== criterion) : [...prev, criterion]);
   };
 
   const isFormValid = opponentUsername.trim() && selectedCriteria.length > 0 && currentUser?.user?.name !== opponentUsername.trim();
@@ -277,169 +100,107 @@ export function ChallengeForm() {
     <div className="space-y-8">
       {/* Battle Result */}
       {battleResult && (
-        <div className={`p-8 rounded-2xl border-2 ${battleResult.error ? "border-red-100 bg-red-50/50" : "border-yellow-100 bg-yellow-50/30"} animate-in fade-in zoom-in-95 duration-300`}>
+        <div>
           {battleResult.error ? (
-            <div className="text-center space-y-4">
-              <div className="flex items-center justify-center gap-2 text-red-600 font-bold text-xl">
-                <X className="h-6 w-6" />
-                Battle Failed
-              </div>
-              <p className="text-red-500">{battleResult.error}</p>
-              <Button 
-                variant="outline" 
-                onClick={() => setBattleResult(null)}
-                className="border-red-200 hover:bg-red-50 text-red-700"
-              >
-                Try Again
-              </Button>
+            <div className="bg-[#f8f9fa] py-[14px] px-[16px]" style={{ borderLeft: '3px solid #ea4335' }}>
+              <div className="text-[12px] font-semibold uppercase tracking-[1px] text-[#ea4335] mb-1">Battle Failed</div>
+              <div className="text-[14px] text-[#333] leading-[1.6] mb-3">{battleResult.error}</div>
+              <button onClick={() => setBattleResult(null)} className="text-[14px] text-[#888] hover:text-[#111] transition-colors">Try Again</button>
             </div>
           ) : (
-            <div className="space-y-8 text-center">
-              {/* Winner Announcement */}
-              <div className="space-y-4">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-yellow-100 text-yellow-800 rounded-full font-medium text-sm">
-                  <Trophy className="h-4 w-4" />
-                  Battle Complete
-                </div>
-                <h3 className="text-4xl font-bold text-black">
-                  Winner: {battleResult.analysis?.winner} 🎉
-                </h3>
-                <p className="text-gray-600 max-w-2xl mx-auto leading-relaxed">
-                  {battleResult.analysis?.reason}
-                </p>
+            <div className="space-y-6">
+              <div className="text-center">
+                <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">Battle Complete</div>
+                <h3 className="text-[28px] font-semibold text-[#111]">Winner: {battleResult.analysis?.winner}</h3>
+                <p className="text-[14px] text-[#666] leading-[1.6] max-w-lg mx-auto mt-2">{battleResult.analysis?.reason}</p>
               </div>
 
-              {/* Scores */}
-              <div className="grid grid-cols-2 gap-8 max-w-lg mx-auto">
-                <div className="p-6 bg-white rounded-xl border border-gray-100 shadow-sm">
-                  <div className="text-sm text-gray-500 uppercase tracking-wider font-medium mb-2">You</div>
-                  <div className="text-4xl font-bold text-blue-600">
-                    {battleResult.battle?.scores?.challenger?.total || 0}
-                  </div>
+              <div className="grid grid-cols-2 gap-6 max-w-sm mx-auto">
+                <div>
+                  <div className="text-[12px] text-[#aaa] font-semibold tracking-[1px] uppercase mb-1">You</div>
+                  <div className="text-[28px] font-semibold text-[#111]">{battleResult.battle?.scores?.challenger?.total || 0}</div>
                 </div>
-                <div className="p-6 bg-white rounded-xl border border-gray-100 shadow-sm">
-                  <div className="text-sm text-gray-500 uppercase tracking-wider font-medium mb-2">Opponent</div>
-                  <div className="text-4xl font-bold text-purple-600">
-                    {battleResult.battle?.scores?.opponent?.total || 0}
-                  </div>
+                <div>
+                  <div className="text-[12px] text-[#aaa] font-semibold tracking-[1px] uppercase mb-1">Opponent</div>
+                  <div className="text-[28px] font-semibold text-[#111]">{battleResult.battle?.scores?.opponent?.total || 0}</div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left max-w-4xl mx-auto">
-                {/* Highlights */}
-                {battleResult.analysis?.highlights && battleResult.analysis.highlights.length > 0 && (
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-black border-b border-gray-100 pb-2">Key Highlights</h4>
-                    <ul className="space-y-3">
-                      {battleResult.analysis.highlights.map((highlight: string, index: number) => (
-                        <li key={index} className="text-sm text-gray-600 flex items-start gap-3">
-                          <Check className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                          <span>{highlight}</span>
-                        </li>
-                      ))}
-                    </ul>
+              {battleResult.analysis?.highlights && battleResult.analysis.highlights.length > 0 && (
+                <div>
+                  <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">Key Highlights</div>
+                  <div className="space-y-1.5">
+                    {battleResult.analysis.highlights.map((h: string, i: number) => (
+                      <div key={i} className="text-[14px] text-[#666] leading-[1.6] flex gap-2">
+                        <span className="text-[#34a853] flex-shrink-0">{i + 1}.</span> {h}
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* Recommendations */}
-                {battleResult.analysis?.recommendations && battleResult.analysis.recommendations.length > 0 && (
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-black border-b border-gray-100 pb-2">Recommendations</h4>
-                    <ul className="space-y-3">
-                      {battleResult.analysis.recommendations.map((rec: string, index: number) => (
-                        <li key={index} className="text-sm text-gray-600 flex items-start gap-3">
-                          <Target className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                          <span>{rec}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+              <div className="text-center">
+                <button onClick={() => setBattleResult(null)} className="px-4 py-2 bg-[#f8f9fa] text-[#333] text-[14px] font-medium rounded border border-[#ddd] hover:border-[#111] transition-colors">
+                  Challenge Another
+                </button>
               </div>
-
-              <Button
-                variant="outline"
-                className="h-12 px-8 border-gray-200 text-gray-700 hover:text-black hover:border-black"
-                onClick={() => setBattleResult(null)}
-              >
-                Challenge Another Developer
-              </Button>
             </div>
           )}
         </div>
       )}
 
-      {/* Main Form */}
+      {/* Form */}
       {!battleResult && (
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-gray-50 mb-6">
-              <Sword className="h-8 w-8 text-black" />
-            </div>
-            <h2 className="text-3xl font-bold text-black mb-3">Challenge a Developer</h2>
-            <p className="text-gray-500">
-              Enter a GitHub username to initiate an AI-judged code battle.
-            </p>
+        <div className="max-w-2xl mx-auto">
+          <div className="mb-8">
+            <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">Challenge</div>
+            <h2 className="text-[22px] font-semibold text-[#111] mb-1">Challenge a Developer</h2>
+            <p className="text-[14px] text-[#666]">Enter a GitHub username to initiate an AI-judged code battle.</p>
           </div>
 
-          <div className="space-y-8 bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="space-y-6">
             {/* Opponent Input */}
-            <div className="space-y-3">
-              <Label htmlFor="opponent" className="text-base font-semibold text-black">Opponent Username</Label>
+            <div>
+              <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">Opponent</div>
               <div className="relative">
-                <User className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ccc]" />
                 <Input
-                  id="opponent"
                   placeholder="e.g. torvalds, tj, antfu"
                   value={opponentUsername}
                   onChange={(e) => setOpponentUsername(e.target.value)}
                   disabled={isPending}
-                  className="pl-12 h-14 text-lg border-2 border-gray-100 rounded-xl focus:border-black bg-gray-50/30"
+                  className="pl-10 h-11 text-[14px] border border-[#ddd] rounded focus:border-[#111] focus:ring-0 placeholder:text-[#ccc]"
                 />
               </div>
               {currentUser?.user?.name === opponentUsername.trim() && (
-                <p className="text-sm text-red-600 font-medium">
-                  You cannot challenge yourself!
-                </p>
+                <p className="text-[12px] text-[#ea4335] mt-1">You cannot challenge yourself!</p>
               )}
             </div>
 
             {/* Criteria Selection */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold text-black">Battle Criteria</Label>
-                <Badge variant="secondary" className="bg-gray-100 text-gray-600 hover:bg-gray-200">
-                  {selectedCriteria.length} selected
-                </Badge>
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase">Battle Criteria</div>
+                <span className="text-[12px] text-[#aaa]">{selectedCriteria.length} selected</span>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-[2px]">
                 {Object.entries(CRITERIA_LABELS).map(([key, info]) => {
                   const criterion = key as BattleCriteria;
                   const isSelected = selectedCriteria.includes(criterion);
                   return (
                     <div
                       key={criterion}
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
-                        isSelected 
-                          ? 'bg-black border-black text-white shadow-md transform scale-[1.02]' 
-                          : 'bg-white border-gray-100 hover:border-gray-300 text-gray-600 hover:bg-gray-50'
-                      }`}
+                      className={`py-[12px] px-[14px] cursor-pointer transition-colors ${isSelected ? 'bg-[#111] text-white' : 'bg-[#f8f9fa] text-[#666] hover:bg-[#eee]'}`}
+                      style={isSelected ? {} : { borderLeft: '3px solid transparent' }}
                       onClick={() => handleCriteriaToggle(criterion)}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${
-                          isSelected ? 'border-white bg-white text-black' : 'border-gray-300'
-                        }`}>
-                          {isSelected && <Check className="h-3 w-3" />}
+                      <div className="flex items-center gap-2">
+                        <div className={`w-4 h-4 rounded-sm border flex items-center justify-center ${isSelected ? 'border-white bg-white' : 'border-[#ccc]'}`}>
+                          {isSelected && <Check className="h-3 w-3 text-[#111]" />}
                         </div>
                         <div>
-                          <div className={`font-bold text-sm ${isSelected ? 'text-white' : 'text-black'}`}>
-                            {info.label}
-                          </div>
-                          <div className={`text-xs ${isSelected ? 'text-gray-300' : 'text-gray-400'}`}>
-                            {info.description}
-                          </div>
+                          <div className={`text-[14px] font-medium ${isSelected ? 'text-white' : 'text-[#111]'}`}>{info.label}</div>
+                          <div className={`text-[12px] ${isSelected ? 'text-white/60' : 'text-[#aaa]'}`}>{info.description}</div>
                         </div>
                       </div>
                     </div>
@@ -448,28 +209,22 @@ export function ChallengeForm() {
               </div>
             </div>
 
-            {/* Challenge Button */}
-            <Button
+            {/* Submit */}
+            <button
               onClick={handleChallenge}
               disabled={!isFormValid || isPending}
-              size="lg"
               data-testid="arena-challenge-start-btn"
-              className={`w-full h-16 text-lg font-bold bg-black hover:bg-gray-800 rounded-xl transition-all ${isPending ? 'animate-pulse' : ''}`}
+              className={`w-full py-3 bg-[#111] text-white text-[14px] font-medium rounded hover:bg-[#333] transition-colors disabled:opacity-50 ${isPending ? 'animate-pulse' : ''}`}
             >
-              <Sword className="h-5 w-5 mr-2" />
               Start Battle
-            </Button>
+            </button>
 
-            {/* Progress Indicator */}
             {isBattling && (
-              <div className="space-y-3 pt-4 text-center animate-in fade-in slide-in-from-top-2">
-                <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-blue-600 transition-all duration-500 ease-out" 
-                    style={{ width: `${progress}%` }} 
-                  />
+              <div className="space-y-2 text-center">
+                <div className="h-1 w-full bg-[#eee] overflow-hidden">
+                  <div className="h-full bg-[#111] transition-all duration-500" style={{ width: `${progress}%` }} />
                 </div>
-                <p className="text-sm font-medium text-blue-600 animate-pulse">{statusMessage}</p>
+                <p className="text-[12px] text-[#888]">{statusMessage}</p>
               </div>
             )}
           </div>

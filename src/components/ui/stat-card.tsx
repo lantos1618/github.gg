@@ -17,7 +17,7 @@ export function StatCard({
 }: StatCardProps) {
   return (
     <div className={cn('py-3', className)}>
-      <div className="text-[11px] text-[#aaa] font-semibold tracking-[1px] uppercase mb-1">
+      <div className="text-[12px] text-[#aaa] font-semibold tracking-[1px] uppercase mb-1">
         {title}
       </div>
       <div

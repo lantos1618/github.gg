@@ -25,7 +25,7 @@ export function TopRepos({ repos, compact = false, username }: TopReposProps) {
               </a>
               <p className="text-[12px] text-[#aaa] mt-0.5">{repo.description}</p>
             </div>
-            <div className="text-[13px] font-semibold text-[#111] flex-shrink-0 ml-4">
+            <div className="text-[14px] font-semibold text-[#111] flex-shrink-0 ml-4">
               {repo.significanceScore}/10
             </div>
           </div>
@@ -62,7 +62,7 @@ export function TopRepos({ repos, compact = false, username }: TopReposProps) {
                   <div className="text-[14px] font-medium text-[#111] group-hover:text-[#666] transition-colors mb-1">
                     {repo.name}
                   </div>
-                  <div className="text-[13px] text-[#666] leading-[1.6] mb-2">
+                  <div className="text-[14px] text-[#666] leading-[1.6] mb-2">
                     {repo.description || 'No description available'}
                   </div>
                   {repo.reason && (

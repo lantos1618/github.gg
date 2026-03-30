@@ -19,11 +19,11 @@ export function VersionDropdown({ versions, isLoading, selectedVersion, onVersio
 
   return (
     <div className="flex items-center gap-2">
-      <label className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase">Version</label>
+      <label className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase">Version</label>
       <select
         value={selectedVersion ?? versions[0].version}
         onChange={e => onVersionChange(Number(e.target.value))}
-        className="border border-[#ddd] rounded px-2 py-1 text-[13px] text-[#333] bg-white focus:border-[#111] focus:outline-none"
+        className="border border-[#ddd] rounded px-2 py-1 text-[14px] text-[#333] bg-white focus:border-[#111] focus:outline-none"
       >
         {versions.map(v => (
           <option key={v.version} value={v.version}>
@@ -33,7 +33,7 @@ export function VersionDropdown({ versions, isLoading, selectedVersion, onVersio
       </select>
       {selectedVersion && (
         <button
-          className="text-[13px] text-[#888] hover:text-[#111] transition-colors"
+          className="text-[14px] text-[#888] hover:text-[#111] transition-colors"
           onClick={() => onVersionChange(null)}
         >
           Latest

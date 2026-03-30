@@ -73,7 +73,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                 />
 
                 <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
                     <span className="font-mono truncate max-w-[120px]">
                       {activity.repo}{activity.issueNumber > 0 && `#${activity.issueNumber}`}
                     </span>

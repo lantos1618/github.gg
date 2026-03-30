@@ -62,7 +62,7 @@ export function StarCount({ owner, repo, className = '' }: StarCountProps) {
         strokeWidth={2}
         className="transition-all duration-300"
       />
-      <span className={`text-[13px] font-semibold ${isLoading ? 'text-[#ccc]' : 'text-[#111]'}`}>
+      <span className={`text-[14px] font-semibold ${isLoading ? 'text-[#ccc]' : 'text-[#111]'}`}>
         {starCountDisplay}
       </span>
     </button>

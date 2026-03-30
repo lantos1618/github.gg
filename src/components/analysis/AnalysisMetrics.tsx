@@ -42,16 +42,16 @@ export const AnalysisMetrics: React.FC<AnalysisMetricsProps> = ({
 
       {/* Metrics Table */}
       <div className="mb-8">
-        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">
+        <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
           Metrics Breakdown
         </div>
 
-        <table className="w-full text-[13px] border-collapse">
+        <table className="w-full text-[14px] border-collapse">
           <thead>
             <tr className="border-b border-[#ddd]">
-              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold w-[180px]">Metric</td>
-              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold w-[120px]">Score</td>
-              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold">Analysis</td>
+              <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold w-[180px]">Metric</td>
+              <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold w-[120px]">Score</td>
+              <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold">Analysis</td>
             </tr>
           </thead>
           <tbody>

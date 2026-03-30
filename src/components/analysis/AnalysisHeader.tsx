@@ -50,7 +50,7 @@ export const AnalysisHeader: React.FC<AnalysisHeaderProps> = ({
           <Button
             onClick={handleCopy}
             variant="outline"
-            className="border-[#ddd] text-[13px] hover:border-[#111]"
+            className="border-[#ddd] text-[14px] hover:border-[#111]"
             title="Copy Markdown"
           >
             <Copy className="h-3.5 w-3.5 mr-1.5" />
@@ -60,7 +60,7 @@ export const AnalysisHeader: React.FC<AnalysisHeaderProps> = ({
         {canAccess && !isRegenerating && (
           <Button
             onClick={onRegenerate}
-            className="bg-[#111] hover:bg-[#333] text-white text-[13px]"
+            className="bg-[#111] hover:bg-[#333] text-white text-[14px]"
           >
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
             Regenerate

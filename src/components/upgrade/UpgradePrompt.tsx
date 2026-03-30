@@ -100,7 +100,7 @@ export function UpgradePrompt({
             data-testid="pricing-upgrade-btn"
             onClick={handleUpgrade}
             disabled={isLoading}
-            className="px-4 py-1.5 bg-white text-[#111] text-[13px] font-medium rounded hover:bg-[#eee] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            className="px-4 py-1.5 bg-white text-[#111] text-[14px] font-medium rounded hover:bg-[#eee] transition-colors disabled:opacity-50 flex items-center gap-1.5"
           >
             {isLoading ? 'Loading...' : context.cta}
             <ArrowRight className="h-3.5 w-3.5" />
@@ -113,12 +113,12 @@ export function UpgradePrompt({
   if (variant === 'inline') {
     return (
       <div data-testid="pricing-upgrade-prompt" className={`flex items-center gap-3 py-3 px-4 bg-[#f8f9fa] border border-[#eee] rounded ${className}`}>
-        <p className="text-[13px] text-[#666] flex-1">{context.subtext}</p>
+        <p className="text-[14px] text-[#666] flex-1">{context.subtext}</p>
         <button
           data-testid="pricing-upgrade-btn"
           onClick={handleUpgrade}
           disabled={isLoading}
-          className="px-3 py-1.5 bg-[#f8f9fa] text-[#333] text-[13px] font-medium rounded border border-[#ddd] hover:border-[#111] transition-colors disabled:opacity-50"
+          className="px-3 py-1.5 bg-[#f8f9fa] text-[#333] text-[14px] font-medium rounded border border-[#ddd] hover:border-[#111] transition-colors disabled:opacity-50"
         >
           {isLoading ? '...' : 'Upgrade'}
         </button>
@@ -129,13 +129,13 @@ export function UpgradePrompt({
   return (
     <div data-testid="pricing-upgrade-prompt" className={`max-w-md mx-auto ${className}`}>
       <div className="border border-[#eee] p-6">
-        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+        <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
           Pro Feature
         </div>
         <h3 className="text-[20px] font-semibold text-[#111] mb-2">
           {context.headline}
         </h3>
-        <p className="text-[13px] text-[#666] leading-[1.6] mb-4">
+        <p className="text-[14px] text-[#666] leading-[1.6] mb-4">
           {context.subtext}
         </p>
 
@@ -177,7 +177,7 @@ export function UpgradeTeaser({ feature = 'general' }: { feature?: UpgradeFeatur
       href="/pricing"
       className="block py-3 px-4 bg-[#f8f9fa] border border-[#eee] rounded hover:border-[#aaa] transition-colors group"
     >
-      <p className="text-[13px] font-medium text-[#111] truncate">
+      <p className="text-[14px] font-medium text-[#111] truncate">
         {context.headline}
       </p>
       <p className="text-[12px] text-[#888]">

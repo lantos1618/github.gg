@@ -14,14 +14,14 @@ export function DiagramTypeSelector({
 }: DiagramTypeSelectorProps) {
   return (
     <div className="mb-4 flex items-center gap-3">
-      <span className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase">Type</span>
+      <span className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase">Type</span>
       <div className="flex gap-1.5">
         {DIAGRAM_TYPES.map(dt => (
           <button
             key={dt.value}
             onClick={() => onDiagramTypeChange(dt.value as DiagramType)}
             data-testid={`diagram-type-${dt.value}-btn`}
-            className={`px-3 py-1.5 rounded text-[13px] font-medium transition-colors
+            className={`px-3 py-1.5 rounded text-[14px] font-medium transition-colors
               ${diagramType === dt.value
                 ? 'bg-[#111] text-white'
                 : 'bg-[#f8f9fa] text-[#666] border border-[#eee] hover:border-[#aaa] hover:text-[#111]'

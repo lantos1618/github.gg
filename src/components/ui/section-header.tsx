@@ -20,12 +20,12 @@ export function SectionHeader({
       <div className="flex items-start justify-between">
         <div>
           {label && (
-            <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-2">
+            <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">
               {label}
             </div>
           )}
           <h2 className="text-[22px] font-semibold text-[#111]">{title}</h2>
-          {description && <p className="text-[13px] text-[#aaa] mt-1">{description}</p>}
+          {description && <p className="text-[14px] text-[#aaa] mt-1">{description}</p>}
         </div>
         {action && <div>{action}</div>}
       </div>
@@ -45,12 +45,12 @@ export function PageHeader({
       <div className="flex items-start justify-between">
         <div>
           {label && (
-            <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+            <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
               {label}
             </div>
           )}
           <h1 className="text-[28px] sm:text-[36px] font-semibold text-[#111] leading-tight">{title}</h1>
-          {description && <p className="text-[13px] text-[#aaa] mt-2">{description}</p>}
+          {description && <p className="text-[14px] text-[#aaa] mt-2">{description}</p>}
         </div>
         {action && <div className="flex-shrink-0 ml-4">{action}</div>}
       </div>

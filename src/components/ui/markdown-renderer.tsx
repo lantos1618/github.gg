@@ -27,7 +27,7 @@ export const MarkdownRenderer = ({ content, className = '' }: MarkdownRendererPr
     prose-p:leading-7 prose-p:text-[15px] prose-p:mb-4 prose-p:text-foreground/90
     prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline prose-a:font-medium hover:prose-a:underline prose-a:transition-all
     prose-strong:text-foreground prose-strong:font-semibold
-    prose-code:text-foreground prose-code:bg-black/5 dark:prose-code:bg-white/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:font-mono prose-code:text-[13px] prose-code:before:content-none prose-code:after:content-none prose-code:font-medium prose-code:border prose-code:border-black/10 dark:prose-code:border-white/10
+    prose-code:text-foreground prose-code:bg-black/5 dark:prose-code:bg-white/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:font-mono prose-code:text-[14px] prose-code:before:content-none prose-code:after:content-none prose-code:font-medium prose-code:border prose-code:border-black/10 dark:prose-code:border-white/10
     prose-pre:bg-transparent prose-pre:p-0 prose-pre:my-6 prose-pre:overflow-hidden
     prose-ul:my-6 prose-ul:list-disc prose-ul:pl-6 prose-li:my-2 prose-li:text-[15px] prose-li:text-foreground/90
     prose-ol:my-6 prose-ol:list-decimal prose-ol:pl-6

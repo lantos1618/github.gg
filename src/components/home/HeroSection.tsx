@@ -38,7 +38,7 @@ export function HeroSection() {
       <div className="w-[90%] max-w-[800px] mx-auto pt-24 pb-20">
 
         {/* Section label */}
-        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">
+        <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
           GitHub Intelligence
         </div>
 
@@ -48,7 +48,7 @@ export function HeroSection() {
         </h1>
 
         {/* Subtitle */}
-        <p className="text-[13px] text-[#aaa] mb-10">
+        <p className="text-[14px] text-[#aaa] mb-10">
           Quality scores, architecture diagrams, and generated docs — from any public GitHub URL
         </p>
 
@@ -98,7 +98,7 @@ export function HeroSection() {
         </div>
 
         {/* Quick examples */}
-        <div className="flex flex-wrap items-center gap-2 text-[13px]">
+        <div className="flex flex-wrap items-center gap-2 text-[14px]">
           <span className="text-[#aaa]">Try</span>
           {[
             { name: 'facebook/react', label: 'react' },

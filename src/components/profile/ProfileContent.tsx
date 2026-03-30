@@ -115,7 +115,7 @@ export function ProfileContent({
         <div className="xl:col-span-8 space-y-12">
           {/* Executive Summary */}
           <section>
-            <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+            <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
               Executive Summary
             </div>
             <p className="text-[14px] text-[#666] leading-[1.7]">{profile.summary}</p>
@@ -124,7 +124,7 @@ export function ProfileContent({
                 <div className="text-[12px] font-semibold uppercase tracking-[1px] text-[#4285f4] mb-1">
                   Score Context
                 </div>
-                <div className="text-[13px] text-[#333] leading-[1.6]">
+                <div className="text-[14px] text-[#333] leading-[1.6]">
                   {profile.scoreInterpretation}
                 </div>
               </div>
@@ -133,7 +133,7 @@ export function ProfileContent({
 
           {/* Technical Arsenal */}
           <section>
-            <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+            <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
               Technical Arsenal
             </div>
             <TechStack techStack={profile.techStack} />
@@ -141,10 +141,10 @@ export function ProfileContent({
 
           {/* Key Repositories */}
           <section>
-            <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+            <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
               Key Repositories
             </div>
-            <div className="text-[13px] text-[#aaa] mb-4">
+            <div className="text-[14px] text-[#aaa] mb-4">
               Scored by significance — click any repo to view its full scorecard
             </div>
             <TopRepos repos={profile.topRepos} username={username} />

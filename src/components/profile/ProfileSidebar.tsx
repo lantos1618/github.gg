@@ -30,7 +30,7 @@ export function ProfileSidebar({ profile, scoreHistory }: ProfileSidebarProps) {
     <div data-testid="profile-sidebar" className="xl:col-span-4 space-y-10">
       {scoreHistory && scoreHistory.length > 0 && (
         <section>
-          <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
             ELO Trajectory
           </div>
           <div className="p-4 bg-[#f8f9fa] border border-[#eee] rounded">
@@ -45,14 +45,14 @@ export function ProfileSidebar({ profile, scoreHistory }: ProfileSidebarProps) {
       )}
 
       <section>
-        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+        <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
           Developer Persona
         </div>
         <DevelopmentStyle traits={profile.developmentStyle} />
       </section>
 
       <section>
-        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+        <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
           Skill Assessment
         </div>
         <SkillAssessment skills={profile.skillAssessment} />
@@ -60,12 +60,12 @@ export function ProfileSidebar({ profile, scoreHistory }: ProfileSidebarProps) {
 
       {Array.isArray(profile.suggestions) && profile.suggestions.length > 0 && (
         <section>
-          <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
             Growth Areas
           </div>
           <div className="space-y-2">
             {profile.suggestions.map((suggestion, idx) => (
-              <div key={idx} className="text-[13px] text-[#666] leading-[1.6] flex gap-2">
+              <div key={idx} className="text-[14px] text-[#666] leading-[1.6] flex gap-2">
                 <span className="text-[#111] font-semibold flex-shrink-0">{idx + 1}.</span>
                 {suggestion}
               </div>

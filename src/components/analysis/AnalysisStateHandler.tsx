@@ -94,13 +94,13 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
         <div data-testid="analysis-state-handler" className="flex flex-col items-center justify-center min-h-[400px] px-4">
           {!showSSEFeedback && (
             <>
-              <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+              <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
                 Analysis
               </div>
               <h2 className="text-[22px] font-semibold text-[#111] mb-2">
                 {title || 'No analysis available'}
               </h2>
-              <p className="text-[13px] text-[#aaa] mb-8 text-center max-w-md">
+              <p className="text-[14px] text-[#aaa] mb-8 text-center max-w-md">
                 {description || 'Generate an analysis to get started'}
               </p>
               <Button
@@ -136,11 +136,11 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
     case 'private':
       return (
         <div className="flex flex-col items-center justify-center min-h-[400px]">
-          <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
             Private Repository
           </div>
           <h2 className="text-[22px] font-semibold text-[#111] mb-2">Repository is Private</h2>
-          <p className="text-[13px] text-[#666]">{message || 'Analysis is not available for private repositories'}</p>
+          <p className="text-[14px] text-[#666]">{message || 'Analysis is not available for private repositories'}</p>
         </div>
       );
 
@@ -157,13 +157,13 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
     case 'auth-error':
       return (
         <div className="flex flex-col items-center justify-center min-h-[400px]">
-          <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
             Authentication
           </div>
           <h2 className="text-[22px] font-semibold text-[#111] mb-2">
             GitHub Authentication Expired
           </h2>
-          <p className="text-[13px] text-[#666] mb-8 text-center max-w-md">
+          <p className="text-[14px] text-[#666] mb-8 text-center max-w-md">
             Your GitHub session has expired or your access token is no longer valid.
             Please sign in again to continue.
           </p>

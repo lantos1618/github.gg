@@ -7,7 +7,7 @@ interface LanguageBreakdownProps {
 export function LanguageBreakdown({ languages }: LanguageBreakdownProps) {
   return (
     <div data-testid="scorecard-language-breakdown">
-      <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">Language Distribution</div>
+      <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">Language Distribution</div>
 
       <div className="flex h-2 w-full overflow-hidden mb-6">
         {languages.map((lang) => (
@@ -26,8 +26,8 @@ export function LanguageBreakdown({ languages }: LanguageBreakdownProps) {
             <div className="w-2.5 h-2.5 rounded-full mt-1 shrink-0" style={{ backgroundColor: getLanguageColor(lang.name) }} />
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-baseline">
-                <span className="text-[13px] font-medium text-[#111] truncate">{lang.name}</span>
-                <span className="text-[13px] font-semibold text-[#111]">{lang.percentage}%</span>
+                <span className="text-[14px] font-medium text-[#111] truncate">{lang.name}</span>
+                <span className="text-[14px] font-semibold text-[#111]">{lang.percentage}%</span>
               </div>
               <div className="text-[12px] text-[#aaa]">{lang.files.toLocaleString()} files · {lang.lines.toLocaleString()} lines</div>
             </div>

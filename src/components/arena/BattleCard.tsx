@@ -1,9 +1,7 @@
 "use client";
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, Trophy, Sword, Target } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import type { ArenaBattle } from '@/lib/types/arena';
 
@@ -19,105 +17,96 @@ export function BattleCard({ battle }: BattleCardProps) {
   const isCompleted = battle.status === 'completed' && battle.completedAt;
   const isPending = battle.status === 'pending' || battle.status === 'in_progress';
 
+  const statusColor = isPending ? '#f59e0b' : isWinner ? '#34a853' : '#ea4335';
+  const statusLabel = isPending ? battle.status.replace('_', ' ') : isWinner ? 'Victory' : 'Defeat';
+
   return (
-    <div data-testid="arena-battle-card" className="border border-gray-100 rounded-xl overflow-hidden bg-white hover:border-gray-200 transition-colors">
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <div className={`p-3 rounded-lg ${isPending ? 'bg-yellow-50' : isWinner ? 'bg-green-50' : 'bg-red-50'}`}>
-              {isPending ? (
-                <Target className="h-6 w-6 text-yellow-600 animate-pulse" />
-              ) : isWinner ? (
-                <Trophy className="h-6 w-6 text-green-600" />
-              ) : (
-                <Sword className="h-6 w-6 text-red-600" />
-              )}
+    <div data-testid="arena-battle-card" className="border-b border-[#f0f0f0] last:border-0">
+      <div className="py-5">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <div className="text-[14px] font-medium text-[#111]">
+              {battle.challengerUsername} <span className="text-[#ccc] mx-1">vs</span> {opponentUsername}
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-black">
-                {battle.challengerUsername} <span className="text-gray-400 mx-1">vs</span> {opponentUsername}
-              </h3>
-              <div className="flex items-center gap-3 mt-1">
-                <span className={`text-xs font-bold uppercase tracking-wider ${isPending ? 'text-yellow-600' : 'text-gray-500'}`}>
-                  {isPending ? battle.status.replace('_', ' ') : 'Completed'}
-                </span>
-                <span className="text-xs text-gray-400">
-                  {isCompleted && battle.completedAt
-                    ? new Date(battle.completedAt).toLocaleDateString()
-                    : new Date(battle.createdAt).toLocaleDateString()
-                  }
-                </span>
-              </div>
+            <div className="flex items-center gap-3 mt-1">
+              <span className="text-[12px] font-semibold uppercase tracking-[1px]" style={{ color: statusColor }}>
+                {isPending ? battle.status.replace('_', ' ') : 'Completed'}
+              </span>
+              <span className="text-[12px] text-[#aaa]">
+                {isCompleted && battle.completedAt
+                  ? new Date(battle.completedAt).toLocaleDateString()
+                  : new Date(battle.createdAt).toLocaleDateString()
+                }
+              </span>
             </div>
           </div>
           <div className="text-right">
-            <div className={`text-xl font-bold ${isPending ? 'text-yellow-600' : isWinner ? 'text-green-600' : 'text-red-600'}`}>
-              {isPending ? '...' : isWinner ? 'VICTORY' : 'DEFEAT'}
+            <div className="text-[16px] font-semibold uppercase tracking-[0.5px]" style={{ color: statusColor }}>
+              {isPending ? '...' : statusLabel}
             </div>
-            <div className="text-sm text-gray-400 font-mono mt-1">
-              {isPending ? 'Calculating...' : (isCompleted && battle.eloChange) ? `${battle.eloChange.challenger.change > 0 ? '+' : ''}${battle.eloChange.challenger.change} ELO` : ''}
+            <div className="text-[12px] text-[#aaa] font-mono mt-0.5">
+              {isPending ? '' : (isCompleted && battle.eloChange) ? `${battle.eloChange.challenger.change > 0 ? '+' : ''}${battle.eloChange.challenger.change} ELO` : ''}
             </div>
           </div>
         </div>
 
-        {/* Battle Criteria */}
         {battle.criteria && (
-          <div className="flex flex-wrap gap-2 mb-6">
+          <div className="flex flex-wrap gap-1.5 mb-3">
             {battle.criteria.map((criterion) => (
-              <span key={criterion} className="px-2 py-1 rounded bg-gray-50 text-xs text-gray-600 border border-gray-100 capitalize">
+              <span key={criterion} className="px-2 py-0.5 bg-[#f8f9fa] text-[12px] text-[#888] border border-[#eee] rounded capitalize">
                 {criterion.replace('_', ' ')}
               </span>
             ))}
           </div>
         )}
 
-        {/* Battle Analysis Trigger */}
         <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="w-full flex items-center justify-between p-4 rounded-lg bg-gray-50 hover:bg-gray-100 text-sm font-medium">
-              <span>View Analysis & Scores</span>
-              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </Button>
+          <CollapsibleTrigger className="w-full flex items-center justify-between py-2 text-[14px] font-medium text-[#888] hover:text-[#111] transition-colors">
+            <span>View Analysis</span>
+            {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           </CollapsibleTrigger>
-          <CollapsibleContent className="mt-4 space-y-6 px-2">
-            {/* Battle Stats */}
+          <CollapsibleContent className="mt-3 space-y-4">
             {battle.scores && (
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 rounded-lg border border-gray-100 bg-white">
-                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Challenger</div>
-                  <div className="text-2xl font-bold">{battle.scores.challenger.total.toFixed(1)}</div>
+                <div>
+                  <div className="text-[12px] text-[#aaa] font-semibold tracking-[1px] uppercase mb-1">Challenger</div>
+                  <div className="text-[24px] font-semibold text-[#111]">{battle.scores.challenger.total.toFixed(1)}</div>
                 </div>
-                <div className="p-4 rounded-lg border border-gray-100 bg-white">
-                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Opponent</div>
-                  <div className="text-2xl font-bold">{battle.scores.opponent.total.toFixed(1)}</div>
+                <div>
+                  <div className="text-[12px] text-[#aaa] font-semibold tracking-[1px] uppercase mb-1">Opponent</div>
+                  <div className="text-[24px] font-semibold text-[#111]">{battle.scores.opponent.total.toFixed(1)}</div>
                 </div>
               </div>
             )}
 
-            {/* Detailed Scores */}
             {battle.scores && (
-              <div className="space-y-3">
-                <h5 className="font-bold text-sm text-black">Score Breakdown</h5>
-                <div className="space-y-2">
-                  {Object.entries(battle.scores.challenger.breakdown).map(([criterion, score]) => (
-                    <div key={criterion} className="flex justify-between items-center text-sm py-2 border-b border-gray-50 last:border-0">
-                      <span className="capitalize text-gray-600">{criterion.replace('_', ' ')}</span>
-                      <div className="flex gap-6 font-mono">
-                        <span className="font-medium">{score.toFixed(1)}</span>
-                        <span className="text-gray-300">|</span>
-                        <span className="font-medium">{(battle.scores!.opponent.breakdown as Record<string, number>)[criterion]?.toFixed(1) || 'N/A'}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div>
+                <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">Score Breakdown</div>
+                <table className="w-full text-[14px] border-collapse">
+                  <thead>
+                    <tr className="border-b border-[#ddd]">
+                      <td className="py-1.5 text-[12px] text-[#aaa] font-semibold">Criterion</td>
+                      <td className="py-1.5 text-[12px] text-[#aaa] font-semibold text-right">You</td>
+                      <td className="py-1.5 text-[12px] text-[#aaa] font-semibold text-right">Opp</td>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(battle.scores.challenger.breakdown).map(([criterion, score]) => (
+                      <tr key={criterion} className="border-b border-[#f0f0f0]">
+                        <td className="py-2 text-[#666] capitalize">{criterion.replace('_', ' ')}</td>
+                        <td className="py-2 text-right font-mono text-[#111]">{score.toFixed(1)}</td>
+                        <td className="py-2 text-right font-mono text-[#111]">{(battle.scores!.opponent.breakdown as Record<string, number>)[criterion]?.toFixed(1) || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
 
-            {/* AI Analysis */}
             {battle.aiAnalysis && (
-              <div className="space-y-3">
-                <h5 className="font-bold text-sm text-black">AI Verdict</h5>
-                <div className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-lg">
+              <div className="bg-[#f8f9fa] py-[14px] px-[16px]" style={{ borderLeft: '3px solid #4285f4' }}>
+                <div className="text-[12px] font-semibold uppercase tracking-[1px] text-[#4285f4] mb-1">AI Verdict</div>
+                <div className="text-[14px] text-[#333] leading-[1.6]">
                   {typeof battle.aiAnalysis === 'string' ? battle.aiAnalysis : battle.aiAnalysis.reason}
                 </div>
               </div>

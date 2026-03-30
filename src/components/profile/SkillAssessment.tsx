@@ -11,7 +11,7 @@ export function SkillAssessment({ skills, compact = false }: SkillAssessmentProp
       <div className="space-y-2.5">
         {skills.map((skill, idx) => (
           <div key={idx} className="flex items-center gap-3">
-            <div className="w-28 text-[13px] font-medium text-[#111] truncate">
+            <div className="w-28 text-[14px] font-medium text-[#111] truncate">
               {skill.metric}
             </div>
             <div className="flex-1">
@@ -36,8 +36,8 @@ export function SkillAssessment({ skills, compact = false }: SkillAssessmentProp
       {skills.map((skill, index) => (
         <div key={index}>
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[13px] font-medium text-[#111]">{skill.metric}</span>
-            <span className="text-[13px] font-semibold text-[#111] font-mono">
+            <span className="text-[14px] font-medium text-[#111]">{skill.metric}</span>
+            <span className="text-[14px] font-semibold text-[#111] font-mono">
               {skill.score}/10
             </span>
           </div>

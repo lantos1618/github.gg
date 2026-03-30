@@ -25,21 +25,21 @@ export function DiagramControls({
         <button
           onClick={onToggleCodePanel}
           disabled={disabled}
-          className="px-3 py-1.5 bg-[#f8f9fa] text-[#666] text-[13px] font-medium rounded border border-[#eee] hover:border-[#aaa] hover:text-[#111] transition-colors disabled:opacity-50"
+          className="px-3 py-1.5 bg-[#f8f9fa] text-[#666] text-[14px] font-medium rounded border border-[#eee] hover:border-[#aaa] hover:text-[#111] transition-colors disabled:opacity-50"
         >
           {showCodePanel ? 'Hide Code' : 'Show Code'}
         </button>
         <button
           onClick={onCopyMermaid}
           disabled={disabled}
-          className="px-3 py-1.5 bg-[#f8f9fa] text-[#666] text-[13px] font-medium rounded border border-[#eee] hover:border-[#aaa] hover:text-[#111] transition-colors disabled:opacity-50"
+          className="px-3 py-1.5 bg-[#f8f9fa] text-[#666] text-[14px] font-medium rounded border border-[#eee] hover:border-[#aaa] hover:text-[#111] transition-colors disabled:opacity-50"
         >
           Copy Mermaid
         </button>
         <button
           onClick={onCopyDiagram}
           disabled={disabled}
-          className="px-3 py-1.5 bg-[#f8f9fa] text-[#666] text-[13px] font-medium rounded border border-[#eee] hover:border-[#aaa] hover:text-[#111] transition-colors disabled:opacity-50"
+          className="px-3 py-1.5 bg-[#f8f9fa] text-[#666] text-[14px] font-medium rounded border border-[#eee] hover:border-[#aaa] hover:text-[#111] transition-colors disabled:opacity-50"
         >
           Copy Diagram
         </button>
@@ -51,7 +51,7 @@ export function DiagramControls({
             onClick={() => onRegenerate(renderError)}
             disabled={disabled}
             data-testid="diagram-controls-regenerate-btn"
-            className="px-3 py-1.5 bg-[#111] text-white text-[13px] font-medium rounded hover:bg-[#333] transition-colors disabled:opacity-50"
+            className="px-3 py-1.5 bg-[#111] text-white text-[14px] font-medium rounded hover:bg-[#333] transition-colors disabled:opacity-50"
           >
             Regenerate
           </button>

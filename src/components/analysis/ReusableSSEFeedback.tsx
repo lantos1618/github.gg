@@ -66,11 +66,11 @@ export function ReusableSSEFeedback({
       {/* Logs */}
       {logs.length > 0 && (
         <div className="border border-[#eee] overflow-hidden rounded">
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-[#eee] bg-[#f8f9fa] text-[11px] font-semibold text-[#aaa] tracking-[1px] uppercase">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-[#eee] bg-[#f8f9fa] text-[12px] font-semibold text-[#aaa] tracking-[1px] uppercase">
             Live Logs
           </div>
           <ScrollArea ref={scrollAreaRef} className="h-[180px] p-3 bg-[#fafafa]">
-            <div className="space-y-1 font-mono text-[11px]">
+            <div className="space-y-1 font-mono text-[12px]">
               {logs.map((log, i) => (
                 <div key={i} className="flex gap-2 items-start">
                   <span className="text-[#ccc] shrink-0 select-none">

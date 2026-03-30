@@ -21,11 +21,11 @@ export function FeaturesTimeline({ features }: FeaturesTimelineProps) {
 
   return (
     <div className="w-[90%] max-w-[800px] mx-auto py-16">
-      <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+      <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
         Roadmap
       </div>
       <h2 className="text-[26px] font-semibold text-[#111] mb-2">Features</h2>
-      <p className="text-[13px] text-[#aaa] mb-8">What's shipped and what's next</p>
+      <p className="text-[14px] text-[#aaa] mb-8">What's shipped and what's next</p>
 
       <div className="space-y-[2px] mb-12">
         {sortedFeatures.map((feature, index) => {
@@ -45,12 +45,12 @@ export function FeaturesTimeline({ features }: FeaturesTimelineProps) {
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[14px] font-medium text-[#111]">{feature.title}</span>
                   {feature.completed && (
-                    <span className="text-[11px] font-semibold uppercase tracking-[1px] text-[#34a853]">
+                    <span className="text-[12px] font-semibold uppercase tracking-[1px] text-[#34a853]">
                       Shipped
                     </span>
                   )}
                 </div>
-                <div className="text-[13px] text-[#666] leading-[1.6]">
+                <div className="text-[14px] text-[#666] leading-[1.6]">
                   {feature.description}
                 </div>
               </div>

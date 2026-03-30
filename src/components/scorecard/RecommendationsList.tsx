@@ -25,7 +25,7 @@ export function RecommendationsList({ recommendations }: RecommendationsListProp
 
   return (
     <div>
-      <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">
+      <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
         Strategic Recommendations
       </div>
       <div className="space-y-[2px]">
@@ -35,13 +35,13 @@ export function RecommendationsList({ recommendations }: RecommendationsListProp
             <div key={index} className="bg-[#f8f9fa] py-[14px] px-[16px]" style={{ borderLeft: `3px solid ${color}` }}>
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-[12px] font-semibold uppercase tracking-[1px]" style={{ color }}>{rec.category}</span>
-                <span className="text-[11px] font-semibold uppercase tracking-[1px]" style={{ color: PRIORITY_COLORS[rec.priority] }}>{rec.priority}</span>
+                <span className="text-[12px] font-semibold uppercase tracking-[1px]" style={{ color: PRIORITY_COLORS[rec.priority] }}>{rec.priority}</span>
               </div>
               <div className="text-[14px] font-medium text-[#111] mb-1">{rec.title}</div>
-              <div className="text-[13px] text-[#666] leading-[1.6] mb-3">{rec.description}</div>
+              <div className="text-[14px] text-[#666] leading-[1.6] mb-3">{rec.description}</div>
               <div className="border-t border-[#eee] pt-2 mt-2">
-                <span className="text-[11px] text-[#aaa] font-semibold uppercase tracking-[1px]">Action</span>
-                <p className="text-[13px] text-[#333] mt-1">{rec.action}</p>
+                <span className="text-[12px] text-[#aaa] font-semibold uppercase tracking-[1px]">Action</span>
+                <p className="text-[14px] text-[#333] mt-1">{rec.action}</p>
               </div>
             </div>
           );

@@ -96,7 +96,7 @@ export function ProfileEmptyState({
   return (
     <div data-testid="profile-empty-state" className="w-[90%] max-w-[800px] mx-auto py-20 text-center">
       {/* Section label */}
-      <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">
+      <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
         Developer Profile
       </div>
 
@@ -143,7 +143,7 @@ export function ProfileEmptyState({
             <div className="text-[12px] font-semibold uppercase tracking-[1px] text-[#ea4335] mb-1">
               Error
             </div>
-            <div className="text-[13px] text-[#333] leading-[1.6] mb-2">
+            <div className="text-[14px] text-[#333] leading-[1.6] mb-2">
               {generationError}
             </div>
             {generationError.includes('already in progress') ? (
@@ -151,7 +151,7 @@ export function ProfileEmptyState({
                 onClick={onReconnect}
                 variant="outline"
                 size="sm"
-                className="mt-2 border-[#ddd] text-[13px]"
+                className="mt-2 border-[#ddd] text-[14px]"
               >
                 <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
                 Reconnect

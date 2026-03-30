@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth/client';
 import { Github } from 'lucide-react';
 
@@ -13,21 +12,19 @@ export function SignInButton() {
     setHasMounted(true);
   }, []);
 
-  // Show consistent text during SSR and first client render to avoid hydration mismatch
   const showLoading = hasMounted && isLoading;
 
   return (
-    <Button
+    <button
       onClick={() => signIn()}
-      size="sm"
-      className="px-2 sm:px-3"
       disabled={showLoading}
       data-testid="nav-signin-btn"
+      className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#111] text-white text-[13px] font-medium rounded-md hover:bg-[#333] transition-colors disabled:opacity-50 cursor-pointer"
     >
-      <Github className="h-4 w-4 sm:mr-2" />
+      <Github className="h-4 w-4" />
       <span className="hidden sm:inline">
-        {showLoading ? 'Signing in...' : 'Sign in with GitHub'}
+        {showLoading ? 'Signing in...' : 'Sign in'}
       </span>
-    </Button>
+    </button>
   );
-} 
+}

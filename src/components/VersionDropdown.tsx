@@ -14,31 +14,31 @@ interface VersionDropdownProps {
 }
 
 export function VersionDropdown({ versions, isLoading, selectedVersion, onVersionChange }: VersionDropdownProps) {
-  if (isLoading) return <div className="h-9 w-32 bg-muted rounded animate-pulse" />;
+  if (isLoading) return <div className="h-8 w-32 bg-[#f8f9fa] rounded animate-pulse" />;
   if (!versions || versions.length === 0) return null;
-  
+
   return (
     <div className="flex items-center gap-2">
-      <label className="font-semibold whitespace-nowrap">Version history:</label>
+      <label className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase">Version</label>
       <select
         value={selectedVersion ?? versions[0].version}
         onChange={e => onVersionChange(Number(e.target.value))}
-        className="border rounded px-2 py-1"
+        className="border border-[#ddd] rounded px-2 py-1 text-[13px] text-[#333] bg-white focus:border-[#111] focus:outline-none"
       >
         {versions.map(v => (
           <option key={v.version} value={v.version}>
-            Version {v.version} ({new Date(v.updatedAt).toLocaleString()})
+            v{v.version} ({new Date(v.updatedAt).toLocaleDateString()})
           </option>
         ))}
       </select>
       {selectedVersion && (
         <button
-          className="text-blue-600 underline whitespace-nowrap"
+          className="text-[13px] text-[#888] hover:text-[#111] transition-colors"
           onClick={() => onVersionChange(null)}
         >
-          View Latest
+          Latest
         </button>
       )}
     </div>
   );
-} 
+}

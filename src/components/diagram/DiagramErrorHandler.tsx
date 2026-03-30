@@ -28,10 +28,10 @@ export function DiagramErrorHandler({
         hasPreviousResult={!!previousDiagramCode}
       />
       {previousDiagramCode && (
-        <div className="mt-4 text-sm text-gray-600 text-center">
-          Previous diagram result is preserved below. You can retry generation or continue using the previous result.
+        <div className="mt-4 text-[12px] text-[#888] text-center italic">
+          Previous diagram result is preserved below.
         </div>
       )}
     </div>
   );
-} 
+}

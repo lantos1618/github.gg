@@ -7,24 +7,24 @@ interface DiagramTypeSelectorProps {
   disabled?: boolean;
 }
 
-export function DiagramTypeSelector({ 
-  diagramType, 
-  onDiagramTypeChange, 
-  disabled = false 
+export function DiagramTypeSelector({
+  diagramType,
+  onDiagramTypeChange,
+  disabled = false
 }: DiagramTypeSelectorProps) {
   return (
-    <div className="mb-4 flex justify-center items-center gap-2">
-      <span className="mr-2 font-medium">Diagram Type:</span>
-      <div className="flex gap-2">
+    <div className="mb-4 flex items-center gap-3">
+      <span className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase">Type</span>
+      <div className="flex gap-1.5">
         {DIAGRAM_TYPES.map(dt => (
           <button
             key={dt.value}
             onClick={() => onDiagramTypeChange(dt.value as DiagramType)}
             data-testid={`diagram-type-${dt.value}-btn`}
-            className={`px-4 py-1 rounded border transition-colors duration-150 font-medium
+            className={`px-3 py-1.5 rounded text-[13px] font-medium transition-colors
               ${diagramType === dt.value
-                ? 'bg-blue-600 text-white border-blue-700 shadow'
-                : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'
+                ? 'bg-[#111] text-white'
+                : 'bg-[#f8f9fa] text-[#666] border border-[#eee] hover:border-[#aaa] hover:text-[#111]'
               }
               ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
             `}
@@ -37,4 +37,4 @@ export function DiagramTypeSelector({
       </div>
     </div>
   );
-} 
+}

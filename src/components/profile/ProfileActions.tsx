@@ -30,7 +30,7 @@ export function ProfileActions({
           onClick={onChallenge}
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-gray-400 hover:text-black"
+          className="h-8 w-8 text-[#aaa] hover:text-[#111]"
           title="Challenge to battle"
         >
           <Sword className="h-4 w-4" />
@@ -44,7 +44,7 @@ export function ProfileActions({
           disabled={isGenerating || reposLoading}
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-gray-400 hover:text-black"
+          className="h-8 w-8 text-[#aaa] hover:text-[#111]"
           title="Configure repositories"
         >
           <Settings className="h-4 w-4" />
@@ -58,7 +58,7 @@ export function ProfileActions({
           disabled={isGenerating}
           variant="ghost"
           size="icon"
-          className={`h-8 w-8 text-gray-400 hover:text-black ${isGenerating ? 'animate-pulse' : ''}`}
+          className={`h-8 w-8 text-[#aaa] hover:text-[#111] ${isGenerating ? 'animate-pulse' : ''}`}
           title="Refresh analysis"
         >
           <RefreshCw className="h-4 w-4" />

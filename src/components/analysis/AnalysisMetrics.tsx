@@ -1,16 +1,6 @@
 'use client';
 
 import React, { ReactNode } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3 } from 'lucide-react';
 
 interface Metric {
   metric: string;
@@ -23,6 +13,13 @@ interface AnalysisMetricsProps {
   showMetricsBar?: boolean;
   renderCustomMetrics?: (metrics: Metric[]) => ReactNode;
   getMetricColor?: (score: number) => string;
+}
+
+function getScoreColor(score: number): string {
+  if (score >= 80) return '#34a853';
+  if (score >= 60) return '#f59e0b';
+  if (score >= 40) return '#6b7280';
+  return '#ea4335';
 }
 
 export const AnalysisMetrics: React.FC<AnalysisMetricsProps> = ({
@@ -38,60 +35,61 @@ export const AnalysisMetrics: React.FC<AnalysisMetricsProps> = ({
   return (
     <>
       {showMetricsBar && renderCustomMetrics && (
-        <div className="mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="mb-8">
           {renderCustomMetrics(metrics)}
         </div>
       )}
 
       {/* Metrics Table */}
-      <div className="rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden mb-8">
-        <div className="p-6 border-b bg-muted/40">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-primary" />
-            Metrics Breakdown
-          </h3>
+      <div className="mb-8">
+        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-4">
+          Metrics Breakdown
         </div>
-        <div className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[200px] font-medium text-muted-foreground pl-6">Metric</TableHead>
-                <TableHead className="w-[140px] font-medium text-muted-foreground">Score</TableHead>
-                <TableHead className="font-medium text-muted-foreground pr-6">Analysis</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {metrics.map((m, i) => {
-                const colorClass = getMetricColor ? getMetricColor(m.score) : 'bg-blue-500';
-                const scoreColor = getMetricColor ? getMetricColor(m.score).replace('bg-', 'text-') : 'text-blue-600';
-                
-                return (
-                  <TableRow key={i} className="group hover:bg-muted/30 border-b-0">
-                    <TableCell className="font-medium pl-6 align-top pt-4">
-                      {m.metric}
-                    </TableCell>
-                    <TableCell className="align-top pt-4">
-                      <div className="flex flex-col gap-2">
-                        <span className={`font-bold ${scoreColor}`}>
-                          {m.score}/100
-                        </span>
-                        <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all duration-500 ${colorClass}`}
-                            style={{ width: `${Math.max(0, Math.min(100, m.score))}%` }}
-                          />
-                        </div>
+
+        <table className="w-full text-[13px] border-collapse">
+          <thead>
+            <tr className="border-b border-[#ddd]">
+              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold w-[180px]">Metric</td>
+              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold w-[120px]">Score</td>
+              <td className="py-2 px-2 text-[11px] text-[#aaa] font-semibold">Analysis</td>
+            </tr>
+          </thead>
+          <tbody>
+            {metrics.map((m, i) => {
+              const color = getMetricColor
+                ? getMetricColor(m.score).replace('bg-', '').replace('text-', '')
+                : undefined;
+              const scoreColor = color || getScoreColor(m.score);
+
+              return (
+                <tr key={i} className="border-b border-[#f0f0f0]">
+                  <td className="py-3 px-2 font-medium text-[#111] align-top">
+                    {m.metric}
+                  </td>
+                  <td className="py-3 px-2 align-top">
+                    <div className="flex flex-col gap-1.5">
+                      <span className="font-semibold text-[14px]" style={{ color: typeof scoreColor === 'string' && scoreColor.startsWith('#') ? scoreColor : undefined }}>
+                        {m.score}/100
+                      </span>
+                      <div className="w-full h-1 bg-[#eee] overflow-hidden">
+                        <div
+                          className="h-full transition-all duration-500"
+                          style={{
+                            width: `${Math.max(0, Math.min(100, m.score))}%`,
+                            backgroundColor: typeof scoreColor === 'string' && scoreColor.startsWith('#') ? scoreColor : '#111',
+                          }}
+                        />
                       </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm leading-relaxed align-top pt-4 pb-4 pr-6 whitespace-normal break-words">
-                      {m.reason}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-2 text-[#666] leading-[1.6] align-top">
+                    {m.reason}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </>
   );

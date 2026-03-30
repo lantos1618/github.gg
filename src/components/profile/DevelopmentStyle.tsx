@@ -1,4 +1,3 @@
-import { Progress } from '@/components/ui/progress';
 import type { ScoredMetric } from '@/lib/types/profile';
 
 interface DevelopmentStyleProps {
@@ -7,24 +6,24 @@ interface DevelopmentStyleProps {
 
 export function DevelopmentStyle({ traits }: DevelopmentStyleProps) {
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {traits.map((trait, index) => (
-        <div key={index} className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="font-semibold text-black text-sm">{trait.metric}</h4>
-            <span className="font-mono text-sm font-medium text-black">
+        <div key={index}>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[13px] font-medium text-[#111]">{trait.metric}</span>
+            <span className="text-[13px] font-semibold text-[#111] font-mono">
               {trait.score}/10
             </span>
           </div>
-          
-          <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-black rounded-full" 
+
+          <div className="h-1 w-full bg-[#eee] overflow-hidden">
+            <div
+              className="h-full bg-[#111]"
               style={{ width: `${trait.score * 10}%` }}
             />
           </div>
-          
-          <p className="text-xs text-gray-500 leading-relaxed">
+
+          <p className="text-[12px] text-[#888] leading-[1.5] mt-1.5">
             {trait.reason}
           </p>
         </div>

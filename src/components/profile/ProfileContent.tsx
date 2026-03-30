@@ -68,14 +68,16 @@ export function ProfileContent({
   return (
     <div
       data-testid="profile-content"
-      className="max-w-[1200px] mx-auto px-4 py-16 space-y-16 relative"
+      className="w-[90%] max-w-[900px] mx-auto py-12 space-y-12 relative"
       style={{
         backgroundColor: profileStyles?.backgroundColor || undefined,
         color: profileStyles?.textColor || undefined,
       }}
     >
       {showSparkles && sparkleEffects}
-      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8 border-b border-gray-100 pb-12 relative z-10">
+
+      {/* Header + Actions */}
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 border-b border-[#eee] pb-10 relative z-10">
         <ProfileHeader
           username={username}
           profile={profile}
@@ -98,7 +100,7 @@ export function ProfileContent({
         />
       </div>
 
-      {/* Progress Bar - Terminal-style logger for real-time generation feedback */}
+      {/* SSE Progress */}
       <ReusableSSEFeedback
         status={sseStatus}
         progress={progress}
@@ -108,29 +110,44 @@ export function ProfileContent({
         className="w-full"
       />
 
-      {/* Profile Content */}
+      {/* Main Content Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-12">
-        <div className="xl:col-span-8 space-y-16">
+        <div className="xl:col-span-8 space-y-12">
+          {/* Executive Summary */}
           <section>
-            <h3 className="text-2xl font-bold text-black mb-6">Executive Summary</h3>
-            <p className="text-lg text-gray-600 leading-relaxed font-light">{profile.summary}</p>
+            <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+              Executive Summary
+            </div>
+            <p className="text-[14px] text-[#666] leading-[1.7]">{profile.summary}</p>
             {profile.scoreInterpretation && (
-              <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-lg">
-                <p className="text-sm text-blue-800 leading-relaxed">
-                  <span className="font-medium">Score Context:</span> {profile.scoreInterpretation}
-                </p>
+              <div className="mt-4 bg-[#f8f9fa] py-[14px] px-[16px]" style={{ borderLeft: '3px solid #4285f4' }}>
+                <div className="text-[12px] font-semibold uppercase tracking-[1px] text-[#4285f4] mb-1">
+                  Score Context
+                </div>
+                <div className="text-[13px] text-[#333] leading-[1.6]">
+                  {profile.scoreInterpretation}
+                </div>
               </div>
             )}
           </section>
 
+          {/* Technical Arsenal */}
           <section>
-            <h3 className="text-2xl font-bold text-black mb-6">Technical Arsenal</h3>
+            <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+              Technical Arsenal
+            </div>
             <TechStack techStack={profile.techStack} />
           </section>
 
+          {/* Key Repositories */}
           <section>
-            <h3 className="text-2xl font-bold text-black mb-6">Key Repositories</h3>
-            <TopRepos repos={profile.topRepos} />
+            <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+              Key Repositories
+            </div>
+            <div className="text-[13px] text-[#aaa] mb-4">
+              Scored by significance — click any repo to view its full scorecard
+            </div>
+            <TopRepos repos={profile.topRepos} username={username} />
           </section>
         </div>
 
@@ -138,7 +155,7 @@ export function ProfileContent({
       </div>
 
       {showUpgrade && (
-        <div className="mt-12 pt-12 border-t border-gray-100">
+        <div className="mt-10 pt-10 border-t border-[#eee]">
           <UpgradePrompt />
         </div>
       )}

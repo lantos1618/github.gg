@@ -6,16 +6,11 @@ import { SkillAssessment } from './SkillAssessment';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
 
-// Lazy load ScoreHistory - Recharts is ~100KB+, only load when score history exists
 const ScoreHistory = dynamic(
   () => import('@/components/ScoreHistory').then(mod => ({ default: mod.ScoreHistory })),
   {
     ssr: false,
-    loading: () => (
-      <div className="space-y-3">
-        <Skeleton className="h-[300px] w-full rounded-lg" />
-      </div>
-    ),
+    loading: () => <Skeleton className="h-[300px] w-full" />,
   }
 );
 
@@ -32,42 +27,50 @@ interface ProfileSidebarProps {
 
 export function ProfileSidebar({ profile, scoreHistory }: ProfileSidebarProps) {
   return (
-    <div data-testid="profile-sidebar" className="xl:col-span-4 space-y-12">
+    <div data-testid="profile-sidebar" className="xl:col-span-4 space-y-10">
       {scoreHistory && scoreHistory.length > 0 && (
         <section>
-          <h3 className="text-lg font-bold text-black mb-4">ELO Trajectory</h3>
-          <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+          <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+            ELO Trajectory
+          </div>
+          <div className="p-4 bg-[#f8f9fa] border border-[#eee] rounded">
             <ScoreHistory
               data={scoreHistory}
               title=""
               scoreLabel="ELO"
-              color="#000000"
+              color="#111"
             />
           </div>
         </section>
       )}
 
       <section>
-        <h3 className="text-lg font-bold text-black mb-4">Developer Persona</h3>
+        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+          Developer Persona
+        </div>
         <DevelopmentStyle traits={profile.developmentStyle} />
       </section>
 
       <section>
-        <h3 className="text-lg font-bold text-black mb-4">Skill Assessment</h3>
+        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+          Skill Assessment
+        </div>
         <SkillAssessment skills={profile.skillAssessment} />
       </section>
 
       {Array.isArray(profile.suggestions) && profile.suggestions.length > 0 && (
         <section>
-          <h3 className="text-lg font-bold text-black mb-4">Growth Areas</h3>
-          <ul className="space-y-3">
+          <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+            Growth Areas
+          </div>
+          <div className="space-y-2">
             {profile.suggestions.map((suggestion, idx) => (
-              <li key={idx} className="text-gray-600 text-sm leading-relaxed flex gap-2">
-                <span className="text-black font-bold">•</span>
+              <div key={idx} className="text-[13px] text-[#666] leading-[1.6] flex gap-2">
+                <span className="text-[#111] font-semibold flex-shrink-0">{idx + 1}.</span>
                 {suggestion}
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         </section>
       )}
     </div>

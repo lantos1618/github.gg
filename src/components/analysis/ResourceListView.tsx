@@ -1,13 +1,11 @@
 'use client';
 
 import { useState, ReactNode } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Search, AlertCircle } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RepoPageLayout } from '@/components/layouts/RepoPageLayout';
 
-// Simple type for the useQuery hook - just what we need
 type UseQueryHook<TItem> = (input: {
   owner: string;
   repo: string;
@@ -19,26 +17,15 @@ type UseQueryHook<TItem> = (input: {
 };
 
 export interface ResourceListViewProps<TItem> {
-  // Repository info
   user: string;
   repo: string;
-
-  // TRPC query hook
   useQuery: UseQueryHook<TItem>;
-
-  // Display configuration
   title: string;
   icon: React.ComponentType<{ className?: string }>;
   searchPlaceholder: string;
   itemKey: (item: TItem) => string | number;
-
-  // Filtering
   filterItem: (item: TItem, search: string) => boolean;
-
-  // Rendering
   renderItem: (item: TItem, user: string, repo: string) => ReactNode;
-
-  // Optional empty state messages
   emptyStateMessage?: string;
   noResultsMessage?: string;
 }
@@ -48,7 +35,6 @@ export function ResourceListView<TItem>({
   repo,
   useQuery,
   title,
-  icon: Icon,
   searchPlaceholder,
   itemKey,
   filterItem,
@@ -59,26 +45,17 @@ export function ResourceListView<TItem>({
   const [search, setSearch] = useState('');
   const [state, setState] = useState<'open' | 'closed' | 'all'>('open');
 
-  const { data: items, isLoading, error } = useQuery({
-    owner: user,
-    repo,
-    state,
-  });
-
+  const { data: items, isLoading, error } = useQuery({ owner: user, repo, state });
   const filteredItems = items?.filter((item: TItem) => filterItem(item, search)) || [];
 
   if (error) {
     return (
       <RepoPageLayout user={user} repo={repo} files={[]} totalFiles={0}>
-        <div className="container py-8 max-w-6xl">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2 text-destructive">
-                <AlertCircle className="h-5 w-5" />
-                <p>Failed to load {title.toLowerCase()}: {error.message}</p>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="w-[90%] max-w-[800px] mx-auto py-12">
+          <div className="bg-[#f8f9fa] py-[14px] px-[16px]" style={{ borderLeft: '3px solid #ea4335' }}>
+            <div className="text-[12px] font-semibold uppercase tracking-[1px] text-[#ea4335] mb-1">Error</div>
+            <div className="text-[14px] text-[#333]">Failed to load {title.toLowerCase()}: {error.message}</div>
+          </div>
         </div>
       </RepoPageLayout>
     );
@@ -86,61 +63,44 @@ export function ResourceListView<TItem>({
 
   return (
     <RepoPageLayout user={user} repo={repo} files={[]} totalFiles={0}>
-      <div className="container py-8 max-w-6xl">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Icon className="h-5 w-5" />
-              {title}
-            </CardTitle>
-            <CardDescription>
-              {filteredItems.length} {title.toLowerCase()}{filteredItems.length !== 1 ? '' : ' found'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {/* Search and Filter */}
-            <div className="mb-4 flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={searchPlaceholder}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={state} onValueChange={(value) => setState(value as 'open' | 'closed' | 'all')}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="open">Open</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
-                  <SelectItem value="all">All</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="w-[90%] max-w-[800px] mx-auto py-8">
+        <div className="mb-6">
+          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">{title}</div>
+          <p className="text-[14px] text-[#888]">{filteredItems.length} {title.toLowerCase()}</p>
+        </div>
 
-            {/* Item List */}
-            {isLoading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Loading {title.toLowerCase()}...
+        {/* Search + Filter */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ccc]" />
+            <Input placeholder={searchPlaceholder} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-6" />
+          </div>
+          <Select value={state} onValueChange={(value) => setState(value as 'open' | 'closed' | 'all')}>
+            <SelectTrigger className="w-full sm:w-[140px] text-[14px] border-0 border-b border-[#ddd] rounded-none focus:ring-0 hover:border-[#888]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="open">Open</SelectItem>
+              <SelectItem value="closed">Closed</SelectItem>
+              <SelectItem value="all">All</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Items */}
+        {isLoading ? (
+          <div className="py-12 text-center text-[14px] text-[#aaa]">Loading {title.toLowerCase()}...</div>
+        ) : filteredItems.length === 0 ? (
+          <div className="py-12 text-center text-[14px] text-[#aaa]">{search ? noResultsMessage : emptyStateMessage}</div>
+        ) : (
+          <div className="space-y-0">
+            {filteredItems.map((item: TItem) => (
+              <div key={itemKey(item)} className="py-4 border-b border-[#f0f0f0] last:border-0 hover:bg-[#fafafa] transition-colors -mx-2 px-2">
+                {renderItem(item, user, repo)}
               </div>
-            ) : filteredItems.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {search ? noResultsMessage : emptyStateMessage}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredItems.map((item: TItem) => (
-                  <div key={itemKey(item)} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                    {renderItem(item, user, repo)}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            ))}
+          </div>
+        )}
       </div>
     </RepoPageLayout>
   );

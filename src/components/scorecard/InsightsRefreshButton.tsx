@@ -7,31 +7,21 @@ interface InsightsRefreshButtonProps {
   lastUpdated?: Date;
 }
 
-export function InsightsRefreshButton({ 
-  onRefresh, 
-  isRefreshing, 
-  lastUpdated 
-}: InsightsRefreshButtonProps) {
+export function InsightsRefreshButton({ onRefresh, isRefreshing, lastUpdated }: InsightsRefreshButtonProps) {
   const formatLastUpdated = (date: Date) => {
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    
     const diffInHours = Math.floor(diffInMinutes / 60);
     if (diffInHours < 24) return `${diffInHours}h ago`;
-    
-    const diffInDays = Math.floor(diffInHours / 24);
-    return `${diffInDays}d ago`;
+    return `${Math.floor(diffInHours / 24)}d ago`;
   };
 
   return (
-    <div className="flex items-center space-x-3">
+    <div className="flex items-center gap-3">
       {lastUpdated && (
-        <div className="text-sm text-gray-500">
-          Last updated: {formatLastUpdated(lastUpdated)}
-        </div>
+        <span className="text-[12px] text-[#aaa]">Updated {formatLastUpdated(lastUpdated)}</span>
       )}
       <Button
         onClick={onRefresh}
@@ -39,11 +29,11 @@ export function InsightsRefreshButton({
         variant="outline"
         size="sm"
         data-testid="scorecard-refresh-btn"
-        className={isRefreshing ? 'animate-pulse' : ''}
+        className={`border-[#ddd] text-[13px] hover:border-[#111] ${isRefreshing ? 'animate-pulse' : ''}`}
       >
-        <RefreshCw className="mr-2 h-4 w-4" />
-        Refresh Analysis
+        <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+        Refresh
       </Button>
     </div>
   );
-} 
+}

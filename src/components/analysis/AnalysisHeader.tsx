@@ -3,7 +3,6 @@
 import React, { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Copy } from 'lucide-react';
-import { toast } from 'sonner';
 import { VersionDropdown } from '@/components/VersionDropdown';
 
 interface AnalysisHeaderProps {
@@ -38,7 +37,7 @@ export const AnalysisHeader: React.FC<AnalysisHeaderProps> = ({
   }, [markdown, onCopyMarkdown]);
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
       <VersionDropdown
         versions={versions}
         isLoading={isLoadingVersions}
@@ -51,19 +50,19 @@ export const AnalysisHeader: React.FC<AnalysisHeaderProps> = ({
           <Button
             onClick={handleCopy}
             variant="outline"
-            className="flex items-center gap-2"
+            className="border-[#ddd] text-[13px] hover:border-[#111]"
             title="Copy Markdown"
           >
-            <Copy className="h-4 w-4" />
-            Copy Markdown
+            <Copy className="h-3.5 w-3.5 mr-1.5" />
+            Copy
           </Button>
         )}
         {canAccess && !isRegenerating && (
           <Button
             onClick={onRegenerate}
-            className="flex items-center gap-2"
+            className="bg-[#111] hover:bg-[#333] text-white text-[13px]"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
             Regenerate
           </Button>
         )}

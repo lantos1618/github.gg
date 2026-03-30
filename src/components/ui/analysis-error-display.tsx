@@ -23,42 +23,37 @@ export function AnalysisErrorDisplay({
 
   const config = getErrorDisplayConfig(error);
 
-  // If it's a subscription error, show the upgrade component
   if (config.isSubscription) {
     return (
       <div className={`text-center py-8 ${className}`}>
         <div className="max-w-md mx-auto mb-8">
-          <div className="text-6xl mb-4">{config.icon}</div>
-          <h2 className={`text-xl font-semibold mb-2 ${config.titleColor}`}>
-            {config.title}
-          </h2>
-          <p className="text-gray-600 mb-4">{config.description}</p>
-          
-          <div className={`${config.bgColor} border ${config.borderColor} rounded-lg p-4 mb-4`}>
-            <p className={`text-sm ${config.textColor}`}>
-              <strong>What happened?</strong> {config.explanation}
-            </p>
+          <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">
+            Subscription Required
+          </div>
+          <h2 className="text-[22px] font-semibold text-[#111] mb-2">{config.title}</h2>
+          <p className="text-[13px] text-[#666] mb-4">{config.description}</p>
+          <div className="bg-[#f8f9fa] py-[14px] px-[16px] text-left" style={{ borderLeft: '3px solid #f59e0b' }}>
+            <div className="text-[12px] font-semibold uppercase tracking-[1px] text-[#f59e0b] mb-1">Details</div>
+            <div className="text-[13px] text-[#333] leading-[1.6]">{config.explanation}</div>
           </div>
         </div>
-        
         <UpgradePrompt />
       </div>
     );
   }
 
+  const color = config.isRateLimit ? '#f59e0b' : '#ea4335';
+
   return (
     <div className={`text-center py-8 ${className}`}>
       <div className="max-w-md mx-auto">
-        <div className="text-6xl mb-4">{config.icon}</div>
-        <h2 className={`text-xl font-semibold mb-2 ${config.titleColor}`}>
-          {config.title}
-        </h2>
-        <p className="text-gray-600 mb-4">{config.description}</p>
-        
-        <div className={`${config.bgColor} border ${config.borderColor} rounded-lg p-4 mb-4`}>
-          <p className={`text-sm ${config.textColor}`}>
-            <strong>What happened?</strong> {config.explanation}
-          </p>
+        <div className="text-[11px] text-[#aaa] font-semibold tracking-[1.5px] uppercase mb-3">Error</div>
+        <h2 className="text-[22px] font-semibold text-[#111] mb-2">{config.title}</h2>
+        <p className="text-[13px] text-[#666] mb-4">{config.description}</p>
+
+        <div className="bg-[#f8f9fa] py-[14px] px-[16px] text-left mb-6" style={{ borderLeft: `3px solid ${color}` }}>
+          <div className="text-[12px] font-semibold uppercase tracking-[1px] mb-1" style={{ color }}>What happened</div>
+          <div className="text-[13px] text-[#333] leading-[1.6]">{config.explanation}</div>
         </div>
 
         {(onRetry || onRetryWithContext) && (
@@ -67,30 +62,27 @@ export function AnalysisErrorDisplay({
               <button
                 onClick={onRetry}
                 disabled={isPending}
-                className={`${config.buttonColor} text-white font-bold py-2 px-4 rounded disabled:opacity-50`}
+                className="px-4 py-2 bg-[#111] text-white text-[13px] font-medium rounded-md hover:bg-[#333] transition-colors disabled:opacity-50"
               >
                 {isPending ? 'Retrying...' : 'Try Again'}
               </button>
             )}
-            
             {onRetryWithContext && hasPreviousResult && (
               <button
                 onClick={onRetryWithContext}
                 disabled={isPending}
-                className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+                className="px-4 py-2 bg-[#f8f9fa] text-[#333] text-[13px] font-medium rounded-md border border-[#ddd] hover:border-[#aaa] transition-colors disabled:opacity-50"
               >
-                {isPending ? 'Retrying with Context...' : 'Retry with Previous Result'}
+                {isPending ? 'Retrying...' : 'Retry with Previous'}
               </button>
             )}
           </div>
         )}
 
         {config.isRateLimit && (
-          <p className="text-xs text-gray-500 mt-3">
-            Limits reset periodically. You can also try again later.
-          </p>
+          <p className="text-[12px] text-[#aaa] mt-3">Limits reset periodically. Try again later.</p>
         )}
       </div>
     </div>
   );
-} 
+}

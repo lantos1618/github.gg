@@ -73,7 +73,7 @@ export function HeroSection() {
               placeholder="owner/repo or paste URL"
               aria-label="GitHub repository URL or path"
               data-testid="home-hero-repo-input"
-              className="pl-12 pr-32 h-14 text-[15px] border border-[#ddd] bg-white rounded-lg focus:border-[#111] focus:ring-0 transition-colors placeholder:text-[#ccc] text-[#333]"
+              className="pl-12 pr-32 h-14 text-[17px]"
               value={repoUrl}
               onChange={(e) => setRepoUrl(e.target.value)}
               autoFocus

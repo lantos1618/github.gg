@@ -60,7 +60,7 @@ export function CallToAction() {
               type="text"
               placeholder="owner/repo"
               data-testid="home-cta-repo-input"
-              className="pl-12 pr-24 h-12 text-[14px] border-[#333] bg-[#1a1a1a] text-white placeholder:text-[#555] rounded-md focus:border-[#555] focus:ring-0"
+              className="pl-12 pr-24 h-12 text-[15px] bg-transparent text-white placeholder:text-[#555] border-[#444] hover:border-[#888] focus:border-white"
               value={repoUrl}
               onChange={(e) => setRepoUrl(e.target.value)}
             />

@@ -192,7 +192,10 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   const router = useRouter();
 
   // Fetch all available versions
-  const { data: versions, isLoading: versionsLoading } = trpc.profile.getProfileVersions.useQuery({ username });
+  const { data: versions, isLoading: versionsLoading } = trpc.profile.getProfileVersions.useQuery({ username }, {
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   const queryInitialData = initialData ? {
     ...initialData,
@@ -204,7 +207,9 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     ? trpc.profile.getProfileByVersion.useQuery({ username, version: selectedVersion }, { enabled: !!username && selectedVersion !== null })
     : trpc.profile.publicGetProfile.useQuery({ username }, {
         enabled: !!username,
-        initialData: queryInitialData
+        initialData: queryInitialData,
+        staleTime: 5 * 60 * 1000,
+        refetchOnWindowFocus: false,
       });
 
   // Check user plan and current user
@@ -226,7 +231,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   // Fetch user repos if viewing own profile
   const { data: userRepos, isLoading: reposLoading } = trpc.profile.getUserRepositories.useQuery(
     { username },
-    { enabled: isOwnProfile && !!currentUser }
+    { enabled: isOwnProfile && !!currentUser, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
   );
 
   const shouldShowChallengeButton = !!currentUser && !isOwnProfile;
@@ -243,13 +248,12 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   // Fetch score history for this user
   const { data: scoreHistory } = trpc.scoreHistory.getUserScoreHistory.useQuery(
     { username },
-    { enabled: !!username }
+    { enabled: !!username, staleTime: 10 * 60 * 1000, refetchOnWindowFocus: false }
   );
 
-  // Fetch arena ranking for this user
   const { data: arenaRanking } = trpc.arena.getRankingByUsername.useQuery(
     { username },
-    { enabled: !!username }
+    { enabled: !!username, staleTime: 10 * 60 * 1000, refetchOnWindowFocus: false }
   );
 
   const handleChallenge = useCallback(() => {

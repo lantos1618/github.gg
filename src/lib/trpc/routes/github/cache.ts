@@ -3,7 +3,7 @@ import { router, publicProcedure } from '@/lib/trpc/trpc';
 import { createGitHubServiceForRepo } from '@/lib/github';
 import { db } from '@/db';
 import { cachedRepos, user } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { parseError } from '@/lib/types/errors';
 
 // Cache duration: 1 hour
@@ -66,22 +66,27 @@ export const cacheRouter = router({
       }
     }),
 
-  // Check if cache needs refresh
+  // Check if cache needs refresh — uses COUNT queries instead of full table scan
   checkCacheStatus: publicProcedure
     .query(async () => {
       try {
-        const now = new Date();
-        const cacheThreshold = new Date(now.getTime() - CACHE_DURATION);
-        const allCachedRepos = await db.select().from(cachedRepos);
-        
-        const staleRepos = allCachedRepos.filter(repo => repo.lastFetched < cacheThreshold);
-        const needsRefresh = staleRepos.length > 0;
-        
+        const cacheThreshold = new Date(Date.now() - CACHE_DURATION);
+
+        const [totalResult, staleResult] = await Promise.all([
+          db.select({ count: sql<number>`count(*)` }).from(cachedRepos),
+          db.select({ count: sql<number>`count(*)` }).from(cachedRepos).where(
+            sql`${cachedRepos.lastFetched} < ${cacheThreshold}`
+          ),
+        ]);
+
+        const totalCached = Number(totalResult[0]?.count ?? 0);
+        const staleCount = Number(staleResult[0]?.count ?? 0);
+
         return {
-          needsRefresh,
-          totalCached: allCachedRepos.length,
-          staleCount: staleRepos.length,
-          oldestCache: allCachedRepos.length > 0 ? Math.min(...allCachedRepos.map(r => r.lastFetched.getTime())) : null
+          needsRefresh: staleCount > 0,
+          totalCached,
+          staleCount,
+          oldestCache: null, // Removed: was causing full table scan for marginal value
         };
       } catch (error: unknown) {
         const errorMessage = parseError(error);

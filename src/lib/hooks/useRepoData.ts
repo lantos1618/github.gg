@@ -94,7 +94,7 @@ export const useCacheStatus = () => {
 
   return trpc.github.checkCacheStatus.useQuery(undefined, {
     enabled: !auth.isLoading,
-    staleTime: 30 * 1000, // Check every 30 seconds
+    staleTime: 10 * 60 * 1000, // Check every 10 minutes (was 30s — hammered DB)
     refetchOnWindowFocus: false,
   });
 };

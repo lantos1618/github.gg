@@ -136,7 +136,7 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
         // Poll for completion — keep going as long as the server lock is held
         const pollForProfile = async () => {
           const MAX_POLL_TIME_MS = 120_000; // Give up after 2 minutes
-          const POLL_INTERVAL_MS = 5_000;
+          const POLL_INTERVAL_MS = 15_000; // Was 5s — reduced DB load
           const startTime = Date.now();
 
           while (Date.now() - startTime < MAX_POLL_TIME_MS) {

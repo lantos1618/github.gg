@@ -198,48 +198,42 @@ export const scorecardRouter = router({
     .input(z.object({
       user: z.string(),
       repo: z.string(),
-      ref: z.string().optional().default('main'),
+      ref: z.string().optional(),
       version: z.number().optional(),
     }))
     .query(async ({ input, ctx }) => {
-      const { user, repo, ref, version } = input;
-      
-      // Normalize username to lowercase for consistency (GitHub usernames are case-insensitive)
-      const normalizedUser = user.toLowerCase();
-      
-      // Check repository access and privacy
-      try {
-        const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
-        const repoInfo = await githubService.getRepositoryInfo(user, repo);
+      const { user, repo, version } = input;
 
-        // If the repository is private, check if user has access
-        if (repoInfo.private === true) {
-          // If user is not authenticated, block access
-          if (!ctx.session?.user) {
-            return {
-              scorecard: null,
-              cached: false,
-              stale: false,
-              lastUpdated: null,
-              error: 'This repository is private'
-            };
+      const normalizedUser = user.toLowerCase();
+
+      // Resolve actual default branch if no ref provided
+      let ref = input.ref;
+      if (!ref) {
+        try {
+          const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
+          const repoInfo = await githubService.getRepositoryInfo(user, repo);
+
+          if (repoInfo.private === true && !ctx.session?.user) {
+            return { scorecard: null, cached: false, stale: false, lastUpdated: null, error: 'This repository is private' };
           }
-          
-          // User is authenticated, so they should have access (since we successfully fetched repo info)
-          // Continue to show the scorecard
+
+          ref = repoInfo.defaultBranch || 'main';
+        } catch {
+          return { scorecard: null, cached: false, stale: false, lastUpdated: null, error: 'Unable to access repository' };
         }
-      } catch {
-        // If we can't access the repo (404 or no auth), it might be private or user doesn't have access
-        return {
-          scorecard: null,
-          cached: false,
-          stale: false,
-          lastUpdated: null,
-          error: 'Unable to access repository'
-        };
+      } else {
+        // Still check access for provided ref
+        try {
+          const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
+          const repoInfo = await githubService.getRepositoryInfo(user, repo);
+          if (repoInfo.private === true && !ctx.session?.user) {
+            return { scorecard: null, cached: false, stale: false, lastUpdated: null, error: 'This repository is private' };
+          }
+        } catch {
+          return { scorecard: null, cached: false, stale: false, lastUpdated: null, error: 'Unable to access repository' };
+        }
       }
-      
-      // Use case-insensitive comparison for both repoOwner and repoName (GitHub is case-insensitive)
+
       const normalizedRepo = repo.toLowerCase();
       const baseConditions = [
         sql`LOWER(${repositoryScorecards.repoOwner}) = LOWER(${normalizedUser})`,

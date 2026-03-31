@@ -21,7 +21,7 @@ export function InsightsRefreshButton({ onRefresh, isRefreshing, lastUpdated }: 
   return (
     <div className="flex items-center gap-3">
       {lastUpdated && (
-        <span className="text-[12px] text-[#aaa]">Updated {formatLastUpdated(lastUpdated)}</span>
+        <span className="text-[13px] text-[#aaa]">Updated {formatLastUpdated(lastUpdated)}</span>
       )}
       <Button
         onClick={onRefresh}
@@ -29,7 +29,7 @@ export function InsightsRefreshButton({ onRefresh, isRefreshing, lastUpdated }: 
         variant="outline"
         size="sm"
         data-testid="scorecard-refresh-btn"
-        className={`border-[#ddd] text-[14px] hover:border-[#111] ${isRefreshing ? 'animate-pulse' : ''}`}
+        className={`border-[#ddd] text-base hover:border-[#111] ${isRefreshing ? 'animate-pulse' : ''}`}
       >
         <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
         Refresh

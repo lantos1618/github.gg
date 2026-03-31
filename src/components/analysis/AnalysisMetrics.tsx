@@ -46,12 +46,12 @@ export const AnalysisMetrics: React.FC<AnalysisMetricsProps> = ({
           Metrics Breakdown
         </div>
 
-        <table className="w-full text-[14px] border-collapse">
+        <table className="w-full text-base border-collapse">
           <thead>
             <tr className="border-b border-[#ddd]">
-              <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold w-[180px]">Metric</td>
-              <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold w-[120px]">Score</td>
-              <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold">Analysis</td>
+              <td className="py-2 px-2 text-[13px] text-[#aaa] font-semibold w-[180px]">Metric</td>
+              <td className="py-2 px-2 text-[13px] text-[#aaa] font-semibold w-[120px]">Score</td>
+              <td className="py-2 px-2 text-[13px] text-[#aaa] font-semibold">Analysis</td>
             </tr>
           </thead>
           <tbody>
@@ -68,7 +68,7 @@ export const AnalysisMetrics: React.FC<AnalysisMetricsProps> = ({
                   </td>
                   <td className="py-3 px-2 align-top">
                     <div className="flex flex-col gap-1.5">
-                      <span className="font-semibold text-[14px]" style={{ color: typeof scoreColor === 'string' && scoreColor.startsWith('#') ? scoreColor : undefined }}>
+                      <span className="font-semibold text-base" style={{ color: typeof scoreColor === 'string' && scoreColor.startsWith('#') ? scoreColor : undefined }}>
                         {m.score}/100
                       </span>
                       <div className="w-full h-1 bg-[#eee] overflow-hidden">

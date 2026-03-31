@@ -35,7 +35,7 @@ export function HeroSection() {
 
   return (
     <div className="relative bg-white" data-testid="home-hero-section">
-      <div className="w-[90%] max-w-[800px] mx-auto pt-24 pb-20">
+      <div className="w-[90%] max-w-[880px] mx-auto pt-24 pb-20">
 
         {/* Section label */}
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
@@ -43,12 +43,12 @@ export function HeroSection() {
         </div>
 
         {/* Headline */}
-        <h1 className="text-[32px] sm:text-[42px] font-semibold text-[#111] leading-[1.2] mb-2 tracking-tight">
+        <h1 className="text-[31px] sm:text-[39px] font-semibold text-[#111] leading-[1.2] mb-2 tracking-tight">
           Read any repository like you wrote it
         </h1>
 
         {/* Subtitle */}
-        <p className="text-[14px] text-[#aaa] mb-10">
+        <p className="text-base text-[#aaa] mb-10">
           Quality scores, architecture diagrams, and generated docs — from any public GitHub URL
         </p>
 
@@ -56,8 +56,8 @@ export function HeroSection() {
         <div className="border-b border-[#eee] mb-10" />
 
         {/* Body text */}
-        <p className="text-[14px] text-[#666] leading-[1.6] mb-10">
-          Paste a GitHub URL or <code className="bg-[#eee] px-1.5 py-0.5 rounded text-[12px]">owner/repo</code> below.
+        <p className="text-base text-[#666] leading-[1.6] mb-10">
+          Paste a GitHub URL or <code className="bg-[#eee] px-1.5 py-0.5 rounded text-[13px]">owner/repo</code> below.
           Get an instant analysis — scorecards, architecture diagrams, auto-generated wiki, and AI code review.
           No signup required for public repositories.
         </p>
@@ -73,7 +73,7 @@ export function HeroSection() {
               placeholder="owner/repo or paste URL"
               aria-label="GitHub repository URL or path"
               data-testid="home-hero-repo-input"
-              className="pl-12 pr-32 h-14 text-[17px]"
+              className="pl-12 pr-32 h-14 text-base"
               value={repoUrl}
               onChange={(e) => setRepoUrl(e.target.value)}
               autoFocus
@@ -84,7 +84,7 @@ export function HeroSection() {
                 type="submit"
                 disabled={isAnalyzing}
                 data-testid="home-hero-submit-btn"
-                className="h-11 px-6 bg-[#111] hover:bg-[#333] text-white rounded-md font-medium text-[14px]"
+                className="h-11 px-6 bg-[#111] hover:bg-[#333] text-white rounded-md font-medium text-base"
               >
                 {isAnalyzing ? '...' : (
                   <>
@@ -98,7 +98,7 @@ export function HeroSection() {
         </div>
 
         {/* Quick examples */}
-        <div className="flex flex-wrap items-center gap-2 text-[14px]">
+        <div className="flex flex-wrap items-center gap-2 text-base">
           <span className="text-[#aaa]">Try</span>
           {[
             { name: 'facebook/react', label: 'react' },
@@ -109,7 +109,7 @@ export function HeroSection() {
               key={repo.name}
               onClick={() => setRepoUrl(repo.name)}
               data-testid={`home-hero-example-${repo.label}-btn`}
-              className="px-2.5 py-1 rounded border border-[#e0e0e0] hover:border-[#ccc] hover:bg-[#fafafa] text-[#666] font-mono text-[12px] transition-colors"
+              className="px-2.5 py-1 rounded border border-[#e0e0e0] hover:border-[#ccc] hover:bg-[#fafafa] text-[#666] font-mono text-[13px] transition-colors"
             >
               {repo.label}
             </button>

@@ -26,10 +26,10 @@ export function LanguageBreakdown({ languages }: LanguageBreakdownProps) {
             <div className="w-2.5 h-2.5 rounded-full mt-1 shrink-0" style={{ backgroundColor: getLanguageColor(lang.name) }} />
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-baseline">
-                <span className="text-[14px] font-medium text-[#111] truncate">{lang.name}</span>
-                <span className="text-[14px] font-semibold text-[#111]">{lang.percentage}%</span>
+                <span className="text-base font-medium text-[#111] truncate">{lang.name}</span>
+                <span className="text-base font-semibold text-[#111]">{lang.percentage}%</span>
               </div>
-              <div className="text-[12px] text-[#aaa]">{lang.files.toLocaleString()} files · {lang.lines.toLocaleString()} lines</div>
+              <div className="text-[13px] text-[#aaa]">{lang.files.toLocaleString()} files · {lang.lines.toLocaleString()} lines</div>
             </div>
           </div>
         ))}

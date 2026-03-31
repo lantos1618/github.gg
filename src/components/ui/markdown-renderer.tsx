@@ -24,12 +24,12 @@ export const MarkdownRenderer = ({ content, className = '' }: MarkdownRendererPr
     prose-h2:text-3xl prose-h2:mt-12 prose-h2:mb-6 prose-h2:pb-3 prose-h2:border-b prose-h2:border-border
     prose-h3:text-2xl prose-h3:mt-8 prose-h3:mb-4
     prose-h4:text-xl prose-h4:mt-6 prose-h4:mb-3
-    prose-p:leading-7 prose-p:text-[15px] prose-p:mb-4 prose-p:text-foreground/90
+    prose-p:leading-7 prose-p:text-base prose-p:mb-4 prose-p:text-foreground/90
     prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline prose-a:font-medium hover:prose-a:underline prose-a:transition-all
     prose-strong:text-foreground prose-strong:font-semibold
-    prose-code:text-foreground prose-code:bg-black/5 dark:prose-code:bg-white/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:font-mono prose-code:text-[14px] prose-code:before:content-none prose-code:after:content-none prose-code:font-medium prose-code:border prose-code:border-black/10 dark:prose-code:border-white/10
+    prose-code:text-foreground prose-code:bg-black/5 dark:prose-code:bg-white/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:font-mono prose-code:text-base prose-code:before:content-none prose-code:after:content-none prose-code:font-medium prose-code:border prose-code:border-black/10 dark:prose-code:border-white/10
     prose-pre:bg-transparent prose-pre:p-0 prose-pre:my-6 prose-pre:overflow-hidden
-    prose-ul:my-6 prose-ul:list-disc prose-ul:pl-6 prose-li:my-2 prose-li:text-[15px] prose-li:text-foreground/90
+    prose-ul:my-6 prose-ul:list-disc prose-ul:pl-6 prose-li:my-2 prose-li:text-base prose-li:text-foreground/90
     prose-ol:my-6 prose-ol:list-decimal prose-ol:pl-6
     prose-blockquote:border-l-4 prose-blockquote:border-foreground/20 prose-blockquote:bg-muted/50 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:my-6 prose-blockquote:not-italic prose-blockquote:text-foreground/80
     prose-img:rounded-xl prose-img:shadow-xl prose-img:my-8 prose-img:border prose-img:border-border

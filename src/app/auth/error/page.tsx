@@ -40,23 +40,23 @@ function AuthErrorContent() {
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
           Authentication
         </div>
-        <h1 className="text-[26px] font-semibold text-[#111] mb-2">{title}</h1>
-        <p className="text-[14px] text-[#666] leading-[1.6] mb-6">{description}</p>
+        <h1 className="text-[25px] font-semibold text-[#111] mb-2">{title}</h1>
+        <p className="text-base text-[#666] leading-[1.6] mb-6">{description}</p>
         {errorCode !== 'unknown' && (
-          <p className="text-[12px] text-[#aaa] font-mono mb-6">
+          <p className="text-[13px] text-[#aaa] font-mono mb-6">
             Code: {errorCode}
           </p>
         )}
         <div className="flex gap-3">
           <button
             onClick={() => signIn('/')}
-            className="px-4 py-2 bg-[#111] text-white text-[14px] font-medium rounded-md hover:bg-[#333] transition-colors"
+            className="px-4 py-2 bg-[#111] text-white text-base font-medium rounded-md hover:bg-[#333] transition-colors"
           >
             Sign in again
           </button>
           <Link
             href="/"
-            className="px-4 py-2 bg-[#f8f9fa] text-[#333] text-[14px] font-medium rounded-md border border-[#ddd] hover:border-[#aaa] transition-colors"
+            className="px-4 py-2 bg-[#f8f9fa] text-[#333] text-base font-medium rounded-md border border-[#ddd] hover:border-[#aaa] transition-colors"
           >
             Go Home
           </Link>
@@ -75,8 +75,8 @@ export default function AuthErrorPage() {
             <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
               Authentication
             </div>
-            <h1 className="text-[26px] font-semibold text-[#111] mb-2">Authentication Error</h1>
-            <p className="text-[14px] text-[#666]">Loading error details...</p>
+            <h1 className="text-[25px] font-semibold text-[#111] mb-2">Authentication Error</h1>
+            <p className="text-base text-[#666]">Loading error details...</p>
           </div>
         </div>
       }

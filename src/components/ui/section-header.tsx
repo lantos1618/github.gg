@@ -24,8 +24,8 @@ export function SectionHeader({
               {label}
             </div>
           )}
-          <h2 className="text-[22px] font-semibold text-[#111]">{title}</h2>
-          {description && <p className="text-[14px] text-[#aaa] mt-1">{description}</p>}
+          <h2 className="text-[20px] font-semibold text-[#111]">{title}</h2>
+          {description && <p className="text-base text-[#aaa] mt-1">{description}</p>}
         </div>
         {action && <div>{action}</div>}
       </div>
@@ -49,8 +49,8 @@ export function PageHeader({
               {label}
             </div>
           )}
-          <h1 className="text-[28px] sm:text-[36px] font-semibold text-[#111] leading-tight">{title}</h1>
-          {description && <p className="text-[14px] text-[#aaa] mt-2">{description}</p>}
+          <h1 className="text-[31px] sm:text-[31px] font-semibold text-[#111] leading-tight">{title}</h1>
+          {description && <p className="text-base text-[#aaa] mt-2">{description}</p>}
         </div>
         {action && <div className="flex-shrink-0 ml-4">{action}</div>}
       </div>

@@ -10,8 +10,8 @@ export function DevelopmentStyle({ traits }: DevelopmentStyleProps) {
       {traits.map((trait, index) => (
         <div key={index}>
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[14px] font-medium text-[#111]">{trait.metric}</span>
-            <span className="text-[14px] font-semibold text-[#111] font-mono">
+            <span className="text-base font-medium text-[#111]">{trait.metric}</span>
+            <span className="text-base font-semibold text-[#111] font-mono">
               {trait.score}/10
             </span>
           </div>
@@ -23,7 +23,7 @@ export function DevelopmentStyle({ traits }: DevelopmentStyleProps) {
             />
           </div>
 
-          <p className="text-[12px] text-[#888] leading-[1.5] mt-1.5">
+          <p className="text-[13px] text-[#888] leading-[1.5] mt-1.5">
             {trait.reason}
           </p>
         </div>

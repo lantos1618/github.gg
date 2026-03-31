@@ -103,26 +103,26 @@ export function ChallengeForm() {
         <div>
           {battleResult.error ? (
             <div className="bg-[#f8f9fa] py-[14px] px-[16px]" style={{ borderLeft: '3px solid #ea4335' }}>
-              <div className="text-[12px] font-semibold uppercase tracking-[1px] text-[#ea4335] mb-1">Battle Failed</div>
-              <div className="text-[14px] text-[#333] leading-[1.6] mb-3">{battleResult.error}</div>
-              <button onClick={() => setBattleResult(null)} className="text-[14px] text-[#888] hover:text-[#111] transition-colors">Try Again</button>
+              <div className="text-[13px] font-semibold uppercase tracking-[1px] text-[#ea4335] mb-1">Battle Failed</div>
+              <div className="text-base text-[#333] leading-[1.6] mb-3">{battleResult.error}</div>
+              <button onClick={() => setBattleResult(null)} className="text-base text-[#888] hover:text-[#111] transition-colors">Try Again</button>
             </div>
           ) : (
             <div className="space-y-6">
               <div className="text-center">
                 <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">Battle Complete</div>
-                <h3 className="text-[28px] font-semibold text-[#111]">Winner: {battleResult.analysis?.winner}</h3>
-                <p className="text-[14px] text-[#666] leading-[1.6] max-w-lg mx-auto mt-2">{battleResult.analysis?.reason}</p>
+                <h3 className="text-[31px] font-semibold text-[#111]">Winner: {battleResult.analysis?.winner}</h3>
+                <p className="text-base text-[#666] leading-[1.6] max-w-lg mx-auto mt-2">{battleResult.analysis?.reason}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-6 max-w-sm mx-auto">
                 <div>
-                  <div className="text-[12px] text-[#aaa] font-semibold tracking-[1px] uppercase mb-1">You</div>
-                  <div className="text-[28px] font-semibold text-[#111]">{battleResult.battle?.scores?.challenger?.total || 0}</div>
+                  <div className="text-[13px] text-[#aaa] font-semibold tracking-[1px] uppercase mb-1">You</div>
+                  <div className="text-[31px] font-semibold text-[#111]">{battleResult.battle?.scores?.challenger?.total || 0}</div>
                 </div>
                 <div>
-                  <div className="text-[12px] text-[#aaa] font-semibold tracking-[1px] uppercase mb-1">Opponent</div>
-                  <div className="text-[28px] font-semibold text-[#111]">{battleResult.battle?.scores?.opponent?.total || 0}</div>
+                  <div className="text-[13px] text-[#aaa] font-semibold tracking-[1px] uppercase mb-1">Opponent</div>
+                  <div className="text-[31px] font-semibold text-[#111]">{battleResult.battle?.scores?.opponent?.total || 0}</div>
                 </div>
               </div>
 
@@ -131,7 +131,7 @@ export function ChallengeForm() {
                   <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">Key Highlights</div>
                   <div className="space-y-1.5">
                     {battleResult.analysis.highlights.map((h: string, i: number) => (
-                      <div key={i} className="text-[14px] text-[#666] leading-[1.6] flex gap-2">
+                      <div key={i} className="text-base text-[#666] leading-[1.6] flex gap-2">
                         <span className="text-[#34a853] flex-shrink-0">{i + 1}.</span> {h}
                       </div>
                     ))}
@@ -140,7 +140,7 @@ export function ChallengeForm() {
               )}
 
               <div className="text-center">
-                <button onClick={() => setBattleResult(null)} className="px-4 py-2 bg-[#f8f9fa] text-[#333] text-[14px] font-medium rounded border border-[#ddd] hover:border-[#111] transition-colors">
+                <button onClick={() => setBattleResult(null)} className="px-4 py-2 bg-[#f8f9fa] text-[#333] text-base font-medium rounded border border-[#ddd] hover:border-[#111] transition-colors">
                   Challenge Another
                 </button>
               </div>
@@ -154,8 +154,8 @@ export function ChallengeForm() {
         <div className="max-w-2xl mx-auto">
           <div className="mb-8">
             <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">Challenge</div>
-            <h2 className="text-[22px] font-semibold text-[#111] mb-1">Challenge a Developer</h2>
-            <p className="text-[14px] text-[#666]">Enter a GitHub username to initiate an AI-judged code battle.</p>
+            <h2 className="text-[20px] font-semibold text-[#111] mb-1">Challenge a Developer</h2>
+            <p className="text-base text-[#666]">Enter a GitHub username to initiate an AI-judged code battle.</p>
           </div>
 
           <div className="space-y-6">
@@ -169,11 +169,11 @@ export function ChallengeForm() {
                   value={opponentUsername}
                   onChange={(e) => setOpponentUsername(e.target.value)}
                   disabled={isPending}
-                  className="pl-10 h-11 text-[14px] border border-[#ddd] rounded focus:border-[#111] focus:ring-0 placeholder:text-[#ccc]"
+                  className="pl-10 h-11 text-base border border-[#ddd] rounded focus:border-[#111] focus:ring-0 placeholder:text-[#ccc]"
                 />
               </div>
               {currentUser?.user?.name === opponentUsername.trim() && (
-                <p className="text-[12px] text-[#ea4335] mt-1">You cannot challenge yourself!</p>
+                <p className="text-[13px] text-[#ea4335] mt-1">You cannot challenge yourself!</p>
               )}
             </div>
 
@@ -181,7 +181,7 @@ export function ChallengeForm() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase">Battle Criteria</div>
-                <span className="text-[12px] text-[#aaa]">{selectedCriteria.length} selected</span>
+                <span className="text-[13px] text-[#aaa]">{selectedCriteria.length} selected</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-[2px]">
                 {Object.entries(CRITERIA_LABELS).map(([key, info]) => {
@@ -199,8 +199,8 @@ export function ChallengeForm() {
                           {isSelected && <Check className="h-3 w-3 text-[#111]" />}
                         </div>
                         <div>
-                          <div className={`text-[14px] font-medium ${isSelected ? 'text-white' : 'text-[#111]'}`}>{info.label}</div>
-                          <div className={`text-[12px] ${isSelected ? 'text-white/60' : 'text-[#aaa]'}`}>{info.description}</div>
+                          <div className={`text-base font-medium ${isSelected ? 'text-white' : 'text-[#111]'}`}>{info.label}</div>
+                          <div className={`text-[13px] ${isSelected ? 'text-white/60' : 'text-[#aaa]'}`}>{info.description}</div>
                         </div>
                       </div>
                     </div>
@@ -214,7 +214,7 @@ export function ChallengeForm() {
               onClick={handleChallenge}
               disabled={!isFormValid || isPending}
               data-testid="arena-challenge-start-btn"
-              className={`w-full py-3 bg-[#111] text-white text-[14px] font-medium rounded hover:bg-[#333] transition-colors disabled:opacity-50 ${isPending ? 'animate-pulse' : ''}`}
+              className={`w-full py-3 bg-[#111] text-white text-base font-medium rounded hover:bg-[#333] transition-colors disabled:opacity-50 ${isPending ? 'animate-pulse' : ''}`}
             >
               Start Battle
             </button>
@@ -224,7 +224,7 @@ export function ChallengeForm() {
                 <div className="h-1 w-full bg-[#eee] overflow-hidden">
                   <div className="h-full bg-[#111] transition-all duration-500" style={{ width: `${progress}%` }} />
                 </div>
-                <p className="text-[12px] text-[#888]">{statusMessage}</p>
+                <p className="text-[13px] text-[#888]">{statusMessage}</p>
               </div>
             )}
           </div>

@@ -58,11 +58,11 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
 
   return (
     <div className="min-h-screen bg-white pt-12 pb-20">
-      <div className="w-[90%] max-w-[800px] mx-auto">
+      <div className="w-[90%] max-w-[880px] mx-auto">
         <div className="mb-10">
           <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">Repositories</div>
-          <h1 className="text-[32px] font-semibold text-[#111] tracking-tight mb-2">Analyzed Repositories</h1>
-          <p className="text-[14px] text-[#666]">
+          <h1 className="text-[31px] font-semibold text-[#111] tracking-tight mb-2">Analyzed Repositories</h1>
+          <p className="text-base text-[#666]">
             <strong className="text-[#111]">{totalRepoCount.toLocaleString()}</strong> repositories analyzed
           </p>
         </div>
@@ -80,11 +80,11 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
 
         {paginatedRepos.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-[14px] text-[#aaa]">{searchQuery ? 'No repositories found.' : 'No analyzed repositories yet.'}</p>
+            <p className="text-base text-[#aaa]">{searchQuery ? 'No repositories found.' : 'No analyzed repositories yet.'}</p>
           </div>
         ) : (
           <>
-            <table className="w-full text-[14px] border-collapse">
+            <table className="w-full text-base border-collapse">
               <thead>
                 <tr className="border-b border-[#ddd]">
                   <td className="py-2 text-xs text-[#999] font-semibold cursor-pointer hover:text-[#111] transition-colors" onClick={() => toggleSort('name')}>
@@ -107,21 +107,21 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
                         <Link href={`/${fullName}/scorecard`} className="group">
                           <span className="font-medium text-[#111] group-hover:text-[#666] transition-colors">{fullName}</span>
                           {repo.ref !== 'main' && repo.ref !== 'master' && repo.ref && (
-                            <span className="ml-2 text-[12px] font-mono text-[#aaa]">{repo.ref}</span>
+                            <span className="ml-2 text-[13px] font-mono text-[#aaa]">{repo.ref}</span>
                           )}
                         </Link>
                       </td>
                       <td className="py-3 text-center hidden lg:table-cell">
                         <Link href={`/${fullName}/scorecard`}>
                           {repo.overallScore !== null ? (
-                            <span className="font-semibold text-[#111]">{repo.overallScore}<span className="text-[12px] text-[#aaa] ml-0.5">/100</span></span>
+                            <span className="font-semibold text-[#111]">{repo.overallScore}<span className="text-[13px] text-[#aaa] ml-0.5">/100</span></span>
                           ) : (
                             <span className="text-[#ccc]">N/A</span>
                           )}
                         </Link>
                       </td>
                       <td className="py-3 text-right hidden sm:table-cell">
-                        <Link href={`/${fullName}/scorecard`} className="text-[13px] text-[#888]">
+                        <Link href={`/${fullName}/scorecard`} className="text-base text-[#888]">
                           {formatDistanceToNow(new Date(repo.updatedAt), { addSuffix: true })}
                         </Link>
                       </td>
@@ -133,11 +133,11 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
 
             {totalPages > 1 && (
               <div className="mt-8 flex items-center justify-center gap-4">
-                <button onClick={() => setPage(page - 1)} disabled={page === 0} className="px-3 py-1.5 text-[13px] font-medium text-[#666] border border-[#ddd] rounded hover:border-[#111] hover:text-[#111] transition-colors disabled:opacity-30">
+                <button onClick={() => setPage(page - 1)} disabled={page === 0} className="px-3 py-1.5 text-base font-medium text-[#666] border border-[#ddd] rounded hover:border-[#111] hover:text-[#111] transition-colors disabled:opacity-30">
                   Previous
                 </button>
-                <span className="text-[13px] text-[#aaa] font-mono">{page + 1} / {totalPages}</span>
-                <button onClick={() => setPage(page + 1)} disabled={page === totalPages - 1} className="px-3 py-1.5 text-[13px] font-medium text-[#666] border border-[#ddd] rounded hover:border-[#111] hover:text-[#111] transition-colors disabled:opacity-30">
+                <span className="text-base text-[#aaa] font-mono">{page + 1} / {totalPages}</span>
+                <button onClick={() => setPage(page + 1)} disabled={page === totalPages - 1} className="px-3 py-1.5 text-base font-medium text-[#666] border border-[#ddd] rounded hover:border-[#111] hover:text-[#111] transition-colors disabled:opacity-30">
                   Next
                 </button>
               </div>

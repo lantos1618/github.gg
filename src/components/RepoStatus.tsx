@@ -25,14 +25,14 @@ export function RepoStatus({
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="w-[90%] max-w-[500px]">
           <div className="bg-[#f8f9fa] py-[14px] px-[16px]" style={{ borderLeft: `3px solid ${color}` }}>
-            <div className="text-[12px] font-semibold uppercase tracking-[1px] mb-1" style={{ color }}>
+            <div className="text-[13px] font-semibold uppercase tracking-[1px] mb-1" style={{ color }}>
               {title}
             </div>
-            <div className="text-[14px] text-[#333] leading-[1.6]">
+            <div className="text-base text-[#333] leading-[1.6]">
               {desc}
             </div>
             {isNotFound && (
-              <div className="text-[12px] text-[#888] italic mt-2">
+              <div className="text-[13px] text-[#888] italic mt-2">
                 Try a public repository like: lantos1618/github.gg
               </div>
             )}

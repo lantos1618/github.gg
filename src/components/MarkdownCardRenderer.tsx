@@ -22,7 +22,7 @@ export function MarkdownCardRenderer({
         {title}
       </div>
       {description && (
-        <p className="text-[14px] text-[#aaa] mb-4">{description}</p>
+        <p className="text-base text-[#aaa] mb-4">{description}</p>
       )}
       <div className="border-b border-[#eee] mb-6" />
       <MarkdownRenderer content={markdown} />

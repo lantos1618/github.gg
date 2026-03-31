@@ -23,7 +23,7 @@ export function VersionDropdown({ versions, isLoading, selectedVersion, onVersio
       <select
         value={selectedVersion ?? versions[0].version}
         onChange={e => onVersionChange(Number(e.target.value))}
-        className="border border-[#ddd] rounded px-2 py-1 text-[14px] text-[#333] bg-white focus:border-[#111] focus:outline-none"
+        className="border border-[#ddd] rounded px-2 py-1 text-base text-[#333] bg-white focus:border-[#111] focus:outline-none"
       >
         {versions.map(v => (
           <option key={v.version} value={v.version}>
@@ -33,7 +33,7 @@ export function VersionDropdown({ versions, isLoading, selectedVersion, onVersio
       </select>
       {selectedVersion && (
         <button
-          className="text-[14px] text-[#888] hover:text-[#111] transition-colors"
+          className="text-base text-[#888] hover:text-[#111] transition-colors"
           onClick={() => onVersionChange(null)}
         >
           Latest

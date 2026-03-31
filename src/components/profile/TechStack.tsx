@@ -24,10 +24,10 @@ export function TechStack({ techStack }: TechStackProps) {
             {techs.map((tech, index) => (
               <div
                 key={index}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#f8f9fa] text-[14px] text-[#111] font-medium border border-[#eee] rounded"
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#f8f9fa] text-base text-[#111] font-medium border border-[#eee] rounded"
               >
                 {tech.name}
-                <span className="text-[12px] text-[#aaa] font-mono">
+                <span className="text-[13px] text-[#aaa] font-mono">
                   {tech.repoCount}
                 </span>
               </div>

@@ -27,7 +27,7 @@ export function CardWithHeader({
           <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-1">
             {title}
           </div>
-          {description && <p className="text-[14px] text-[#888]">{description}</p>}
+          {description && <p className="text-base text-[#888]">{description}</p>}
         </div>
         {action && <div className="flex-shrink-0 ml-4">{action}</div>}
       </div>

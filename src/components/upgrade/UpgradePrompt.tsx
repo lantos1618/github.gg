@@ -93,14 +93,14 @@ export function UpgradePrompt({
       <div data-testid="pricing-upgrade-prompt" className={`bg-[#111] text-white py-3 px-4 rounded ${className}`}>
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <p className="text-[14px] font-medium">{context.headline}</p>
-            <p className="text-[12px] text-[#888]">{context.benefit}</p>
+            <p className="text-base font-medium">{context.headline}</p>
+            <p className="text-[13px] text-[#888]">{context.benefit}</p>
           </div>
           <button
             data-testid="pricing-upgrade-btn"
             onClick={handleUpgrade}
             disabled={isLoading}
-            className="px-4 py-1.5 bg-white text-[#111] text-[14px] font-medium rounded hover:bg-[#eee] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            className="px-4 py-1.5 bg-white text-[#111] text-base font-medium rounded hover:bg-[#eee] transition-colors disabled:opacity-50 flex items-center gap-1.5"
           >
             {isLoading ? 'Loading...' : context.cta}
             <ArrowRight className="h-3.5 w-3.5" />
@@ -113,12 +113,12 @@ export function UpgradePrompt({
   if (variant === 'inline') {
     return (
       <div data-testid="pricing-upgrade-prompt" className={`flex items-center gap-3 py-3 px-4 bg-[#f8f9fa] border border-[#eee] rounded ${className}`}>
-        <p className="text-[14px] text-[#666] flex-1">{context.subtext}</p>
+        <p className="text-base text-[#666] flex-1">{context.subtext}</p>
         <button
           data-testid="pricing-upgrade-btn"
           onClick={handleUpgrade}
           disabled={isLoading}
-          className="px-3 py-1.5 bg-[#f8f9fa] text-[#333] text-[14px] font-medium rounded border border-[#ddd] hover:border-[#111] transition-colors disabled:opacity-50"
+          className="px-3 py-1.5 bg-[#f8f9fa] text-[#333] text-base font-medium rounded border border-[#ddd] hover:border-[#111] transition-colors disabled:opacity-50"
         >
           {isLoading ? '...' : 'Upgrade'}
         </button>
@@ -135,11 +135,11 @@ export function UpgradePrompt({
         <h3 className="text-[20px] font-semibold text-[#111] mb-2">
           {context.headline}
         </h3>
-        <p className="text-[14px] text-[#666] leading-[1.6] mb-4">
+        <p className="text-base text-[#666] leading-[1.6] mb-4">
           {context.subtext}
         </p>
 
-        <div className="text-[12px] text-[#888] mb-6 italic">
+        <div className="text-[13px] text-[#888] mb-6 italic">
           {context.benefit}
         </div>
 
@@ -147,20 +147,20 @@ export function UpgradePrompt({
           data-testid="pricing-upgrade-btn"
           onClick={handleUpgrade}
           disabled={isLoading}
-          className="w-full py-2.5 bg-[#111] text-white text-[14px] font-medium rounded hover:bg-[#333] transition-colors disabled:opacity-50"
+          className="w-full py-2.5 bg-[#111] text-white text-base font-medium rounded hover:bg-[#333] transition-colors disabled:opacity-50"
         >
           {isLoading ? 'Loading...' : context.cta}
           {showPrice && <span className="ml-2 text-[#888]">&middot; $20/mo</span>}
         </button>
 
-        <div className="mt-3 flex items-center justify-center gap-3 text-[12px] text-[#aaa]">
+        <div className="mt-3 flex items-center justify-center gap-3 text-[13px] text-[#aaa]">
           <span>Cancel anytime</span>
           <span>&middot;</span>
           <span>7-day guarantee</span>
         </div>
 
         <p className="text-center mt-3">
-          <Link href="/pricing" className="text-[12px] text-[#888] hover:text-[#111] transition-colors">
+          <Link href="/pricing" className="text-[13px] text-[#888] hover:text-[#111] transition-colors">
             Compare all plans
           </Link>
         </p>
@@ -177,10 +177,10 @@ export function UpgradeTeaser({ feature = 'general' }: { feature?: UpgradeFeatur
       href="/pricing"
       className="block py-3 px-4 bg-[#f8f9fa] border border-[#eee] rounded hover:border-[#aaa] transition-colors group"
     >
-      <p className="text-[14px] font-medium text-[#111] truncate">
+      <p className="text-base font-medium text-[#111] truncate">
         {context.headline}
       </p>
-      <p className="text-[12px] text-[#888]">
+      <p className="text-[13px] text-[#888]">
         Upgrade to Pro &rarr;
       </p>
     </Link>

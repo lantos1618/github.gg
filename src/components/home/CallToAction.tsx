@@ -36,18 +36,18 @@ export function CallToAction() {
 
   return (
     <section className="bg-[#111] text-white" data-testid="home-cta-section">
-      <div className="w-[90%] max-w-[800px] mx-auto py-20">
+      <div className="w-[90%] max-w-[880px] mx-auto py-20">
 
         {/* Section label */}
-        <div className="text-[12px] text-[#666] font-semibold tracking-[1.5px] uppercase mb-4">
+        <div className="text-[13px] text-[#666] font-semibold tracking-[1.5px] uppercase mb-4">
           Get Started
         </div>
 
-        <h2 className="text-[26px] font-semibold text-white mb-2">
+        <h2 className="text-[25px] font-semibold text-white mb-2">
           Try it now
         </h2>
 
-        <p className="text-[14px] text-[#666] mb-8">
+        <p className="text-base text-[#666] mb-8">
           Paste any public repo and see what you get
         </p>
 
@@ -60,7 +60,7 @@ export function CallToAction() {
               type="text"
               placeholder="owner/repo"
               data-testid="home-cta-repo-input"
-              className="pl-12 pr-24 h-12 text-[15px] bg-transparent text-white placeholder:text-[#555] border-[#444] hover:border-[#888] focus:border-white"
+              className="pl-12 pr-24 h-12 text-base bg-transparent text-white placeholder:text-[#555] border-[#444] hover:border-[#888] focus:border-white"
               value={repoUrl}
               onChange={(e) => setRepoUrl(e.target.value)}
             />
@@ -70,7 +70,7 @@ export function CallToAction() {
                 type="submit"
                 disabled={isAnalyzing}
                 data-testid="home-cta-submit-btn"
-                className="h-9 px-4 bg-white text-[#111] hover:bg-[#eee] rounded font-medium text-[14px]"
+                className="h-9 px-4 bg-white text-[#111] hover:bg-[#eee] rounded font-medium text-base"
               >
                 {isAnalyzing ? '...' : 'Go'}
                 {!isAnalyzing && <ArrowRight className="h-3.5 w-3.5 ml-1" />}
@@ -79,13 +79,13 @@ export function CallToAction() {
           </form>
         </div>
 
-        <p className="text-[14px] text-[#555] mb-16">
+        <p className="text-base text-[#555] mb-16">
           Free for public repos. <Link href="/pricing" className="text-[#888] hover:text-white transition-colors" data-testid="home-cta-pricing-link">Pricing</Link> for private.
         </p>
 
         {/* Footer */}
         <div className="pt-4 border-t border-[#222]">
-          <table className="w-full text-[14px]">
+          <table className="w-full text-base">
             <tbody>
               <tr>
                 <td className="text-[#555] py-1">&copy; {new Date().getFullYear()} GG</td>

@@ -38,17 +38,17 @@ export function ArenaClientView({ initialLeaderboard }: ArenaClientViewProps) {
 
   return (
     <div className="min-h-screen bg-white pt-16 pb-20">
-      <div className="w-[90%] max-w-[800px] mx-auto space-y-12">
+      <div className="w-[90%] max-w-[880px] mx-auto space-y-12">
 
         {/* Header */}
         <div>
           <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
             Developer Arena
           </div>
-          <h1 className="text-[36px] sm:text-[48px] font-semibold text-[#111] tracking-tight leading-tight">
+          <h1 className="text-[31px] sm:text-[48px] font-semibold text-[#111] tracking-tight leading-tight">
             Dev Rank
           </h1>
-          <p className="text-[14px] text-[#666] mt-2">
+          <p className="text-base text-[#666] mt-2">
             Compete in AI-judged coding battles
           </p>
         </div>
@@ -63,8 +63,8 @@ export function ArenaClientView({ initialLeaderboard }: ArenaClientViewProps) {
               { value: myRanking.winStreak, label: 'Streak' },
             ].map((stat) => (
               <div key={stat.label}>
-                <div className="text-[12px] text-[#aaa] font-semibold tracking-[1px] uppercase mb-1">{stat.label}</div>
-                <div className="text-[28px] font-semibold text-[#111]">{stat.value}</div>
+                <div className="text-[13px] text-[#aaa] font-semibold tracking-[1px] uppercase mb-1">{stat.label}</div>
+                <div className="text-[31px] font-semibold text-[#111]">{stat.value}</div>
               </div>
             ))}
           </div>
@@ -77,7 +77,7 @@ export function ArenaClientView({ initialLeaderboard }: ArenaClientViewProps) {
               key={tab}
               onClick={() => setActiveTab(tab)}
               data-testid={`arena-tab-${tab}-btn`}
-              className={`px-4 py-2 text-[14px] font-medium rounded transition-colors ${
+              className={`px-4 py-2 text-base font-medium rounded transition-colors ${
                 activeTab === tab
                   ? 'bg-[#111] text-white'
                   : 'bg-[#f8f9fa] text-[#666] border border-[#eee] hover:border-[#aaa] hover:text-[#111]'
@@ -100,11 +100,11 @@ export function ArenaClientView({ initialLeaderboard }: ArenaClientViewProps) {
             ) : (
               <div className="py-16 text-center">
                 <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">Battle</div>
-                <h3 className="text-[22px] font-semibold text-[#111] mb-2">Start Battling</h3>
-                <p className="text-[14px] text-[#666] mb-8 max-w-md mx-auto">
+                <h3 className="text-[20px] font-semibold text-[#111] mb-2">Start Battling</h3>
+                <p className="text-base text-[#666] mb-8 max-w-md mx-auto">
                   Upgrade to challenge other developers in AI-judged coding battles.
                 </p>
-                <button className="px-6 py-2.5 bg-[#111] text-white text-[14px] font-medium rounded hover:bg-[#333] transition-colors">
+                <button className="px-6 py-2.5 bg-[#111] text-white text-base font-medium rounded hover:bg-[#333] transition-colors">
                   Upgrade to Battle
                 </button>
               </div>
@@ -117,11 +117,11 @@ export function ArenaClientView({ initialLeaderboard }: ArenaClientViewProps) {
             ) : (
               <div className="py-16 text-center">
                 <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">History</div>
-                <h3 className="text-[22px] font-semibold text-[#111] mb-2">Battle History</h3>
-                <p className="text-[14px] text-[#666] mb-8 max-w-md mx-auto">
+                <h3 className="text-[20px] font-semibold text-[#111] mb-2">Battle History</h3>
+                <p className="text-base text-[#666] mb-8 max-w-md mx-auto">
                   Upgrade to view your detailed battle history and AI analysis.
                 </p>
-                <button className="px-6 py-2.5 bg-[#111] text-white text-[14px] font-medium rounded hover:bg-[#333] transition-colors">
+                <button className="px-6 py-2.5 bg-[#111] text-white text-base font-medium rounded hover:bg-[#333] transition-colors">
                   Upgrade to View History
                 </button>
               </div>

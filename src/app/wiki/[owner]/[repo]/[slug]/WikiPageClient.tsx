@@ -47,7 +47,7 @@ export function WikiPageClient({
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <Link
                   href={`/wiki/${owner}/${repo}`}
-                  className="inline-flex items-center gap-2 text-[14px] text-[#888] hover:text-[#111] transition-colors"
+                  className="inline-flex items-center gap-2 text-base text-[#888] hover:text-[#111] transition-colors"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Back to wiki
@@ -69,15 +69,15 @@ export function WikiPageClient({
               <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">
                 Wiki
               </div>
-              <h1 className="text-[28px] sm:text-[36px] font-semibold text-[#111] tracking-tight mb-3">
+              <h1 className="text-[31px] sm:text-[31px] font-semibold text-[#111] tracking-tight mb-3">
                 {page.title}
               </h1>
               {page.summary && (
-                <p className="text-[15px] text-[#666] leading-[1.6] mb-4">
+                <p className="text-base text-[#666] leading-[1.6] mb-4">
                   {page.summary}
                 </p>
               )}
-              <div className="flex items-center gap-4 text-[13px] text-[#aaa] flex-wrap">
+              <div className="flex items-center gap-4 text-base text-[#aaa] flex-wrap">
                 <span>
                   Updated {new Date(page.updatedAt).toLocaleDateString('en-US', {
                     month: 'long', day: 'numeric', year: 'numeric'
@@ -104,7 +104,7 @@ export function WikiPageClient({
                       <ChevronLeft className="h-4 w-4 text-[#ccc] group-hover:text-[#111] shrink-0" />
                       <div className="text-left">
                         <div className="text-xs text-[#999] font-semibold tracking-[1px] uppercase mb-0.5">Previous</div>
-                        <div className="text-[14px] font-medium text-[#111] line-clamp-1">{previousPage.title}</div>
+                        <div className="text-base font-medium text-[#111] line-clamp-1">{previousPage.title}</div>
                       </div>
                     </Link>
                   ) : <div className="flex-1" />}
@@ -117,7 +117,7 @@ export function WikiPageClient({
                     >
                       <div className="text-right flex-1">
                         <div className="text-xs text-[#999] font-semibold tracking-[1px] uppercase mb-0.5">Next</div>
-                        <div className="text-[14px] font-medium text-[#111] line-clamp-1">{nextPage.title}</div>
+                        <div className="text-base font-medium text-[#111] line-clamp-1">{nextPage.title}</div>
                       </div>
                       <ChevronRight className="h-4 w-4 text-[#ccc] group-hover:text-[#111] shrink-0" />
                     </Link>

@@ -118,13 +118,13 @@ export function ProfileContent({
             <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
               Executive Summary
             </div>
-            <p className="text-[14px] text-[#666] leading-[1.7]">{profile.summary}</p>
+            <p className="text-base text-[#666] leading-[1.7]">{profile.summary}</p>
             {profile.scoreInterpretation && (
               <div className="mt-4 bg-[#f8f9fa] py-[14px] px-[16px]" style={{ borderLeft: '3px solid #4285f4' }}>
-                <div className="text-[12px] font-semibold uppercase tracking-[1px] text-[#4285f4] mb-1">
+                <div className="text-[13px] font-semibold uppercase tracking-[1px] text-[#4285f4] mb-1">
                   Score Context
                 </div>
-                <div className="text-[14px] text-[#333] leading-[1.6]">
+                <div className="text-base text-[#333] leading-[1.6]">
                   {profile.scoreInterpretation}
                 </div>
               </div>
@@ -144,7 +144,7 @@ export function ProfileContent({
             <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
               Key Repositories
             </div>
-            <div className="text-[14px] text-[#aaa] mb-4">
+            <div className="text-base text-[#aaa] mb-4">
               Scored by significance — click any repo to view its full scorecard
             </div>
             <TopRepos repos={profile.topRepos} username={username} />

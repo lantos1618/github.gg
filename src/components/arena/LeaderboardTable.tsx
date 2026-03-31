@@ -75,7 +75,7 @@ export function LeaderboardTable({ initialLeaderboard }: LeaderboardTableProps) 
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           data-testid="arena-leaderboard-search-input"
-          className="pl-10 h-10 text-[14px] border border-[#ddd] rounded focus:border-[#111] focus:ring-0 transition-colors placeholder:text-[#ccc]"
+          className="pl-10 h-10 text-base border border-[#ddd] rounded focus:border-[#111] focus:ring-0 transition-colors placeholder:text-[#ccc]"
         />
       </div>
 
@@ -83,12 +83,12 @@ export function LeaderboardTable({ initialLeaderboard }: LeaderboardTableProps) 
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-[#ddd]">
-              <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold w-16">Rank</td>
-              <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold">Developer</td>
-              <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold text-center">ELO</td>
-              <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold text-center hidden sm:table-cell">Win Rate</td>
-              <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold text-center hidden md:table-cell">Streak</td>
-              <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold text-center hidden lg:table-cell">Record</td>
+              <td className="py-2 px-2 text-[13px] text-[#aaa] font-semibold w-16">Rank</td>
+              <td className="py-2 px-2 text-[13px] text-[#aaa] font-semibold">Developer</td>
+              <td className="py-2 px-2 text-[13px] text-[#aaa] font-semibold text-center">ELO</td>
+              <td className="py-2 px-2 text-[13px] text-[#aaa] font-semibold text-center hidden sm:table-cell">Win Rate</td>
+              <td className="py-2 px-2 text-[13px] text-[#aaa] font-semibold text-center hidden md:table-cell">Streak</td>
+              <td className="py-2 px-2 text-[13px] text-[#aaa] font-semibold text-center hidden lg:table-cell">Record</td>
             </tr>
           </thead>
           <tbody>
@@ -106,31 +106,31 @@ export function LeaderboardTable({ initialLeaderboard }: LeaderboardTableProps) 
         </table>
       ) : filteredAndSortedLeaderboard.length > 0 ? (
         <div className="overflow-x-auto">
-          <table className="w-full text-[14px] border-collapse">
+          <table className="w-full text-base border-collapse">
             <thead>
               <tr className="border-b border-[#ddd]">
-                <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold w-16">Rank</td>
-                <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold">Developer</td>
+                <td className="py-2 px-2 text-[13px] text-[#aaa] font-semibold w-16">Rank</td>
+                <td className="py-2 px-2 text-[13px] text-[#aaa] font-semibold">Developer</td>
                 <td
-                  className="py-2 px-2 text-[12px] text-[#aaa] font-semibold text-center cursor-pointer hover:text-[#111] transition-colors"
+                  className="py-2 px-2 text-[13px] text-[#aaa] font-semibold text-center cursor-pointer hover:text-[#111] transition-colors"
                   onClick={() => handleSort('eloRating')}
                 >
                   <span className="inline-flex items-center">ELO {getSortIcon('eloRating')}</span>
                 </td>
                 <td
-                  className="py-2 px-2 text-[12px] text-[#aaa] font-semibold text-center cursor-pointer hover:text-[#111] transition-colors hidden sm:table-cell"
+                  className="py-2 px-2 text-[13px] text-[#aaa] font-semibold text-center cursor-pointer hover:text-[#111] transition-colors hidden sm:table-cell"
                   onClick={() => handleSort('winRate')}
                 >
                   <span className="inline-flex items-center">Win Rate {getSortIcon('winRate')}</span>
                 </td>
                 <td
-                  className="py-2 px-2 text-[12px] text-[#aaa] font-semibold text-center cursor-pointer hover:text-[#111] transition-colors hidden md:table-cell"
+                  className="py-2 px-2 text-[13px] text-[#aaa] font-semibold text-center cursor-pointer hover:text-[#111] transition-colors hidden md:table-cell"
                   onClick={() => handleSort('winStreak')}
                 >
                   <span className="inline-flex items-center">Streak {getSortIcon('winStreak')}</span>
                 </td>
-                <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold text-center hidden lg:table-cell">Record</td>
-                {canBattle && <td className="py-2 px-2 text-[12px] text-[#aaa] font-semibold text-right">Action</td>}
+                <td className="py-2 px-2 text-[13px] text-[#aaa] font-semibold text-center hidden lg:table-cell">Record</td>
+                {canBattle && <td className="py-2 px-2 text-[13px] text-[#aaa] font-semibold text-right">Action</td>}
               </tr>
             </thead>
             <tbody>
@@ -153,7 +153,7 @@ export function LeaderboardTable({ initialLeaderboard }: LeaderboardTableProps) 
                             {entry.username}
                             {isCurrentUser && <div className="h-1.5 w-1.5 rounded-full bg-[#4285f4]" title="You" />}
                           </div>
-                          <div className="text-[12px] text-[#aaa] font-mono uppercase tracking-[1px]">{entry.tier}</div>
+                          <div className="text-[13px] text-[#aaa] font-mono uppercase tracking-[1px]">{entry.tier}</div>
                         </div>
                       </Link>
                     </td>
@@ -166,7 +166,7 @@ export function LeaderboardTable({ initialLeaderboard }: LeaderboardTableProps) 
                         {!isCurrentUser && (
                           <button
                             onClick={() => handleChallenge(entry.username)}
-                            className="px-3 py-1 text-[12px] font-medium text-[#666] border border-[#ddd] rounded hover:border-[#111] hover:text-[#111] transition-colors"
+                            className="px-3 py-1 text-[13px] font-medium text-[#666] border border-[#ddd] rounded hover:border-[#111] hover:text-[#111] transition-colors"
                           >
                             Challenge
                           </button>
@@ -181,7 +181,7 @@ export function LeaderboardTable({ initialLeaderboard }: LeaderboardTableProps) 
         </div>
       ) : (
         <div className="py-16 text-center">
-          <p className="text-[14px] text-[#aaa]">No developers found matching your search.</p>
+          <p className="text-base text-[#aaa]">No developers found matching your search.</p>
         </div>
       )}
     </div>

@@ -74,11 +74,11 @@ export function UsersClientView({ initialProfiles, initialLeaderboard, totalProf
 
   return (
     <div className="min-h-screen bg-white pt-12 pb-20">
-      <div className="w-[90%] max-w-[800px] mx-auto">
+      <div className="w-[90%] max-w-[880px] mx-auto">
         <div className="mb-10">
           <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">Profiles</div>
-          <h1 className="text-[32px] font-semibold text-[#111] tracking-tight mb-2">Analyzed Profiles</h1>
-          <p className="text-[14px] text-[#666]">
+          <h1 className="text-[31px] font-semibold text-[#111] tracking-tight mb-2">Analyzed Profiles</h1>
+          <p className="text-base text-[#666]">
             <strong className="text-[#111]">{totalProfileCount.toLocaleString()}</strong> profiles analyzed
           </p>
         </div>
@@ -96,11 +96,11 @@ export function UsersClientView({ initialProfiles, initialLeaderboard, totalProf
 
         {paginatedProfiles.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-[14px] text-[#aaa]">{searchQuery ? 'No profiles found.' : 'No analyzed profiles yet.'}</p>
+            <p className="text-base text-[#aaa]">{searchQuery ? 'No profiles found.' : 'No analyzed profiles yet.'}</p>
           </div>
         ) : (
           <>
-            <table className="w-full text-[14px] border-collapse">
+            <table className="w-full text-base border-collapse">
               <thead>
                 <tr className="border-b border-[#ddd]">
                   <td className="py-2 text-xs text-[#999] font-semibold cursor-pointer hover:text-[#111] transition-colors" onClick={() => toggleSort('username')}>
@@ -134,7 +134,7 @@ export function UsersClientView({ initialProfiles, initialLeaderboard, totalProf
                         <Link href={`/${profile.username}`} className="flex items-center gap-3 group">
                           <Avatar className="h-8 w-8 border border-[#eee]">
                             <AvatarImage src={`https://avatars.githubusercontent.com/${profile.username}`} alt={profile.username} />
-                            <AvatarFallback className="bg-[#f8f9fa] text-[#aaa] text-[12px]">{profile.username[0]?.toUpperCase()}</AvatarFallback>
+                            <AvatarFallback className="bg-[#f8f9fa] text-[#aaa] text-[13px]">{profile.username[0]?.toUpperCase()}</AvatarFallback>
                           </Avatar>
                           <div>
                             <div className="flex items-center gap-1.5">
@@ -151,7 +151,7 @@ export function UsersClientView({ initialProfiles, initialLeaderboard, totalProf
                       </td>
                       <td className="py-3 hidden lg:table-cell">
                         <Link href={`/${profile.username}`}>
-                          <p className="text-[13px] text-[#888] line-clamp-1 max-w-md">{profileData.summary || 'No summary'}</p>
+                          <p className="text-base text-[#888] line-clamp-1 max-w-md">{profileData.summary || 'No summary'}</p>
                         </Link>
                       </td>
                       <td className="py-3 text-center hidden xl:table-cell">
@@ -162,12 +162,12 @@ export function UsersClientView({ initialProfiles, initialLeaderboard, totalProf
                       <td className="py-3 text-center">
                         <Link href={`/${profile.username}`}>
                           {avgScore !== null ? (
-                            <span className="font-semibold text-[#111]">{avgScore}<span className="text-[12px] text-[#aaa] ml-0.5">/100</span></span>
+                            <span className="font-semibold text-[#111]">{avgScore}<span className="text-[13px] text-[#aaa] ml-0.5">/100</span></span>
                           ) : <span className="text-[#ccc]">N/A</span>}
                         </Link>
                       </td>
                       <td className="py-3 text-right hidden sm:table-cell">
-                        <Link href={`/${profile.username}`} className="text-[13px] text-[#888]">
+                        <Link href={`/${profile.username}`} className="text-base text-[#888]">
                           {formatDistanceToNow(new Date(profile.updatedAt), { addSuffix: true })}
                         </Link>
                       </td>
@@ -179,11 +179,11 @@ export function UsersClientView({ initialProfiles, initialLeaderboard, totalProf
 
             {totalPages > 1 && (
               <div className="mt-8 flex items-center justify-center gap-4">
-                <button onClick={() => setPage(page - 1)} disabled={page === 0} className="px-3 py-1.5 text-[13px] font-medium text-[#666] border border-[#ddd] rounded hover:border-[#111] hover:text-[#111] transition-colors disabled:opacity-30">
+                <button onClick={() => setPage(page - 1)} disabled={page === 0} className="px-3 py-1.5 text-base font-medium text-[#666] border border-[#ddd] rounded hover:border-[#111] hover:text-[#111] transition-colors disabled:opacity-30">
                   Previous
                 </button>
-                <span className="text-[13px] text-[#aaa] font-mono">{page + 1} / {totalPages}</span>
-                <button onClick={() => setPage(page + 1)} disabled={page === totalPages - 1} className="px-3 py-1.5 text-[13px] font-medium text-[#666] border border-[#ddd] rounded hover:border-[#111] hover:text-[#111] transition-colors disabled:opacity-30">
+                <span className="text-base text-[#aaa] font-mono">{page + 1} / {totalPages}</span>
+                <button onClick={() => setPage(page + 1)} disabled={page === totalPages - 1} className="px-3 py-1.5 text-base font-medium text-[#666] border border-[#ddd] rounded hover:border-[#111] hover:text-[#111] transition-colors disabled:opacity-30">
                   Next
                 </button>
               </div>

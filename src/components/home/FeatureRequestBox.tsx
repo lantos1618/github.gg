@@ -38,10 +38,10 @@ export function FeatureRequestBox() {
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
           Feature Request
         </div>
-        <h3 className="text-[22px] font-semibold text-[#111] mb-2">
+        <h3 className="text-[20px] font-semibold text-[#111] mb-2">
           Have an idea?
         </h3>
-        <p className="text-[14px] text-[#666] leading-[1.6] mb-6">
+        <p className="text-base text-[#666] leading-[1.6] mb-6">
           Share your thoughts or <a href="https://github.com/lantos1618/github.gg" target="_blank" rel="noopener noreferrer" className="text-[#111] hover:text-[#666] transition-colors font-medium">contribute directly on GitHub</a>.
         </p>
 
@@ -51,7 +51,7 @@ export function FeatureRequestBox() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
-            className="w-full px-4 py-2.5 border border-[#ddd] rounded text-[14px] text-[#333] placeholder:text-[#ccc] focus:border-[#111] focus:outline-none transition-colors"
+            className="w-full px-4 py-2.5 border border-[#ddd] rounded text-base text-[#333] placeholder:text-[#ccc] focus:border-[#111] focus:outline-none transition-colors"
             disabled={isSubmitting}
           />
           <textarea
@@ -59,13 +59,13 @@ export function FeatureRequestBox() {
             onChange={(e) => setFeature(e.target.value)}
             placeholder="Tell us about the feature you'd like to see..."
             rows={3}
-            className="w-full px-4 py-2.5 border border-[#ddd] rounded text-[14px] text-[#333] placeholder:text-[#ccc] focus:border-[#111] focus:outline-none transition-colors resize-none"
+            className="w-full px-4 py-2.5 border border-[#ddd] rounded text-base text-[#333] placeholder:text-[#ccc] focus:border-[#111] focus:outline-none transition-colors resize-none"
             disabled={isSubmitting}
           />
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-2.5 bg-[#111] text-white text-[14px] font-medium rounded hover:bg-[#333] transition-colors disabled:opacity-50"
+            className="w-full py-2.5 bg-[#111] text-white text-base font-medium rounded hover:bg-[#333] transition-colors disabled:opacity-50"
           >
             {isSubmitting ? 'Sending...' : 'Send Feature Request'}
           </button>

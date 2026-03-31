@@ -29,12 +29,12 @@ export function WikiIndexClient({
   if (!toc || toc.pages.length === 0) {
     return (
       <RepoPageLayout user={owner} repo={repo} branches={branches} defaultBranch={defaultBranch} wikiPages={wikiPages}>
-        <div className="w-[90%] max-w-[800px] mx-auto py-12">
+        <div className="w-[90%] max-w-[880px] mx-auto py-12">
           <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
             Wiki
           </div>
-          <h2 className="text-[22px] font-semibold text-[#111] mb-2">{repo} Documentation</h2>
-          <p className="text-[14px] text-[#888] mb-8">No wiki documentation exists for this repository yet.</p>
+          <h2 className="text-[20px] font-semibold text-[#111] mb-2">{repo} Documentation</h2>
+          <p className="text-base text-[#888] mb-8">No wiki documentation exists for this repository yet.</p>
           <WikiGenerationButton owner={owner} repo={repo} />
         </div>
       </RepoPageLayout>
@@ -43,12 +43,12 @@ export function WikiIndexClient({
 
   return (
     <RepoPageLayout user={owner} repo={repo} branches={branches} defaultBranch={defaultBranch} wikiPages={wikiPages}>
-      <div className="w-[90%] max-w-[800px] mx-auto py-12">
+      <div className="w-[90%] max-w-[880px] mx-auto py-12">
         <div className="flex items-start justify-between mb-6">
           <div>
             <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">Wiki</div>
-            <h2 className="text-[22px] font-semibold text-[#111]">{repo} Documentation</h2>
-            <p className="text-[14px] text-[#888] mt-1">{toc.pages.length} {toc.pages.length === 1 ? 'page' : 'pages'}</p>
+            <h2 className="text-[20px] font-semibold text-[#111]">{repo} Documentation</h2>
+            <p className="text-base text-[#888] mt-1">{toc.pages.length} {toc.pages.length === 1 ? 'page' : 'pages'}</p>
           </div>
           <WikiIndexMenu owner={owner} repo={repo} pages={toc.pages} canEdit={canEditWiki} />
         </div>
@@ -64,9 +64,9 @@ export function WikiIndexClient({
               style={{ borderLeft: '3px solid #14b8a6' }}
             >
               <div>
-                <div className="text-[14px] font-medium text-[#111] group-hover:text-[#666]">{page.title}</div>
+                <div className="text-base font-medium text-[#111] group-hover:text-[#666]">{page.title}</div>
                 {page.summary && (
-                  <p className="text-[13px] text-[#888] mt-0.5">{page.summary}</p>
+                  <p className="text-base text-[#888] mt-0.5">{page.summary}</p>
                 )}
               </div>
               <span className="text-[#ccc] group-hover:text-[#888] transition-colors">&rarr;</span>

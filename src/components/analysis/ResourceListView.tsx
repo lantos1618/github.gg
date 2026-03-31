@@ -51,10 +51,10 @@ export function ResourceListView<TItem>({
   if (error) {
     return (
       <RepoPageLayout user={user} repo={repo} files={[]} totalFiles={0}>
-        <div className="w-[90%] max-w-[800px] mx-auto py-12">
+        <div className="w-[90%] max-w-[880px] mx-auto py-12">
           <div className="bg-[#f8f9fa] py-[14px] px-[16px]" style={{ borderLeft: '3px solid #ea4335' }}>
-            <div className="text-[12px] font-semibold uppercase tracking-[1px] text-[#ea4335] mb-1">Error</div>
-            <div className="text-[14px] text-[#333]">Failed to load {title.toLowerCase()}: {error.message}</div>
+            <div className="text-[13px] font-semibold uppercase tracking-[1px] text-[#ea4335] mb-1">Error</div>
+            <div className="text-base text-[#333]">Failed to load {title.toLowerCase()}: {error.message}</div>
           </div>
         </div>
       </RepoPageLayout>
@@ -63,10 +63,10 @@ export function ResourceListView<TItem>({
 
   return (
     <RepoPageLayout user={user} repo={repo} files={[]} totalFiles={0}>
-      <div className="w-[90%] max-w-[800px] mx-auto py-8">
+      <div className="w-[90%] max-w-[880px] mx-auto py-8">
         <div className="mb-6">
           <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">{title}</div>
-          <p className="text-[14px] text-[#888]">{filteredItems.length} {title.toLowerCase()}</p>
+          <p className="text-base text-[#888]">{filteredItems.length} {title.toLowerCase()}</p>
         </div>
 
         {/* Search + Filter */}
@@ -76,7 +76,7 @@ export function ResourceListView<TItem>({
             <Input placeholder={searchPlaceholder} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-6" />
           </div>
           <Select value={state} onValueChange={(value) => setState(value as 'open' | 'closed' | 'all')}>
-            <SelectTrigger className="w-full sm:w-[140px] text-[14px] border-0 border-b border-[#ddd] rounded-none focus:ring-0 hover:border-[#888]">
+            <SelectTrigger className="w-full sm:w-[140px] text-base border-0 border-b border-[#ddd] rounded-none focus:ring-0 hover:border-[#888]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -89,9 +89,9 @@ export function ResourceListView<TItem>({
 
         {/* Items */}
         {isLoading ? (
-          <div className="py-12 text-center text-[14px] text-[#aaa]">Loading {title.toLowerCase()}...</div>
+          <div className="py-12 text-center text-base text-[#aaa]">Loading {title.toLowerCase()}...</div>
         ) : filteredItems.length === 0 ? (
-          <div className="py-12 text-center text-[14px] text-[#aaa]">{search ? noResultsMessage : emptyStateMessage}</div>
+          <div className="py-12 text-center text-base text-[#aaa]">{search ? noResultsMessage : emptyStateMessage}</div>
         ) : (
           <div className="space-y-0">
             {filteredItems.map((item: TItem) => (

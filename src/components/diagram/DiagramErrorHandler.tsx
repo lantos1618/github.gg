@@ -28,7 +28,7 @@ export function DiagramErrorHandler({
         hasPreviousResult={!!previousDiagramCode}
       />
       {previousDiagramCode && (
-        <div className="mt-4 text-[12px] text-[#888] text-center italic">
+        <div className="mt-4 text-[13px] text-[#888] text-center italic">
           Previous diagram result is preserved below.
         </div>
       )}

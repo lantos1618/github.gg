@@ -10,7 +10,7 @@ import { ReusableSSEFeedback, type SSEStatus, type SSELogItem } from '@/componen
 
 function AnalysisLoadingSkeleton() {
   return (
-    <div className="w-[90%] max-w-[800px] mx-auto pt-6">
+    <div className="w-[90%] max-w-[880px] mx-auto pt-6">
       <div className="flex items-center justify-between mb-6">
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-9 w-24" />
@@ -97,22 +97,22 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
               <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
                 Analysis
               </div>
-              <h2 className="text-[22px] font-semibold text-[#111] mb-2">
+              <h2 className="text-[20px] font-semibold text-[#111] mb-2">
                 {title || 'No analysis available'}
               </h2>
-              <p className="text-[14px] text-[#aaa] mb-8 text-center max-w-md">
+              <p className="text-base text-[#aaa] mb-8 text-center max-w-md">
                 {description || 'Generate an analysis to get started'}
               </p>
               <Button
                 onClick={onRegenerate}
                 disabled={isRegenerating}
-                className={`h-11 px-6 bg-[#111] hover:bg-[#333] text-white text-[14px] font-medium rounded-md ${isRegenerating ? 'animate-pulse' : ''}`}
+                className={`h-11 px-6 bg-[#111] hover:bg-[#333] text-white text-base font-medium rounded-md ${isRegenerating ? 'animate-pulse' : ''}`}
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Generate Analysis
               </Button>
               {filesSelected && (
-                <p className="text-[12px] text-[#aaa] mt-4">
+                <p className="text-[13px] text-[#aaa] mt-4">
                   Files selected: {filesSelected.selected} of {filesSelected.total}
                 </p>
               )}
@@ -139,8 +139,8 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
           <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
             Private Repository
           </div>
-          <h2 className="text-[22px] font-semibold text-[#111] mb-2">Repository is Private</h2>
-          <p className="text-[14px] text-[#666]">{message || 'Analysis is not available for private repositories'}</p>
+          <h2 className="text-[20px] font-semibold text-[#111] mb-2">Repository is Private</h2>
+          <p className="text-base text-[#666]">{message || 'Analysis is not available for private repositories'}</p>
         </div>
       );
 
@@ -160,16 +160,16 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
           <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
             Authentication
           </div>
-          <h2 className="text-[22px] font-semibold text-[#111] mb-2">
+          <h2 className="text-[20px] font-semibold text-[#111] mb-2">
             GitHub Authentication Expired
           </h2>
-          <p className="text-[14px] text-[#666] mb-8 text-center max-w-md">
+          <p className="text-base text-[#666] mb-8 text-center max-w-md">
             Your GitHub session has expired or your access token is no longer valid.
             Please sign in again to continue.
           </p>
           <Button
             onClick={handleReSignIn}
-            className="h-11 px-6 bg-[#111] hover:bg-[#333] text-white text-[14px] font-medium rounded-md"
+            className="h-11 px-6 bg-[#111] hover:bg-[#333] text-white text-base font-medium rounded-md"
           >
             <LogIn className="h-4 w-4 mr-2" />
             Sign in with GitHub

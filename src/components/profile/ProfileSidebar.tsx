@@ -65,7 +65,7 @@ export function ProfileSidebar({ profile, scoreHistory }: ProfileSidebarProps) {
           </div>
           <div className="space-y-2">
             {profile.suggestions.map((suggestion, idx) => (
-              <div key={idx} className="text-[14px] text-[#666] leading-[1.6] flex gap-2">
+              <div key={idx} className="text-base text-[#666] leading-[1.6] flex gap-2">
                 <span className="text-[#111] font-semibold flex-shrink-0">{idx + 1}.</span>
                 {suggestion}
               </div>

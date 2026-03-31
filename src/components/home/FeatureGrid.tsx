@@ -35,18 +35,18 @@ export function FeatureGrid() {
 
   return (
     <section className="bg-white border-t border-[#eee]" data-testid="home-feature-grid">
-      <div className="w-[90%] max-w-[800px] mx-auto py-20">
+      <div className="w-[90%] max-w-[880px] mx-auto py-20">
 
         {/* Section label */}
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
           What You Get
         </div>
 
-        <div className="text-[26px] font-semibold text-[#111] mb-2">
+        <div className="text-[25px] font-semibold text-[#111] mb-2">
           Five layers of analysis
         </div>
 
-        <p className="text-[14px] text-[#aaa] mb-8">
+        <p className="text-base text-[#aaa] mb-8">
           From architecture overview to line-by-line quality scores
         </p>
 
@@ -65,16 +65,16 @@ export function FeatureGrid() {
                 style={{ borderLeft: `3px solid ${step.color}` }}
               >
                 <div
-                  className="text-[12px] font-semibold uppercase tracking-[1px] mb-1"
+                  className="text-[13px] font-semibold uppercase tracking-[1px] mb-1"
                   style={{ color: step.color }}
                 >
                   {step.label}
                 </div>
-                <div className="text-[14px] text-[#333] leading-[1.6]">
+                <div className="text-base text-[#333] leading-[1.6]">
                   {step.desc}
                 </div>
                 {step.detail && (
-                  <div className="text-[12px] text-[#888] mt-2 italic">
+                  <div className="text-[13px] text-[#888] mt-2 italic">
                     {step.detail}
                   </div>
                 )}
@@ -83,7 +83,7 @@ export function FeatureGrid() {
           ))}
         </div>
 
-        <div className="text-[12px] text-[#aaa]">
+        <div className="text-[13px] text-[#aaa]">
           Works with any public GitHub repository. Private repos supported with GitHub App installation.
         </div>
       </div>

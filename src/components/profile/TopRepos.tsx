@@ -19,13 +19,13 @@ export function TopRepos({ repos, compact = false, username }: TopReposProps) {
                 href={repo.url || `https://github.com/${username}/${repo.repo || repo.name}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[14px] font-medium text-[#111] hover:text-[#666] transition-colors"
+                className="text-base font-medium text-[#111] hover:text-[#666] transition-colors"
               >
                 {repo.name}
               </a>
-              <p className="text-[12px] text-[#aaa] mt-0.5">{repo.description}</p>
+              <p className="text-[13px] text-[#aaa] mt-0.5">{repo.description}</p>
             </div>
-            <div className="text-[14px] font-semibold text-[#111] flex-shrink-0 ml-4">
+            <div className="text-base font-semibold text-[#111] flex-shrink-0 ml-4">
               {repo.significanceScore}/10
             </div>
           </div>
@@ -59,14 +59,14 @@ export function TopRepos({ repos, compact = false, username }: TopReposProps) {
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
-                  <div className="text-[14px] font-medium text-[#111] group-hover:text-[#666] transition-colors mb-1">
+                  <div className="text-base font-medium text-[#111] group-hover:text-[#666] transition-colors mb-1">
                     {repo.name}
                   </div>
-                  <div className="text-[14px] text-[#666] leading-[1.6] mb-2">
+                  <div className="text-base text-[#666] leading-[1.6] mb-2">
                     {repo.description || 'No description available'}
                   </div>
                   {repo.reason && (
-                    <div className="text-[12px] text-[#888] italic">
+                    <div className="text-[13px] text-[#888] italic">
                       &ldquo;{repo.reason}&rdquo;
                     </div>
                   )}
@@ -76,7 +76,7 @@ export function TopRepos({ repos, compact = false, username }: TopReposProps) {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="hidden sm:flex items-center gap-1.5 text-[12px] text-[#aaa] hover:text-[#111] transition-colors flex-shrink-0 mt-1"
+                  className="hidden sm:flex items-center gap-1.5 text-[13px] text-[#aaa] hover:text-[#111] transition-colors flex-shrink-0 mt-1"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                   View

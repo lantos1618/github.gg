@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function UsersLoading() {
   return (
-    <div className="w-[90%] max-w-[800px] mx-auto py-12">
+    <div className="w-[90%] max-w-[880px] mx-auto py-12">
       <Skeleton className="h-3 w-16 mb-3" />
       <Skeleton className="h-8 w-40 mb-2" />
       <Skeleton className="h-4 w-72 mb-8" />

@@ -527,6 +527,9 @@ export default function AdminDashboard() {
       {/* Batch Profile Generator */}
       <BatchProfileGenerator />
 
+      {/* Network Explorer */}
+      <NetworkExplorer />
+
       {/* Cost & Revenue Chart */}
       <div className="mt-10">
         <h2 className="text-xl font-semibold mb-4">Cost & Revenue (Last 30 Days)</h2>
@@ -721,6 +724,166 @@ function BatchProfileGenerator() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Network Explorer ───────────────────────────────────────────────
+
+function NetworkExplorer() {
+  const [seedUsername, setSeedUsername] = useState('');
+  const [activeUsername, setActiveUsername] = useState('');
+  const [networkType, setNetworkType] = useState<'followers' | 'following'>('following');
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+
+  const { data: network, isLoading } = trpc.admin.getNetworkUsers.useQuery(
+    { username: activeUsername, type: networkType, limit: 50 },
+    { enabled: !!activeUsername }
+  );
+
+  const enqueueMutation = trpc.admin.batchEnqueueProfiles.useMutation();
+
+  const handleSearch = () => {
+    if (seedUsername.trim()) {
+      setActiveUsername(seedUsername.trim().replace(/^@/, ''));
+      setSelectedUsers(new Set());
+    }
+  };
+
+  const toggleUser = (username: string) => {
+    setSelectedUsers(prev => {
+      const next = new Set(prev);
+      if (next.has(username)) next.delete(username);
+      else next.add(username);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (!network) return;
+    const unprofiledUsers = network.users.filter(u => !u.hasGGProfile).map(u => u.username);
+    setSelectedUsers(new Set(unprofiledUsers));
+  };
+
+  const handleEnqueueSelected = async () => {
+    if (selectedUsers.size === 0) return;
+    await enqueueMutation.mutateAsync({ usernames: Array.from(selectedUsers) });
+    setSelectedUsers(new Set());
+  };
+
+  return (
+    <div className="mt-10 border-t border-[#eee] pt-8">
+      <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">
+        Network Explorer
+      </div>
+      <p className="text-base text-[#666] mb-6">
+        Enter a GitHub username to explore their network. Find cracked developers through social graphs.
+      </p>
+
+      {/* Search */}
+      <div className="flex gap-2 mb-4">
+        <input
+          value={seedUsername}
+          onChange={(e) => setSeedUsername(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+          placeholder="e.g. torvalds, antfu, sindresorhus"
+          className="flex-1 border-0 border-b border-[#ddd] bg-transparent text-base text-[#111] placeholder:text-[#ccc] hover:border-[#888] focus:border-[#111] focus:outline-none focus:ring-0 transition-colors py-2"
+        />
+        <div className="flex gap-1">
+          <button
+            onClick={() => { setNetworkType('following'); handleSearch(); }}
+            className={`px-3 py-1.5 text-base font-medium rounded transition-colors ${networkType === 'following' ? 'bg-[#111] text-white' : 'bg-[#f8f9fa] text-[#666] border border-[#eee]'}`}
+          >
+            Following
+          </button>
+          <button
+            onClick={() => { setNetworkType('followers'); handleSearch(); }}
+            className={`px-3 py-1.5 text-base font-medium rounded transition-colors ${networkType === 'followers' ? 'bg-[#111] text-white' : 'bg-[#f8f9fa] text-[#666] border border-[#eee]'}`}
+          >
+            Followers
+          </button>
+        </div>
+      </div>
+
+      {/* Results */}
+      {isLoading && (
+        <div className="py-8 text-center text-base text-[#aaa]">Loading {networkType} for {activeUsername}...</div>
+      )}
+
+      {network && (
+        <>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-base text-[#888]">
+              {network.users.length} {network.type} of <strong className="text-[#111]">@{network.seed}</strong>
+            </span>
+            <div className="flex gap-2">
+              <button onClick={selectAll} className="text-base text-[#888] hover:text-[#111] transition-colors">
+                Select unscanned
+              </button>
+              {selectedUsers.size > 0 && (
+                <button
+                  onClick={handleEnqueueSelected}
+                  disabled={enqueueMutation.isPending}
+                  className="px-3 py-1.5 bg-[#111] text-white text-base font-medium rounded hover:bg-[#333] transition-colors disabled:opacity-50"
+                >
+                  Queue {selectedUsers.size} for analysis
+                </button>
+              )}
+            </div>
+          </div>
+
+          <table className="w-full text-base border-collapse">
+            <thead>
+              <tr className="border-b border-[#ddd]">
+                <td className="py-2 w-8"></td>
+                <td className="py-2 text-xs text-[#999] font-semibold">Developer</td>
+                <td className="py-2 text-xs text-[#999] font-semibold hidden sm:table-cell">Bio</td>
+                <td className="py-2 text-xs text-[#999] font-semibold text-center">Repos</td>
+                <td className="py-2 text-xs text-[#999] font-semibold text-center">Followers</td>
+                <td className="py-2 text-xs text-[#999] font-semibold text-center">GG</td>
+              </tr>
+            </thead>
+            <tbody>
+              {network.users.map((u) => (
+                <tr key={u.username} className="border-b border-[#f0f0f0] hover:bg-[#fafafa] transition-colors">
+                  <td className="py-2 px-1">
+                    <input
+                      type="checkbox"
+                      checked={selectedUsers.has(u.username)}
+                      onChange={() => toggleUser(u.username)}
+                      className="accent-[#111]"
+                    />
+                  </td>
+                  <td className="py-2">
+                    <div className="flex items-center gap-2">
+                      <img src={u.avatar} alt={u.username} className="h-6 w-6 rounded-full" />
+                      <a
+                        href={`/${u.username}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-[#111] hover:text-[#666] transition-colors"
+                      >
+                        {u.username}
+                      </a>
+                      {u.name && <span className="text-[#aaa] hidden md:inline">{u.name}</span>}
+                    </div>
+                  </td>
+                  <td className="py-2 text-[#888] text-base line-clamp-1 max-w-xs hidden sm:table-cell">{u.bio || '—'}</td>
+                  <td className="py-2 text-center text-[#666]">{u.publicRepos}</td>
+                  <td className="py-2 text-center font-semibold text-[#111]">{u.followers}</td>
+                  <td className="py-2 text-center">
+                    {u.hasGGProfile ? (
+                      <span className="text-[#34a853] font-semibold">Yes</span>
+                    ) : (
+                      <span className="text-[#ccc]">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { scorecardSchema, type ScorecardData } from '@/lib/types/scorecard';
+import { chunkFiles, needsChunking, getChunkingSummary, type Chunk } from './chunker';
 
 export interface RepoMetadata {
   description?: string | null;
@@ -15,6 +16,7 @@ export interface ScorecardAnalysisParams {
   files: Array<{ path: string; content: string }>;
   repoName: string;
   metadata?: RepoMetadata;
+  onProgress?: (message: string, progress: number) => void;
 }
 
 export interface ScorecardAnalysisResult {
@@ -26,106 +28,272 @@ export interface ScorecardAnalysisResult {
   };
 }
 
+function buildMetadataSection(metadata?: RepoMetadata): string {
+  const lines: string[] = [];
+  if (metadata?.description) lines.push(`Description: ${metadata.description}`);
+  if (metadata?.language) lines.push(`Primary Language: ${metadata.language}`);
+  if (metadata?.stars !== undefined) lines.push(`Stars: ${metadata.stars.toLocaleString()}`);
+  if (metadata?.forks !== undefined) lines.push(`Forks: ${metadata.forks.toLocaleString()}`);
+  if (metadata?.topics?.length) lines.push(`Topics: ${metadata.topics.join(', ')}`);
+  return lines.length > 0 ? `\n${lines.join('\n')}\n` : '';
+}
+
+const SCORING_GUIDELINES = `SCORING GUIDELINES:
+- 90-100: Exceptional - Production-ready, comprehensive testing, excellent patterns
+- 80-89: Strong - Solid foundation, minor improvements possible
+- 70-79: Good - Functional and maintainable, some gaps
+- 60-69: Adequate - Works but has notable technical debt
+- 50-59: Needs Work - Significant issues
+- Below 50: Critical - Major issues requiring substantial refactoring`;
+
+const METRICS_LIST = `METRICS TO EVALUATE (select 5-7 most relevant):
+- Code Quality, Architecture, Documentation, Error Handling
+- Security, Testing, Performance, Maintainability
+- Type Safety, Dependencies, Developer Experience`;
+
+const FORMAT_RULES = `CRITICAL FORMATTING RULES:
+- The "markdown" field MUST use standard Markdown syntax (# for h1, ## for h2, **bold**, etc.)
+- Do NOT use HTML tags. Use only pure Markdown.`;
+
 /**
- * Generate a scorecard-style markdown analysis using Gemini AI
+ * Generate a single-chunk scorecard (no map-reduce needed).
  */
-export async function generateScorecardAnalysis({
-  files,
-  repoName,
-  metadata,
-}: ScorecardAnalysisParams): Promise<ScorecardAnalysisResult> {
-  try {
-    // Build metadata context
-    const metadataLines: string[] = [];
-    if (metadata?.description) metadataLines.push(`Description: ${metadata.description}`);
-    if (metadata?.language) metadataLines.push(`Primary Language: ${metadata.language}`);
-    if (metadata?.stars !== undefined) metadataLines.push(`Stars: ${metadata.stars.toLocaleString()}`);
-    if (metadata?.forks !== undefined) metadataLines.push(`Forks: ${metadata.forks.toLocaleString()}`);
-    if (metadata?.topics?.length) metadataLines.push(`Topics: ${metadata.topics.join(', ')}`);
+async function generateSingleChunkScorecard(
+  files: Array<{ path: string; content: string }>,
+  repoName: string,
+  metadata?: RepoMetadata,
+): Promise<ScorecardAnalysisResult> {
+  const metadataSection = buildMetadataSection(metadata);
 
-    const metadataSection = metadataLines.length > 0
-      ? `\n${metadataLines.join('\n')}\n`
-      : '';
-
-    const prompt = `You are a senior software architect conducting a thorough code review. Analyze this repository and produce a comprehensive scorecard report.
+  const prompt = `You are a senior software architect conducting a thorough code review. Analyze this repository and produce a comprehensive scorecard report.
 
 REPOSITORY: ${repoName}${metadataSection}
 FILES ANALYZED: ${files.length}
 
-SCORING GUIDELINES:
-- 90-100: Exceptional - Production-ready, comprehensive testing, excellent patterns, ready to scale
-- 80-89: Strong - Solid foundation, minor improvements possible, good practices throughout
-- 70-79: Good - Functional and maintainable, some gaps in testing or documentation
-- 60-69: Adequate - Works but has notable technical debt or missing best practices
-- 50-59: Needs Work - Significant issues affecting maintainability or reliability
-- Below 50: Critical - Major architectural or quality issues requiring substantial refactoring
+${SCORING_GUIDELINES}
 
-METRICS TO EVALUATE (select 5-7 most relevant to this codebase):
-- Code Quality (readability, consistency, naming, patterns)
-- Architecture (modularity, separation of concerns, scalability potential)
-- Documentation (inline comments, README quality, API documentation)
-- Error Handling (edge cases, validation, graceful degradation, error messages)
-- Security (input validation, authentication patterns, secrets handling, OWASP concerns)
-- Testing (coverage indicators, test quality, test patterns, testability)
-- Performance (algorithmic efficiency, resource management, caching, optimization)
-- Maintainability (complexity, coupling, cohesion, technical debt indicators)
-- Type Safety (type coverage, strict mode usage, proper inference)
-- Dependencies (currency, minimal footprint, appropriate choices, security)
-- Developer Experience (setup ease, tooling, debugging support)
+${METRICS_LIST}
 
 MARKDOWN REPORT STRUCTURE:
-Write a thorough analysis that includes:
+1. **Executive Summary** - 2-3 sentence overview
+2. **Overall Score** with justification
+3. **Business Impact** - velocity, reliability, tech debt, scaling
+4. **Technical Deep Dive** - patterns, specific files, architecture
+5. **Strengths** - specific examples
+6. **Areas for Improvement** - prioritized (high/medium/low)
+7. **Actionable Recommendations** - concrete next steps
+8. **Risk Assessment**
 
-1. **Executive Summary** - 2-3 sentence overview for non-technical stakeholders
-2. **Overall Score** with brief justification
-3. **Business Impact** - How does this codebase affect:
-   - Developer velocity and onboarding time
-   - Production reliability and incident risk
-   - Feature development speed
-   - Technical debt burden
-   - Scaling readiness
-4. **Technical Deep Dive**
-   - What patterns and practices stand out (good or bad)
-   - Specific files or modules that need attention
-   - Architecture decisions and their implications
-5. **Strengths** - What this codebase does well (be specific, cite examples)
-6. **Areas for Improvement** - Prioritized list of issues (high/medium/low impact)
-7. **Actionable Recommendations** - Concrete next steps with estimated effort
-8. **Risk Assessment** - What could go wrong if issues aren't addressed
+Be thorough and specific. Reference actual file names and code patterns.
 
-Be thorough and specific. Reference actual file names and code patterns you observed. Write as much as needed to provide genuine value - this report should help developers understand what to prioritize.
-
-CRITICAL FORMATTING RULES:
-- The "markdown" field MUST use standard Markdown syntax (# for h1, ## for h2, **bold**, etc.)
-- Do NOT use HTML tags like <h1>, <h2>, <p>, <strong>, <ul>, <li> etc.
-- Use only pure Markdown formatting throughout the entire report.
+${FORMAT_RULES}
 
 OUTPUT FORMAT:
 {
   "overallScore": number,
-  "metrics": [{"metric": "Name", "score": number, "reason": "Specific justification with examples"}],
-  "markdown": "Full markdown report using standard Markdown syntax (NOT HTML)"
+  "metrics": [{"metric": "Name", "score": number, "reason": "Justification with examples"}],
+  "markdown": "Full markdown report"
 }
 
 ---
 
 ${files.map(file => `--- ${file.path} ---\n${file.content}`).join('\n\n')}`;
 
-    const { object, usage } = await generateObject({
-      model: google('models/gemini-3-pro-preview'),
-      schema: scorecardSchema,
-      messages: [
-        { role: 'user', content: prompt },
-      ],
-    });
+  const { object, usage } = await generateObject({
+    model: google('models/gemini-3-pro-preview'),
+    schema: scorecardSchema,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  return {
+    scorecard: object,
+    usage: {
+      inputTokens: usage.inputTokens || 0,
+      outputTokens: usage.outputTokens || 0,
+      totalTokens: (usage.inputTokens || 0) + (usage.outputTokens || 0),
+    },
+  };
+}
+
+/**
+ * Analyze a single chunk for map-reduce. Returns a partial scorecard.
+ */
+async function analyzeChunk(
+  chunk: Chunk,
+  repoName: string,
+  totalChunks: number,
+  metadata?: RepoMetadata,
+): Promise<{ scorecard: ScorecardData; usage: { inputTokens: number; outputTokens: number; totalTokens: number } }> {
+  const metadataSection = buildMetadataSection(metadata);
+
+  const prompt = `You are a senior software architect analyzing PART ${chunk.index + 1} of ${totalChunks} of a repository.
+This is a partial analysis — another AI call will synthesize all parts into a final report.
+
+REPOSITORY: ${repoName}${metadataSection}
+CHUNK: ${chunk.index + 1} of ${totalChunks}
+FILES IN THIS CHUNK: ${chunk.files.length}
+
+${SCORING_GUIDELINES}
+
+${METRICS_LIST}
+
+Analyze these files thoroughly. Score each metric based ONLY on what you see in this chunk.
+In the markdown, note which files/patterns you observed. Be specific.
+
+${FORMAT_RULES}
+
+OUTPUT FORMAT:
+{
+  "overallScore": number,
+  "metrics": [{"metric": "Name", "score": number, "reason": "Justification from this chunk"}],
+  "markdown": "Detailed analysis of this chunk's files"
+}
+
+---
+
+${chunk.files.map(f => `--- ${f.path} ---\n${f.content}`).join('\n\n')}`;
+
+  const { object, usage } = await generateObject({
+    model: google('models/gemini-3-pro-preview'),
+    schema: scorecardSchema,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  return {
+    scorecard: object,
+    usage: {
+      inputTokens: usage.inputTokens || 0,
+      outputTokens: usage.outputTokens || 0,
+      totalTokens: (usage.inputTokens || 0) + (usage.outputTokens || 0),
+    },
+  };
+}
+
+/**
+ * Synthesize multiple partial scorecards into one final result.
+ */
+async function synthesizeResults(
+  partialResults: ScorecardData[],
+  repoName: string,
+  totalFiles: number,
+  metadata?: RepoMetadata,
+): Promise<{ scorecard: ScorecardData; usage: { inputTokens: number; outputTokens: number; totalTokens: number } }> {
+  const metadataSection = buildMetadataSection(metadata);
+
+  const partialsText = partialResults.map((r, i) => {
+    const metricsText = r.metrics.map(m => `  - ${m.metric}: ${m.score}/100 — ${m.reason}`).join('\n');
+    return `## Chunk ${i + 1} (Score: ${r.overallScore}/100)\n${metricsText}\n\n### Analysis:\n${r.markdown}`;
+  }).join('\n\n---\n\n');
+
+  const prompt = `You are a senior software architect producing the FINAL scorecard by synthesizing ${partialResults.length} partial analyses of the same repository.
+
+REPOSITORY: ${repoName}${metadataSection}
+TOTAL FILES ANALYZED: ${totalFiles}
+PARTIAL ANALYSES: ${partialResults.length}
+
+Each partial analysis scored a different subset of files. Your job:
+1. Weigh scores across all partials — average where metrics overlap, note discrepancies
+2. Combine findings into one coherent report
+3. Resolve any conflicting observations
+4. Produce the definitive overall score and metrics
+
+${SCORING_GUIDELINES}
+
+MARKDOWN REPORT STRUCTURE:
+1. **Executive Summary** - synthesized overview
+2. **Overall Score** with justification (weighted across all chunks)
+3. **Business Impact**
+4. **Technical Deep Dive** - combine findings from all chunks
+5. **Strengths** - best examples from any chunk
+6. **Areas for Improvement** - deduplicated, prioritized
+7. **Actionable Recommendations**
+8. **Risk Assessment**
+
+${FORMAT_RULES}
+
+OUTPUT FORMAT:
+{
+  "overallScore": number,
+  "metrics": [{"metric": "Name", "score": number, "reason": "Synthesized justification"}],
+  "markdown": "Full unified markdown report"
+}
+
+---
+
+PARTIAL RESULTS:
+
+${partialsText}`;
+
+  const { object, usage } = await generateObject({
+    model: google('models/gemini-3-pro-preview'),
+    schema: scorecardSchema,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  return {
+    scorecard: object,
+    usage: {
+      inputTokens: usage.inputTokens || 0,
+      outputTokens: usage.outputTokens || 0,
+      totalTokens: (usage.inputTokens || 0) + (usage.outputTokens || 0),
+    },
+  };
+}
+
+/**
+ * Generate a scorecard analysis with automatic chunking for large repos.
+ *
+ * Small repos (fits in one chunk): single AI call
+ * Large repos: map-reduce — parallel chunk analysis + synthesis
+ */
+export async function generateScorecardAnalysis({
+  files,
+  repoName,
+  metadata,
+  onProgress,
+}: ScorecardAnalysisParams): Promise<ScorecardAnalysisResult> {
+  try {
+    // Check if chunking is needed
+    if (!needsChunking(files)) {
+      onProgress?.('Analyzing files...', 20);
+      return await generateSingleChunkScorecard(files, repoName, metadata);
+    }
+
+    // Chunk the files by token budget
+    const chunks = chunkFiles(files);
+    const summary = getChunkingSummary(chunks);
+    console.log(`📊 Scorecard chunking: ${summary.totalFiles} files → ${summary.totalChunks} chunks (${summary.filesPerChunk.join(', ')} files each)`);
+
+    onProgress?.(`Analyzing ${summary.totalFiles} files in ${summary.totalChunks} batches...`, 15);
+
+    // Map: analyze chunks in parallel
+    const chunkResults = await Promise.all(
+      chunks.map(async (chunk, i) => {
+        onProgress?.(`Analyzing batch ${i + 1} of ${chunks.length} (${chunk.files.length} files)...`, 15 + (i / chunks.length) * 50);
+        return analyzeChunk(chunk, repoName, chunks.length, metadata);
+      })
+    );
+
+    onProgress?.('Synthesizing results across all batches...', 70);
+
+    // Reduce: synthesize partial results
+    const synthesized = await synthesizeResults(
+      chunkResults.map(r => r.scorecard),
+      repoName,
+      summary.totalFiles,
+      metadata,
+    );
+
+    // Sum up all token usage
+    const totalUsage = {
+      inputTokens: chunkResults.reduce((sum, r) => sum + r.usage.inputTokens, 0) + synthesized.usage.inputTokens,
+      outputTokens: chunkResults.reduce((sum, r) => sum + r.usage.outputTokens, 0) + synthesized.usage.outputTokens,
+      totalTokens: chunkResults.reduce((sum, r) => sum + r.usage.totalTokens, 0) + synthesized.usage.totalTokens,
+    };
 
     return {
-      scorecard: object,
-      usage: {
-        inputTokens: usage.inputTokens || 0,
-        outputTokens: usage.outputTokens || 0,
-        totalTokens: (usage.inputTokens || 0) + (usage.outputTokens || 0),
-      },
+      scorecard: synthesized.scorecard,
+      usage: totalUsage,
     };
   } catch (error) {
     console.error('Gemini API error:', error);
@@ -138,15 +306,12 @@ ${files.map(file => `--- ${file.path} ---\n${file.content}`).join('\n\n')}`;
  */
 export async function getAvailableModels() {
   try {
-    
-    // For now, keeping the original implementation
     const ai = new GoogleGenAI({
       apiKey: process.env.GEMINI_API_KEY,
     });
-    
     return await ai.models.list();
   } catch (error) {
     console.error('Error fetching models:', error);
     throw error;
   }
-} 
+}

@@ -61,8 +61,8 @@ export const scorecardRouter = router({
 
         yield { type: 'progress', progress: 5, message: 'Fetching repository files...' };
 
-        // Fetch from tarball (single request)
-        const repoFiles = await githubService.getRepositoryFiles(job.user, job.repo, ref, 500);
+        // Fetch from tarball (single request) — no file cap, chunker handles sizing
+        const repoFiles = await githubService.getRepositoryFiles(job.user, job.repo, ref, 2000);
         const selectedPaths = job.filePaths.length > 0
           ? new Set(job.filePaths)
           : null;
@@ -70,8 +70,6 @@ export const scorecardRouter = router({
         const files = repoFiles.files
           .filter(f => f.type === 'file' && f.content)
           .filter(f => !selectedPaths || selectedPaths.has(f.path))
-          .filter(f => f.size < 100000)
-          .slice(0, 200)
           .map(f => ({ path: f.path, content: f.content!, size: f.size }));
 
         if (!files || files.length === 0) {
@@ -79,7 +77,7 @@ export const scorecardRouter = router({
           return;
         }
 
-        yield { type: 'progress', progress: 15, message: `Analyzing ${files.length} files with AI (this may take 30-60 seconds)...` };
+        yield { type: 'progress', progress: 10, message: `Preparing ${files.length} files for analysis...` };
 
         // Check if we already have a recent scorecard with the same content
         const existingScorecard = await db
@@ -94,7 +92,8 @@ export const scorecardRouter = router({
           .orderBy(desc(repositoryScorecards.version))
           .limit(1);
 
-        // Generate new scorecard
+        // Generate scorecard (auto-chunks large repos with map-reduce)
+        const progressQueue: Array<{ message: string; progress: number }> = [];
         const result = await generateScorecardAnalysis({
           files,
           repoName: job.repo,
@@ -105,7 +104,15 @@ export const scorecardRouter = router({
             language: repoInfo.language,
             topics: repoInfo.topics,
           },
+          onProgress: (message, progress) => {
+            progressQueue.push({ message, progress });
+          },
         });
+
+        // Flush any buffered progress updates
+        for (const p of progressQueue) {
+          yield { type: 'progress', progress: p.progress, message: p.message };
+        }
 
         // Stream token usage to the client as soon as it's known
         if (result?.usage) {

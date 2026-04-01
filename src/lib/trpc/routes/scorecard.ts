@@ -20,8 +20,8 @@ export const scorecardRouter = router({
       ref: z.string().optional(),
       filePaths: z.array(z.string()).default([]),
     }))
-    .mutation(({ input, ctx }) => {
-      const jobId = createJob({
+    .mutation(async ({ input, ctx }) => {
+      const jobId = await createJob({
         user: input.user,
         repo: input.repo,
         ref: input.ref,
@@ -38,7 +38,7 @@ export const scorecardRouter = router({
     }))
     .subscription(async function* ({ input, ctx }) {
       // Retrieve job params from the store
-      const job = consumeJob(input.jobId, ctx.user.id);
+      const job = await consumeJob(input.jobId, ctx.user.id);
       if (!job) {
         yield { type: 'error', message: 'Analysis job not found or expired. Please try again.' };
         return;

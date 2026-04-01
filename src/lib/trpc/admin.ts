@@ -17,7 +17,7 @@ export const adminProcedure = t.procedure.use(async ({ ctx, next }) => {
   }
 
   // Check if user's email is in the admin emails list
-  const adminEmails = process.env.ADMIN_EMAILS!.split(',').map(email => email.trim().toLowerCase());
+  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(email => email.trim().toLowerCase());
   if (!adminEmails.includes(ctx.session.user.email.toLowerCase())) {
     throw new TRPCError({
       code: 'FORBIDDEN',

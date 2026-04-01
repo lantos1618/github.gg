@@ -51,7 +51,7 @@ function RepoPageLayoutContent({
   const wikiPages = serverWikiPages.length > 0 ? serverWikiPages : (wikiToc?.pages.map(p => ({ slug: p.slug, title: p.title })) || []);
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] bg-gray-50">
+    <div className="flex h-[calc(100vh-3.5rem)] bg-white">
       <RepoSidebar
         owner={user}
         repo={repo}
@@ -61,7 +61,8 @@ function RepoPageLayoutContent({
         commitSha={commitSha}
       />
 
-      <main className={`flex-1 flex flex-col overflow-y-auto transition-all duration-300 ${isExpanded ? 'lg:ml-64' : 'lg:ml-16'}`}>
+      {/* Use lg:ml-60/lg:ml-14 to match sidebar widths (w-60/w-14) and avoid CLS */}
+      <main className={`flex-1 flex flex-col overflow-y-auto transition-[margin] duration-300 ${isExpanded ? 'lg:ml-60' : 'lg:ml-14'}`}>
         <SelectedFilesProvider files={files}>
           <div className="flex-1">
             {children}

@@ -49,7 +49,7 @@ function RepoClientViewInner({ user, repo, refName, path, files, isLoading, erro
       <button
         onClick={() => setIsFileExplorerOpen(true)}
         data-testid="repo-files-drawer-trigger"
-        className="fixed right-0 top-20 z-30 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-l-lg shadow-lg transition-all duration-200 flex items-center gap-2 border border-r-0 border-blue-700"
+        className="fixed right-0 top-20 z-30 bg-[#111] hover:bg-[#333] text-white px-3 py-2 rounded-l transition-colors flex items-center gap-2"
         style={{
           writingMode: 'vertical-rl',
           textOrientation: 'mixed',

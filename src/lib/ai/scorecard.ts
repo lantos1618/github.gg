@@ -253,30 +253,37 @@ export async function generateScorecardAnalysis({
   onProgress,
 }: ScorecardAnalysisParams): Promise<ScorecardAnalysisResult> {
   try {
-    // Check if chunking is needed
-    if (!needsChunking(files)) {
-      onProgress?.('Analyzing files...', 20);
-      return await generateSingleChunkScorecard(files, repoName, metadata);
-    }
-
-    // Chunk the files by token budget
+    // Always run through chunker — it filters binary, empty, oversized files
+    // and sorts by importance, even if everything fits in one chunk
     const chunks = chunkFiles(files);
     const summary = getChunkingSummary(chunks);
-    console.log(`📊 Scorecard chunking: ${summary.totalFiles} files → ${summary.totalChunks} chunks (${summary.filesPerChunk.join(', ')} files each)`);
 
-    onProgress?.(`Analyzing ${summary.totalFiles} files in ${summary.totalChunks} batches...`, 15);
+    if (chunks.length === 0) {
+      throw new Error('No analyzable files found after filtering');
+    }
+
+    console.log(`📊 Scorecard: ${files.length} raw files → ${summary.totalFiles} filtered → ${summary.totalChunks} chunk(s)`);
+
+    // Single chunk: direct analysis (no synthesis overhead)
+    if (chunks.length === 1) {
+      onProgress?.(`Analyzing ${summary.totalFiles} files...`, 15);
+      return await generateSingleChunkScorecard(chunks[0].files, repoName, metadata);
+    }
+
+    // Multiple chunks: map-reduce
+    onProgress?.(`Analyzing ${summary.totalFiles} files in ${summary.totalChunks} batches...`, 10);
 
     // Map: analyze chunks in parallel
     const chunkResults = await Promise.all(
       chunks.map(async (chunk, i) => {
-        onProgress?.(`Analyzing batch ${i + 1} of ${chunks.length} (${chunk.files.length} files)...`, 15 + (i / chunks.length) * 50);
+        onProgress?.(`Batch ${i + 1}/${chunks.length} (${chunk.files.length} files)...`, 10 + (i / chunks.length) * 55);
         return analyzeChunk(chunk, repoName, chunks.length, metadata);
       })
     );
 
     onProgress?.('Synthesizing results across all batches...', 70);
 
-    // Reduce: synthesize partial results
+    // Reduce: synthesize partial results into final scorecard
     const synthesized = await synthesizeResults(
       chunkResults.map(r => r.scorecard),
       repoName,
@@ -284,7 +291,7 @@ export async function generateScorecardAnalysis({
       metadata,
     );
 
-    // Sum up all token usage
+    // Sum token usage across all calls
     const totalUsage = {
       inputTokens: chunkResults.reduce((sum, r) => sum + r.usage.inputTokens, 0) + synthesized.usage.inputTokens,
       outputTokens: chunkResults.reduce((sum, r) => sum + r.usage.outputTokens, 0) + synthesized.usage.outputTokens,

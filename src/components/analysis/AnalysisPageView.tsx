@@ -234,11 +234,14 @@ function AnalysisPageViewInner<TResponse>({
     setLogs([{ message: 'Initializing analysis...', timestamp: new Date(), type: 'info' }]);
     
     // Lock in the current parameters for this analysis run
+    // Only send filePaths if user has explicitly selected a subset (not all files)
+    // This prevents URI_TOO_LONG errors when all files are selected
+    const isSubsetSelected = selectedFilePaths.size > 0 && selectedFilePaths.size < files.length;
     setAnalysisParams({
       user,
       repo,
       ref: effectiveRef,
-      filePaths,
+      filePaths: isSubsetSelected ? filePaths : [],
     });
     
     setShouldAnalyze(true);

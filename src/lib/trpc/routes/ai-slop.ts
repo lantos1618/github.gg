@@ -57,22 +57,14 @@ export const aiSlopRouter = router({
       user: z.string(),
       repo: z.string(),
       ref: z.string().optional().default('main'),
-      filePaths: z.array(z.string()),
+      filePaths: z.array(z.string()).optional().default([]),
     }))
     .subscription(async function* ({ input, ctx }) {
-      // Normalize username and repo to lowercase for database storage (case-insensitive)
-      // Keep original casing for GitHub API calls
       const repoOwnerNormalized = input.user.toLowerCase();
       const repoNameNormalized = input.repo.toLowerCase();
 
       try {
         yield { type: 'progress', progress: 0, message: 'Starting AI slop analysis...' };
-
-        // Validate filePaths
-        if (!input.filePaths || input.filePaths.length === 0) {
-          yield { type: 'error', message: 'No files selected for analysis. Please select at least one file.' };
-          return;
-        }
 
         // Check for active subscription
         yield { type: 'progress', progress: 2, message: 'Verifying subscription...' };
@@ -82,7 +74,6 @@ export const aiSlopRouter = router({
           return;
         }
 
-        // Get appropriate API key
         const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
         if (!keyInfo) {
           yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
@@ -91,10 +82,8 @@ export const aiSlopRouter = router({
 
         yield { type: 'progress', progress: 3, message: 'Authenticating with GitHub...' };
 
-        // Create authenticated GitHub service
         const githubService = await createGitHubServiceForRepo(input.user, input.repo, ctx.session);
 
-        // Fetch repo info to get actual default branch if not provided
         let ref = input.ref;
         if (!ref || ref === 'main') {
           yield { type: 'progress', progress: 4, message: 'Fetching repository info...' };
@@ -102,10 +91,20 @@ export const aiSlopRouter = router({
           ref = repoInfo.defaultBranch || 'main';
         }
 
-        yield { type: 'progress', progress: 5, message: `Fetching ${input.filePaths.length} files from GitHub...` };
+        yield { type: 'progress', progress: 5, message: 'Fetching repository files...' };
 
-        // Fetch file contents from GitHub (use original casing for API)
-        const files = await fetchFilesByPaths(input.user, input.repo, input.filePaths, githubService, ref);
+        // Fetch from tarball (single request) instead of individual API calls per file
+        const repoFiles = await githubService.getRepositoryFiles(input.user, input.repo, ref, 500);
+        const selectedPaths = input.filePaths && input.filePaths.length > 0
+          ? new Set(input.filePaths)
+          : null;
+
+        const files = repoFiles.files
+          .filter(f => f.type === 'file' && f.content)
+          .filter(f => !selectedPaths || selectedPaths.has(f.path))
+          .filter(f => f.size < 100000)
+          .slice(0, 200)
+          .map(f => ({ path: f.path, content: f.content!, size: f.size }));
 
         if (!files || files.length === 0) {
           yield { type: 'error', message: 'Failed to fetch any files from GitHub. Please check the repository and file paths.' };

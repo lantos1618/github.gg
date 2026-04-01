@@ -52,7 +52,7 @@ export function RepoHeader({
   };
 
   return (
-    <div className="w-[90%] max-w-[1100px] mx-auto pt-6 sm:pt-8">
+    <div className="w-[90%] max-w-5xl mx-auto pt-6 sm:pt-8">
       <div className="mb-8">
         {/* Section label */}
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">

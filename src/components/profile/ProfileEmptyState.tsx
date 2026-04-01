@@ -8,7 +8,7 @@ import { ReusableSSEFeedback, type SSEStatus, type SSELogItem } from '@/componen
 
 function ProfileGeneratingSkeleton() {
   return (
-    <div className="w-full max-w-[1100px] mx-auto space-y-8">
+    <div className="w-full max-w-5xl mx-auto space-y-8">
       {/* Header skeleton */}
       <div className="flex items-start gap-6">
         <Skeleton className="h-24 w-24 rounded-full shrink-0" />
@@ -85,7 +85,7 @@ export function ProfileEmptyState({
   if (isActivelyGenerating) {
     return (
       <div data-testid="profile-empty-state" className="py-8">
-        <div className="w-full max-w-[1100px] mx-auto">
+        <div className="w-full max-w-5xl mx-auto">
           <ReusableSSEFeedback status={sseStatus} progress={progress} logs={logs} className="mb-8" />
         </div>
         <ProfileGeneratingSkeleton />
@@ -94,7 +94,7 @@ export function ProfileEmptyState({
   }
 
   return (
-    <div data-testid="profile-empty-state" className="w-[90%] max-w-[1100px] mx-auto py-20 text-center">
+    <div data-testid="profile-empty-state" className="w-[90%] max-w-5xl mx-auto py-20 text-center">
       {/* Section label */}
       <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
         Developer Profile

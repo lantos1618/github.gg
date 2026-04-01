@@ -38,7 +38,7 @@ export function ArenaClientView({ initialLeaderboard }: ArenaClientViewProps) {
 
   return (
     <div className="min-h-screen bg-white pt-16 pb-20">
-      <div className="w-[90%] max-w-[1100px] mx-auto space-y-12">
+      <div className="w-[90%] max-w-5xl mx-auto space-y-12">
 
         {/* Header */}
         <div>

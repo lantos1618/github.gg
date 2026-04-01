@@ -74,7 +74,7 @@ export function UsersClientView({ initialProfiles, initialLeaderboard, totalProf
 
   return (
     <div className="min-h-screen bg-white pt-12 pb-20">
-      <div className="w-[90%] max-w-[1100px] mx-auto">
+      <div className="w-[90%] max-w-5xl mx-auto">
         <div className="mb-10">
           <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">Profiles</div>
           <h1 className="text-[31px] font-semibold text-[#111] tracking-tight mb-2">Analyzed Profiles</h1>

@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export function RepoSkeleton() {
   return (
-    <div className="w-[90%] max-w-[1100px] mx-auto pt-6 sm:pt-8">
+    <div className="w-[90%] max-w-5xl mx-auto pt-6 sm:pt-8">
       {/* Header skeleton matching RepoHeader dimensions */}
       <div className="mb-8">
         <Skeleton className="h-3 w-20 mb-2" />

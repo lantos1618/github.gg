@@ -10,7 +10,7 @@ import { ReusableSSEFeedback, type SSEStatus, type SSELogItem } from '@/componen
 
 function AnalysisLoadingSkeleton() {
   return (
-    <div className="w-[90%] max-w-[1100px] mx-auto pt-6">
+    <div className="w-[90%] max-w-5xl mx-auto pt-6">
       <div className="flex items-center justify-between mb-6">
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-9 w-24" />

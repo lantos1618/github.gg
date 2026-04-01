@@ -76,7 +76,7 @@ export default function DevelopersPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="w-[90%] max-w-[1100px] mx-auto pt-12 pb-20">
+      <div className="w-[90%] max-w-5xl mx-auto pt-12 pb-20">
         {/* Header */}
         <div className="mb-10">
           <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">

@@ -29,7 +29,7 @@ export function WikiIndexClient({
   if (!toc || toc.pages.length === 0) {
     return (
       <RepoPageLayout user={owner} repo={repo} branches={branches} defaultBranch={defaultBranch} wikiPages={wikiPages}>
-        <div className="w-[90%] max-w-[1100px] mx-auto py-12">
+        <div className="w-[90%] max-w-5xl mx-auto py-12">
           <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
             Wiki
           </div>
@@ -43,7 +43,7 @@ export function WikiIndexClient({
 
   return (
     <RepoPageLayout user={owner} repo={repo} branches={branches} defaultBranch={defaultBranch} wikiPages={wikiPages}>
-      <div className="w-[90%] max-w-[1100px] mx-auto py-12">
+      <div className="w-[90%] max-w-5xl mx-auto py-12">
         <div className="flex items-start justify-between mb-6">
           <div>
             <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">Wiki</div>

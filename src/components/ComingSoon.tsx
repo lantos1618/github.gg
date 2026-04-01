@@ -40,7 +40,7 @@ export function ComingSoon({
 
   return (
     <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
-      <div className="w-[90%] max-w-[1100px] mx-auto py-16">
+      <div className="w-[90%] max-w-5xl mx-auto py-16">
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
           Coming Soon
         </div>

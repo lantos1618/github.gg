@@ -31,7 +31,7 @@ export default function RepoLoading() {
 
       {/* Main content skeleton — matches RepoSkeleton layout */}
       <div className="flex-1 p-6">
-        <div className="w-[90%] max-w-[1100px] mx-auto pt-2">
+        <div className="w-[90%] max-w-5xl mx-auto pt-2">
           <Skeleton className="h-3 w-20 mb-2" />
           <Skeleton className="h-8 w-64 mb-2" />
           <div className="flex items-center gap-4 mt-2 mb-6">

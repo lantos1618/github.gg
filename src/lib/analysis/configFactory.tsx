@@ -92,6 +92,7 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<Ana
         trpc.scorecard.getScorecardVersions.useQuery(params),
       usePublicData: (params: { user: string; repo: string; ref: string; version?: number }) =>
         trpc.scorecard.publicGetScorecard.useQuery(params, { enabled: !!params.user && !!params.repo }),
+      useCreateJob: () => trpc.scorecard.createAnalysisJob.useMutation(),
       useGenerateSubscription: (input: any, options: any) =>
         trpc.scorecard.generateScorecard.useSubscription(input, options),
       extractDataField: 'scorecard' as const,
@@ -102,6 +103,7 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<Ana
         trpc.aiSlop.getAISlopVersions.useQuery(params),
       usePublicData: (params: { user: string; repo: string; ref: string; version?: number }) =>
         trpc.aiSlop.publicGetAISlop.useQuery(params, { enabled: !!params.user && !!params.repo }),
+      useCreateJob: () => trpc.aiSlop.createAnalysisJob.useMutation(),
       useGenerateSubscription: (input: any, options: any) =>
         trpc.aiSlop.detectAISlop.useSubscription(input, options),
       extractDataField: 'analysis' as const,
@@ -118,6 +120,7 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<Ana
     // TRPC hooks
     useVersions: router.useVersions,
     usePublicData: router.usePublicData,
+    useCreateJob: router.useCreateJob,
     useGenerateSubscription: router.useGenerateSubscription,
     usePlan: () => trpc.user.getCurrentPlan.useQuery(),
     useUtils: () => trpc.useUtils(),

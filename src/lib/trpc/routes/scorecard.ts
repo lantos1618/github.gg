@@ -8,46 +8,70 @@ import { TRPCError } from '@trpc/server';
 import { scorecardSchema } from '@/lib/types/scorecard';
 import { createGitHubServiceForRepo } from '@/lib/github';
 import { executeAnalysisWithVersioning } from '@/lib/trpc/helpers/analysis-executor';
-import { fetchFilesByPaths } from '@/lib/github/file-fetcher';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { createJob, consumeJob } from '@/lib/analysis/job-store';
 
 export const scorecardRouter = router({
-  generateScorecard: protectedProcedure
+  // Step 1: POST mutation to store file selection, returns a short jobId
+  createAnalysisJob: protectedProcedure
     .input(z.object({
       user: z.string(),
       repo: z.string(),
       ref: z.string().optional(),
-      filePaths: z.array(z.string()).optional().default([]),
+      filePaths: z.array(z.string()).default([]),
+    }))
+    .mutation(({ input, ctx }) => {
+      const jobId = createJob({
+        user: input.user,
+        repo: input.repo,
+        ref: input.ref,
+        filePaths: input.filePaths,
+        userId: ctx.user.id,
+      });
+      return { jobId };
+    }),
+
+  // Step 2: SSE subscription with just the jobId (tiny URL)
+  generateScorecard: protectedProcedure
+    .input(z.object({
+      jobId: z.string(),
     }))
     .subscription(async function* ({ input, ctx }) {
-      const repoOwnerNormalized = input.user.toLowerCase();
-      const repoNameNormalized = input.repo.toLowerCase();
+      // Retrieve job params from the store
+      const job = consumeJob(input.jobId, ctx.user.id);
+      if (!job) {
+        yield { type: 'error', message: 'Analysis job not found or expired. Please try again.' };
+        return;
+      }
+
+      const repoOwnerNormalized = job.user.toLowerCase();
+      const repoNameNormalized = job.repo.toLowerCase();
 
       try {
         yield { type: 'progress', progress: 0, message: 'Starting scorecard analysis...' };
 
         yield { type: 'progress', progress: 3, message: 'Authenticating with GitHub...' };
 
-        const githubService = await createGitHubServiceForRepo(input.user, input.repo, ctx.session);
+        const githubService = await createGitHubServiceForRepo(job.user, job.repo, ctx.session);
 
         yield { type: 'progress', progress: 4, message: 'Fetching repository info...' };
-        const repoInfo = await githubService.getRepositoryInfo(input.user, input.repo);
-        const ref = (!input.ref || input.ref === 'main') ? (repoInfo.defaultBranch || 'main') : input.ref;
+        const repoInfo = await githubService.getRepositoryInfo(job.user, job.repo);
+        const ref = (!job.ref || job.ref === 'main') ? (repoInfo.defaultBranch || 'main') : job.ref;
         const isPrivate = repoInfo.private === true;
 
         yield { type: 'progress', progress: 5, message: 'Fetching repository files...' };
 
-        // Fetch files from tarball (fast, single request) instead of individual API calls
-        const repoFiles = await githubService.getRepositoryFiles(input.user, input.repo, ref, 500);
-        const selectedPaths = input.filePaths && input.filePaths.length > 0
-          ? new Set(input.filePaths)
-          : null; // null = use all files
+        // Fetch from tarball (single request)
+        const repoFiles = await githubService.getRepositoryFiles(job.user, job.repo, ref, 500);
+        const selectedPaths = job.filePaths.length > 0
+          ? new Set(job.filePaths)
+          : null;
 
         const files = repoFiles.files
           .filter(f => f.type === 'file' && f.content)
           .filter(f => !selectedPaths || selectedPaths.has(f.path))
-          .filter(f => f.size < 100000) // Skip huge files
-          .slice(0, 200) // Cap at 200 files
+          .filter(f => f.size < 100000)
+          .slice(0, 200)
           .map(f => ({ path: f.path, content: f.content!, size: f.size }));
 
         if (!files || files.length === 0) {
@@ -73,7 +97,7 @@ export const scorecardRouter = router({
         // Generate new scorecard
         const result = await generateScorecardAnalysis({
           files,
-          repoName: input.repo,
+          repoName: job.repo,
           metadata: {
             description: repoInfo.description,
             stars: repoInfo.stargazersCount,

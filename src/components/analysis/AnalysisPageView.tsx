@@ -51,6 +51,7 @@ export interface AnalysisViewConfig<TResponse> {
   // TRPC hooks - accept full tRPC result types
   useVersions: (params: { user: string; repo: string; ref: string }) => unknown;
   usePublicData: (params: { user: string; repo: string; ref: string; version?: number }) => unknown;
+  useCreateJob: () => { mutateAsync: (input: { user: string; repo: string; ref: string; filePaths: string[] }) => Promise<{ jobId: string }> };
   useGenerateSubscription: (input: any, options: any) => void;
   usePlan: () => unknown;
   useUtils: () => TRPCUtils;
@@ -112,13 +113,8 @@ function AnalysisPageViewInner<TResponse>({
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState('');
   const [logs, setLogs] = useState<SSELogItem[]>([]);
-  // Store stable params for the duration of the analysis to prevent re-triggers
-  const [analysisParams, setAnalysisParams] = useState<{
-    user: string;
-    repo: string;
-    ref: string;
-    filePaths: string[];
-  } | null>(null);
+  // Store jobId for SSE subscription (two-step: POST job, then subscribe by ID)
+  const [jobId, setJobId] = useState<string | null>(null);
 
   const planResult = config.usePlan() as { data: { plan: string } | undefined; isLoading: boolean };
   const { data: currentPlan, isLoading: planLoading } = planResult;
@@ -164,7 +160,7 @@ function AnalysisPageViewInner<TResponse>({
       setCurrentStep('');
       setLogs([]);
       setShouldAnalyze(false);
-      setAnalysisParams(null);
+      setJobId(null);
       setIsSubscriptionAuthError(false);
     }
   }, [user, repo]);
@@ -210,41 +206,43 @@ function AnalysisPageViewInner<TResponse>({
     }
   }, [config, utils]);
 
-  // Subscription for analysis
+  // Step 1: Create job mutation (POST — no URL length limit)
+  const createJobMutation = config.useCreateJob();
+
+  // Step 2: Subscribe to SSE with just the jobId (tiny URL)
   config.useGenerateSubscription(
-    analysisParams || {
-      user,
-      repo,
-      ref: effectiveRef,
-      filePaths,
-    },
+    { jobId: jobId || '' },
     {
-      enabled: shouldAnalyze && !!analysisParams,
+      enabled: shouldAnalyze && !!jobId,
       onData: handleSubscriptionData,
     }
   );
 
-  // Add regenerate handler
-  const handleRegenerate = () => {
+  // Regenerate handler: POST file selection, then subscribe
+  const handleRegenerate = async () => {
     setError(null);
     setIsSubscriptionAuthError(false);
     setSseStatus('processing');
     setProgress(0);
     setCurrentStep(config.generatingMessage || 'Initializing analysis...');
     setLogs([{ message: 'Initializing analysis...', timestamp: new Date(), type: 'info' }]);
-    
-    // Lock in the current parameters for this analysis run
-    // Only send filePaths if user has explicitly selected a subset (not all files)
-    // This prevents URI_TOO_LONG errors when all files are selected
-    const isSubsetSelected = selectedFilePaths.size > 0 && selectedFilePaths.size < files.length;
-    setAnalysisParams({
-      user,
-      repo,
-      ref: effectiveRef,
-      filePaths: isSubsetSelected ? filePaths : [],
-    });
-    
-    setShouldAnalyze(true);
+
+    try {
+      // POST the file selection (can be any size — it's a POST body, not URL)
+      const result = await createJobMutation.mutateAsync({
+        user,
+        repo,
+        ref: effectiveRef,
+        filePaths: selectedFilePaths.size > 0 ? filePaths : [],
+      });
+
+      // Subscribe to SSE with just the short jobId
+      setJobId(result.jobId);
+      setShouldAnalyze(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start analysis');
+      setSseStatus('error');
+    }
   };
 
   const handleCopyMarkdown = (markdown: string | null | undefined) => {

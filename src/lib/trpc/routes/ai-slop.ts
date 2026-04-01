@@ -6,8 +6,8 @@ import { eq, and, desc, sql } from 'drizzle-orm';
 import { generateAISlopAnalysis, aiSlopSchema } from '@/lib/ai/ai-slop';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForRepo } from '@/lib/github';
-import { fetchFilesByPaths } from '@/lib/github/file-fetcher';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { createJob, consumeJob } from '@/lib/analysis/job-store';
 import { isPgErrorWithCode } from '@/lib/db/utils';
 
 /**
@@ -52,21 +52,43 @@ async function* streamProgressWithHeartbeat(
  * during long-running AI analysis operations.
  */
 export const aiSlopRouter = router({
-  detectAISlop: protectedProcedure
+  // Step 1: POST mutation to store file selection
+  createAnalysisJob: protectedProcedure
     .input(z.object({
       user: z.string(),
       repo: z.string(),
-      ref: z.string().optional().default('main'),
-      filePaths: z.array(z.string()).optional().default([]),
+      ref: z.string().optional(),
+      filePaths: z.array(z.string()).default([]),
+    }))
+    .mutation(({ input, ctx }) => {
+      const jobId = createJob({
+        user: input.user,
+        repo: input.repo,
+        ref: input.ref,
+        filePaths: input.filePaths,
+        userId: ctx.user.id,
+      });
+      return { jobId };
+    }),
+
+  // Step 2: SSE subscription with just jobId
+  detectAISlop: protectedProcedure
+    .input(z.object({
+      jobId: z.string(),
     }))
     .subscription(async function* ({ input, ctx }) {
-      const repoOwnerNormalized = input.user.toLowerCase();
-      const repoNameNormalized = input.repo.toLowerCase();
+      const job = consumeJob(input.jobId, ctx.user.id);
+      if (!job) {
+        yield { type: 'error', message: 'Analysis job not found or expired. Please try again.' };
+        return;
+      }
+
+      const repoOwnerNormalized = job.user.toLowerCase();
+      const repoNameNormalized = job.repo.toLowerCase();
 
       try {
         yield { type: 'progress', progress: 0, message: 'Starting AI slop analysis...' };
 
-        // Check for active subscription
         yield { type: 'progress', progress: 2, message: 'Verifying subscription...' };
         const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
         if (!subscription || subscription.status !== 'active') {
@@ -82,21 +104,20 @@ export const aiSlopRouter = router({
 
         yield { type: 'progress', progress: 3, message: 'Authenticating with GitHub...' };
 
-        const githubService = await createGitHubServiceForRepo(input.user, input.repo, ctx.session);
+        const githubService = await createGitHubServiceForRepo(job.user, job.repo, ctx.session);
 
-        let ref = input.ref;
+        let ref = job.ref;
         if (!ref || ref === 'main') {
           yield { type: 'progress', progress: 4, message: 'Fetching repository info...' };
-          const repoInfo = await githubService.getRepositoryInfo(input.user, input.repo);
+          const repoInfo = await githubService.getRepositoryInfo(job.user, job.repo);
           ref = repoInfo.defaultBranch || 'main';
         }
 
         yield { type: 'progress', progress: 5, message: 'Fetching repository files...' };
 
-        // Fetch from tarball (single request) instead of individual API calls per file
-        const repoFiles = await githubService.getRepositoryFiles(input.user, input.repo, ref, 500);
-        const selectedPaths = input.filePaths && input.filePaths.length > 0
-          ? new Set(input.filePaths)
+        const repoFiles = await githubService.getRepositoryFiles(job.user, job.repo, ref, 500);
+        const selectedPaths = job.filePaths.length > 0
+          ? new Set(job.filePaths)
           : null;
 
         const files = repoFiles.files
@@ -119,7 +140,7 @@ export const aiSlopRouter = router({
         // Start AI analysis with progress callback
         const analysisPromise = generateAISlopAnalysis({
           files,
-          repoName: input.repo,
+          repoName: job.repo,
           onProgress: (message, progress) => {
             progressQueue.push({ message, progress });
           },

@@ -11,6 +11,7 @@ import { SortableTable } from '@/components/ui/sortable-table';
 import Link from 'next/link';
 import { ReusableSSEFeedback, type SSELogItem, type SSEStatus } from '@/components/analysis/ReusableSSEFeedback';
 import { sanitizeText } from '@/lib/utils/sanitize';
+import { NetworkGraph } from '@/components/admin/NetworkGraph';
 
 function getCurrentMonthRange() {
   const now = new Date();
@@ -438,12 +439,20 @@ export default function AdminDashboard() {
 
 // ─── Batch Profile Generator ────────────────────────────────────────
 
+interface BatchResult {
+  username: string;
+  status: 'completed' | 'failed';
+  error?: string;
+}
+
 function BatchProfileGenerator() {
   const [rawText, setRawText] = useState('');
   const [extractedUsernames, setExtractedUsernames] = useState<string[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [batchLogs, setBatchLogs] = useState<Array<{ message: string; type: 'info' | 'success' | 'error' }>>([]);
+  const [batchResults, setBatchResults] = useState<BatchResult[]>([]);
+  const [processingCurrent, setProcessingCurrent] = useState<string | null>(null);
 
   const extractMutation = trpc.admin.extractUsernames.useMutation();
   const enqueueMutation = trpc.admin.batchEnqueueProfiles.useMutation();
@@ -472,7 +481,7 @@ function BatchProfileGenerator() {
       setBatchLogs(prev => [...prev, { message: `Queued ${result.queued} profiles for generation`, type: 'success' }]);
       setExtractedUsernames([]);
       setRawText('');
-      refetchQueue();
+      await refetchQueue();
     } catch (error) {
       setBatchLogs(prev => [...prev, { message: `Enqueue failed: ${error instanceof Error ? error.message : 'Unknown'}`, type: 'error' }]);
     }
@@ -480,11 +489,14 @@ function BatchProfileGenerator() {
 
   const handleProcessAll = async () => {
     setIsProcessing(true);
+    setBatchResults([]);
     let processed = 0;
     const maxIterations = 50; // Safety cap
+    const results: BatchResult[] = [];
 
     for (let i = 0; i < maxIterations; i++) {
       try {
+        setProcessingCurrent('Dequeuing next...');
         const result = await processMutation.mutateAsync({ type: 'profile' });
         if (!result.processed) {
           setBatchLogs(prev => [...prev, { message: `Queue drained. Processed ${processed} profiles total.`, type: 'success' }]);
@@ -492,18 +504,28 @@ function BatchProfileGenerator() {
         }
         processed++;
         const r = result as { username?: string; status?: string; error?: string };
-        const logType = r.status === 'completed' ? 'success' : 'error';
+        const username = r.username || '?';
+        const status = (r.status === 'completed' ? 'completed' : 'failed') as 'completed' | 'failed';
+        const logType = status === 'completed' ? 'success' : 'error';
+
+        const batchResult: BatchResult = { username, status, error: r.error };
+        results.push(batchResult);
+        setBatchResults([...results]);
+
         setBatchLogs(prev => [...prev, {
-          message: `${r.username || '?'}: ${r.status || 'unknown'}${r.error ? ` — ${r.error}` : ''}`,
+          message: `${username}: ${r.status || 'unknown'}${r.error ? ` — ${r.error}` : ''}`,
           type: logType as 'success' | 'error',
         }]);
-        refetchQueue();
+        setProcessingCurrent(username);
+        await refetchQueue();
       } catch (error) {
         setBatchLogs(prev => [...prev, { message: `Processing error: ${error instanceof Error ? error.message : 'Unknown'}`, type: 'error' }]);
         break;
       }
     }
+    setProcessingCurrent(null);
     setIsProcessing(false);
+    await refetchQueue();
   };
 
   const removeUsername = (username: string) => {
@@ -563,22 +585,85 @@ function BatchProfileGenerator() {
       )}
 
       {/* Queue status */}
-      {queueStatus && queueStatus.queueLength > 0 && (
+      {(queueStatus && queueStatus.queueLength > 0) || isProcessing ? (
         <div className="mb-6 bg-[#f8f9fa] py-[14px] px-[16px]" style={{ borderLeft: '3px solid #4285f4' }}>
           <div className="flex items-center justify-between">
             <div>
               <div className="text-[13px] font-semibold uppercase tracking-[1px] text-[#4285f4] mb-1">Queue</div>
-              <div className="text-base text-[#333]">{queueStatus.queueLength} profiles pending</div>
+              <div className="text-base text-[#333]">
+                {isProcessing
+                  ? `Processing${processingCurrent ? `: ${processingCurrent}` : '...'}  (${queueStatus?.queueLength ?? 0} remaining)`
+                  : `${queueStatus?.queueLength ?? 0} profiles pending`
+                }
+              </div>
             </div>
             <button
               onClick={handleProcessAll}
-              disabled={isProcessing}
+              disabled={isProcessing || (queueStatus?.queueLength ?? 0) === 0}
               className="px-4 py-2 bg-[#111] text-white text-base font-medium rounded hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               {isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
               {isProcessing ? 'Processing...' : 'Process All'}
             </button>
           </div>
+        </div>
+      ) : null}
+
+      {/* Results summary */}
+      {batchResults.length > 0 && !isProcessing && (
+        <div className="mb-6">
+          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
+            Results
+          </div>
+          {/* Summary bar */}
+          <div className="flex gap-4 mb-4 py-3 px-4 bg-[#f8f9fa] border border-[#eee] rounded">
+            <div>
+              <span className="text-[22px] font-semibold text-[#111]">{batchResults.length}</span>
+              <span className="text-base text-[#888] ml-1.5">processed</span>
+            </div>
+            <div className="border-l border-[#eee] pl-4">
+              <span className="text-[22px] font-semibold text-[#34a853]">{batchResults.filter(r => r.status === 'completed').length}</span>
+              <span className="text-base text-[#888] ml-1.5">succeeded</span>
+            </div>
+            {batchResults.some(r => r.status === 'failed') && (
+              <div className="border-l border-[#eee] pl-4">
+                <span className="text-[22px] font-semibold text-[#ea4335]">{batchResults.filter(r => r.status === 'failed').length}</span>
+                <span className="text-base text-[#888] ml-1.5">failed</span>
+              </div>
+            )}
+          </div>
+          {/* Per-profile results */}
+          <div className="space-y-[2px]">
+            {batchResults.map((r, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between py-[10px] px-[14px] bg-[#f8f9fa]"
+                style={{ borderLeft: `3px solid ${r.status === 'completed' ? '#34a853' : '#ea4335'}` }}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-[#111]">{r.username}</span>
+                  {r.status === 'completed' && (
+                    <Link href={`/${r.username}`} target="_blank" className="text-[#ccc] hover:text-[#111] transition-colors">
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  )}
+                </div>
+                <div className="text-base">
+                  {r.status === 'completed' ? (
+                    <span className="text-[#34a853] font-medium">Completed</span>
+                  ) : (
+                    <span className="text-[#ea4335]">{r.error || 'Failed'}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => setBatchResults([])}
+            className="mt-3 text-[13px] text-[#aaa] hover:text-[#111] transition-colors"
+          >
+            Clear results
+          </button>
         </div>
       )}
 
@@ -615,6 +700,7 @@ function NetworkExplorer() {
   const [activeUsername, setActiveUsername] = useState('');
   const [networkType, setNetworkType] = useState<'followers' | 'following'>('following');
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'table' | 'graph'>('table');
 
   const { data: network, isLoading } = trpc.admin.getNetworkUsers.useQuery(
     { username: activeUsername, type: networkType, limit: 50 },
@@ -696,72 +782,95 @@ function NetworkExplorer() {
             <span className="text-base text-[#888]">
               {network.users.length} {network.type} of <strong className="text-[#111]">@{network.seed}</strong>
             </span>
-            <div className="flex gap-2">
-              <button onClick={selectAll} className="text-base text-[#888] hover:text-[#111] transition-colors">
-                Select unscanned
-              </button>
-              {selectedUsers.size > 0 && (
+            <div className="flex gap-2 items-center">
+              {/* View toggle */}
+              <div className="flex gap-1 mr-2">
                 <button
-                  onClick={handleEnqueueSelected}
-                  disabled={enqueueMutation.isPending}
-                  className="px-3 py-1.5 bg-[#111] text-white text-base font-medium rounded hover:bg-[#333] transition-colors disabled:opacity-50"
+                  onClick={() => setViewMode('table')}
+                  className={`px-3 py-1.5 text-xs font-semibold tracking-[1px] uppercase rounded transition-colors ${viewMode === 'table' ? 'bg-[#111] text-white' : 'bg-[#f8f9fa] text-[#666] border border-[#eee]'}`}
                 >
-                  Queue {selectedUsers.size} for analysis
+                  Table
                 </button>
+                <button
+                  onClick={() => setViewMode('graph')}
+                  className={`px-3 py-1.5 text-xs font-semibold tracking-[1px] uppercase rounded transition-colors ${viewMode === 'graph' ? 'bg-[#111] text-white' : 'bg-[#f8f9fa] text-[#666] border border-[#eee]'}`}
+                >
+                  Graph
+                </button>
+              </div>
+              {viewMode === 'table' && (
+                <>
+                  <button onClick={selectAll} className="text-base text-[#888] hover:text-[#111] transition-colors">
+                    Select unscanned
+                  </button>
+                  {selectedUsers.size > 0 && (
+                    <button
+                      onClick={handleEnqueueSelected}
+                      disabled={enqueueMutation.isPending}
+                      className="px-3 py-1.5 bg-[#111] text-white text-base font-medium rounded hover:bg-[#333] transition-colors disabled:opacity-50"
+                    >
+                      Queue {selectedUsers.size} for analysis
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>
 
-          <table className="w-full text-base border-collapse">
-            <thead>
-              <tr className="border-b border-[#ddd]">
-                <td className="py-2 w-8"></td>
-                <td className="py-2 text-xs text-[#999] font-semibold">Developer</td>
-                <td className="py-2 text-xs text-[#999] font-semibold hidden sm:table-cell">Bio</td>
-                <td className="py-2 text-xs text-[#999] font-semibold text-center">Repos</td>
-                <td className="py-2 text-xs text-[#999] font-semibold text-center">Followers</td>
-                <td className="py-2 text-xs text-[#999] font-semibold text-center">GG</td>
-              </tr>
-            </thead>
-            <tbody>
-              {network.users.map((u) => (
-                <tr key={u.username} className="border-b border-[#f0f0f0] hover:bg-[#fafafa] transition-colors">
-                  <td className="py-2 px-1">
-                    <input
-                      type="checkbox"
-                      checked={selectedUsers.has(u.username)}
-                      onChange={() => toggleUser(u.username)}
-                      className="accent-[#111]"
-                    />
-                  </td>
-                  <td className="py-2">
-                    <div className="flex items-center gap-2">
-                      <img src={u.avatar} alt={u.username} className="h-6 w-6 rounded-full" />
-                      <a
-                        href={`/${u.username}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-[#111] hover:text-[#666] transition-colors"
-                      >
-                        {u.username}
-                      </a>
-                      {u.name && <span className="text-[#aaa] hidden md:inline">{u.name}</span>}
-                    </div>
-                  </td>
-                  <td className="py-2 text-[#888] text-base line-clamp-1 max-w-xs hidden sm:table-cell">{u.bio || '—'}</td>
-                  <td className="py-2 text-center text-[#666]">{u.publicRepos}</td>
-                  <td className="py-2 text-center font-semibold text-[#111]">{u.followers}</td>
-                  <td className="py-2 text-center">
-                    {u.hasGGProfile ? (
-                      <span className="text-[#34a853] font-semibold">Yes</span>
-                    ) : (
-                      <span className="text-[#ccc]">—</span>
-                    )}
-                  </td>
+          {viewMode === 'graph' ? (
+            <NetworkGraph users={network.users} seed={network.seed} />
+          ) : (
+            <table className="w-full text-base border-collapse">
+              <thead>
+                <tr className="border-b border-[#ddd]">
+                  <td className="py-2 w-8"></td>
+                  <td className="py-2 text-xs text-[#999] font-semibold">Developer</td>
+                  <td className="py-2 text-xs text-[#999] font-semibold hidden sm:table-cell">Bio</td>
+                  <td className="py-2 text-xs text-[#999] font-semibold text-center">Repos</td>
+                  <td className="py-2 text-xs text-[#999] font-semibold text-center">Followers</td>
+                  <td className="py-2 text-xs text-[#999] font-semibold text-center">GG</td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {network.users.map((u) => (
+                  <tr key={u.username} className="border-b border-[#f0f0f0] hover:bg-[#fafafa] transition-colors">
+                    <td className="py-2 px-1">
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.has(u.username)}
+                        onChange={() => toggleUser(u.username)}
+                        className="accent-[#111]"
+                      />
+                    </td>
+                    <td className="py-2">
+                      <div className="flex items-center gap-2">
+                        <img src={u.avatar} alt={u.username} className="h-6 w-6 rounded-full" />
+                        <a
+                          href={`/${u.username}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-[#111] hover:text-[#666] transition-colors"
+                        >
+                          {u.username}
+                        </a>
+                        {u.name && <span className="text-[#aaa] hidden md:inline">{u.name}</span>}
+                      </div>
+                    </td>
+                    <td className="py-2 text-[#888] text-base line-clamp-1 max-w-xs hidden sm:table-cell">{u.bio || '—'}</td>
+                    <td className="py-2 text-center text-[#666]">{u.publicRepos}</td>
+                    <td className="py-2 text-center font-semibold text-[#111]">{u.followers}</td>
+                    <td className="py-2 text-center">
+                      {u.hasGGProfile ? (
+                        <span className="text-[#34a853] font-semibold">Yes</span>
+                      ) : (
+                        <span className="text-[#ccc]">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </>
       )}
     </div>

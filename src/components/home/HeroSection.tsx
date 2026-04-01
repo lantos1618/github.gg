@@ -35,7 +35,7 @@ export function HeroSection() {
 
   return (
     <div className="relative bg-white" data-testid="home-hero-section">
-      <div className="w-[90%] max-w-[880px] mx-auto pt-24 pb-20">
+      <div className="w-[90%] max-w-[1100px] mx-auto pt-24 pb-20">
 
         {/* Section label */}
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">

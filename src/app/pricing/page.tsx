@@ -25,7 +25,7 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero */}
-      <div className="w-[90%] max-w-[880px] mx-auto pt-16 pb-12">
+      <div className="w-[90%] max-w-[1100px] mx-auto pt-16 pb-12">
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
           Pricing
         </div>
@@ -44,7 +44,7 @@ export default function PricingPage() {
       </div>
 
       {/* Pricing Cards */}
-      <div className="w-[90%] max-w-[880px] mx-auto pb-16">
+      <div className="w-[90%] max-w-[1100px] mx-auto pb-16">
         <div className="grid md:grid-cols-2 gap-6">
           {/* Free Plan */}
           <div className="bg-[#f8f9fa] p-6" style={{ borderLeft: '3px solid #6b7280' }}>
@@ -109,7 +109,7 @@ export default function PricingPage() {
       </div>
 
       {/* Quote */}
-      <div className="w-[90%] max-w-[880px] mx-auto pb-16">
+      <div className="w-[90%] max-w-[1100px] mx-auto pb-16">
         <div className="bg-[#f8f9fa] rounded p-8 text-center" style={{ borderLeft: '3px solid #111' }}>
           <p className="text-base text-[#333] leading-[1.7] mb-3">
             "I used to spend <span className="line-through text-[#aaa]">3 hours</span> understanding a new codebase.
@@ -122,7 +122,7 @@ export default function PricingPage() {
       </div>
 
       {/* Feature Comparison */}
-      <div className="w-[90%] max-w-[880px] mx-auto pb-16">
+      <div className="w-[90%] max-w-[1100px] mx-auto pb-16">
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
           Feature Comparison
         </div>
@@ -160,14 +160,14 @@ export default function PricingPage() {
       </div>
 
       {/* Trust */}
-      <div className="w-[90%] max-w-[880px] mx-auto pb-12 text-center">
+      <div className="w-[90%] max-w-[1100px] mx-auto pb-12 text-center">
         <p className="text-[13px] text-[#aaa]">
           Cancel anytime · Secure payment via Stripe · Your code stays private
         </p>
       </div>
 
       {/* FAQ */}
-      <div className="w-[90%] max-w-[880px] mx-auto pb-20">
+      <div className="w-[90%] max-w-[1100px] mx-auto pb-20">
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
           Questions
         </div>

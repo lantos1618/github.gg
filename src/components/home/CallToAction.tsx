@@ -36,7 +36,7 @@ export function CallToAction() {
 
   return (
     <section className="bg-[#111] text-white" data-testid="home-cta-section">
-      <div className="w-[90%] max-w-[880px] mx-auto py-20">
+      <div className="w-[90%] max-w-[1100px] mx-auto py-20">
 
         {/* Section label */}
         <div className="text-[13px] text-[#666] font-semibold tracking-[1.5px] uppercase mb-4">

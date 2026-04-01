@@ -35,7 +35,7 @@ export function FeatureGrid() {
 
   return (
     <section className="bg-white border-t border-[#eee]" data-testid="home-feature-grid">
-      <div className="w-[90%] max-w-[880px] mx-auto py-20">
+      <div className="w-[90%] max-w-[1100px] mx-auto py-20">
 
         {/* Section label */}
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">

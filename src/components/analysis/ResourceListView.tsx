@@ -51,7 +51,7 @@ export function ResourceListView<TItem>({
   if (error) {
     return (
       <RepoPageLayout user={user} repo={repo} files={[]} totalFiles={0}>
-        <div className="w-[90%] max-w-[880px] mx-auto py-12">
+        <div className="w-[90%] max-w-[1100px] mx-auto py-12">
           <div className="bg-[#f8f9fa] py-[14px] px-[16px]" style={{ borderLeft: '3px solid #ea4335' }}>
             <div className="text-[13px] font-semibold uppercase tracking-[1px] text-[#ea4335] mb-1">Error</div>
             <div className="text-base text-[#333]">Failed to load {title.toLowerCase()}: {error.message}</div>
@@ -63,7 +63,7 @@ export function ResourceListView<TItem>({
 
   return (
     <RepoPageLayout user={user} repo={repo} files={[]} totalFiles={0}>
-      <div className="w-[90%] max-w-[880px] mx-auto py-8">
+      <div className="w-[90%] max-w-[1100px] mx-auto py-8">
         <div className="mb-6">
           <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">{title}</div>
           <p className="text-base text-[#888]">{filteredItems.length} {title.toLowerCase()}</p>

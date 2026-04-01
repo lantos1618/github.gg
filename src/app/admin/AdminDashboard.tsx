@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc/client';
-import { DollarSign, Users, RefreshCw, UserCheck, Download, Play, ExternalLink } from 'lucide-react';
+import { DollarSign, Users, RefreshCw, UserCheck, Download, Play, ExternalLink, Loader2 } from 'lucide-react';
 import { formatCost, calculatePerUserCostAndUsage } from '@/lib/utils/cost-calculator';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Image from 'next/image';
@@ -524,6 +524,9 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
 
+      {/* Batch Profile Generator */}
+      <BatchProfileGenerator />
+
       {/* Cost & Revenue Chart */}
       <div className="mt-10">
         <h2 className="text-xl font-semibold mb-4">Cost & Revenue (Last 30 Days)</h2>
@@ -547,6 +550,178 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Batch Profile Generator ────────────────────────────────────────
+
+function BatchProfileGenerator() {
+  const [rawText, setRawText] = useState('');
+  const [extractedUsernames, setExtractedUsernames] = useState<string[]>([]);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [batchLogs, setBatchLogs] = useState<Array<{ message: string; type: 'info' | 'success' | 'error' }>>([]);
+
+  const extractMutation = trpc.admin.extractUsernames.useMutation();
+  const enqueueMutation = trpc.admin.batchEnqueueProfiles.useMutation();
+  const processMutation = trpc.admin.processNextInQueue.useMutation();
+  const { data: queueStatus, refetch: refetchQueue } = trpc.admin.getQueueStatus.useQuery({ type: 'profile' }, {
+    refetchInterval: isProcessing ? 3000 : false,
+  });
+
+  const handleExtract = async () => {
+    if (!rawText.trim()) return;
+    setIsExtracting(true);
+    try {
+      const result = await extractMutation.mutateAsync({ text: rawText });
+      setExtractedUsernames(result.usernames);
+      setBatchLogs(prev => [...prev, { message: `Extracted ${result.usernames.length} usernames: ${result.usernames.join(', ')}`, type: 'info' }]);
+    } catch (error) {
+      setBatchLogs(prev => [...prev, { message: `Extraction failed: ${error instanceof Error ? error.message : 'Unknown'}`, type: 'error' }]);
+    }
+    setIsExtracting(false);
+  };
+
+  const handleEnqueue = async () => {
+    if (extractedUsernames.length === 0) return;
+    try {
+      const result = await enqueueMutation.mutateAsync({ usernames: extractedUsernames });
+      setBatchLogs(prev => [...prev, { message: `Queued ${result.queued} profiles for generation`, type: 'success' }]);
+      setExtractedUsernames([]);
+      setRawText('');
+      refetchQueue();
+    } catch (error) {
+      setBatchLogs(prev => [...prev, { message: `Enqueue failed: ${error instanceof Error ? error.message : 'Unknown'}`, type: 'error' }]);
+    }
+  };
+
+  const handleProcessAll = async () => {
+    setIsProcessing(true);
+    let processed = 0;
+    const maxIterations = 50; // Safety cap
+
+    for (let i = 0; i < maxIterations; i++) {
+      try {
+        const result = await processMutation.mutateAsync({ type: 'profile' });
+        if (!result.processed) {
+          setBatchLogs(prev => [...prev, { message: `Queue drained. Processed ${processed} profiles total.`, type: 'success' }]);
+          break;
+        }
+        processed++;
+        const r = result as { username?: string; status?: string; error?: string };
+        const logType = r.status === 'completed' ? 'success' : 'error';
+        setBatchLogs(prev => [...prev, {
+          message: `${r.username || '?'}: ${r.status || 'unknown'}${r.error ? ` — ${r.error}` : ''}`,
+          type: logType as 'success' | 'error',
+        }]);
+        refetchQueue();
+      } catch (error) {
+        setBatchLogs(prev => [...prev, { message: `Processing error: ${error instanceof Error ? error.message : 'Unknown'}`, type: 'error' }]);
+        break;
+      }
+    }
+    setIsProcessing(false);
+  };
+
+  const removeUsername = (username: string) => {
+    setExtractedUsernames(prev => prev.filter(u => u !== username));
+  };
+
+  return (
+    <div className="mt-10 border-t border-[#eee] pt-8">
+      <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">
+        Batch Profile Generator
+      </div>
+      <p className="text-base text-[#666] mb-6">
+        Paste any text — names, URLs, lists, emails, notes — and AI will extract GitHub usernames and queue them for analysis.
+      </p>
+
+      {/* Input */}
+      <textarea
+        value={rawText}
+        onChange={(e) => setRawText(e.target.value)}
+        placeholder={"Paste anything here...\n\ne.g. \"Check out torvalds, @antfu, and github.com/tj — also sindresorhus has great repos\""}
+        rows={5}
+        className="w-full px-4 py-3 border-0 border-b border-[#ddd] bg-transparent text-base text-[#111] placeholder:text-[#ccc] hover:border-[#888] focus:border-[#111] focus:outline-none focus:ring-0 transition-colors resize-none mb-4"
+      />
+
+      <div className="flex gap-2 mb-6">
+        <button
+          onClick={handleExtract}
+          disabled={!rawText.trim() || isExtracting}
+          className="px-4 py-2 bg-[#111] text-white text-base font-medium rounded hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center gap-2"
+        >
+          {isExtracting && <Loader2 className="h-4 w-4 animate-spin" />}
+          Extract Usernames
+        </button>
+      </div>
+
+      {/* Extracted usernames */}
+      {extractedUsernames.length > 0 && (
+        <div className="mb-6">
+          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
+            Extracted ({extractedUsernames.length})
+          </div>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {extractedUsernames.map(username => (
+              <span key={username} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#f8f9fa] text-base text-[#111] border border-[#eee] rounded">
+                {username}
+                <button onClick={() => removeUsername(username)} className="text-[#ccc] hover:text-[#ea4335] transition-colors">&times;</button>
+              </span>
+            ))}
+          </div>
+          <button
+            onClick={handleEnqueue}
+            className="px-4 py-2 bg-[#111] text-white text-base font-medium rounded hover:bg-[#333] transition-colors"
+          >
+            Queue {extractedUsernames.length} for Analysis
+          </button>
+        </div>
+      )}
+
+      {/* Queue status */}
+      {queueStatus && queueStatus.queueLength > 0 && (
+        <div className="mb-6 bg-[#f8f9fa] py-[14px] px-[16px]" style={{ borderLeft: '3px solid #4285f4' }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-[13px] font-semibold uppercase tracking-[1px] text-[#4285f4] mb-1">Queue</div>
+              <div className="text-base text-[#333]">{queueStatus.queueLength} profiles pending</div>
+            </div>
+            <button
+              onClick={handleProcessAll}
+              disabled={isProcessing}
+              className="px-4 py-2 bg-[#111] text-white text-base font-medium rounded hover:bg-[#333] transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isProcessing ? 'Processing...' : 'Process All'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Logs */}
+      {batchLogs.length > 0 && (
+        <div className="border border-[#eee] rounded overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-[#eee] bg-[#f8f9fa]">
+            <span className="text-[13px] font-semibold text-[#aaa] tracking-[1px] uppercase">Log</span>
+            <button onClick={() => setBatchLogs([])} className="text-[13px] text-[#aaa] hover:text-[#111] transition-colors">Clear</button>
+          </div>
+          <div className="max-h-[200px] overflow-y-auto p-3 bg-[#fafafa]">
+            <div className="space-y-1 font-mono text-[13px]">
+              {batchLogs.map((log, i) => (
+                <div key={i} className={
+                  log.type === 'error' ? 'text-[#ea4335]' :
+                  log.type === 'success' ? 'text-[#34a853]' :
+                  'text-[#888]'
+                }>
+                  {log.message}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

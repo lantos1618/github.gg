@@ -254,6 +254,29 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
       }
     }
 
+    // Hard collision resolution — push overlapping nodes apart
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[j].x - nodes[i].x;
+        const dy = nodes[j].y - nodes[i].y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
+        const minDist = nodes[i].radius + nodes[j].radius + 4;
+        if (dist < minDist) {
+          const overlap = (minDist - dist) / 2;
+          const nx = dx / dist;
+          const ny = dy / dist;
+          if (nodes[i].id !== dragNode) {
+            nodes[i].x -= nx * overlap;
+            nodes[i].y -= ny * overlap;
+          }
+          if (nodes[j].id !== dragNode) {
+            nodes[j].x += nx * overlap;
+            nodes[j].y += ny * overlap;
+          }
+        }
+      }
+    }
+
     // Spring forces along edges
     const nodeMap = new Map(nodes.map(n => [n.id, n]));
     for (const edge of edges) {

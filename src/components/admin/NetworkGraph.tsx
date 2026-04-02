@@ -95,7 +95,7 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
       y: cy,
       vx: 0,
       vy: 0,
-      radius: 24,
+      radius: 30,
       color: COLORS.seed,
       isSeed: true,
       isExpanded: true, // seed is already expanded (we loaded its network)
@@ -106,11 +106,11 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
 
     // User nodes arranged in a circle initially
     const angleStep = (2 * Math.PI) / Math.max(users.length, 1);
-    const spreadRadius = Math.min(dimensions.width, dimensions.height) * 0.35;
+    const spreadRadius = Math.min(dimensions.width, dimensions.height) * 0.4;
 
     users.forEach((u, i) => {
       const angle = angleStep * i;
-      const r = Math.max(10, Math.log(u.followers + 1) * 4.5);
+      const r = Math.max(14, Math.log(u.followers + 1) * 5.5);
       nodes.push({
         id: u.username,
         x: cx + Math.cos(angle) * spreadRadius + (Math.random() - 0.5) * 20,
@@ -162,8 +162,8 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
       }
 
       const angle = angleStep * i;
-      const spread = 100 + Math.random() * 40;
-      const r = Math.max(10, Math.log(u.followers + 1) * 4.5);
+      const spread = 160 + Math.random() * 60;
+      const r = Math.max(14, Math.log(u.followers + 1) * 5.5);
 
       nodes.push({
         id: u.username,
@@ -228,11 +228,14 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
     if (nodes.length === 0) return;
 
     const iteration = iterationRef.current;
+    const n = nodes.length;
     const alpha = Math.max(0.01, 1 - iteration * 0.004);
-    const repulsionStrength = 2500 * alpha;
-    const springStrength = 0.015;
-    const springLength = 130;
-    const damping = 0.85;
+
+    // Dynamic params — scale with node count so graph breathes
+    const repulsionStrength = (3000 + n * 80) * alpha;
+    const springStrength = 0.012;
+    const springLength = 150 + Math.sqrt(n) * 12;
+    const damping = 0.82;
     const cx = dimensions.width / 2;
     const cy = dimensions.height / 2;
 
@@ -242,7 +245,7 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
         const dx = nodes[j].x - nodes[i].x;
         const dy = nodes[j].y - nodes[i].y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const minDist = nodes[i].radius + nodes[j].radius + 10;
+        const minDist = nodes[i].radius + nodes[j].radius + 16;
         const effectiveDist = Math.max(dist, minDist * 0.5);
         const force = repulsionStrength / (effectiveDist * effectiveDist);
         const fx = (dx / dist) * force;
@@ -260,7 +263,7 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
         const dx = nodes[j].x - nodes[i].x;
         const dy = nodes[j].y - nodes[i].y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
-        const minDist = nodes[i].radius + nodes[j].radius + 4;
+        const minDist = nodes[i].radius + nodes[j].radius + 8;
         if (dist < minDist) {
           const overlap = (minDist - dist) / 2;
           const nx = dx / dist;
@@ -296,34 +299,65 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
       tgt.vy -= fy;
     }
 
-    // Center gravity
+    // Center gravity (weaker so graph can spread)
     for (const node of nodes) {
       const dx = cx - node.x;
       const dy = cy - node.y;
-      node.vx += dx * 0.001 * alpha;
-      node.vy += dy * 0.001 * alpha;
+      node.vx += dx * 0.0005 * alpha;
+      node.vy += dy * 0.0005 * alpha;
     }
 
-    // Apply velocity
+    // Apply velocity (no hard bounds — viewBox will follow)
     for (const node of nodes) {
       if (node.id === dragNode) continue;
       node.vx *= damping;
       node.vy *= damping;
       node.x += node.vx;
       node.y += node.vy;
-      node.x = clamp(node.x, -400, dimensions.width + 400);
-      node.y = clamp(node.y, -400, dimensions.height + 400);
     }
 
     // Pin seed node to center (softly)
     const seedNode = nodes[0];
     if (seedNode && seedNode.isSeed && seedNode.id !== dragNode) {
-      seedNode.x += (cx - seedNode.x) * 0.03;
-      seedNode.y += (cy - seedNode.y) * 0.03;
+      seedNode.x += (cx - seedNode.x) * 0.02;
+      seedNode.y += (cy - seedNode.y) * 0.02;
+    }
+
+    // Auto-fit viewBox to contain all nodes (smooth zoom-out)
+    if (iteration % 5 === 0 && !isPanning) {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const node of nodes) {
+        minX = Math.min(minX, node.x - node.radius - 40);
+        minY = Math.min(minY, node.y - node.radius - 40);
+        maxX = Math.max(maxX, node.x + node.radius + 40);
+        maxY = Math.max(maxY, node.y + node.radius + 40);
+      }
+      const contentW = maxX - minX;
+      const contentH = maxY - minY;
+      const aspect = dimensions.width / dimensions.height;
+      let fitW = contentW;
+      let fitH = contentH;
+      if (fitW / fitH > aspect) {
+        fitH = fitW / aspect;
+      } else {
+        fitW = fitH * aspect;
+      }
+      // Only zoom out (never zoom in past initial), smooth lerp
+      const targetW = Math.max(fitW, dimensions.width);
+      const targetH = Math.max(fitH, dimensions.height);
+      const targetX = (minX + maxX) / 2 - targetW / 2;
+      const targetY = (minY + maxY) / 2 - targetH / 2;
+
+      setViewBox(prev => ({
+        x: prev.x + (targetX - prev.x) * 0.08,
+        y: prev.y + (targetY - prev.y) * 0.08,
+        w: prev.w + (targetW - prev.w) * 0.08,
+        h: prev.h + (targetH - prev.h) * 0.08,
+      }));
     }
 
     iterationRef.current++;
-  }, [dimensions, dragNode]);
+  }, [dimensions, dragNode, isPanning]);
 
   // Animation loop
   useEffect(() => {
@@ -536,8 +570,8 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
     const svgPt = pt.matrixTransform(ctm.inverse());
 
     setViewBox(prev => {
-      const newW = clamp(prev.w * zoomFactor, 200, dimensions.width * 6);
-      const newH = clamp(prev.h * zoomFactor, 125, dimensions.height * 6);
+      const newW = clamp(prev.w * zoomFactor, 200, dimensions.width * 10);
+      const newH = clamp(prev.h * zoomFactor, 125, dimensions.height * 10);
       const mouseRatioX = (svgPt.x - prev.x) / prev.w;
       const mouseRatioY = (svgPt.y - prev.y) / prev.h;
       const newX = svgPt.x - mouseRatioX * newW;
@@ -554,7 +588,7 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
     <div
       ref={containerRef}
       className="w-full border border-[#eee] rounded bg-white relative"
-      style={{ height: 500 }}
+      style={{ height: 600 }}
     >
       {/* Legend */}
       <div className="absolute top-3 left-3 flex gap-4 text-xs text-[#888] z-10 bg-white/80 px-2 py-1 rounded">

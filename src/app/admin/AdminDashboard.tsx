@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc/client';
 import { DollarSign, Users, RefreshCw, UserCheck, Download, Play, ExternalLink, Loader2 } from 'lucide-react';
@@ -701,6 +701,7 @@ function NetworkExplorer() {
   const [networkType, setNetworkType] = useState<'followers' | 'following'>('following');
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'table' | 'graph'>('table');
+  const trpcUtils = trpc.useUtils();
 
   const { data: network, isLoading } = trpc.admin.getNetworkUsers.useQuery(
     { username: activeUsername, type: networkType, limit: 50 },
@@ -708,6 +709,20 @@ function NetworkExplorer() {
   );
 
   const enqueueMutation = trpc.admin.batchEnqueueProfiles.useMutation();
+
+  // Callback for graph node expansion — fetches followers/following for a user
+  const handleExpandNode = useCallback(async (username: string) => {
+    try {
+      const result = await trpcUtils.admin.getNetworkUsers.fetch({
+        username,
+        type: networkType,
+        limit: 30,
+      });
+      return result.users;
+    } catch {
+      return null;
+    }
+  }, [trpcUtils, networkType]);
 
   const handleSearch = () => {
     if (seedUsername.trim()) {
@@ -818,7 +833,7 @@ function NetworkExplorer() {
           </div>
 
           {viewMode === 'graph' ? (
-            <NetworkGraph users={network.users} seed={network.seed} />
+            <NetworkGraph users={network.users} seed={network.seed} onExpandNode={handleExpandNode} />
           ) : (
             <table className="w-full text-base border-collapse">
               <thead>

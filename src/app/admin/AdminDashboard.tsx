@@ -236,6 +236,8 @@ export default function AdminDashboard() {
     setUserSortDirection(direction);
   };
 
+  const [activeTab, setActiveTab] = useState<'overview' | 'discover'>('overview');
+
   return (
     <div className="w-[90%] max-w-5xl mx-auto py-12 space-y-10">
       {/* Header */}
@@ -245,18 +247,56 @@ export default function AdminDashboard() {
           <h1 className="text-[31px] font-semibold text-[#111]">Dashboard</h1>
         </div>
         <div className="flex gap-2">
-          <button onClick={handleExportDeveloperProfiles} className="px-3 py-1.5 text-base font-medium text-[#666] border border-[#ddd] rounded hover:border-[#111] hover:text-[#111] transition-colors flex items-center gap-1.5">
-            <Download className="h-3.5 w-3.5" />
-            Export Profiles
-          </button>
-          <button onClick={handleRefresh} className="px-3 py-1.5 text-base font-medium text-[#666] border border-[#ddd] rounded hover:border-[#111] hover:text-[#111] transition-colors flex items-center gap-1.5">
-            <RefreshCw className="h-3.5 w-3.5" />
-            Refresh
-          </button>
+          {activeTab === 'overview' && (
+            <>
+              <button onClick={handleExportDeveloperProfiles} className="px-3 py-1.5 text-base font-medium text-[#666] border border-[#ddd] rounded hover:border-[#111] hover:text-[#111] transition-colors flex items-center gap-1.5">
+                <Download className="h-3.5 w-3.5" />
+                Export Profiles
+              </button>
+              <button onClick={handleRefresh} className="px-3 py-1.5 text-base font-medium text-[#666] border border-[#ddd] rounded hover:border-[#111] hover:text-[#111] transition-colors flex items-center gap-1.5">
+                <RefreshCw className="h-3.5 w-3.5" />
+                Refresh
+              </button>
+            </>
+          )}
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-0 border-b border-[#eee]">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`px-4 py-2 text-base font-medium transition-colors relative ${
+            activeTab === 'overview'
+              ? 'text-[#111]'
+              : 'text-[#999] hover:text-[#666]'
+          }`}
+        >
+          Overview
+          {activeTab === 'overview' && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#111]" />}
+        </button>
+        <button
+          onClick={() => setActiveTab('discover')}
+          className={`px-4 py-2 text-base font-medium transition-colors relative ${
+            activeTab === 'discover'
+              ? 'text-[#111]'
+              : 'text-[#999] hover:text-[#666]'
+          }`}
+        >
+          Discover
+          {activeTab === 'discover' && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#111]" />}
+        </button>
+      </div>
+
       <ReusableSSEFeedback status={sseStatus} progress={progress} currentStep={currentStep} logs={logs} title="Profile generation" />
+
+      {activeTab === 'discover' ? (
+        <div className="space-y-10">
+          <NetworkExplorer />
+          <BatchProfileGenerator />
+        </div>
+      ) : (
+      <>
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-6 border-y border-[#eee]">
@@ -404,12 +444,6 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      {/* Batch Profile Generator */}
-      <BatchProfileGenerator />
-
-      {/* Network Explorer */}
-      <NetworkExplorer />
-
       {/* Cost & Revenue Chart */}
       <div className="mt-10">
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">Cost & Revenue (30 Days)</div>
@@ -433,6 +467,8 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }
@@ -533,7 +569,7 @@ function BatchProfileGenerator() {
   };
 
   return (
-    <div className="mt-10 border-t border-[#eee] pt-8">
+    <div className="border-t border-[#eee] pt-8">
       <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">
         Batch Profile Generator
       </div>
@@ -753,7 +789,7 @@ function NetworkExplorer() {
   };
 
   return (
-    <div className="mt-10 border-t border-[#eee] pt-8">
+    <div>
       <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">
         Network Explorer
       </div>

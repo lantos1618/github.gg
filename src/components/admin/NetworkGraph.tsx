@@ -16,6 +16,7 @@ interface NetworkGraphProps {
   users: NetworkUser[];
   seed: string;
   onExpandNode?: (username: string) => Promise<NetworkUser[] | null>;
+  onSelectionChange?: (selected: Set<string>) => void;
 }
 
 interface GraphNode {
@@ -31,6 +32,7 @@ interface GraphNode {
   isLoading: boolean;
   avatar: string;
   user: NetworkUser | null;
+  hidden: boolean;
 }
 
 interface GraphEdge {
@@ -44,17 +46,30 @@ const COLORS = {
   noProfile: '#ddd',
   edge: '#e0e0e0',
   edgeHover: '#bbb',
+  mutualEdge: '#f5a623',
   label: '#111',
-  labelBg: 'rgba(255,255,255,0.92)',
+  labelBg: 'rgba(255,255,255,0.95)',
   expandedRing: '#111',
   loadingRing: '#4285f4',
+  mutualRing: '#f5a623',
+  selectedRing: '#4285f4',
 };
 
 function clamp(val: number, min: number, max: number) {
   return Math.max(min, Math.min(max, val));
 }
 
-export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
+// Count edges per node
+function getDegreeCounts(edges: GraphEdge[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const e of edges) {
+    counts.set(e.source, (counts.get(e.source) || 0) + 1);
+    counts.set(e.target, (counts.get(e.target) || 0) + 1);
+  }
+  return counts;
+}
+
+export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: NetworkGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const nodesRef = useRef<GraphNode[]>([]);
@@ -62,19 +77,26 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
   const animFrameRef = useRef<number>(0);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [dragNode, setDragNode] = useState<string | null>(null);
-  const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
-  const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 800, h: 500 });
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [isPanning, setIsPanning] = useState(false);
+  const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
+  const [hideLeaves, setHideLeaves] = useState(false);
   const panStart = useRef({ x: 0, y: 0, vx: 0, vy: 0 });
   const iterationRef = useRef(0);
   const initializedForRef = useRef<string>('');
-  // For differentiating click vs drag
   const dragStartPos = useRef({ x: 0, y: 0 });
-  // For differentiating single click vs double click
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastClickNodeRef = useRef<string | null>(null);
-  // Force re-render for React-managed elements (clipPaths, etc.)
-  const [, forceRender] = useState(0);
+  // viewBox as ref for perf — updated via direct DOM manipulation
+  const viewBoxRef = useRef({ x: 0, y: 0, w: 800, h: 600 });
+  const isPanningRef = useRef(false);
+  // Force re-render only when graph structure changes (add/remove nodes)
+  const [structureVersion, setStructureVersion] = useState(0);
+
+  // Sync selection changes to parent
+  useEffect(() => {
+    onSelectionChange?.(selectedNodes);
+  }, [selectedNodes, onSelectionChange]);
 
   // Build graph data when users/seed change (initial load only)
   useEffect(() => {
@@ -88,7 +110,6 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
     const nodes: GraphNode[] = [];
     const edges: GraphEdge[] = [];
 
-    // Seed node
     nodes.push({
       id: seed,
       x: cx,
@@ -98,13 +119,13 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
       radius: 30,
       color: COLORS.seed,
       isSeed: true,
-      isExpanded: true, // seed is already expanded (we loaded its network)
+      isExpanded: true,
       isLoading: false,
       avatar: `https://github.com/${seed}.png?size=96`,
       user: null,
+      hidden: false,
     });
 
-    // User nodes arranged in a circle initially
     const angleStep = (2 * Math.PI) / Math.max(users.length, 1);
     const spreadRadius = Math.min(dimensions.width, dimensions.height) * 0.4;
 
@@ -124,17 +145,16 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
         isLoading: false,
         avatar: u.avatar,
         user: u,
+        hidden: false,
       });
-
       edges.push({ source: seed, target: u.username });
     });
 
     nodesRef.current = nodes;
     edgesRef.current = edges;
     iterationRef.current = 0;
-
-    setViewBox({ x: 0, y: 0, w: dimensions.width, h: dimensions.height });
-    forceRender(n => n + 1);
+    viewBoxRef.current = { x: 0, y: 0, w: dimensions.width, h: dimensions.height };
+    setStructureVersion(v => v + 1);
   }, [users, seed, dimensions]);
 
   // Add new nodes incrementally (for expand)
@@ -150,7 +170,6 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
 
     newUsers.forEach((u, i) => {
       if (existingIds.has(u.username)) {
-        // Just add edge if not already connected
         const edgeExists = edges.some(
           e => (e.source === parentId && e.target === u.username) ||
                (e.source === u.username && e.target === parentId)
@@ -178,22 +197,21 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
         isLoading: false,
         avatar: u.avatar,
         user: u,
+        hidden: false,
       });
 
       edges.push({ source: parentId, target: u.username });
       added++;
     });
 
-    // Mark parent as expanded
     parent.isExpanded = true;
     parent.isLoading = false;
 
-    // Reheat simulation
     if (added > 0) {
       iterationRef.current = Math.max(0, iterationRef.current - 80);
     }
 
-    forceRender(n => n + 1);
+    setStructureVersion(v => v + 1);
   }, []);
 
   // Handle node expand (single click)
@@ -204,7 +222,7 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
     if (!node || node.isExpanded || node.isLoading) return;
 
     node.isLoading = true;
-    forceRender(n => n + 1);
+    setStructureVersion(v => v + 1);
 
     try {
       const newUsers = await onExpandNode(username);
@@ -213,25 +231,52 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
       } else {
         node.isLoading = false;
         node.isExpanded = true;
-        forceRender(n => n + 1);
+        setStructureVersion(v => v + 1);
       }
     } catch {
       node.isLoading = false;
-      forceRender(n => n + 1);
+      setStructureVersion(v => v + 1);
     }
   }, [onExpandNode, addNodes]);
 
-  // Force simulation
-  const simulate = useCallback(() => {
+  // Toggle selection (shift-click)
+  const toggleSelection = useCallback((nodeId: string) => {
+    setSelectedNodes(prev => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
+  }, []);
+
+  // Apply hide-leaves filter
+  useEffect(() => {
     const nodes = nodesRef.current;
     const edges = edgesRef.current;
+    if (!hideLeaves) {
+      for (const n of nodes) n.hidden = false;
+      setStructureVersion(v => v + 1);
+      return;
+    }
+    const degrees = getDegreeCounts(edges);
+    for (const n of nodes) {
+      n.hidden = !n.isSeed && (degrees.get(n.id) || 0) < 2;
+    }
+    setStructureVersion(v => v + 1);
+  }, [hideLeaves, structureVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Force simulation — pure math, no React state changes
+  const simulate = useCallback(() => {
+    const allNodes = nodesRef.current;
+    const edges = edgesRef.current;
+    // Only simulate visible nodes
+    const nodes = allNodes.filter(n => !n.hidden);
     if (nodes.length === 0) return;
 
     const iteration = iterationRef.current;
     const n = nodes.length;
     const alpha = Math.max(0.01, 1 - iteration * 0.004);
 
-    // Dynamic params — scale with node count so graph breathes
     const repulsionStrength = (3000 + n * 80) * alpha;
     const springStrength = 0.012;
     const springLength = 150 + Math.sqrt(n) * 12;
@@ -239,7 +284,7 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
     const cx = dimensions.width / 2;
     const cy = dimensions.height / 2;
 
-    // Repulsion between all nodes
+    // Repulsion
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
         const dx = nodes[j].x - nodes[i].x;
@@ -257,7 +302,7 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
       }
     }
 
-    // Hard collision resolution — push overlapping nodes apart
+    // Hard collision
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
         const dx = nodes[j].x - nodes[i].x;
@@ -280,9 +325,11 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
       }
     }
 
-    // Spring forces along edges
+    // Springs (only for edges where both nodes are visible)
+    const visibleIds = new Set(nodes.map(n => n.id));
     const nodeMap = new Map(nodes.map(n => [n.id, n]));
     for (const edge of edges) {
+      if (!visibleIds.has(edge.source) || !visibleIds.has(edge.target)) continue;
       const src = nodeMap.get(edge.source);
       const tgt = nodeMap.get(edge.target);
       if (!src || !tgt) continue;
@@ -299,7 +346,7 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
       tgt.vy -= fy;
     }
 
-    // Center gravity (weaker so graph can spread)
+    // Center gravity
     for (const node of nodes) {
       const dx = cx - node.x;
       const dy = cy - node.y;
@@ -307,7 +354,7 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
       node.vy += dy * 0.0005 * alpha;
     }
 
-    // Apply velocity (no hard bounds — viewBox will follow)
+    // Velocity
     for (const node of nodes) {
       if (node.id === dragNode) continue;
       node.vx *= damping;
@@ -316,21 +363,21 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
       node.y += node.vy;
     }
 
-    // Pin seed node to center (softly)
-    const seedNode = nodes[0];
+    // Pin seed softly
+    const seedNode = allNodes[0];
     if (seedNode && seedNode.isSeed && seedNode.id !== dragNode) {
       seedNode.x += (cx - seedNode.x) * 0.02;
       seedNode.y += (cy - seedNode.y) * 0.02;
     }
 
-    // Auto-fit viewBox to contain all nodes (smooth zoom-out)
-    if (iteration % 5 === 0 && !isPanning) {
+    // Auto-fit viewBox (every 10 frames, only if not panning/dragging)
+    if (iteration % 10 === 0 && !isPanningRef.current && !dragNode) {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const node of nodes) {
-        minX = Math.min(minX, node.x - node.radius - 40);
-        minY = Math.min(minY, node.y - node.radius - 40);
-        maxX = Math.max(maxX, node.x + node.radius + 40);
-        maxY = Math.max(maxY, node.y + node.radius + 40);
+        minX = Math.min(minX, node.x - node.radius - 50);
+        minY = Math.min(minY, node.y - node.radius - 50);
+        maxX = Math.max(maxX, node.x + node.radius + 50);
+        maxY = Math.max(maxY, node.y + node.radius + 50);
       }
       const contentW = maxX - minX;
       const contentH = maxY - minY;
@@ -342,24 +389,24 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
       } else {
         fitW = fitH * aspect;
       }
-      // Only zoom out (never zoom in past initial), smooth lerp
       const targetW = Math.max(fitW, dimensions.width);
       const targetH = Math.max(fitH, dimensions.height);
       const targetX = (minX + maxX) / 2 - targetW / 2;
       const targetY = (minY + maxY) / 2 - targetH / 2;
 
-      setViewBox(prev => ({
-        x: prev.x + (targetX - prev.x) * 0.08,
-        y: prev.y + (targetY - prev.y) * 0.08,
-        w: prev.w + (targetW - prev.w) * 0.08,
-        h: prev.h + (targetH - prev.h) * 0.08,
-      }));
+      const vb = viewBoxRef.current;
+      viewBoxRef.current = {
+        x: vb.x + (targetX - vb.x) * 0.06,
+        y: vb.y + (targetY - vb.y) * 0.06,
+        w: vb.w + (targetW - vb.w) * 0.06,
+        h: vb.h + (targetH - vb.h) * 0.06,
+      };
     }
 
     iterationRef.current++;
-  }, [dimensions, dragNode, isPanning]);
+  }, [dimensions, dragNode]);
 
-  // Animation loop
+  // Animation loop — pure DOM manipulation, no React re-renders
   useEffect(() => {
     let running = true;
 
@@ -367,28 +414,42 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
       if (!running) return;
       simulate();
 
-      if (svgRef.current) {
+      const svg = svgRef.current;
+      if (svg) {
+        // Update viewBox directly on SVG element
+        const vb = viewBoxRef.current;
+        svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+
         const nodes = nodesRef.current;
         const edges = edgesRef.current;
         const nodeMap = new Map(nodes.map(n => [n.id, n]));
 
-        const edgeEls = svgRef.current.querySelectorAll('.graph-edge');
+        const edgeEls = svg.querySelectorAll('.graph-edge');
         edgeEls.forEach((el, i) => {
           const edge = edges[i];
           if (!edge) return;
           const src = nodeMap.get(edge.source);
           const tgt = nodeMap.get(edge.target);
-          if (!src || !tgt) return;
+          if (!src || !tgt || src.hidden || tgt.hidden) {
+            el.setAttribute('visibility', 'hidden');
+            return;
+          }
+          el.setAttribute('visibility', 'visible');
           el.setAttribute('x1', String(src.x));
           el.setAttribute('y1', String(src.y));
           el.setAttribute('x2', String(tgt.x));
           el.setAttribute('y2', String(tgt.y));
         });
 
-        const nodeEls = svgRef.current.querySelectorAll('.graph-node');
+        const nodeEls = svg.querySelectorAll('.graph-node');
         nodeEls.forEach((el, i) => {
           const node = nodes[i];
           if (!node) return;
+          if (node.hidden) {
+            (el as HTMLElement).style.display = 'none';
+            return;
+          }
+          (el as HTMLElement).style.display = '';
           el.setAttribute('transform', `translate(${node.x},${node.y})`);
         });
       }
@@ -397,7 +458,6 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
     };
 
     animFrameRef.current = requestAnimationFrame(tick);
-
     return () => {
       running = false;
       cancelAnimationFrame(animFrameRef.current);
@@ -421,24 +481,28 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
   }, []);
 
   // Mouse handlers
-  const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+  const getSvgPoint = useCallback((e: React.MouseEvent | MouseEvent) => {
     const svg = svgRef.current;
-    if (!svg) return;
-
+    if (!svg) return null;
     const pt = svg.createSVGPoint();
     pt.x = e.clientX;
     pt.y = e.clientY;
     const ctm = svg.getScreenCTM();
-    if (!ctm) return;
-    const svgPt = pt.matrixTransform(ctm.inverse());
+    if (!ctm) return null;
+    return pt.matrixTransform(ctm.inverse());
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    const svgPt = getSvgPoint(e);
+    if (!svgPt) return;
 
     const nodes = nodesRef.current;
     for (let i = nodes.length - 1; i >= 0; i--) {
       const node = nodes[i];
+      if (node.hidden) continue;
       const dx = svgPt.x - node.x;
       const dy = svgPt.y - node.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist <= node.radius + 4) {
+      if (Math.sqrt(dx * dx + dy * dy) <= node.radius + 4) {
         setDragNode(node.id);
         dragStartPos.current = { x: e.clientX, y: e.clientY };
         node.vx = 0;
@@ -448,29 +512,18 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
       }
     }
 
-    // Start panning
+    // Pan
     setIsPanning(true);
-    panStart.current = {
-      x: e.clientX,
-      y: e.clientY,
-      vx: viewBox.x,
-      vy: viewBox.y,
-    };
+    isPanningRef.current = true;
+    const vb = viewBoxRef.current;
+    panStart.current = { x: e.clientX, y: e.clientY, vx: vb.x, vy: vb.y };
     e.preventDefault();
-  }, [viewBox]);
+  }, [getSvgPoint]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    const svg = svgRef.current;
-    if (!svg) return;
-
     if (dragNode) {
-      const pt = svg.createSVGPoint();
-      pt.x = e.clientX;
-      pt.y = e.clientY;
-      const ctm = svg.getScreenCTM();
-      if (!ctm) return;
-      const svgPt = pt.matrixTransform(ctm.inverse());
-
+      const svgPt = getSvgPoint(e);
+      if (!svgPt) return;
       const node = nodesRef.current.find(n => n.id === dragNode);
       if (node) {
         node.x = svgPt.x;
@@ -482,29 +535,26 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
     }
 
     if (isPanning) {
-      const scale = viewBox.w / dimensions.width;
+      const vb = viewBoxRef.current;
+      const scale = vb.w / dimensions.width;
       const dx = (e.clientX - panStart.current.x) * scale;
       const dy = (e.clientY - panStart.current.y) * scale;
-      setViewBox(prev => ({
-        ...prev,
+      viewBoxRef.current = {
+        ...vb,
         x: panStart.current.vx - dx,
         y: panStart.current.vy - dy,
-      }));
+      };
       return;
     }
 
-    // Hover detection
-    const pt = svg.createSVGPoint();
-    pt.x = e.clientX;
-    pt.y = e.clientY;
-    const ctm = svg.getScreenCTM();
-    if (!ctm) return;
-    const svgPt = pt.matrixTransform(ctm.inverse());
-
+    // Hover
+    const svgPt = getSvgPoint(e);
+    if (!svgPt) return;
     let found: string | null = null;
     const nodes = nodesRef.current;
     for (let i = nodes.length - 1; i >= 0; i--) {
       const node = nodes[i];
+      if (node.hidden) continue;
       const dx = svgPt.x - node.x;
       const dy = svgPt.y - node.y;
       if (Math.sqrt(dx * dx + dy * dy) <= node.radius + 4) {
@@ -513,18 +563,25 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
       }
     }
     setHoveredNode(found);
-  }, [dragNode, isPanning, viewBox, dimensions]);
+  }, [dragNode, isPanning, dimensions, getSvgPoint]);
 
   const handleMouseUp = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (dragNode) {
-      // Check if it was a click (minimal movement) vs drag
       const dx = e.clientX - dragStartPos.current.x;
       const dy = e.clientY - dragStartPos.current.y;
       const moved = Math.sqrt(dx * dx + dy * dy);
 
       if (moved < 5) {
-        // It was a click, not a drag — handle single/double click
         const nodeId = dragNode;
+
+        // Shift-click = select for analysis
+        if (e.shiftKey) {
+          toggleSelection(nodeId);
+          setDragNode(null);
+          setIsPanning(false);
+          isPanningRef.current = false;
+          return;
+        }
 
         if (clickTimerRef.current && lastClickNodeRef.current === nodeId) {
           // Double click — open GitHub profile
@@ -533,13 +590,11 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
           lastClickNodeRef.current = null;
           window.open(`https://github.com/${nodeId}`, '_blank');
         } else {
-          // Potential single click — wait to see if double click follows
           if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
           lastClickNodeRef.current = nodeId;
           clickTimerRef.current = setTimeout(() => {
             clickTimerRef.current = null;
             lastClickNodeRef.current = null;
-            // Single click — expand node
             handleExpand(nodeId);
           }, 250);
         }
@@ -548,41 +603,65 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
 
     setDragNode(null);
     setIsPanning(false);
-  }, [dragNode, handleExpand]);
+    isPanningRef.current = false;
+  }, [dragNode, handleExpand, toggleSelection]);
 
   const handleMouseLeave = useCallback(() => {
     setDragNode(null);
     setIsPanning(false);
+    isPanningRef.current = false;
   }, []);
 
   const handleWheel = useCallback((e: React.WheelEvent<SVGSVGElement>) => {
     e.preventDefault();
-    const svg = svgRef.current;
-    if (!svg) return;
+    const svgPt = getSvgPoint(e);
+    if (!svgPt) return;
 
     const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+    const vb = viewBoxRef.current;
+    const newW = clamp(vb.w * zoomFactor, 200, dimensions.width * 10);
+    const newH = clamp(vb.h * zoomFactor, 125, dimensions.height * 10);
+    const mouseRatioX = (svgPt.x - vb.x) / vb.w;
+    const mouseRatioY = (svgPt.y - vb.y) / vb.h;
+    viewBoxRef.current = {
+      x: svgPt.x - mouseRatioX * newW,
+      y: svgPt.y - mouseRatioY * newH,
+      w: newW,
+      h: newH,
+    };
+  }, [dimensions, getSvgPoint]);
 
-    const pt = svg.createSVGPoint();
-    pt.x = e.clientX;
-    pt.y = e.clientY;
-    const ctm = svg.getScreenCTM();
-    if (!ctm) return;
-    const svgPt = pt.matrixTransform(ctm.inverse());
-
-    setViewBox(prev => {
-      const newW = clamp(prev.w * zoomFactor, 200, dimensions.width * 10);
-      const newH = clamp(prev.h * zoomFactor, 125, dimensions.height * 10);
-      const mouseRatioX = (svgPt.x - prev.x) / prev.w;
-      const mouseRatioY = (svgPt.y - prev.y) / prev.h;
-      const newX = svgPt.x - mouseRatioX * newW;
-      const newY = svgPt.y - mouseRatioY * newH;
-      return { x: newX, y: newY, w: newW, h: newH };
-    });
-  }, [dimensions]);
-
+  // Compute degree counts for rendering (mutual detection)
   const nodes = nodesRef.current;
   const edges = edgesRef.current;
+  const degrees = getDegreeCounts(edges);
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+  const mutualCount = nodes.filter(n => !n.isSeed && !n.hidden && (degrees.get(n.id) || 0) >= 2).length;
+  const totalVisible = nodes.filter(n => !n.hidden).length;
+
+  // Ring color logic
+  const getRingColor = (node: GraphNode, isHovered: boolean, isSelected: boolean) => {
+    if (isSelected) return COLORS.selectedRing;
+    if (node.isSeed) return COLORS.seed;
+    if (isHovered) return '#111';
+    const deg = degrees.get(node.id) || 0;
+    if (deg >= 2) return COLORS.mutualRing; // social router
+    if (node.isExpanded) return COLORS.expandedRing;
+    if (node.color === COLORS.ggProfile) return COLORS.ggProfile;
+    return '#ccc';
+  };
+
+  const getRingWidth = (node: GraphNode, isHovered: boolean, isSelected: boolean) => {
+    if (isSelected) return 3;
+    if (isHovered || node.isSeed) return 2.5;
+    const deg = degrees.get(node.id) || 0;
+    if (deg >= 2) return 2.5;
+    if (node.isExpanded) return 2;
+    return 1.5;
+  };
+
+  const vb = viewBoxRef.current;
 
   return (
     <div
@@ -590,32 +669,64 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
       className="w-full border border-[#eee] rounded bg-white relative"
       style={{ height: 600 }}
     >
-      {/* Legend */}
-      <div className="absolute top-3 left-3 flex gap-4 text-xs text-[#888] z-10 bg-white/80 px-2 py-1 rounded">
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#111] border-2 border-[#111]" />
-          Seed
+      {/* Top bar: legend + controls */}
+      <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
+        <div className="flex gap-3 text-xs text-[#888] bg-white/90 px-2 py-1 rounded">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#111]" />
+            Seed
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-full border-2 border-[#f5a623] bg-white" />
+            Router ({mutualCount})
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#34a853]" />
+            GG Profile
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#ddd] border border-[#ccc]" />
+            Unscanned
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#34a853]" />
-          GG Profile
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#ddd] border border-[#ccc]" />
-          Unscanned
+        <div className="flex gap-2 items-center">
+          <button
+            onClick={() => setHideLeaves(!hideLeaves)}
+            className={`px-2.5 py-1 text-xs font-semibold rounded transition-colors ${
+              hideLeaves
+                ? 'bg-[#111] text-white'
+                : 'bg-white/90 text-[#888] border border-[#ddd] hover:text-[#111]'
+            }`}
+          >
+            {hideLeaves ? `Routers only (${totalVisible})` : 'Show routers only'}
+          </button>
+          {selectedNodes.size > 0 && (
+            <button
+              onClick={() => setSelectedNodes(new Set())}
+              className="px-2.5 py-1 text-xs text-[#888] bg-white/90 border border-[#ddd] rounded hover:text-[#111] transition-colors"
+            >
+              Clear {selectedNodes.size} selected
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Controls hint */}
+      {/* Bottom hint */}
       <div className="absolute bottom-3 right-3 text-[10px] text-[#bbb] z-10">
-        Click to expand · Double-click for GitHub · Scroll to zoom · Drag to pan
+        Click to expand · Shift-click to select · Double-click for GitHub · Scroll to zoom
       </div>
+
+      {selectedNodes.size > 0 && (
+        <div className="absolute bottom-3 left-3 text-xs text-[#666] z-10 bg-white/90 px-2 py-1 rounded border border-[#eee]">
+          {selectedNodes.size} selected for analysis
+        </div>
+      )}
 
       <svg
         ref={svgRef}
         width="100%"
         height="100%"
-        viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
+        viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -624,18 +735,14 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
         style={{ cursor: dragNode ? 'grabbing' : isPanning ? 'grabbing' : hoveredNode ? 'pointer' : 'grab' }}
       >
         <defs>
-          {/* Clip paths for avatar circles */}
           {nodes.map((node) => (
             <clipPath key={`clip-${node.id}`} id={`clip-${node.id}`}>
               <circle r={node.radius} cx={0} cy={0} />
             </clipPath>
           ))}
-          {/* Loading animation */}
           <style>{`
             @keyframes spin { to { transform: rotate(360deg); } }
-            @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
             .loading-ring { animation: spin 1.2s linear infinite; transform-origin: center; }
-            .loading-pulse { animation: pulse 1.2s ease-in-out infinite; }
           `}</style>
         </defs>
 
@@ -645,6 +752,8 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
           const tgt = nodeMap.get(edge.target);
           if (!src || !tgt) return null;
           const isHovered = hoveredNode === edge.source || hoveredNode === edge.target;
+          // Mutual edge: both ends have degree >= 2
+          const isMutualEdge = (degrees.get(edge.source) || 0) >= 2 && (degrees.get(edge.target) || 0) >= 2;
           return (
             <line
               key={`edge-${i}`}
@@ -653,8 +762,9 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
               y1={src.y}
               x2={tgt.x}
               y2={tgt.y}
-              stroke={isHovered ? COLORS.edgeHover : COLORS.edge}
-              strokeWidth={isHovered ? 1.5 : 0.8}
+              stroke={isHovered ? COLORS.edgeHover : isMutualEdge ? COLORS.mutualEdge : COLORS.edge}
+              strokeWidth={isHovered ? 1.5 : isMutualEdge ? 1.2 : 0.8}
+              opacity={isMutualEdge ? 0.6 : 1}
             />
           );
         })}
@@ -662,6 +772,10 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
         {/* Nodes */}
         {nodes.map((node) => {
           const isHovered = hoveredNode === node.id;
+          const isSelected = selectedNodes.has(node.id);
+          const deg = degrees.get(node.id) || 0;
+          const isMutual = !node.isSeed && deg >= 2;
+
           return (
             <g
               key={node.id}
@@ -677,22 +791,27 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
               onMouseEnter={() => setHoveredNode(node.id)}
               onMouseLeave={() => { if (!dragNode) setHoveredNode(null); }}
             >
-              {/* Border/ring circle (behind avatar) */}
+              {/* Selection glow */}
+              {isSelected && (
+                <circle
+                  r={node.radius + 5}
+                  fill="none"
+                  stroke={COLORS.selectedRing}
+                  strokeWidth={2}
+                  opacity={0.4}
+                />
+              )}
+
+              {/* Border ring */}
               <circle
                 r={node.radius + 2}
                 fill="none"
-                stroke={
-                  node.isSeed ? COLORS.seed :
-                  isHovered ? '#111' :
-                  node.isExpanded ? COLORS.expandedRing :
-                  node.color === COLORS.ggProfile ? COLORS.ggProfile :
-                  '#ccc'
-                }
-                strokeWidth={isHovered || node.isSeed ? 2.5 : node.isExpanded ? 2 : 1.5}
-                opacity={node.color === COLORS.noProfile && !isHovered && !node.isExpanded ? 0.6 : 1}
+                stroke={getRingColor(node, isHovered, isSelected)}
+                strokeWidth={getRingWidth(node, isHovered, isSelected)}
+                opacity={node.color === COLORS.noProfile && !isHovered && !isMutual && !isSelected ? 0.6 : 1}
               />
 
-              {/* Avatar image clipped to circle */}
+              {/* Avatar */}
               <image
                 href={node.avatar}
                 x={-node.radius}
@@ -703,7 +822,7 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
                 preserveAspectRatio="xMidYMid slice"
               />
 
-              {/* Loading spinner ring */}
+              {/* Loading spinner */}
               {node.isLoading && (
                 <circle
                   className="loading-ring"
@@ -716,8 +835,32 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
                 />
               )}
 
-              {/* Expanded indicator — small dot */}
-              {node.isExpanded && !node.isSeed && (
+              {/* Mutual badge (connection count) */}
+              {isMutual && !isHovered && (
+                <g>
+                  <circle
+                    cx={node.radius * 0.7}
+                    cy={-node.radius * 0.7}
+                    r={6}
+                    fill={COLORS.mutualRing}
+                    stroke="white"
+                    strokeWidth={1.5}
+                  />
+                  <text
+                    x={node.radius * 0.7}
+                    y={-node.radius * 0.7 + 3.5}
+                    textAnchor="middle"
+                    fill="white"
+                    fontSize={8}
+                    fontWeight={700}
+                  >
+                    {deg}
+                  </text>
+                </g>
+              )}
+
+              {/* Expanded indicator (non-mutual) */}
+              {node.isExpanded && !node.isSeed && !isMutual && (
                 <circle
                   cx={node.radius * 0.7}
                   cy={-node.radius * 0.7}
@@ -728,7 +871,7 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
                 />
               )}
 
-              {/* Seed label always visible */}
+              {/* Seed label */}
               {node.isSeed && (
                 <text
                   y={node.radius + 16}
@@ -745,10 +888,10 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
               {isHovered && !node.isSeed && (
                 <>
                   <rect
-                    x={-55}
+                    x={-60}
                     y={node.radius + 5}
-                    width={110}
-                    height={node.isExpanded ? 32 : 44}
+                    width={120}
+                    height={isMutual ? 44 : node.isExpanded ? 32 : 44}
                     rx={4}
                     fill={COLORS.labelBg}
                     stroke="#eee"
@@ -769,9 +912,20 @@ export function NetworkGraph({ users, seed, onExpandNode }: NetworkGraphProps) {
                     fill="#888"
                     fontSize={9}
                   >
-                    {(node.user?.followers ?? 0).toLocaleString()} followers
+                    {(node.user?.followers ?? 0).toLocaleString()} followers · {deg} connections
                   </text>
-                  {!node.isExpanded && !node.isLoading && (
+                  {isMutual && (
+                    <text
+                      y={node.radius + 43}
+                      textAnchor="middle"
+                      fill={COLORS.mutualRing}
+                      fontSize={8}
+                      fontWeight={600}
+                    >
+                      social router
+                    </text>
+                  )}
+                  {!node.isExpanded && !node.isLoading && !isMutual && (
                     <text
                       y={node.radius + 43}
                       textAnchor="middle"

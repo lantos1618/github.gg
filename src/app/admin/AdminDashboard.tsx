@@ -833,7 +833,26 @@ function NetworkExplorer() {
           </div>
 
           {viewMode === 'graph' ? (
-            <NetworkGraph users={network.users} seed={network.seed} onExpandNode={handleExpandNode} />
+            <>
+              <NetworkGraph
+                users={network.users}
+                seed={network.seed}
+                onExpandNode={handleExpandNode}
+                onSelectionChange={setSelectedUsers}
+              />
+              {selectedUsers.size > 0 && (
+                <div className="flex items-center gap-3 mt-3">
+                  <button
+                    onClick={handleEnqueueSelected}
+                    disabled={enqueueMutation.isPending}
+                    className="px-3 py-1.5 bg-[#111] text-white text-base font-medium rounded hover:bg-[#333] transition-colors disabled:opacity-50"
+                  >
+                    Queue {selectedUsers.size} for analysis
+                  </button>
+                  <span className="text-xs text-[#999]">Shift-click nodes to select</span>
+                </div>
+              )}
+            </>
           ) : (
             <table className="w-full text-base border-collapse">
               <thead>

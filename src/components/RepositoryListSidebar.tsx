@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 interface RepositoryListSidebarProps {
@@ -62,7 +63,11 @@ export const RepositoryListSidebar: React.FC<RepositoryListSidebarProps> = ({
       )}>
         <div className="space-y-1">
           {reposLoading ? (
-            <div className="px-2 py-8 text-center text-base text-[#aaa]">Loading...</div>
+            <div className="px-2 py-4 space-y-3">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+            </div>
           ) : repositories && repositories.length > 0 ? (
             repositories.map((repo) => (
               <Link

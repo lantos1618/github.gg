@@ -2,6 +2,7 @@
 
 import { useState, ReactNode } from 'react';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Search } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RepoPageLayout } from '@/components/layouts/RepoPageLayout';
@@ -89,7 +90,11 @@ export function ResourceListView<TItem>({
 
         {/* Items */}
         {isLoading ? (
-          <div className="py-12 text-center text-base text-[#aaa]">Loading {title.toLowerCase()}...</div>
+          <div className="py-6 space-y-3">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
         ) : filteredItems.length === 0 ? (
           <div className="py-12 text-center text-base text-[#aaa]">{search ? noResultsMessage : emptyStateMessage}</div>
         ) : (

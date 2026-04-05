@@ -7,6 +7,7 @@ import { trpc } from '@/lib/trpc/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
 // Lazy load MilkdownEditor - Milkdown is a heavy rich text editor (~150KB+)
@@ -15,7 +16,7 @@ const MilkdownEditor = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="border rounded-lg p-4 min-h-[300px] flex items-center justify-center text-base text-[#aaa]">Loading...</div>
+      <Skeleton className="h-[300px] w-full rounded-lg" />
     ),
   }
 );

@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { trpc } from '@/lib/trpc/client';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { NetworkGraph } from '@/components/admin/NetworkGraph';
@@ -82,7 +83,10 @@ function NetworkExplorer() {
       </div>
 
       {isLoading && (
-        <div className="py-8 text-center text-base text-[#aaa]">Loading {networkType} for {activeUsername}...</div>
+        <div className="py-6 space-y-3">
+          <Skeleton className="h-8 w-48 mx-auto" />
+          <Skeleton className="h-[300px] w-full" />
+        </div>
       )}
 
       {network && (

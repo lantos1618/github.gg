@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { useProfileGeneration } from './hooks/useProfileGeneration';
 import { ProfileEmptyState } from './ProfileEmptyState';
 import { ProfileContent } from './ProfileContent';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface SerializableInitialProfileData {
   profile: DeveloperProfileType | null;
@@ -25,8 +26,19 @@ interface DeveloperProfileProps {
 
 function ProfileSkeleton() {
   return (
-    <div className="max-w-[1200px] mx-auto px-4 py-16">
-      <div className="py-16 text-center text-base text-[#aaa]">Loading...</div>
+    <div className="max-w-[1200px] mx-auto px-4 py-16 space-y-6">
+      <div className="flex items-center gap-4">
+        <Skeleton className="h-20 w-20 rounded-full" />
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+      </div>
+      <div className="space-y-3">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-4 w-5/6" />
+      </div>
     </div>
   );
 }
@@ -197,7 +209,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
 
   // Version selector UI - rendered inline to avoid component identity issues
   const versionSelectorElement = versionsLoading
-    ? <span className="ml-2 text-sm text-[#aaa]">Loading...</span>
+    ? <Skeleton className="ml-2 h-4 w-24 inline-block" />
     : (!versions || versions.length === 0)
       ? null
       : (
@@ -262,7 +274,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
         <div className="mt-2 space-y-1">
           {currentUser?.user ? (
             emailLoading ? (
-              <span className="text-sm text-[#aaa]">Loading...</span>
+              <Skeleton className="h-4 w-32" />
             ) : emailData?.email ? (
               <div className="flex items-center gap-2 text-gray-500">
                 <Mail className="h-4 w-4" />

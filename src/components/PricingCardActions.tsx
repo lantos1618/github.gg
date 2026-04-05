@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { trpc } from '@/lib/trpc/client';
 import { usePlan } from '@/lib/hooks/usePlan';
 import { useAuth } from '@/lib/auth/client';
@@ -57,7 +58,7 @@ export function PricingCardActions({ planType, isPro }: PricingCardActionsProps)
   // Pro plan button - loading state
   if (isLoading) {
     return (
-      <div className="w-full h-10 rounded flex items-center justify-center text-base text-[#aaa]">Loading...</div>
+      <Skeleton className="w-full h-10 rounded" />
     );
   }
 

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CandidateMatchCard } from '@/components/hire/CandidateMatchCard';
 import { trpc } from '@/lib/trpc/client';
@@ -216,8 +217,11 @@ Include:
             )}
 
             {matchMutation.isPending && (
-              <div className="bg-white rounded-lg border p-6">
-                <div className="py-16 text-center text-base text-[#aaa]">Loading...</div>
+              <div className="bg-white rounded-lg border p-6 space-y-4">
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
               </div>
             )}
 

@@ -3,14 +3,21 @@
 import React, { ReactNode } from 'react';
 import { AnalysisErrorDisplay } from '@/components/ui/analysis-error-display';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { RefreshCw, LogIn } from 'lucide-react';
 import { useAuth } from '@/lib/auth/client';
 import { ReusableSSEFeedback, type SSEStatus, type SSELogItem } from '@/components/analysis/ReusableSSEFeedback';
 
 function AnalysisLoadingSkeleton() {
   return (
-    <div className="w-[90%] max-w-5xl mx-auto pt-6">
-      <div className="py-16 text-center text-base text-[#aaa]">Loading...</div>
+    <div className="w-[90%] max-w-5xl mx-auto pt-6 space-y-4">
+      <Skeleton className="h-6 w-48" />
+      <Skeleton className="h-4 w-32" />
+      <div className="space-y-3 mt-6">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </div>
     </div>
   );
 }

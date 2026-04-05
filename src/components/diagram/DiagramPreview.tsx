@@ -1,14 +1,13 @@
 "use client";
 import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
 // Lazy load MermaidRenderer - mermaid is ~200KB, only load when needed
 const MermaidRenderer = dynamic(
   () => import('./MermaidRenderer').then(mod => ({ default: mod.MermaidRenderer })),
   {
     ssr: false,
     loading: () => (
-      <div className="flex items-center justify-center min-h-[200px] border rounded-lg bg-muted/20">
-        <p className="text-base text-[#aaa]">Loading...</p>
-      </div>
+      <Skeleton className="min-h-[200px] w-full rounded-lg" />
     ),
   }
 );

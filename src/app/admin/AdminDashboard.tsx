@@ -8,6 +8,7 @@ import { formatCost, calculatePerUserCostAndUsage } from '@/lib/utils/cost-calcu
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Image from 'next/image';
 import { SortableTable } from '@/components/ui/sortable-table';
+import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { ReusableSSEFeedback, type SSELogItem, type SSEStatus } from '@/components/analysis/ReusableSSEFeedback';
 import { sanitizeText } from '@/lib/utils/sanitize';
@@ -373,7 +374,11 @@ export default function AdminDashboard() {
           Top Users by Cost (This Month)
         </div>
         {loading ? (
-          <div className="py-8 text-center text-base text-[#aaa]">Loading...</div>
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
         ) : noData ? (
           <div className="py-8 text-center text-base text-[#aaa]">No usage data this month.</div>
         ) : (

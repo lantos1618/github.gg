@@ -9,6 +9,7 @@ import { Footer } from '@/components/Footer';
 // ResizablePanel removed in favor of CSS transitions for smooth animations
 import { RepositoryListSidebar } from '@/components/RepositoryListSidebar';
 import { ActivityFeed } from '@/components/ActivityFeed';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -52,7 +53,11 @@ function DashboardContent({
         </div>
         <div className="grid gap-3">
           {prsLoading ? (
-            <div className="py-8 text-center text-base text-[#aaa]">Loading...</div>
+            <div className="space-y-3">
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-xl" />
+            </div>
           ) : pullRequests && pullRequests.length > 0 ? (
             pullRequests.map((pr) => (
               <a
@@ -107,7 +112,11 @@ function DashboardContent({
         </div>
         <div className="grid gap-3">
           {issuesLoading ? (
-            <div className="py-8 text-center text-base text-[#aaa]">Loading...</div>
+            <div className="space-y-3">
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-xl" />
+            </div>
           ) : issues && issues.length > 0 ? (
             issues.map((issue) => (
               <a

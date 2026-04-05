@@ -2,6 +2,7 @@
 
 import { trpc } from '@/lib/trpc/client';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { SkillAssessment } from '@/components/profile/SkillAssessment';
 import { TopRepos } from '@/components/profile/TopRepos';
 import Link from 'next/link';
@@ -97,8 +98,14 @@ export function HiringReportClient({ username }: HiringReportClientProps) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white p-8 max-w-4xl mx-auto">
-        <div className="py-16 text-center text-base text-[#aaa]">Loading...</div>
+      <div className="min-h-screen bg-white p-8 max-w-4xl mx-auto space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-32" />
+        <div className="grid md:grid-cols-2 gap-4 mt-6">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </div>
+        <Skeleton className="h-48 w-full" />
       </div>
     );
   }

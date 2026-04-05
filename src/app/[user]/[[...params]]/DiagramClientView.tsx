@@ -16,6 +16,7 @@ import { trpc } from '@/lib/trpc/client';
 import { usePlan } from '@/lib/hooks/usePlan';
 import { VersionDropdown } from '@/components/VersionDropdown';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { ReusableSSEFeedback } from '@/components/analysis/ReusableSSEFeedback';
 
@@ -180,8 +181,9 @@ function DiagramClientView({
     );
   } else if (filesLoading || publicLoading || planLoading) {
     mainContent = (
-      <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
-        <div className="py-16 text-center text-base text-[#aaa]">Loading...</div>
+      <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8 space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-[400px] w-full" />
       </div>
     );
   } else if (filesError) {
@@ -271,7 +273,10 @@ function DiagramClientView({
         ) : (
           <>
             {isPending && (
-              <div className="my-8 py-16 text-center text-base text-[#aaa]">Loading...</div>
+              <div className="my-8 space-y-4">
+                <Skeleton className="h-8 w-48" />
+                <Skeleton className="h-[300px] w-full" />
+              </div>
             )}
 
             <DiagramErrorHandler

@@ -3,13 +3,14 @@
 import dynamic from 'next/dynamic';
 import { DevelopmentStyle } from './DevelopmentStyle';
 import { SkillAssessment } from './SkillAssessment';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
 
 const ScoreHistory = dynamic(
   () => import('@/components/ScoreHistory').then(mod => ({ default: mod.ScoreHistory })),
   {
     ssr: false,
-    loading: () => <div className="h-[300px] w-full flex items-center justify-center text-base text-[#aaa]">Loading...</div>,
+    loading: () => <Skeleton className="h-[300px] w-full" />,
   }
 );
 

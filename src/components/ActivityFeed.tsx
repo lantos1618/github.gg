@@ -2,6 +2,7 @@
 
 import React, { RefObject } from 'react';
 import { formatDistanceToNow } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 interface Activity {
@@ -52,7 +53,11 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
     <div className="flex-1 overflow-y-auto p-4">
       <div className="relative border-l border-border ml-2 space-y-6">
         {isLoading && activities.length === 0 ? (
-          <div className="pl-5 py-8 text-center text-base text-[#aaa]">Loading...</div>
+          <div className="pl-5 py-4 space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
         ) : activities && activities.length > 0 ? (
           <>
             {activities.map((activity) => (
@@ -119,8 +124,8 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
             {currentPageActivities &&
               currentPageActivities.length === pageSize &&
               activitiesPage < maxPages && (
-                <div ref={loadMoreRef} className="py-3 text-center pl-5">
-                  <div className="text-sm text-[#aaa]">Loading...</div>
+                <div ref={loadMoreRef} className="py-3 pl-5">
+                  <Skeleton className="h-8 w-full" />
                 </div>
               )}
           </>

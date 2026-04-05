@@ -2,7 +2,6 @@
 
 import React, { ReactNode } from 'react';
 import { AnalysisErrorDisplay } from '@/components/ui/analysis-error-display';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, LogIn } from 'lucide-react';
 import { useAuth } from '@/lib/auth/client';
@@ -11,25 +10,7 @@ import { ReusableSSEFeedback, type SSEStatus, type SSELogItem } from '@/componen
 function AnalysisLoadingSkeleton() {
   return (
     <div className="w-[90%] max-w-5xl mx-auto pt-6">
-      <div className="flex items-center justify-between mb-6">
-        <Skeleton className="h-5 w-32" />
-        <Skeleton className="h-9 w-24" />
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="py-3">
-            <Skeleton className="h-3 w-16 mb-2" />
-            <Skeleton className="h-7 w-12" />
-          </div>
-        ))}
-      </div>
-      <div className="space-y-4">
-        <Skeleton className="h-5 w-48" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-24 w-full mt-4" />
-      </div>
+      <div className="py-16 text-center text-base text-[#aaa]">Loading...</div>
     </div>
   );
 }

@@ -2,7 +2,6 @@
 
 import { trpc } from '@/lib/trpc/client';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { SkillAssessment } from '@/components/profile/SkillAssessment';
 import { TopRepos } from '@/components/profile/TopRepos';
 import Link from 'next/link';
@@ -99,26 +98,7 @@ export function HiringReportClient({ username }: HiringReportClientProps) {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white p-8 max-w-4xl mx-auto">
-        <div className="space-y-6">
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-16 w-16 rounded-full" />
-            <div className="space-y-2">
-              <Skeleton className="h-6 w-48" />
-              <Skeleton className="h-4 w-32" />
-            </div>
-          </div>
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="border rounded-lg p-4 space-y-3">
-                <Skeleton className="h-5 w-32" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-2/3" />
-              </div>
-            ))}
-          </div>
-        </div>
+        <div className="py-16 text-center text-base text-[#aaa]">Loading...</div>
       </div>
     );
   }

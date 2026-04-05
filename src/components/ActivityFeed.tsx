@@ -1,7 +1,6 @@
 'use client';
 
 import React, { RefObject } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -53,11 +52,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
     <div className="flex-1 overflow-y-auto p-4">
       <div className="relative border-l border-border ml-2 space-y-6">
         {isLoading && activities.length === 0 ? (
-          <div className="pl-5 space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-14 w-full" />
-            ))}
-          </div>
+          <div className="pl-5 py-8 text-center text-base text-[#aaa]">Loading...</div>
         ) : activities && activities.length > 0 ? (
           <>
             {activities.map((activity) => (
@@ -125,11 +120,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
               currentPageActivities.length === pageSize &&
               activitiesPage < maxPages && (
                 <div ref={loadMoreRef} className="py-3 text-center pl-5">
-                  {isLoading ? (
-                    <Skeleton className="h-8 w-full" />
-                  ) : (
-                    <Skeleton className="h-8 w-full" />
-                  )}
+                  <div className="text-sm text-[#aaa]">Loading...</div>
                 </div>
               )}
           </>

@@ -11,6 +11,7 @@ import { eq, and, gte } from 'drizzle-orm';
 import { getCachedStargazerStatus, setCachedStargazerStatus } from '@/lib/rate-limit';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import type { BetterAuthSession } from '@/lib/github/types';
+import type { Plan } from './permissions';
 
 /** The repository that grants the stargazer perk */
 export const STARGAZER_REPO = 'lantos1618/github.gg';
@@ -31,7 +32,7 @@ export interface StargazerPerkResult {
   /** Whether the user qualifies for the perk (starred + has remaining free uses) */
   isStargazerPerk: boolean;
   /** The effective plan to use ('pro' if perk applies, otherwise original plan) */
-  effectivePlan: string;
+  effectivePlan: Plan;
   /** Whether the user has starred the repo */
   hasStarred: boolean;
   /** Number of free uses remaining this month (0 if none) */
@@ -69,7 +70,7 @@ export async function checkStargazerPerk(
   userId: string,
   session: BetterAuthSession,
   feature: StargazerPerkFeature,
-  currentPlan: string
+  currentPlan: Plan
 ): Promise<StargazerPerkResult> {
   const freeUsageLimit = STARGAZER_PERK_FEATURES[feature];
 

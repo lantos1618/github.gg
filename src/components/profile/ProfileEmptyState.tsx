@@ -1,51 +1,14 @@
 "use client";
 
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { UpgradePrompt } from '@/components/upgrade';
 import { RefreshCw, FolderGit2 } from 'lucide-react';
 import { ReusableSSEFeedback, type SSEStatus, type SSELogItem } from '@/components/analysis/ReusableSSEFeedback';
 
 function ProfileGeneratingSkeleton() {
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-8">
-      {/* Header skeleton */}
-      <div className="flex items-start gap-6">
-        <Skeleton className="h-24 w-24 rounded-full shrink-0" />
-        <div className="flex-1 space-y-3 pt-2">
-          <Skeleton className="h-7 w-48" />
-          <Skeleton className="h-4 w-64" />
-          <Skeleton className="h-4 w-40" />
-        </div>
-      </div>
-
-      {/* Score skeleton */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="py-3">
-            <Skeleton className="h-3 w-16 mb-2" />
-            <Skeleton className="h-8 w-12" />
-          </div>
-        ))}
-      </div>
-
-      {/* Summary skeleton */}
-      <div className="space-y-3">
-        <Skeleton className="h-5 w-32" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-3/4" />
-      </div>
-
-      {/* Skills skeleton */}
-      <div className="space-y-3">
-        <Skeleton className="h-5 w-24" />
-        <div className="flex gap-2">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-8 w-20 rounded" />
-          ))}
-        </div>
-      </div>
+    <div className="w-full max-w-5xl mx-auto">
+      <div className="py-16 text-center text-base text-[#aaa]">Loading...</div>
     </div>
   );
 }

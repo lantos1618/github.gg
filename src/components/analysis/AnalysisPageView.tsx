@@ -53,7 +53,7 @@ export interface AnalysisViewConfig<TResponse> {
   usePublicData: (params: { user: string; repo: string; ref: string; version?: number }) => unknown;
   useCreateJob: () => { mutateAsync: (input: { user: string; repo: string; ref: string; filePaths: string[] }) => Promise<{ jobId: string }> };
   useGenerateSubscription: (input: any, options: any) => void;
-  usePlan: () => unknown;
+  usePlan: () => { isPaid: boolean; isLoading: boolean };
   useUtils: () => TRPCUtils;
 
   // Data extractors
@@ -116,8 +116,7 @@ function AnalysisPageViewInner<TResponse>({
   // Store jobId for SSE subscription (two-step: POST job, then subscribe by ID)
   const [jobId, setJobId] = useState<string | null>(null);
 
-  const planResult = config.usePlan() as { data: { plan: string } | undefined; isLoading: boolean };
-  const { data: currentPlan, isLoading: planLoading } = planResult;
+  const { isPaid, isLoading: planLoading } = config.usePlan();
   const utils = config.useUtils();
   const { selectedFilePaths, toggleFile } = useSelectedFiles();
 
@@ -253,7 +252,7 @@ function AnalysisPageViewInner<TResponse>({
   };
 
   const overallLoading = filesLoading || isLoading;
-  const canAccess = currentPlan && currentPlan.plan !== 'free';
+  const canAccess = isPaid;
   const hasAuthError = isFilesAuthError || isSubscriptionAuthError;
   const hasData = !!(analysisDataObj || markdownContent);
   const isRegeneratingWithFeedback = shouldAnalyze && sseStatus !== 'idle';

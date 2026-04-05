@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { trpc } from '@/lib/trpc/client';
+import { usePlan } from '@/lib/hooks/usePlan';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Key, Trash2, BarChart3, Webhook, Palette, Plus, Copy, Check, Code2, ExternalLink } from 'lucide-react';
 import { PageHeader, CardWithHeader } from '@/components/common';
@@ -38,7 +39,7 @@ export default function SettingsPage() {
   const { data: usageStats } = trpc.user.getUsageStats.useQuery({
     startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1), // This month
   });
-  const { data: currentPlan } = trpc.user.getCurrentPlan.useQuery();
+  const { plan, isPaid } = usePlan();
   const { data: webhookPrefs, refetch: refetchWebhookPrefs } = trpc.webhooks.getPreferences.useQuery();
   const { data: installationInfo } = trpc.webhooks.getInstallationInfo.useQuery();
 
@@ -157,7 +158,7 @@ export default function SettingsPage() {
   };
 
   const handleManageBilling = () => {
-    if (currentPlan?.plan === 'free') {
+    if (!isPaid) {
       toast.error('You need an active subscription to manage billing');
       return;
     }
@@ -198,7 +199,7 @@ export default function SettingsPage() {
           description="Personalize your developer profile with custom colors and effects."
           icon={Palette}
         >
-          {currentPlan?.plan === 'pro' || currentPlan?.plan === 'byok' ? (
+          {isPaid ? (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -336,15 +337,15 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-lg font-semibold capitalize">
-                  {currentPlan?.plan || 'Free'} Plan
+                  {plan || 'Free'} Plan
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {currentPlan?.plan === 'free' && 'Public repositories only'}
-                  {currentPlan?.plan === 'byok' && 'Private repos + BYOK'}
-                  {currentPlan?.plan === 'pro' && 'Private repos + managed AI'}
+                  {(!plan || plan === 'free') && 'Public repositories only'}
+                  {plan === 'byok' && 'Private repos + BYOK'}
+                  {plan === 'pro' && 'Private repos + managed AI'}
                 </p>
               </div>
-              {currentPlan?.plan !== 'free' ? (
+              {isPaid ? (
                 <Button
                   variant="outline"
                   onClick={handleManageBilling}

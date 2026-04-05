@@ -11,9 +11,9 @@ import {
   DiagramPreview,
   DiagramErrorHandler,
 } from '@/components/diagram';
-import { Skeleton } from '@/components/ui/skeleton';
 import { UpgradePrompt } from '@/components/upgrade';
 import { trpc } from '@/lib/trpc/client';
+import { usePlan } from '@/lib/hooks/usePlan';
 import { VersionDropdown } from '@/components/VersionDropdown';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
@@ -78,11 +78,7 @@ function DiagramClientView({
   const { files: repoFiles, isLoading: filesLoading, error: filesError, totalFiles } = useRepoData({ user, repo, ref: refName, path });
 
   // Check user plan
-  const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery(undefined, {
-    enabled: false, // Disable this query for now to prevent spamming
-    retry: false, // Don't retry on failure
-  });
-  const hasAccess = useMemo(() => currentPlan?.plan === 'byok' || currentPlan?.plan === 'pro', [currentPlan?.plan]);
+  const { isPaid: hasAccess, isLoading: planLoading } = usePlan();
 
   // Fetch all available versions
   const { data: versions, isLoading: versionsLoading } = trpc.diagram.getDiagramVersions.useQuery({
@@ -184,15 +180,8 @@ function DiagramClientView({
     );
   } else if (filesLoading || publicLoading || planLoading) {
     mainContent = (
-      <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8 space-y-6">
-        <div className="space-y-4">
-          <Skeleton className="h-10 w-48" />
-          <div className="flex gap-4">
-            <Skeleton className="h-10 w-32" />
-            <Skeleton className="h-10 w-32" />
-          </div>
-        </div>
-        <Skeleton className="h-96 w-full" />
+      <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8">
+        <div className="py-16 text-center text-base text-[#aaa]">Loading...</div>
       </div>
     );
   } else if (filesError) {
@@ -282,10 +271,7 @@ function DiagramClientView({
         ) : (
           <>
             {isPending && (
-              <div className="my-8 space-y-4">
-                <Skeleton className="h-10 w-64" />
-                <Skeleton className="h-96 w-full" />
-              </div>
+              <div className="my-8 py-16 text-center text-base text-[#aaa]">Loading...</div>
             )}
 
             <DiagramErrorHandler

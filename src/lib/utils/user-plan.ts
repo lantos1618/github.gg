@@ -2,6 +2,7 @@ import { db } from '@/db';
 import { userSubscriptions, userApiKeys } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { decryptApiKey } from './encryption';
+import type { Plan } from './permissions';
 
 export async function getUserSubscription(userId: string) {
   return await db.query.userSubscriptions.findFirst({
@@ -26,7 +27,7 @@ export async function getUserApiKey(userId: string) {
   }
 }
 
-export async function getApiKeyForUser(userId: string, plan?: 'byok' | 'pro') {
+export async function getApiKeyForUser(userId: string, plan?: Plan) {
   // If user has BYOK plan or no plan specified, try to get their API key
   if (!plan || plan === 'byok') {
     const userKey = await getUserApiKey(userId);
@@ -50,6 +51,6 @@ export async function getUserPlanAndKey(userId: string) {
   return {
     subscription,
     apiKey,
-    plan: subscription?.status === 'active' ? subscription.plan : 'free' as const,
+    plan: (subscription?.status === 'active' ? subscription.plan : 'free') as Plan,
   };
 } 

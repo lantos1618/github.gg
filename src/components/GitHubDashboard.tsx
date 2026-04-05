@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { GitPullRequest, CircleDot, Menu, X, Activity, ArrowRight, PanelRightClose, PanelRight, PanelLeftClose, PanelLeft, GitFork, Bell } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { useAuth } from '@/lib/auth/client';
-import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
 import { Footer } from '@/components/Footer';
 // ResizablePanel removed in favor of CSS transitions for smooth animations
@@ -53,12 +52,7 @@ function DashboardContent({
         </div>
         <div className="grid gap-3">
           {prsLoading ? (
-            [...Array(3)].map((_, i) => (
-              <div key={i} className="p-5 rounded-xl border border-border/50 bg-card">
-                <Skeleton className="h-5 w-2/3 mb-2" />
-                <Skeleton className="h-4 w-1/3" />
-              </div>
-            ))
+            <div className="py-8 text-center text-base text-[#aaa]">Loading...</div>
           ) : pullRequests && pullRequests.length > 0 ? (
             pullRequests.map((pr) => (
               <a
@@ -113,12 +107,7 @@ function DashboardContent({
         </div>
         <div className="grid gap-3">
           {issuesLoading ? (
-            [...Array(3)].map((_, i) => (
-              <div key={i} className="p-5 rounded-xl border border-border/50 bg-card">
-                <Skeleton className="h-5 w-2/3 mb-2" />
-                <Skeleton className="h-4 w-1/3" />
-              </div>
-            ))
+            <div className="py-8 text-center text-base text-[#aaa]">Loading...</div>
           ) : issues && issues.length > 0 ? (
             issues.map((issue) => (
               <a

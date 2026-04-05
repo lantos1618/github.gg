@@ -1,5 +1,6 @@
 import React from 'react';
 import { trpc } from '@/lib/trpc/client';
+import { isPaidPlan, type Plan } from '@/lib/utils/permissions';
 import type { AnalysisViewConfig, AnalysisData } from '@/components/analysis/AnalysisPageView';
 
 export type AnalysisType = 'scorecard' | 'ai-slop';
@@ -122,7 +123,11 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<Ana
     usePublicData: router.usePublicData,
     useCreateJob: router.useCreateJob,
     useGenerateSubscription: router.useGenerateSubscription,
-    usePlan: () => trpc.user.getCurrentPlan.useQuery(),
+    usePlan: () => {
+      const { data, isLoading } = trpc.user.getCurrentPlan.useQuery();
+      const plan = data?.plan as Plan | undefined;
+      return { isPaid: isPaidPlan(plan), isLoading };
+    },
     useUtils: () => trpc.useUtils(),
 
     // Data extractors

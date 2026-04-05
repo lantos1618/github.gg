@@ -148,7 +148,7 @@ export const githubAnalysisRouter = router({
           effectivePlan = perkResult.effectivePlan;
         }
 
-        const keyInfo = await getApiKeyForUser(ctx.user.id, effectivePlan as 'byok' | 'pro');
+        const keyInfo = await getApiKeyForUser(ctx.user.id, effectivePlan);
         if (!keyInfo) {
           yield { type: 'error' as const, message: 'Please add your Gemini API key in settings to use this feature' };
           return;
@@ -419,7 +419,7 @@ export const githubAnalysisRouter = router({
           effectivePlan = perkResult.effectivePlan;
         }
 
-        const keyInfo = await getApiKeyForUser(ctx.user.id, effectivePlan as 'byok' | 'pro');
+        const keyInfo = await getApiKeyForUser(ctx.user.id, effectivePlan);
         if (!keyInfo) {
           yield { type: 'error' as const, message: 'Please add your Gemini API key in settings to use this feature' };
           return;

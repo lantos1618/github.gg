@@ -2,11 +2,10 @@
 
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc/client';
+import { usePlan } from '@/lib/hooks/usePlan';
 import { useAuth } from '@/lib/auth/client';
 import { toast } from 'sonner';
 import { ArrowRight } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
-
 interface PricingCardActionsProps {
   planType: 'free' | 'pro' | null;
   isPro: boolean;
@@ -15,7 +14,7 @@ interface PricingCardActionsProps {
 export function PricingCardActions({ planType, isPro }: PricingCardActionsProps) {
   const { isSignedIn, signIn } = useAuth();
 
-  const { data: currentPlan, isLoading: planLoading } = trpc.user.getCurrentPlan.useQuery();
+  const { plan, isLoading: planLoading } = usePlan();
 
   const createCheckout = trpc.billing.createCheckoutSession.useMutation({
     onSuccess: (data) => {
@@ -28,7 +27,7 @@ export function PricingCardActions({ planType, isPro }: PricingCardActionsProps)
     }
   });
 
-  const isCurrent = currentPlan?.plan === planType;
+  const isCurrent = plan === planType;
   const isLoading = planLoading || createCheckout.isPending;
 
   const handleAction = () => {
@@ -58,7 +57,7 @@ export function PricingCardActions({ planType, isPro }: PricingCardActionsProps)
   // Pro plan button - loading state
   if (isLoading) {
     return (
-      <Skeleton className="w-full h-10 rounded" />
+      <div className="w-full h-10 rounded flex items-center justify-center text-base text-[#aaa]">Loading...</div>
     );
   }
 

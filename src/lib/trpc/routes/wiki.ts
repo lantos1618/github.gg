@@ -9,6 +9,7 @@ import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { collectRepositoryFiles } from '@/lib/wiki/file-collector';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import type { Plan } from '@/lib/utils/permissions';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
 import {
   insertWikiPages,
@@ -62,7 +63,7 @@ export const wikiRouter = router({
         }
 
         // Get appropriate API key
-        const keyInfo = await getApiKeyForUser(ctx.user.id, effectivePlan as 'byok' | 'pro');
+        const keyInfo = await getApiKeyForUser(ctx.user.id, effectivePlan);
         if (!keyInfo) {
           yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
           return;

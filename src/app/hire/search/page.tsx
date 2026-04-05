@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import {
   Search,
@@ -248,18 +247,7 @@ export default function HireSearchPage() {
       {/* Results */}
       <div className="max-w-6xl mx-auto px-4 py-6">
         {isLoading ? (
-          <div className="space-y-3 py-4">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center gap-4 p-4 border rounded-lg">
-                <Skeleton className="h-10 w-10 rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-40" />
-                  <Skeleton className="h-3 w-64" />
-                </div>
-                <Skeleton className="h-8 w-20" />
-              </div>
-            ))}
-          </div>
+          <div className="py-16 text-center text-base text-[#aaa]">Loading...</div>
         ) : !data || data.results.length === 0 ? (
           <div className="text-center py-12">
             <Users className="h-8 w-8 text-gray-300 mx-auto mb-3" />

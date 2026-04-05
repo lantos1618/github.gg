@@ -96,7 +96,7 @@ export const aiSlopRouter = router({
           return;
         }
 
-        const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
+        const keyInfo = await getApiKeyForUser(ctx.user.id, plan);
         if (!keyInfo) {
           yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
           return;

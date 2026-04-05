@@ -6,7 +6,6 @@ import { eq, and, gte, desc, sql, inArray } from 'drizzle-orm';
 import { generateDeveloperProfileStreaming, findAndStoreDeveloperEmail } from '@/lib/ai/developer-profile';
 import { getProfileData } from '@/lib/profile/service';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
-import type { Plan } from '@/lib/utils/permissions';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForUserOperations, createPublicGitHubService } from '@/lib/github';

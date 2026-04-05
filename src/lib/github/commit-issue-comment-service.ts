@@ -47,7 +47,7 @@ export async function postCommitAnalysisComment({
       return { success: false, skipped: true, reason: 'no_subscription' };
     }
 
-    const keyInfo = await getApiKeyForUser(user.id, plan as 'byok' | 'pro');
+    const keyInfo = await getApiKeyForUser(user.id, plan);
     if (!keyInfo) {
       console.log(`Skipping commit analysis for ${commitSha}: no API key available`);
       return { success: false, skipped: true, reason: 'no_api_key' };
@@ -178,7 +178,7 @@ export async function postIssueAnalysisComment({
       return { success: false, skipped: true, reason: 'no_subscription' };
     }
 
-    const keyInfo = await getApiKeyForUser(user.id, plan as 'byok' | 'pro');
+    const keyInfo = await getApiKeyForUser(user.id, plan);
     if (!keyInfo) {
       console.log(`Skipping issue analysis for #${issueNumber}: no API key available`);
       return { success: false, skipped: true, reason: 'no_api_key' };

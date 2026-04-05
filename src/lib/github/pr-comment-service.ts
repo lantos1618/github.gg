@@ -88,7 +88,7 @@ export async function postPRReviewComment({
       return { success: false, skipped: true, reason: 'no_subscription' };
     }
 
-    const keyInfo = await getApiKeyForUser(user.id, plan as 'byok' | 'pro');
+    const keyInfo = await getApiKeyForUser(user.id, plan);
     if (!keyInfo) {
       console.log(`Skipping PR review for PR #${prNumber}: no API key available`);
       return { success: false, skipped: true, reason: 'no_api_key' };

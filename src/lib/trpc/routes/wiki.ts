@@ -9,7 +9,6 @@ import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { collectRepositoryFiles } from '@/lib/wiki/file-collector';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
-import type { Plan } from '@/lib/utils/permissions';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
 import {
   insertWikiPages,

@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { userApiKeys, tokenUsage, userSubscriptions, user } from '@/db/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import { encryptApiKey } from '@/lib/utils/encryption';
+import type { Plan } from '@/lib/utils/permissions';
 import { TRPCError } from '@trpc/server';
 
 export const userRouter = router({
@@ -143,6 +144,6 @@ export const userRouter = router({
         return { plan: 'free' as const };
       }
       
-      return { plan: subscription.plan as 'byok' | 'pro' };
+      return { plan: subscription.plan as Plan };
     }),
 }); 

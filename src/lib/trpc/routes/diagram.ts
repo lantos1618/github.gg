@@ -210,7 +210,7 @@ export const diagramRouter = router({
         }
 
         // 2. Get appropriate API key
-        const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
+        const keyInfo = await getApiKeyForUser(ctx.user.id, plan);
         if (!keyInfo) {
           yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
           return;

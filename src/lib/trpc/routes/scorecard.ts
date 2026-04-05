@@ -151,7 +151,7 @@ export const scorecardRouter = router({
 
             // Still log token usage even though we didn't create a new version
             const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
-            const keyInfo = await getApiKeyForUser(ctx.user.id, plan as 'byok' | 'pro');
+            const keyInfo = await getApiKeyForUser(ctx.user.id, plan);
 
             await db.insert(tokenUsage).values({
               userId: ctx.user.id,

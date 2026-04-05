@@ -85,7 +85,7 @@ export async function executeAnalysisWithVersioning<
   }
 
   // 2. Get appropriate API key
-  const keyInfo = await getApiKeyForUser(userId, plan as 'byok' | 'pro');
+  const keyInfo = await getApiKeyForUser(userId, plan);
   if (!keyInfo) {
     throw new TRPCError({
       code: 'FORBIDDEN',

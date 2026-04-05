@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { userSubscriptions } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { createLogger } from '@/lib/logging';
+import type { Plan } from '@/lib/utils/permissions';
 
 const logger = createLogger('StripeWebhook');
 
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
         
         if (session.mode === 'subscription' && session.subscription) {
           const subscription = await stripe!.subscriptions.retrieve(session.subscription as string) as Stripe.Subscription;
-          const plan = session.metadata?.plan as 'byok' | 'pro';
+          const plan = session.metadata?.plan as Plan;
           const userId = session.metadata?.userId;
           
           if (!userId || !plan) {

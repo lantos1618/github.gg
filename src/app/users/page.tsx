@@ -15,11 +15,10 @@ export default async function UsersPage() {
   const caller = await createCaller();
 
   // Fetch data on server
-  const [profiles, leaderboard, totalCount] = await Promise.all([
+  const [profiles, totalCount] = await Promise.all([
     caller.profile.getAllAnalyzedProfiles({ limit: 200, offset: 0 }),
-    caller.arena.getLeaderboard({ limit: 100, offset: 0 }),
     caller.profile.getAnalyzedProfileCount(),
   ]);
 
-  return <UsersClientView initialProfiles={profiles} initialLeaderboard={leaderboard} totalProfileCount={totalCount} />;
+  return <UsersClientView initialProfiles={profiles} totalProfileCount={totalCount} />;
 }

@@ -1,6 +1,6 @@
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Flame, Heart, Info } from 'lucide-react';
+import { Flame, Heart, Info } from 'lucide-react';
 import { getArchetypeInfo } from './constants';
 import { getCrackedInfo } from '@/lib/utils/cracked';
 import type { DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
@@ -10,7 +10,6 @@ interface ProfileHeaderProps {
   username: string;
   profile: DeveloperProfileType;
   totalScore: number;
-  arenaRanking?: { eloRating: number } | null;
   profileStyles?: {
     primaryColor?: string | null;
     textColor?: string | null;
@@ -18,7 +17,7 @@ interface ProfileHeaderProps {
   children?: ReactNode;
 }
 
-export function ProfileHeader({ username, profile, totalScore, arenaRanking, profileStyles, children }: ProfileHeaderProps) {
+export function ProfileHeader({ username, profile, totalScore, profileStyles, children }: ProfileHeaderProps) {
   const crackedInfo = getCrackedInfo(totalScore, username);
   const isSpecial = username.toLowerCase() === 'knottedbrains';
 
@@ -86,13 +85,6 @@ export function ProfileHeader({ username, profile, totalScore, arenaRanking, pro
           >
             Score: {totalScore}
           </div>
-
-          {arenaRanking && (
-            <div data-testid="profile-header-elo-badge" className="flex items-center gap-1.5 text-base font-medium text-[#111] px-2.5 py-0.5 bg-[#f8f9fa] border border-[#eee] rounded">
-              <Trophy className="h-3 w-3 text-[#f59e0b]" />
-              {arenaRanking.eloRating} ELO
-            </div>
-          )}
 
           {profile.developerArchetype && (() => {
             const archetypeInfo = getArchetypeInfo(profile.developerArchetype);

@@ -59,23 +59,24 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
   return (
     <div className="min-h-screen bg-white pt-12 pb-20">
       <div className="w-[90%] max-w-5xl mx-auto">
-        <div className="mb-10">
-          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">Repositories</div>
-          <h1 className="text-[31px] font-semibold text-[#111] tracking-tight mb-2">Analyzed Repositories</h1>
-          <p className="text-base text-[#666]">
-            <strong className="text-[#111]">{totalRepoCount.toLocaleString()}</strong> repositories analyzed
-          </p>
-        </div>
-
-        <div className="relative max-w-md mb-8">
-          <Search className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ccc]" />
-          <Input
-            type="text"
-            placeholder="Search repositories..."
-            value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
-            className="pl-6"
-          />
+        <div className="flex items-end justify-between gap-4 mb-6">
+          <div>
+            <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">Repositories</div>
+            <h1 className="text-[31px] font-semibold text-[#111] tracking-tight leading-none">
+              Analyzed Repositories
+              <span className="text-base font-normal text-[#888] ml-3">{totalRepoCount.toLocaleString()}</span>
+            </h1>
+          </div>
+          <div className="relative w-64 flex-shrink-0">
+            <Search className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ccc]" />
+            <Input
+              type="text"
+              placeholder="Search repositories..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+              className="pl-6"
+            />
+          </div>
         </div>
 
         {paginatedRepos.length === 0 ? (

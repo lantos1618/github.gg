@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 
 export interface NetworkUser {
   username: string;
@@ -70,6 +71,7 @@ function getDegreeCounts(edges: GraphEdge[]): Map<string, number> {
 }
 
 export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: NetworkGraphProps) {
+  const router = useRouter();
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const nodesRef = useRef<GraphNode[]>([]);
@@ -81,6 +83,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
   const [isPanning, setIsPanning] = useState(false);
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [hideLeaves, setHideLeaves] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const panStart = useRef({ x: 0, y: 0, vx: 0, vy: 0 });
   const iterationRef = useRef(0);
   const initializedForRef = useRef<string>('');
@@ -90,6 +93,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
   // viewBox as ref for perf — updated via direct DOM manipulation
   const viewBoxRef = useRef({ x: 0, y: 0, w: 800, h: 600 });
   const isPanningRef = useRef(false);
+  const autoFitEnabledRef = useRef(true);
   // Force re-render only when graph structure changes (add/remove nodes)
   const [structureVersion, setStructureVersion] = useState(0);
 
@@ -209,6 +213,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
 
     if (added > 0) {
       iterationRef.current = Math.max(0, iterationRef.current - 80);
+      autoFitEnabledRef.current = true;
     }
 
     setStructureVersion(v => v + 1);
@@ -275,103 +280,110 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
 
     const iteration = iterationRef.current;
     const n = nodes.length;
-    const alpha = Math.max(0.01, 1 - iteration * 0.004);
 
-    const repulsionStrength = (3000 + n * 80) * alpha;
-    const springStrength = 0.012;
-    const springLength = 150 + Math.sqrt(n) * 12;
-    const damping = 0.82;
-    const cx = dimensions.width / 2;
-    const cy = dimensions.height / 2;
+    // Alpha decays to 0 — simulation fully freezes after ~170 frames (~2.8s)
+    const alpha = Math.max(0, 1 - iteration * 0.006);
 
-    // Repulsion
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const dx = nodes[j].x - nodes[i].x;
-        const dy = nodes[j].y - nodes[i].y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const minDist = nodes[i].radius + nodes[j].radius + 16;
-        const effectiveDist = Math.max(dist, minDist * 0.5);
-        const force = repulsionStrength / (effectiveDist * effectiveDist);
-        const fx = (dx / dist) * force;
-        const fy = (dy / dist) * force;
-        nodes[i].vx -= fx;
-        nodes[i].vy -= fy;
-        nodes[j].vx += fx;
-        nodes[j].vy += fy;
+    // Only compute forces while simulation is active
+    if (alpha > 0) {
+      const repulsionStrength = (3000 + n * 80) * alpha;
+      const springStrength = 0.012;
+      const springLength = 150 + Math.sqrt(n) * 12;
+      const damping = 0.86;
+      const cx = dimensions.width / 2;
+      const cy = dimensions.height / 2;
+
+      // Repulsion
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const dx = nodes[j].x - nodes[i].x;
+          const dy = nodes[j].y - nodes[i].y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const minDist = nodes[i].radius + nodes[j].radius + 16;
+          const effectiveDist = Math.max(dist, minDist * 0.5);
+          const force = repulsionStrength / (effectiveDist * effectiveDist);
+          const fx = (dx / dist) * force;
+          const fy = (dy / dist) * force;
+          nodes[i].vx -= fx;
+          nodes[i].vy -= fy;
+          nodes[j].vx += fx;
+          nodes[j].vy += fy;
+        }
       }
-    }
 
-    // Hard collision
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const dx = nodes[j].x - nodes[i].x;
-        const dy = nodes[j].y - nodes[i].y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
-        const minDist = nodes[i].radius + nodes[j].radius + 8;
-        if (dist < minDist) {
-          const overlap = (minDist - dist) / 2;
-          const nx = dx / dist;
-          const ny = dy / dist;
-          if (nodes[i].id !== dragNode) {
-            nodes[i].x -= nx * overlap;
-            nodes[i].y -= ny * overlap;
-          }
-          if (nodes[j].id !== dragNode) {
-            nodes[j].x += nx * overlap;
-            nodes[j].y += ny * overlap;
+      // Hard collision — only while forces are strong enough to cause overlap
+      if (alpha > 0.05) {
+        for (let i = 0; i < nodes.length; i++) {
+          for (let j = i + 1; j < nodes.length; j++) {
+            const dx = nodes[j].x - nodes[i].x;
+            const dy = nodes[j].y - nodes[i].y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
+            const minDist = nodes[i].radius + nodes[j].radius + 8;
+            if (dist < minDist) {
+              const overlap = (minDist - dist) / 2;
+              const nx = dx / dist;
+              const ny = dy / dist;
+              if (nodes[i].id !== dragNode) {
+                nodes[i].x -= nx * overlap;
+                nodes[i].y -= ny * overlap;
+              }
+              if (nodes[j].id !== dragNode) {
+                nodes[j].x += nx * overlap;
+                nodes[j].y += ny * overlap;
+              }
+            }
           }
         }
       }
+
+      // Springs (only for edges where both nodes are visible)
+      const visibleIds = new Set(nodes.map(n => n.id));
+      const nodeMap = new Map(nodes.map(n => [n.id, n]));
+      for (const edge of edges) {
+        if (!visibleIds.has(edge.source) || !visibleIds.has(edge.target)) continue;
+        const src = nodeMap.get(edge.source);
+        const tgt = nodeMap.get(edge.target);
+        if (!src || !tgt) continue;
+        const dx = tgt.x - src.x;
+        const dy = tgt.y - src.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const displacement = dist - springLength;
+        const force = springStrength * displacement;
+        const fx = (dx / dist) * force;
+        const fy = (dy / dist) * force;
+        src.vx += fx;
+        src.vy += fy;
+        tgt.vx -= fx;
+        tgt.vy -= fy;
+      }
+
+      // Center gravity
+      for (const node of nodes) {
+        const dx = cx - node.x;
+        const dy = cy - node.y;
+        node.vx += dx * 0.0005 * alpha;
+        node.vy += dy * 0.0005 * alpha;
+      }
+
+      // Velocity
+      for (const node of nodes) {
+        if (node.id === dragNode) continue;
+        node.vx *= damping;
+        node.vy *= damping;
+        node.x += node.vx;
+        node.y += node.vy;
+      }
+
+      // Pin seed softly
+      const seedNode = allNodes[0];
+      if (seedNode && seedNode.isSeed && seedNode.id !== dragNode) {
+        seedNode.x += (cx - seedNode.x) * 0.02;
+        seedNode.y += (cy - seedNode.y) * 0.02;
+      }
     }
 
-    // Springs (only for edges where both nodes are visible)
-    const visibleIds = new Set(nodes.map(n => n.id));
-    const nodeMap = new Map(nodes.map(n => [n.id, n]));
-    for (const edge of edges) {
-      if (!visibleIds.has(edge.source) || !visibleIds.has(edge.target)) continue;
-      const src = nodeMap.get(edge.source);
-      const tgt = nodeMap.get(edge.target);
-      if (!src || !tgt) continue;
-      const dx = tgt.x - src.x;
-      const dy = tgt.y - src.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const displacement = dist - springLength;
-      const force = springStrength * displacement;
-      const fx = (dx / dist) * force;
-      const fy = (dy / dist) * force;
-      src.vx += fx;
-      src.vy += fy;
-      tgt.vx -= fx;
-      tgt.vy -= fy;
-    }
-
-    // Center gravity
-    for (const node of nodes) {
-      const dx = cx - node.x;
-      const dy = cy - node.y;
-      node.vx += dx * 0.0005 * alpha;
-      node.vy += dy * 0.0005 * alpha;
-    }
-
-    // Velocity
-    for (const node of nodes) {
-      if (node.id === dragNode) continue;
-      node.vx *= damping;
-      node.vy *= damping;
-      node.x += node.vx;
-      node.y += node.vy;
-    }
-
-    // Pin seed softly
-    const seedNode = allNodes[0];
-    if (seedNode && seedNode.isSeed && seedNode.id !== dragNode) {
-      seedNode.x += (cx - seedNode.x) * 0.02;
-      seedNode.y += (cy - seedNode.y) * 0.02;
-    }
-
-    // Auto-fit viewBox (every 10 frames, only if not panning/dragging)
-    if (iteration % 10 === 0 && !isPanningRef.current && !dragNode) {
+    // Auto-fit viewBox — only during first ~80 iterations, then stop
+    if (autoFitEnabledRef.current && iteration < 80 && iteration % 5 === 0 && !isPanningRef.current && !dragNode) {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const node of nodes) {
         minX = Math.min(minX, node.x - node.radius - 50);
@@ -395,12 +407,15 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
       const targetY = (minY + maxY) / 2 - targetH / 2;
 
       const vb = viewBoxRef.current;
+      const lerp = 0.2;
       viewBoxRef.current = {
-        x: vb.x + (targetX - vb.x) * 0.06,
-        y: vb.y + (targetY - vb.y) * 0.06,
-        w: vb.w + (targetW - vb.w) * 0.06,
-        h: vb.h + (targetH - vb.h) * 0.06,
+        x: vb.x + (targetX - vb.x) * lerp,
+        y: vb.y + (targetY - vb.y) * lerp,
+        w: vb.w + (targetW - vb.w) * lerp,
+        h: vb.h + (targetH - vb.h) * lerp,
       };
+    } else if (iteration >= 80) {
+      autoFitEnabledRef.current = false;
     }
 
     iterationRef.current++;
@@ -588,7 +603,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
           clearTimeout(clickTimerRef.current);
           clickTimerRef.current = null;
           lastClickNodeRef.current = null;
-          window.open(`https://github.com/${nodeId}`, '_blank');
+          router.push(`/${nodeId}`);
         } else {
           if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
           lastClickNodeRef.current = nodeId;
@@ -629,6 +644,8 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
       w: newW,
       h: newH,
     };
+    // Manual zoom disables auto-fit so they don't fight
+    autoFitEnabledRef.current = false;
   }, [dimensions, getSvgPoint]);
 
   // Compute degree counts for rendering (mutual detection)
@@ -663,11 +680,31 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
 
   const vb = viewBoxRef.current;
 
+  // Escape to exit fullscreen
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsFullscreen(false);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isFullscreen]);
+
+  // Re-enable auto-fit when toggling fullscreen (dimensions change)
+  useEffect(() => {
+    autoFitEnabledRef.current = true;
+    iterationRef.current = Math.max(0, iterationRef.current - 40);
+  }, [isFullscreen]);
+
   return (
     <div
       ref={containerRef}
-      className="w-full border border-[#eee] rounded bg-white relative"
-      style={{ height: 600 }}
+      className={
+        isFullscreen
+          ? 'fixed inset-0 z-50 bg-white'
+          : 'w-full border border-[#eee] rounded bg-white relative'
+      }
+      style={isFullscreen ? undefined : { height: 600 }}
     >
       {/* Top bar: legend + controls */}
       <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
@@ -691,6 +728,12 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
         </div>
         <div className="flex gap-2 items-center">
           <button
+            onClick={() => setIsFullscreen(f => !f)}
+            className="px-2.5 py-1 text-xs font-semibold rounded transition-colors bg-white/90 text-[#888] border border-[#ddd] hover:text-[#111]"
+          >
+            {isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          </button>
+          <button
             onClick={() => setHideLeaves(!hideLeaves)}
             className={`px-2.5 py-1 text-xs font-semibold rounded transition-colors ${
               hideLeaves
@@ -713,7 +756,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
 
       {/* Bottom hint */}
       <div className="absolute bottom-3 right-3 text-[10px] text-[#bbb] z-10">
-        Click to expand · Shift-click to select · Double-click for GitHub · Scroll to zoom
+        Click to expand · Shift-click to select · Double-click to view profile · Scroll to zoom{isFullscreen ? ' · Esc to exit' : ''}
       </div>
 
       {selectedNodes.size > 0 && (

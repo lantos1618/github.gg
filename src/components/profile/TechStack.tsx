@@ -13,23 +13,28 @@ export function TechStack({ techStack }: TechStackProps) {
     return acc;
   }, {} as Record<string, TechStackItem[]>);
 
+  const maxCount = Math.max(...techStack.map(t => t.repoCount), 1);
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
       {Object.entries(groupedTech).map(([type, techs]) => (
         <div key={type}>
-          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3 pb-2 border-b border-[#f0f0f0]">
+          <div className="text-[11px] text-[#bbb] font-semibold tracking-[1.5px] uppercase mb-3">
             {type}
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="space-y-3">
             {techs.map((tech, index) => (
-              <div
-                key={index}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#f8f9fa] text-base text-[#111] font-medium border border-[#eee] rounded"
-              >
-                {tech.name}
-                <span className="text-[13px] text-[#aaa] font-mono">
-                  {tech.repoCount}
-                </span>
+              <div key={index}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-base font-medium text-[#111]">{tech.name}</span>
+                  <span className="text-[13px] text-[#888] font-mono">{tech.repoCount}</span>
+                </div>
+                <div className="h-1 w-full bg-[#eee] overflow-hidden">
+                  <div
+                    className="h-full bg-[#111] transition-all duration-500"
+                    style={{ width: `${(tech.repoCount / maxCount) * 100}%` }}
+                  />
+                </div>
               </div>
             ))}
           </div>

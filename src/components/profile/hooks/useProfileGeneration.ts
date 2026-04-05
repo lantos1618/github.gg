@@ -1,14 +1,9 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { trpc } from '@/lib/trpc/client';
-import type { DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
 import type { SSEStatus, SSELogItem } from '@/components/analysis/ReusableSSEFeedback';
-
-type GenerationEvent =
-  | { type: 'progress'; progress: number; message: string }
-  | { type: 'complete'; data: { profile: DeveloperProfileType; cached: boolean; stale: boolean; lastUpdated: string } }
-  | { type: 'error'; message: string };
+import { sanitizeText } from '@/lib/utils/sanitize';
 
 interface UseProfileGenerationOptions {
   username: string;
@@ -21,8 +16,15 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
   const [sseStatus, setSseStatus] = useState<SSEStatus>('idle');
   const [currentStep, setCurrentStep] = useState<string>('');
   const [generationError, setGenerationError] = useState<string | null>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const hasCompletedRef = useRef(false);
+
+  // Subscription control
+  const [shouldGenerate, setShouldGenerate] = useState(false);
+  const [subscriptionInput, setSubscriptionInput] = useState<{
+    username: string;
+    includeCodeAnalysis?: boolean;
+    selectedRepos?: string[];
+    forceRefreshScorecards?: boolean;
+  } | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -30,16 +32,6 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
     { username },
     { enabled: false }
   );
-
-  // Cleanup EventSource on unmount
-  useEffect(() => {
-    return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-    };
-  }, []);
 
   const addLog = useCallback((message: string, type: SSELogItem['type']) => {
     setLogs((prev: SSELogItem[]) => {
@@ -50,202 +42,129 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
     });
   }, []);
 
-  const setupEventSource = useCallback((eventSource: EventSource) => {
-    eventSourceRef.current = eventSource;
-    setIsGenerating(true);
-    setSseStatus('processing');
+  // Poll for profile completion after connection drop
+  const pollForRecovery = useCallback(async (fallbackMessage: string) => {
+    setCurrentStep('Connection interrupted, checking if profile completed...');
+    addLog('Connection interrupted, checking status...', 'info');
 
-    eventSource.addEventListener('progress', (rawEvent) => {
+    const MAX_POLL_TIME_MS = 120_000;
+    const POLL_INTERVAL_MS = 15_000;
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < MAX_POLL_TIME_MS) {
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
       try {
-        const messageEvent = rawEvent as MessageEvent;
-        const event = JSON.parse(messageEvent.data) as unknown as GenerationEvent;
-
-        if (event.type === 'progress') {
-          const newProgress = event.progress || 0;
-          const newMessage = event.message || '';
-          setProgress(newProgress);
-          if (newMessage) {
-            setCurrentStep(newMessage);
-            addLog(newMessage, 'info');
-          }
+        const result = await checkGenerationStatus();
+        const status = result.data;
+        if (status?.hasRecentProfile && status.profile) {
+          setProgress(100);
+          setSseStatus('complete');
+          setIsGenerating(false);
+          setCurrentStep('Profile generated successfully');
+          setGenerationError(null);
+          addLog('Profile generated successfully', 'success');
+          utils.profile.publicGetProfile.invalidate({ username });
+          utils.profile.getProfileVersions.invalidate({ username });
+          return;
         }
-      } catch (error) {
-        console.error('Failed to parse progress event:', error);
+        if (!status?.lockExists) break;
+        const elapsed = Math.round((Date.now() - startTime) / 1000);
+        setCurrentStep(`Server still generating profile... (${elapsed}s)`);
+      } catch (err) {
+        console.error('Failed to check generation status:', err);
       }
-    });
+    }
 
-    eventSource.addEventListener('complete', (rawEvent) => {
-      try {
-        const messageEvent = rawEvent as MessageEvent;
-        const event = JSON.parse(messageEvent.data) as unknown as GenerationEvent;
+    // Recovery failed
+    setIsGenerating(false);
+    setSseStatus('error');
+    setCurrentStep(fallbackMessage);
+    setGenerationError(fallbackMessage);
+    addLog(fallbackMessage, 'error');
+  }, [username, utils, checkGenerationStatus, addLog]);
 
-        if (event.type === 'complete') {
+  // tRPC subscription for profile generation
+  trpc.profile.generateProfileMutation.useSubscription(
+    subscriptionInput ?? { username: '' },
+    {
+      enabled: shouldGenerate && !!subscriptionInput?.username,
+      onData: (event: any) => {
+        if (event.type === 'progress') {
+          const pct = event.progress || 0;
+          const message = sanitizeText(event.message || '');
+          setSseStatus('processing');
+          setProgress(pct);
+          if (message) {
+            setCurrentStep(message);
+            addLog(message, 'info');
+          }
+        } else if (event.type === 'complete') {
           setIsGenerating(false);
           setProgress(100);
           setSseStatus('complete');
           setCurrentStep('Profile generated successfully');
           addLog('Profile generated successfully', 'success');
-          hasCompletedRef.current = true;
-          eventSource.close();
-          eventSourceRef.current = null;
-
+          setShouldGenerate(false);
+          setSubscriptionInput(null);
           utils.profile.publicGetProfile.invalidate({ username });
           utils.profile.getProfileVersions.invalidate({ username });
+        } else if (event.type === 'error') {
+          let message = sanitizeText(event.message || 'Failed to generate profile');
+          if (message.includes('No original (non-forked) public repositories')) {
+            message = "This user doesn't have enough original public repositories to generate a meaningful profile yet.";
+          }
+          setIsGenerating(false);
+          setSseStatus('error');
+          setCurrentStep(message);
+          setGenerationError(message);
+          addLog(message, 'error');
+          setShouldGenerate(false);
+          setSubscriptionInput(null);
         }
-      } catch (error) {
-        console.error('Failed to parse complete event:', error);
-      }
-    });
-
-    const handleError = (rawEvent: Event) => {
-      console.error('Profile generation SSE error:', rawEvent);
-      if (hasCompletedRef.current) {
-        return;
-      }
-
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-
-      let errorMessage = 'Failed to generate profile';
-      let isServerError = false;
-      try {
-        const messageEvent = rawEvent as MessageEvent;
-        if (messageEvent.data) {
-          const parsed = JSON.parse(messageEvent.data);
-          if (parsed.message) {
-            errorMessage = parsed.message;
-            isServerError = true;
-          }
-        }
-      } catch {
-        // No parseable data = native connection drop, not a server-sent error
-      }
-
-      if (errorMessage.includes('No original (non-forked) public repositories')) {
-        errorMessage = "This user doesn't have enough original public repositories to generate a meaningful profile yet.";
-      }
-
-      // For connection drops and "already in progress" errors, the server may still be
-      // running and the profile may have been saved. Poll for completion before giving up.
-      if (!isServerError || errorMessage.includes('already in progress')) {
-        setCurrentStep('Connection interrupted, checking if profile completed...');
-        addLog('Connection interrupted, checking status...', 'info');
-
-        // Poll for completion — keep going as long as the server lock is held
-        const pollForProfile = async () => {
-          const MAX_POLL_TIME_MS = 120_000; // Give up after 2 minutes
-          const POLL_INTERVAL_MS = 15_000; // Was 5s — reduced DB load
-          const startTime = Date.now();
-
-          while (Date.now() - startTime < MAX_POLL_TIME_MS) {
-            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
-            try {
-              const result = await checkGenerationStatus();
-              const status = result.data;
-              if (status?.hasRecentProfile && status.profile) {
-                setProgress(100);
-                setSseStatus('complete');
-                setIsGenerating(false);
-                setCurrentStep('Profile generated successfully');
-                setGenerationError(null);
-                addLog('Profile generated successfully', 'success');
-                utils.profile.publicGetProfile.invalidate({ username });
-                utils.profile.getProfileVersions.invalidate({ username });
-                return true;
-              }
-              // If lock released with no profile, server finished but failed
-              if (!status?.lockExists) {
-                return false;
-              }
-              // Lock still held — server is still working, keep polling
-              const elapsed = Math.round((Date.now() - startTime) / 1000);
-              setCurrentStep(`Server still generating profile... (${elapsed}s)`);
-            } catch (err) {
-              console.error('Failed to check generation status:', err);
-            }
-          }
-          return false;
-        };
-
-        pollForProfile().then((recovered) => {
-          if (!recovered) {
-            setIsGenerating(false);
-            setSseStatus('error');
-            setCurrentStep(errorMessage);
-            setGenerationError(errorMessage);
-            addLog(errorMessage, 'error');
-          }
-        });
-        return;
-      }
-
-      // Server explicitly sent an error — show it immediately
-      setIsGenerating(false);
-      setSseStatus('error');
-      setCurrentStep(errorMessage);
-      setGenerationError(errorMessage);
-      addLog(errorMessage, 'error');
-    };
-
-    eventSource.addEventListener('error', handleError);
-  }, [username, utils, checkGenerationStatus, addLog]);
-
-  const resetState = useCallback(() => {
-    setProgress(0);
-    setLogs([]);
-    setGenerationError(null);
-    setSseStatus('connecting');
-    hasCompletedRef.current = false;
-
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
+      },
+      onError: (err) => {
+        setShouldGenerate(false);
+        setSubscriptionInput(null);
+        pollForRecovery(err.message || 'Connection error');
+      },
     }
-  }, []);
+  );
 
   const handleGenerateProfile = useCallback(() => {
     if (isGenerating) return;
 
-    resetState();
+    setProgress(0);
+    setLogs([]);
+    setGenerationError(null);
+    setSseStatus('connecting');
+    setIsGenerating(true);
     setCurrentStep('Initializing analysis...');
 
-    const params = new URLSearchParams({
+    setSubscriptionInput({
       username,
-      includeCodeAnalysis: 'true',
+      includeCodeAnalysis: true,
     });
-
-    const eventSource = new EventSource(
-      `/api/profile/generate?${params.toString()}`,
-    );
-    setupEventSource(eventSource);
-  }, [username, isGenerating, resetState, setupEventSource]);
+    setShouldGenerate(true);
+  }, [username, isGenerating]);
 
   const handleGenerateWithSelectedRepos = useCallback((selectedRepoNames: string[], forceRefreshScorecards: boolean = false) => {
     if (isGenerating) return;
 
-    resetState();
+    setProgress(0);
+    setLogs([]);
+    setGenerationError(null);
+    setSseStatus('connecting');
+    setIsGenerating(true);
     setCurrentStep('Initializing analysis with selected repos...');
 
-    const params = new URLSearchParams({
+    setSubscriptionInput({
       username,
-      includeCodeAnalysis: 'true',
+      includeCodeAnalysis: true,
+      selectedRepos: selectedRepoNames,
+      forceRefreshScorecards,
     });
-
-    if (forceRefreshScorecards) {
-      params.set('forceRefreshScorecards', 'true');
-    }
-
-    selectedRepoNames.forEach((name) => {
-      params.append('selectedRepo', name);
-    });
-
-    const eventSource = new EventSource(
-      `/api/profile/generate?${params.toString()}`,
-    );
-    setupEventSource(eventSource);
-  }, [username, isGenerating, resetState, setupEventSource]);
+    setShouldGenerate(true);
+  }, [username, isGenerating]);
 
   const handleReconnect = useCallback(async () => {
     try {

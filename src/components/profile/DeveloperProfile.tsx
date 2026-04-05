@@ -171,6 +171,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [showRepoSelector, setShowRepoSelector] = useState(false);
 
+
   const {
     isGenerating,
     progress,
@@ -234,8 +235,6 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     { enabled: isOwnProfile && !!currentUser, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
   );
 
-  const shouldShowChallengeButton = !!currentUser && !isOwnProfile;
-
   const { data: emailData, isLoading: emailLoading } = trpc.profile.getDeveloperEmail.useQuery(
     { username },
     {
@@ -250,15 +249,6 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     { username },
     { enabled: !!username, staleTime: 10 * 60 * 1000, refetchOnWindowFocus: false }
   );
-
-  const { data: arenaRanking } = trpc.arena.getRankingByUsername.useQuery(
-    { username },
-    { enabled: !!username, staleTime: 10 * 60 * 1000, refetchOnWindowFocus: false }
-  );
-
-  const handleChallenge = useCallback(() => {
-    router.push(`/arena?opponent=${username}`);
-  }, [router, username]);
 
   // Version selector UI - rendered inline to avoid component identity issues
   const versionSelectorElement = versionsLoading
@@ -353,20 +343,17 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
           isOwnProfile={isOwnProfile}
           isGenerating={isGenerating}
           reposLoading={reposLoading}
-          showChallengeButton={shouldShowChallengeButton}
           canRefresh={isOwnProfile || !!(currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro'))}
-          showUpgrade={!currentPlan || currentPlan.plan === 'free'}
+          showUpgrade={!planLoading && (!currentPlan || currentPlan.plan === 'free')}
           sseStatus={sseStatus}
           progress={progress}
           currentStep={currentStep}
           logs={logs}
-          arenaRanking={arenaRanking}
           scoreHistory={scoreHistory}
           profileStyles={profileStyles}
           showSparkles={showSparkles}
           sparkleEffects={<SparkleEffects chars={sparkleChars} />}
           headerChildren={headerChildren}
-          onChallenge={handleChallenge}
           onConfigure={() => setShowRepoSelector(true)}
           onRefresh={handleGenerateProfile}
         />
@@ -383,7 +370,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
         isOwnProfile={isOwnProfile}
         isGenerating={isGenerating}
         reposLoading={reposLoading}
-        canGenerate={isOwnProfile || !!(currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro'))}
+        canGenerate={isOwnProfile || planLoading || !!(currentPlan && (currentPlan.plan === 'byok' || currentPlan.plan === 'pro'))}
         sseStatus={sseStatus}
         progress={progress}
         currentStep={currentStep}

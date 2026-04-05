@@ -26,18 +26,18 @@ export function NavbarLinks() {
         Repos
       </Link>
       <Link
-        href="/arena"
+        href="/discover"
         className="text-base font-medium text-[#888] hover:text-[#111] transition-colors"
-        data-testid="nav-arena-link"
+        data-testid="nav-discover-link"
       >
-        Dev Rank
+        Discover
       </Link>
       <Link
         href="/developers"
         className="text-base font-medium text-[#888] hover:text-[#111] transition-colors"
         data-testid="nav-developers-link"
       >
-        Developers
+        API
       </Link>
     </div>
   );

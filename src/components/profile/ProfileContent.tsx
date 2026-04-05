@@ -17,14 +17,12 @@ interface ProfileContentProps {
   isOwnProfile: boolean;
   isGenerating: boolean;
   reposLoading: boolean;
-  showChallengeButton: boolean;
   canRefresh: boolean;
   showUpgrade: boolean;
   sseStatus: SSEStatus;
   progress: number;
   currentStep: string;
   logs: SSELogItem[];
-  arenaRanking?: { eloRating: number } | null;
   scoreHistory?: { date: string; score: number; source: string }[] | null;
   profileStyles?: {
     sparkles?: boolean | null;
@@ -36,7 +34,6 @@ interface ProfileContentProps {
   showSparkles: boolean;
   sparkleEffects: ReactNode;
   headerChildren: ReactNode;
-  onChallenge: () => void;
   onConfigure: () => void;
   onRefresh: () => void;
 }
@@ -48,20 +45,17 @@ export function ProfileContent({
   isOwnProfile,
   isGenerating,
   reposLoading,
-  showChallengeButton,
   canRefresh,
   showUpgrade,
   sseStatus,
   progress,
   currentStep,
   logs,
-  arenaRanking,
   scoreHistory,
   profileStyles,
   showSparkles,
   sparkleEffects,
   headerChildren,
-  onChallenge,
   onConfigure,
   onRefresh,
 }: ProfileContentProps) {
@@ -82,7 +76,6 @@ export function ProfileContent({
           username={username}
           profile={profile}
           totalScore={totalScore}
-          arenaRanking={arenaRanking}
           profileStyles={profileStyles}
         >
           {headerChildren}
@@ -92,9 +85,7 @@ export function ProfileContent({
           isOwnProfile={isOwnProfile}
           isGenerating={isGenerating}
           reposLoading={reposLoading}
-          showChallengeButton={showChallengeButton}
           canRefresh={canRefresh}
-          onChallenge={onChallenge}
           onConfigure={onConfigure}
           onRefresh={onRefresh}
         />
@@ -151,7 +142,10 @@ export function ProfileContent({
           </section>
         </div>
 
-        <ProfileSidebar profile={profile} scoreHistory={scoreHistory} />
+        <ProfileSidebar
+          profile={profile}
+          scoreHistory={scoreHistory}
+        />
       </div>
 
       {showUpgrade && (

@@ -22,12 +22,6 @@ export async function GET() {
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/arena`,
-      lastModified: new Date(),
-      changeFrequency: 'daily' as const,
-      priority: 0.8,
-    },
-    {
       url: `${baseUrl}/pricing`,
       lastModified: new Date(),
       changeFrequency: 'monthly' as const,

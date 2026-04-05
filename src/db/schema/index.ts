@@ -4,9 +4,6 @@ export * from './auth';
 // Repository tables
 export * from './repository';
 
-// Arena tables
-export * from './arena';
-
 // Achievement tables
 export * from './achievements';
 
@@ -30,9 +27,6 @@ export * from './dev-environments';
 
 // User VMs tables
 export * from './user-vms';
-
-// Wrapped tables
-export * from './wrapped';
 
 // API keys tables
 export * from './api-keys';

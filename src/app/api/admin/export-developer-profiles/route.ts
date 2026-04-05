@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { developerProfileCache, developerRankings, user } from '@/db/schema';
+import { developerProfileCache, user } from '@/db/schema';
 import { eq, sql, isNotNull } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 

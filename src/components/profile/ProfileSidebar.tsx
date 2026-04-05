@@ -28,6 +28,7 @@ interface ProfileSidebarProps {
 export function ProfileSidebar({ profile, scoreHistory }: ProfileSidebarProps) {
   return (
     <div data-testid="profile-sidebar" className="xl:col-span-4 space-y-10">
+
       {scoreHistory && scoreHistory.length > 0 && (
         <section>
           <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">

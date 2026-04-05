@@ -4,7 +4,6 @@ import { scorecardRouter } from '@/lib/trpc/routes/scorecard';
 import { aiSlopRouter } from '@/lib/trpc/routes/ai-slop';
 import { diagramRouter } from '@/lib/trpc/routes/diagram';
 import { profileRouter } from '@/lib/trpc/routes/profile';
-import { arenaRouter } from '@/lib/trpc/routes/arena';
 import { scoreHistoryRouter } from '@/lib/trpc/routes/score-history';
 import { userRouter } from '@/lib/trpc/routes/user';
 import { featuredRouter } from '@/lib/trpc/routes/featured';
@@ -13,9 +12,10 @@ import { adminRouter } from '@/lib/trpc/routes/admin';
 import { webhooksRouter } from '@/lib/trpc/routes/webhooks';
 import { githubAnalysisRouter } from '@/lib/trpc/routes/github-analysis';
 import { wikiRouter } from '@/lib/trpc/routes/wiki';
-import { wrappedRouter } from '@/lib/trpc/routes/wrapped';
+
 import { apiKeysRouter } from '@/lib/trpc/routes/api-keys';
 import { hireRouter } from '@/lib/trpc/routes/hire';
+import { discoverRouter } from '@/lib/trpc/routes/discover';
 import { z } from 'zod';
 import { router } from '@/lib/trpc/trpc';
 import { db } from '@/db';
@@ -107,8 +107,6 @@ export const appRouter = router({
   // Profile routes
   profile: profileRouter,
 
-  // Arena routes
-  arena: arenaRouter,
   scoreHistory: scoreHistoryRouter,
 
   // User management routes
@@ -132,14 +130,14 @@ export const appRouter = router({
   // Wiki documentation routes
   wiki: wikiRouter,
 
-  // GitHub Wrapped routes
-  wrapped: wrappedRouter,
-
   // Public API key management
   apiKeys: apiKeysRouter,
 
   // Hiring/job matching
   hire: hireRouter,
+
+  // Discover / network exploration
+  discover: discoverRouter,
 });
 
 export type AppRouter = typeof appRouter; 

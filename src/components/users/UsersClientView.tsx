@@ -10,7 +10,7 @@ import { formatDistanceToNow } from 'date-fns';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import { getCrackedInfo } from '@/lib/utils/cracked';
 
-type SortField = 'date' | 'score' | 'username' | 'elo' | 'tokens';
+type SortField = 'date' | 'score' | 'username' | 'tokens';
 type SortOrder = 'asc' | 'desc';
 
 interface DeveloperProfileEntry {
@@ -21,25 +21,17 @@ interface DeveloperProfileEntry {
   version?: number;
 }
 
-interface LeaderboardEntry {
-  username: string;
-  eloRating: number;
-}
-
 interface UsersClientViewProps {
   initialProfiles: DeveloperProfileEntry[];
-  initialLeaderboard: LeaderboardEntry[];
   totalProfileCount: number;
 }
 
-export function UsersClientView({ initialProfiles, initialLeaderboard, totalProfileCount }: UsersClientViewProps) {
+export function UsersClientView({ initialProfiles, totalProfileCount }: UsersClientViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [page, setPage] = useState(0);
   const pageSize = 20;
-
-  const eloMap = new Map(initialLeaderboard?.map(entry => [entry.username.toLowerCase(), entry.eloRating]) || []);
 
   const filteredProfiles = initialProfiles?.filter(profile =>
     profile.username.toLowerCase().includes(searchQuery.toLowerCase())
@@ -54,7 +46,6 @@ export function UsersClientView({ initialProfiles, initialLeaderboard, totalProf
     date: (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     score: (a, b) => getProfileScore(b.profileData as DeveloperProfile) - getProfileScore(a.profileData as DeveloperProfile),
     username: (a, b) => a.username.localeCompare(b.username),
-    elo: (a, b) => (eloMap.get(b.username.toLowerCase()) || 0) - (eloMap.get(a.username.toLowerCase()) || 0),
     tokens: (a, b) => (b.totalTokens || 0) - (a.totalTokens || 0),
   };
 
@@ -75,23 +66,24 @@ export function UsersClientView({ initialProfiles, initialLeaderboard, totalProf
   return (
     <div className="min-h-screen bg-white pt-12 pb-20">
       <div className="w-[90%] max-w-5xl mx-auto">
-        <div className="mb-10">
-          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">Profiles</div>
-          <h1 className="text-[31px] font-semibold text-[#111] tracking-tight mb-2">Analyzed Profiles</h1>
-          <p className="text-base text-[#666]">
-            <strong className="text-[#111]">{totalProfileCount.toLocaleString()}</strong> profiles analyzed
-          </p>
-        </div>
-
-        <div className="relative max-w-md mb-8">
-          <Search className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ccc]" />
-          <Input
-            type="text"
-            placeholder="Search username..."
-            value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
-            className="pl-6"
-          />
+        <div className="flex items-end justify-between gap-4 mb-6">
+          <div>
+            <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">Profiles</div>
+            <h1 className="text-[31px] font-semibold text-[#111] tracking-tight leading-none">
+              Analyzed Profiles
+              <span className="text-base font-normal text-[#888] ml-3">{totalProfileCount.toLocaleString()}</span>
+            </h1>
+          </div>
+          <div className="relative w-64 flex-shrink-0">
+            <Search className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ccc]" />
+            <Input
+              type="text"
+              placeholder="Search username..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+              className="pl-6"
+            />
+          </div>
         </div>
 
         {paginatedProfiles.length === 0 ? (
@@ -107,9 +99,6 @@ export function UsersClientView({ initialProfiles, initialLeaderboard, totalProf
                     <span className="inline-flex items-center gap-1">Developer {sortField === 'username' && <ArrowUpDown className="h-3 w-3" />}</span>
                   </td>
                   <td className="py-2 text-xs text-[#999] font-semibold hidden lg:table-cell">Summary</td>
-                  <td className="py-2 text-xs text-[#999] font-semibold text-center cursor-pointer hover:text-[#111] transition-colors hidden xl:table-cell" onClick={() => toggleSort('elo')}>
-                    <span className="inline-flex items-center gap-1">ELO {sortField === 'elo' && <ArrowUpDown className="h-3 w-3" />}</span>
-                  </td>
                   <td className="py-2 text-xs text-[#999] font-semibold text-center cursor-pointer hover:text-[#111] transition-colors" onClick={() => toggleSort('score')}>
                     <span className="inline-flex items-center gap-1">Score {sortField === 'score' && <ArrowUpDown className="h-3 w-3" />}</span>
                   </td>
@@ -126,7 +115,6 @@ export function UsersClientView({ initialProfiles, initialLeaderboard, totalProf
                     : null;
                   const crackedInfo = getCrackedInfo(avgScore ?? 0, profile.username);
                   const isSpecial = profile.username.toLowerCase() === 'knottedbrains';
-                  const elo = eloMap.get(profile.username.toLowerCase());
 
                   return (
                     <tr key={`${profile.username}-${profile.version}`} className="border-b border-[#f0f0f0] hover:bg-[#fafafa] transition-colors">
@@ -152,11 +140,6 @@ export function UsersClientView({ initialProfiles, initialLeaderboard, totalProf
                       <td className="py-3 hidden lg:table-cell">
                         <Link href={`/${profile.username}`}>
                           <p className="text-base text-[#888] line-clamp-1 max-w-md">{profileData.summary || 'No summary'}</p>
-                        </Link>
-                      </td>
-                      <td className="py-3 text-center hidden xl:table-cell">
-                        <Link href={`/${profile.username}`}>
-                          {elo ? <span className="font-mono font-semibold text-[#111]">{elo}</span> : <span className="text-[#ccc]">—</span>}
                         </Link>
                       </td>
                       <td className="py-3 text-center">

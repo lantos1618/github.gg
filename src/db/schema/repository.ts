@@ -1,4 +1,6 @@
 import { pgTable, text, timestamp, uuid, uniqueIndex, index, integer, jsonb, varchar, boolean, customType } from 'drizzle-orm/pg-core';
+import type { ScorecardMetric, DiagramOptions } from '@/lib/types/scorecard';
+import { user } from './auth';
 
 // Custom type for pgvector
 const vector = customType<{ data: number[]; driverData: string; config: { dimensions: number } }>({
@@ -13,8 +15,6 @@ const vector = customType<{ data: number[]; driverData: string; config: { dimens
     return value.slice(1, -1).split(',').map(Number);
   },
 });
-import type { ScorecardMetric, DiagramOptions } from '@/lib/types/scorecard';
-import { user } from './auth';
 
 export const cachedRepos = pgTable('cached_repos', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -163,6 +163,28 @@ export const repoScoreHistory = pgTable('repo_score_history', {
 }, (table) => ({
   // Index for time-series queries (non-unique to allow multiple entries at same timestamp)
   repoHistoryIdx: index('repo_history_idx').on(table.repoOwner, table.repoName, table.ref, table.createdAt),
+}));
+
+// Score History tracking for users
+export const userScoreHistory = pgTable('user_score_history', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('userId').references(() => user.id, { onDelete: 'cascade' }).notNull(),
+  username: text('username').notNull(),
+  eloRating: integer('elo_rating'),
+  overallScore: integer('overall_score'),
+  source: text('source').notNull(),
+  metadata: jsonb('metadata').$type<{
+    battleId?: string;
+    opponentUsername?: string;
+    won?: boolean;
+    ratingChange?: number;
+    repoName?: string;
+    [key: string]: unknown;
+  }>(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  userHistoryIdx: index('user_history_idx').on(table.userId, table.createdAt),
+  usernameHistoryIdx: index('username_history_idx').on(table.username, table.createdAt),
 }));
 
 export const developerProfileCache = pgTable('developer_profile_cache', {

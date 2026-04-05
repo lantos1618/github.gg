@@ -5,7 +5,7 @@ import PRListClientView from './PRListClientView';
 import PRDetailClientView from './PRDetailClientView';
 import IssueListClientView from './IssueListClientView';
 import IssueDetailClientView from './IssueDetailClientView';
-import { ComingSoon } from '@/components/ComingSoon';
+
 import { notFound } from 'next/navigation';
 import { parseRepoPath } from '@/lib/utils';
 import { createGitHubServiceForRepo } from '@/lib/github';
@@ -69,10 +69,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return {};
   }
 
-  // Coming soon features - should not be indexed
-  const COMING_SOON_FEATURES = ['refactor', 'dependencies', 'architecture', 'components', 'data-flow', 'automations'];
-  const isComingSoon = tab && COMING_SOON_FEATURES.includes(tab);
-
   // Build canonical URL - normalize by removing 'tree/' prefix
   // For default branch paths, canonicalize to the simpler form
   let canonicalPath = `/${user}`;
@@ -118,7 +114,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description,
       images: [`https://avatars.githubusercontent.com/${user}`],
     },
-    robots: isComingSoon ? 'noindex, nofollow' : undefined,
   };
 }
 
@@ -206,60 +201,6 @@ export default async function Page({ params }: PageProps) {
   if (tab === 'diagram') {
     return (
       <DiagramClientView user={user} repo={repo} refName={ref} path={path} />
-    );
-  }
-
-  // Coming Soon features configuration
-  const COMING_SOON_FEATURES = {
-    'refactor': {
-      title: 'Refactor Suggestions',
-      description: 'AI-powered refactoring suggestions and code improvement recommendations coming soon.',
-      iconName: 'Wrench' as const,
-      iconColor: 'text-amber-600',
-    },
-    'dependencies': {
-      title: 'Dependencies',
-      description: 'Dependency analysis and visualization coming soon.',
-      iconName: 'GitBranch' as const,
-      iconColor: 'text-blue-600',
-    },
-    'architecture': {
-      title: 'Architecture',
-      description: 'Architecture diagrams and analysis coming soon.',
-      iconName: 'Box' as const,
-      iconColor: 'text-purple-600',
-    },
-    'components': {
-      title: 'Components',
-      description: 'Component hierarchy and relationships coming soon.',
-      iconName: 'Boxes' as const,
-      iconColor: 'text-green-600',
-    },
-    'data-flow': {
-      title: 'Data Flow',
-      description: 'Data flow analysis and visualization coming soon.',
-      iconName: 'Workflow' as const,
-      iconColor: 'text-orange-600',
-    },
-    'automations': {
-      title: 'Automations',
-      description: 'Automation workflows and CI/CD analysis coming soon.',
-      iconName: 'Cog' as const,
-      iconColor: 'text-gray-600',
-    },
-  } as const;
-
-  const comingSoonConfig = COMING_SOON_FEATURES[tab as keyof typeof COMING_SOON_FEATURES];
-  if (comingSoonConfig) {
-    return (
-      <ComingSoon
-        user={user}
-        repo={repo}
-        refName={ref}
-        path={path}
-        {...comingSoonConfig}
-        showContributeSection={true}
-      />
     );
   }
 

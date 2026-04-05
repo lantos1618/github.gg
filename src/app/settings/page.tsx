@@ -344,13 +344,19 @@ export default function SettingsPage() {
                   {currentPlan?.plan === 'pro' && 'Private repos + managed AI'}
                 </p>
               </div>
-              <Button 
-                variant="outline"
-                onClick={handleManageBilling}
-                disabled={getBillingPortal.isPending}
-              >
-                {getBillingPortal.isPending ? 'Loading...' : 'Manage Billing'}
-              </Button>
+              {currentPlan?.plan !== 'free' ? (
+                <Button
+                  variant="outline"
+                  onClick={handleManageBilling}
+                  disabled={getBillingPortal.isPending}
+                >
+                  {getBillingPortal.isPending ? 'Loading...' : 'Manage Billing'}
+                </Button>
+              ) : (
+                <Button variant="outline" asChild>
+                  <a href="/pricing">Upgrade</a>
+                </Button>
+              )}
             </div>
         </CardWithHeader>
 

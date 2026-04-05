@@ -6,15 +6,10 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   BarChart3,
   Bot,
-  Cog,
   CircleDot,
   GitPullRequest,
   Network,
-  GitBranch,
   GitCommit,
-  Box,
-  Boxes,
-  Workflow,
   BookOpen,
   ChevronRight,
   ChevronDown,
@@ -22,7 +17,6 @@ import {
   X,
   FolderGit2,
   Github,
-  Wrench,
 } from 'lucide-react';
 import { cn, parseRepoPath } from '@/lib/utils';
 import { useSidebar } from '@/contexts/SidebarContext';
@@ -213,35 +207,15 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
     items: [
       { key: 'scorecard', label: 'Scorecard', path: `${baseUrl}/scorecard`, icon: BarChart3 },
       { key: 'ai-slop', label: 'AI Slop', path: `${baseUrl}/ai-slop`, icon: Bot },
-      { key: 'refactor', label: 'Refactor', path: `${baseUrl}/refactor`, icon: Wrench },
-      {
-        key: 'automations',
-        label: 'Automations',
-        path: `${baseUrl}/automations`,
-        icon: Cog,
-        children: [
-          { key: 'issues', label: 'Issues', path: `${baseUrl}/issues`, icon: CircleDot },
-          { key: 'pulls', label: 'Pulls', path: `${baseUrl}/pulls`, icon: GitPullRequest },
-        ],
-      },
+      { key: 'issues', label: 'Issues', path: `${baseUrl}/issues`, icon: CircleDot },
+      { key: 'pulls', label: 'Pulls', path: `${baseUrl}/pulls`, icon: GitPullRequest },
     ],
   };
 
   const documentationSection: NavSection = {
     title: 'Documentation',
     items: [
-      {
-        key: 'diagram',
-        label: 'Diagrams',
-        path: `${baseUrl}/diagram`,
-        icon: Network,
-        children: [
-          { key: 'dependencies', label: 'Dependencies', path: `${baseUrl}/dependencies`, icon: GitBranch },
-          { key: 'architecture', label: 'Architecture', path: `${baseUrl}/architecture`, icon: Box },
-          { key: 'components', label: 'Components', path: `${baseUrl}/components`, icon: Boxes },
-          { key: 'data-flow', label: 'Data Flow', path: `${baseUrl}/data-flow`, icon: Workflow },
-        ],
-      },
+      { key: 'diagram', label: 'Diagrams', path: `${baseUrl}/diagram`, icon: Network },
     ],
   };
 

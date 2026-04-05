@@ -20,6 +20,7 @@
     "db:start": "docker-compose up -d postgres",
     "db:stop": "docker-compose down",
     "db:reset": "docker-compose down -v && docker-compose up -d postgres && sleep 5 && bun --env-file=.env.local drizzle-kit push",
+    "bones": "npx boneyard-js build http://localhost:3000/boneyard-preview --out ./src/bones",
     "test:e2e": "bunx playwright test",
     "test:e2e:headed": "bunx playwright test --headed",
     "test:e2e:ui": "bunx playwright test --ui"
@@ -74,6 +75,7 @@
     "@xterm/xterm": "^5.5.0",
     "ai": "^5.0.68",
     "better-auth": "^1.3.27",
+    "boneyard-js": "^1.6.2",
     "bullmq": "^5.63.0",
     "chroma-js": "^3.1.2",
     "class-variance-authority": "^0.7.1",

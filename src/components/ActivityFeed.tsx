@@ -2,7 +2,7 @@
 
 import React, { RefObject } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Skeleton } from 'boneyard-js/react';
 import { cn } from '@/lib/utils';
 
 interface Activity {
@@ -51,14 +51,35 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
 
   return (
     <div className="flex-1 overflow-y-auto p-4">
-      <div className="relative border-l border-border ml-2 space-y-6">
-        {isLoading && activities.length === 0 ? (
-          <div className="pl-5 py-4 space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
+      <Skeleton
+        name="activity-feed"
+        loading={isLoading && activities.length === 0}
+        fallback={
+          <div className="relative border-l border-border ml-2 pl-5 py-4 space-y-4">
+            <div className="animate-pulse rounded-md bg-gray-200 h-10 w-full" />
+            <div className="animate-pulse rounded-md bg-gray-200 h-10 w-full" />
+            <div className="animate-pulse rounded-md bg-gray-200 h-10 w-full" />
           </div>
-        ) : activities && activities.length > 0 ? (
+        }
+        fixture={
+          <div className="relative border-l border-border ml-2 space-y-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="relative pl-5">
+                <div className="absolute left-[-4px] top-1.5 h-2 w-2 rounded-full bg-gray-300" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-3 w-24 bg-gray-200 rounded" />
+                    <div className="h-3 w-16 bg-gray-200 rounded" />
+                  </div>
+                  <div className="h-4 w-4/5 bg-gray-200 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        }
+      >
+      <div className="relative border-l border-border ml-2 space-y-6">
+        {activities && activities.length > 0 ? (
           <>
             {activities.map((activity) => (
               <div key={activity.id} className="relative pl-5 group">
@@ -125,7 +146,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
               currentPageActivities.length === pageSize &&
               activitiesPage < maxPages && (
                 <div ref={loadMoreRef} className="py-3 pl-5">
-                  <Skeleton className="h-8 w-full" />
+                  <div className="animate-pulse rounded-md bg-gray-200 h-8 w-full" />
                 </div>
               )}
           </>
@@ -135,6 +156,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
           </div>
         )}
       </div>
+      </Skeleton>
     </div>
   );
 };

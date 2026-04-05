@@ -8,6 +8,7 @@ import { Toaster } from 'sonner'
 import { PostHogProvider } from './providers'
 import { Analytics } from "@vercel/analytics/next";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
+import '@/lib/boneyard-config';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

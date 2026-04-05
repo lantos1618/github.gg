@@ -9,7 +9,7 @@ import { Footer } from '@/components/Footer';
 // ResizablePanel removed in favor of CSS transitions for smooth animations
 import { RepositoryListSidebar } from '@/components/RepositoryListSidebar';
 import { ActivityFeed } from '@/components/ActivityFeed';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Skeleton } from 'boneyard-js/react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -51,49 +51,73 @@ function DashboardContent({
             </a>
           </Button>
         </div>
-        <div className="grid gap-3">
-          {prsLoading ? (
+        <Skeleton
+          name="dashboard-prs"
+          loading={prsLoading}
+          fallback={
             <div className="space-y-3">
-              <Skeleton className="h-16 w-full rounded-xl" />
-              <Skeleton className="h-16 w-full rounded-xl" />
-              <Skeleton className="h-16 w-full rounded-xl" />
+              <div className="animate-pulse rounded-xl bg-gray-200 h-16 w-full" />
+              <div className="animate-pulse rounded-xl bg-gray-200 h-16 w-full" />
+              <div className="animate-pulse rounded-xl bg-gray-200 h-16 w-full" />
             </div>
-          ) : pullRequests && pullRequests.length > 0 ? (
-            pullRequests.map((pr) => (
-              <a
-                key={pr.id}
-                href={pr.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group block p-4 rounded-xl bg-card border border-border/50 hover:border-primary/30 hover:shadow-md transition-all duration-200"
-              >
-                <div className="flex items-start gap-3">
-                  <GitPullRequest className="w-4 h-4 mt-0.5 text-green-600 dark:text-green-400 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1 mb-1">
-                      {pr.title}
-                    </h3>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span className="font-mono bg-muted px-1.5 py-0.5 rounded">
-                        {pr.repo}#{pr.number}
-                      </span>
-                      <span>{formatTimeAgo(pr.updatedTime)}</span>
-                      {pr.comments > 0 && (
-                        <Badge variant="secondary" className="text-xs py-0 h-5">
-                          {pr.comments}
-                        </Badge>
-                      )}
+          }
+          fixture={
+            <div className="grid gap-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="p-4 rounded-xl bg-card border border-border/50">
+                  <div className="flex items-start gap-3">
+                    <div className="w-4 h-4 mt-0.5 rounded bg-green-200 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="h-4 w-3/4 bg-gray-200 rounded mb-2" />
+                      <div className="flex items-center gap-2">
+                        <div className="h-5 w-24 bg-gray-100 rounded" />
+                        <div className="h-4 w-16 bg-gray-100 rounded" />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </a>
-            ))
-          ) : (
-            <div className="p-12 text-center border border-dashed border-border rounded-xl bg-muted/20">
-              <p className="text-sm text-muted-foreground">No open pull requests</p>
+              ))}
             </div>
-          )}
-        </div>
+          }
+        >
+          <div className="grid gap-3">
+            {pullRequests && pullRequests.length > 0 ? (
+              pullRequests.map((pr) => (
+                <a
+                  key={pr.id}
+                  href={pr.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group block p-4 rounded-xl bg-card border border-border/50 hover:border-primary/30 hover:shadow-md transition-all duration-200"
+                >
+                  <div className="flex items-start gap-3">
+                    <GitPullRequest className="w-4 h-4 mt-0.5 text-green-600 dark:text-green-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1 mb-1">
+                        {pr.title}
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span className="font-mono bg-muted px-1.5 py-0.5 rounded">
+                          {pr.repo}#{pr.number}
+                        </span>
+                        <span>{formatTimeAgo(pr.updatedTime)}</span>
+                        {pr.comments > 0 && (
+                          <Badge variant="secondary" className="text-xs py-0 h-5">
+                            {pr.comments}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </a>
+              ))
+            ) : (
+              <div className="p-12 text-center border border-dashed border-border rounded-xl bg-muted/20">
+                <p className="text-sm text-muted-foreground">No open pull requests</p>
+              </div>
+            )}
+          </div>
+        </Skeleton>
       </section>
 
       <section className="space-y-4">
@@ -110,49 +134,73 @@ function DashboardContent({
             </a>
           </Button>
         </div>
-        <div className="grid gap-3">
-          {issuesLoading ? (
+        <Skeleton
+          name="dashboard-issues"
+          loading={issuesLoading}
+          fallback={
             <div className="space-y-3">
-              <Skeleton className="h-16 w-full rounded-xl" />
-              <Skeleton className="h-16 w-full rounded-xl" />
-              <Skeleton className="h-16 w-full rounded-xl" />
+              <div className="animate-pulse rounded-xl bg-gray-200 h-16 w-full" />
+              <div className="animate-pulse rounded-xl bg-gray-200 h-16 w-full" />
+              <div className="animate-pulse rounded-xl bg-gray-200 h-16 w-full" />
             </div>
-          ) : issues && issues.length > 0 ? (
-            issues.map((issue) => (
-              <a
-                key={issue.id}
-                href={issue.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group block p-4 rounded-xl bg-card border border-border/50 hover:border-primary/30 hover:shadow-md transition-all duration-200"
-              >
-                <div className="flex items-start gap-3">
-                  <CircleDot className="w-4 h-4 mt-0.5 text-green-600 dark:text-green-400 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1 mb-1">
-                      {issue.title}
-                    </h3>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span className="font-mono bg-muted px-1.5 py-0.5 rounded">
-                        {issue.repo}#{issue.number}
-                      </span>
-                      <span>{formatTimeAgo(issue.updatedTime)}</span>
-                      {issue.comments > 0 && (
-                        <Badge variant="secondary" className="text-xs py-0 h-5">
-                          {issue.comments}
-                        </Badge>
-                      )}
+          }
+          fixture={
+            <div className="grid gap-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="p-4 rounded-xl bg-card border border-border/50">
+                  <div className="flex items-start gap-3">
+                    <div className="w-4 h-4 mt-0.5 rounded-full bg-purple-200 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="h-4 w-3/4 bg-gray-200 rounded mb-2" />
+                      <div className="flex items-center gap-2">
+                        <div className="h-5 w-24 bg-gray-100 rounded" />
+                        <div className="h-4 w-16 bg-gray-100 rounded" />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </a>
-            ))
-          ) : (
-            <div className="p-12 text-center border border-dashed border-border rounded-xl bg-muted/20">
-              <p className="text-sm text-muted-foreground">No open issues</p>
+              ))}
             </div>
-          )}
-        </div>
+          }
+        >
+          <div className="grid gap-3">
+            {issues && issues.length > 0 ? (
+              issues.map((issue) => (
+                <a
+                  key={issue.id}
+                  href={issue.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group block p-4 rounded-xl bg-card border border-border/50 hover:border-primary/30 hover:shadow-md transition-all duration-200"
+                >
+                  <div className="flex items-start gap-3">
+                    <CircleDot className="w-4 h-4 mt-0.5 text-green-600 dark:text-green-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1 mb-1">
+                        {issue.title}
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span className="font-mono bg-muted px-1.5 py-0.5 rounded">
+                          {issue.repo}#{issue.number}
+                        </span>
+                        <span>{formatTimeAgo(issue.updatedTime)}</span>
+                        {issue.comments > 0 && (
+                          <Badge variant="secondary" className="text-xs py-0 h-5">
+                            {issue.comments}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </a>
+              ))
+            ) : (
+              <div className="p-12 text-center border border-dashed border-border rounded-xl bg-muted/20">
+                <p className="text-sm text-muted-foreground">No open issues</p>
+              </div>
+            )}
+          </div>
+        </Skeleton>
       </section>
     </div>
   );

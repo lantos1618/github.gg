@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { useProfileGeneration } from './hooks/useProfileGeneration';
 import { ProfileEmptyState } from './ProfileEmptyState';
 import { ProfileContent } from './ProfileContent';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Skeleton } from 'boneyard-js/react';
 
 interface SerializableInitialProfileData {
   profile: DeveloperProfileType | null;
@@ -28,16 +28,16 @@ function ProfileSkeleton() {
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-16 space-y-6">
       <div className="flex items-center gap-4">
-        <Skeleton className="h-20 w-20 rounded-full" />
+        <div className="animate-pulse rounded-full bg-gray-200 h-20 w-20" />
         <div className="space-y-2">
-          <Skeleton className="h-6 w-40" />
-          <Skeleton className="h-4 w-24" />
+          <div className="animate-pulse rounded-md bg-gray-200 h-6 w-40" />
+          <div className="animate-pulse rounded-md bg-gray-200 h-4 w-24" />
         </div>
       </div>
       <div className="space-y-3">
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-4 w-5/6" />
+        <div className="animate-pulse rounded-md bg-gray-200 h-4 w-full" />
+        <div className="animate-pulse rounded-md bg-gray-200 h-4 w-3/4" />
+        <div className="animate-pulse rounded-md bg-gray-200 h-4 w-5/6" />
       </div>
     </div>
   );
@@ -209,7 +209,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
 
   // Version selector UI - rendered inline to avoid component identity issues
   const versionSelectorElement = versionsLoading
-    ? <Skeleton className="ml-2 h-4 w-24 inline-block" />
+    ? <div className="animate-pulse rounded-md bg-gray-200 ml-2 h-4 w-24 inline-block" />
     : (!versions || versions.length === 0)
       ? null
       : (
@@ -256,68 +256,115 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     return Math.round((total / profile.skillAssessment.length) * 10);
   };
 
-  const renderContent = () => {
-    if (publicLoading) {
-      return <ProfileSkeleton />;
-    }
+  const parsedProfile = developerProfileSchema.safeParse(getProfileData());
+  const validProfile = parsedProfile.success ? parsedProfile.data : null;
+  const totalScore = validProfile ? calculateTotalScore(validProfile) : 0;
+  const isKnottedBrains = username.toLowerCase() === 'knottedbrains';
+  const showSparkles = isKnottedBrains || !!profileStyles?.sparkles;
+  const sparkleChars = profileStyles?.emoji ? [profileStyles.emoji] : undefined;
 
-    const parsedProfile = developerProfileSchema.safeParse(getProfileData());
-    if (parsedProfile.success) {
-      const validProfile = parsedProfile.data;
-      const totalScore = calculateTotalScore(validProfile);
-      const isKnottedBrains = username.toLowerCase() === 'knottedbrains';
+  const headerChildren = validProfile ? (
+    <div className="mt-2 space-y-1">
+      {currentUser?.user ? (
+        emailLoading ? (
+          <div className="animate-pulse rounded-md bg-gray-200 h-4 w-32" />
+        ) : emailData?.email ? (
+          <div className="flex items-center gap-2 text-gray-500">
+            <Mail className="h-4 w-4" />
+            <a href={`mailto:${emailData.email}`} className="hover:text-black transition-colors">{emailData.email}</a>
+          </div>
+        ) : null
+      ) : null}
 
-      const showSparkles = isKnottedBrains || !!profileStyles?.sparkles;
-      const sparkleChars = profileStyles?.emoji ? [profileStyles.emoji] : undefined;
-
-      const headerChildren = (
-        <div className="mt-2 space-y-1">
-          {currentUser?.user ? (
-            emailLoading ? (
-              <Skeleton className="h-4 w-32" />
-            ) : emailData?.email ? (
-              <div className="flex items-center gap-2 text-gray-500">
-                <Mail className="h-4 w-4" />
-                <a href={`mailto:${emailData.email}`} className="hover:text-black transition-colors">{emailData.email}</a>
-              </div>
-            ) : null
-          ) : null}
-
-          {versionInfo && (
-            <div className="text-sm text-gray-400 flex items-center gap-2 mt-2">
-              <span>Analysis Version</span>
-              {versionSelectorElement}
-            </div>
-          )}
+      {versionInfo && (
+        <div className="text-sm text-gray-400 flex items-center gap-2 mt-2">
+          <span>Analysis Version</span>
+          {versionSelectorElement}
         </div>
-      );
+      )}
+    </div>
+  ) : null;
 
+  const renderContent = () => {
+    if (validProfile) {
       return (
-        <ProfileContent
-          username={username}
-          profile={validProfile}
-          totalScore={totalScore}
-          isOwnProfile={isOwnProfile}
-          isGenerating={isGenerating}
-          reposLoading={reposLoading}
-          canRefresh={canRefresh(isOwnProfile)}
-          showUpgrade={showUpgrade}
-          sseStatus={sseStatus}
-          progress={progress}
-          currentStep={currentStep}
-          logs={logs}
-          scoreHistory={scoreHistory}
-          profileStyles={profileStyles}
-          showSparkles={showSparkles}
-          sparkleEffects={<SparkleEffects chars={sparkleChars} />}
-          headerChildren={headerChildren}
-          onConfigure={() => setShowRepoSelector(true)}
-          onRefresh={handleGenerateProfile}
-        />
+        <Skeleton
+          name="profile-content"
+          loading={publicLoading}
+          fallback={<ProfileSkeleton />}
+          fixture={
+            <div className="w-[90%] max-w-[900px] mx-auto py-12 space-y-12">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 border-b border-[#eee] pb-10">
+                <div className="flex items-center gap-5">
+                  <div className="h-20 w-20 rounded-full bg-gray-200" />
+                  <div className="space-y-2">
+                    <div className="h-7 w-48 bg-gray-200 rounded" />
+                    <div className="h-4 w-24 bg-gray-200 rounded" />
+                    <div className="h-4 w-32 bg-gray-200 rounded" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <div className="h-10 w-28 bg-gray-200 rounded" />
+                  <div className="h-10 w-28 bg-gray-200 rounded" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-12">
+                <div className="xl:col-span-8 space-y-12">
+                  <div className="space-y-3">
+                    <div className="h-3 w-32 bg-gray-200 rounded" />
+                    <div className="h-4 w-full bg-gray-200 rounded" />
+                    <div className="h-4 w-5/6 bg-gray-200 rounded" />
+                    <div className="h-4 w-4/6 bg-gray-200 rounded" />
+                  </div>
+                  <div className="space-y-3">
+                    <div className="h-3 w-40 bg-gray-200 rounded" />
+                    <div className="flex flex-wrap gap-2">
+                      {Array.from({ length: 8 }).map((_, i) => (
+                        <div key={i} className="h-8 w-20 bg-gray-200 rounded-full" />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="h-3 w-36 bg-gray-200 rounded" />
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="h-16 w-full bg-gray-200 rounded" />
+                    ))}
+                  </div>
+                </div>
+                <div className="xl:col-span-4 space-y-10">
+                  <div className="h-[200px] w-full bg-gray-200 rounded" />
+                  <div className="h-[160px] w-full bg-gray-200 rounded" />
+                </div>
+              </div>
+            </div>
+          }
+        >
+          <ProfileContent
+            username={username}
+            profile={validProfile}
+            totalScore={totalScore}
+            isOwnProfile={isOwnProfile}
+            isGenerating={isGenerating}
+            reposLoading={reposLoading}
+            canRefresh={canRefresh(isOwnProfile)}
+            showUpgrade={showUpgrade}
+            sseStatus={sseStatus}
+            progress={progress}
+            currentStep={currentStep}
+            logs={logs}
+            scoreHistory={scoreHistory}
+            profileStyles={profileStyles}
+            showSparkles={showSparkles}
+            sparkleEffects={<SparkleEffects chars={sparkleChars} />}
+            headerChildren={headerChildren}
+            onConfigure={() => setShowRepoSelector(true)}
+            onRefresh={handleGenerateProfile}
+          />
+        </Skeleton>
       );
     }
 
-    if (publicLoading && !publicProfile) {
+    if (publicLoading) {
       return <ProfileSkeleton />;
     }
 

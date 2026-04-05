@@ -8,14 +8,6 @@ import _dashboard_issues from './dashboard-issues.bones.json'
 import _discover_network from './discover-network.bones.json'
 import _repo_list_sidebar from './repo-list-sidebar.bones.json'
 import _activity_feed from './activity-feed.bones.json'
-import _home_page from './home-page.bones.json'
-import _user_profile from './user-profile.bones.json'
-import _repo_page from './repo-page.bones.json'
-import _repos_list from './repos-list.bones.json'
-import _users_list from './users-list.bones.json'
-import _admin_dashboard from './admin-dashboard.bones.json'
-import _wiki_index from './wiki-index.bones.json'
-import _wiki_page from './wiki-page.bones.json'
 
 registerBones({
   "profile-content": _profile_content,
@@ -24,12 +16,4 @@ registerBones({
   "discover-network": _discover_network,
   "repo-list-sidebar": _repo_list_sidebar,
   "activity-feed": _activity_feed,
-  "home-page": _home_page,
-  "user-profile": _user_profile,
-  "repo-page": _repo_page,
-  "repos-list": _repos_list,
-  "users-list": _users_list,
-  "admin-dashboard": _admin_dashboard,
-  "wiki-index": _wiki_index,
-  "wiki-page": _wiki_page,
 })

@@ -2,6 +2,8 @@ import { createCaller } from '@/lib/trpc/server';
 import { ReposClientView } from '@/components/repos/ReposClientView';
 import type { Metadata } from 'next';
 
+export const revalidate = 300; // ISR: revalidate every 5 minutes
+
 export const metadata: Metadata = {
   title: 'Analyzed Repositories - GG',
   description: 'Explore repositories with AI-generated scorecards and insights. Browse analyzed GitHub repositories with comprehensive code quality metrics and AI-powered analysis.',

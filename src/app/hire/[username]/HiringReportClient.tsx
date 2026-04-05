@@ -21,6 +21,7 @@ import {
 
 type HiringReportClientProps = {
   username: string;
+  initialData?: any;
 };
 
 function getRiskLevel(confidence: number | undefined, aiPercentage?: number): {
@@ -92,8 +93,12 @@ function generateInterviewQuestions(profile: {
   return questions.slice(0, 5);
 }
 
-export function HiringReportClient({ username }: HiringReportClientProps) {
-  const { data, isLoading, error } = trpc.profile.publicGetProfile.useQuery({ username });
+export function HiringReportClient({ username, initialData }: HiringReportClientProps) {
+  const { data, isLoading, error } = trpc.profile.publicGetProfile.useQuery({ username }, {
+    initialData: initialData ?? undefined,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   if (isLoading) {
     return (

@@ -2,6 +2,8 @@ import { createCaller } from '@/lib/trpc/server';
 import { UsersClientView } from '@/components/users/UsersClientView';
 import type { Metadata } from 'next';
 
+export const revalidate = 300; // ISR: revalidate every 5 minutes
+
 export const metadata: Metadata = {
   title: 'Developer Profiles - gh.gg',
   description: 'Discover developers with AI-generated insights and analysis. Browse analyzed GitHub profiles with AI-powered summaries, tech stacks, and repository insights.',

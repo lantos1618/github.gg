@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 
 export interface NetworkUser {
   username: string;
@@ -84,7 +83,6 @@ function curvedEdgePath(sx: number, sy: number, tx: number, ty: number, curvatur
 }
 
 export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: NetworkGraphProps) {
-  const router = useRouter();
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const nodesRef = useRef<GraphNode[]>([]);
@@ -571,6 +569,11 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
       const dy = e.clientY - dragStartPos.current.y;
       if (Math.sqrt(dx * dx + dy * dy) < 5) {
         const nodeId = dragNode;
+        if (e.metaKey || e.ctrlKey) {
+          window.open(`/${nodeId}`, '_blank');
+          setDragNode(null); setIsPanning(false); isPanningRef.current = false;
+          return;
+        }
         if (e.shiftKey) {
           toggleSelection(nodeId);
           setDragNode(null); setIsPanning(false); isPanningRef.current = false;
@@ -579,7 +582,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
         if (clickTimerRef.current && lastClickNodeRef.current === nodeId) {
           clearTimeout(clickTimerRef.current);
           clickTimerRef.current = null; lastClickNodeRef.current = null;
-          router.push(`/${nodeId}`);
+          window.open(`/${nodeId}`, '_blank');
         } else {
           if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
           lastClickNodeRef.current = nodeId;
@@ -591,7 +594,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
       }
     }
     setDragNode(null); setIsPanning(false); isPanningRef.current = false;
-  }, [dragNode, handleExpand, toggleSelection, router]);
+  }, [dragNode, handleExpand, toggleSelection]);
 
   const handleMouseLeave = useCallback(() => {
     setDragNode(null); setIsPanning(false); isPanningRef.current = false;
@@ -724,7 +727,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
 
       {/* Bottom hints */}
       <div className="absolute bottom-2 right-3 text-[10px] text-[#c0c0c0] z-10 select-none">
-        click expand · shift select · double-click profile · scroll zoom{isFullscreen ? ' · esc exit' : ''}
+        click expand · double-click profile · cmd+click new tab · shift select · scroll zoom{isFullscreen ? ' · esc exit' : ''}
       </div>
 
       <svg

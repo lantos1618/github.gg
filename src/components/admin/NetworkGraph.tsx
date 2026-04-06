@@ -225,7 +225,6 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
 
     if (added > 0) {
       iterationRef.current = Math.max(0, iterationRef.current - 100);
-      autoFitEnabledRef.current = true;
     }
     setStructureVersion(v => v + 1);
   }, []);
@@ -288,8 +287,21 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
       w: fitW,
       h: fitH,
     };
-    autoFitEnabledRef.current = true;
   }, [dimensions]);
+
+  // Pan to a specific node without changing zoom level
+  const panToNode = useCallback((nodeId: string) => {
+    const node = nodesRef.current.find(n => n.id === nodeId);
+    if (!node) return;
+    const vb = viewBoxRef.current;
+    viewBoxRef.current = {
+      x: node.x - vb.w / 2,
+      y: node.y - vb.h / 2,
+      w: vb.w,
+      h: vb.h,
+    };
+    autoFitEnabledRef.current = false;
+  }, []);
 
   // Hide leaves filter
   useEffect(() => {
@@ -403,7 +415,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
       }
     }
 
-    // Continuous auto-fit — always follow the graph unless user pans/zooms manually
+    // Auto-fit only during initial layout settling, then disable
     if (autoFitEnabledRef.current && iteration % 3 === 0 && !isPanningRef.current && !dragNode) {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const node of nodes) {
@@ -431,6 +443,11 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
         w: vb.w + (tW - vb.w) * t,
         h: vb.h + (tH - vb.h) * t,
       };
+
+      // Disable auto-fit once the initial layout has settled
+      if (iteration >= 120) {
+        autoFitEnabledRef.current = false;
+      }
     }
 
     iterationRef.current++;
@@ -702,13 +719,28 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
           <span className="text-[11px] text-[#bbb] font-mono">{totalVisible} nodes · {totalEdges} edges · {routerCount} routers</span>
         </div>
         <div className="flex gap-1.5 items-center pointer-events-auto">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search graph..."
-            className="w-32 px-2 py-1 text-[11px] border border-[#e0e0e0] rounded bg-white/90 text-[#333] placeholder:text-[#ccc] focus:outline-none focus:border-[#999] transition-colors"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search graph..."
+              className="w-32 px-2 py-1 text-[11px] border border-[#e0e0e0] rounded bg-white/90 text-[#333] placeholder:text-[#ccc] focus:outline-none focus:border-[#999] transition-colors"
+            />
+            {searchQuery && searchMatches.size > 0 && (
+              <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-[#e0e0e0] rounded shadow-lg max-h-48 overflow-y-auto z-20">
+                {[...searchMatches].map(id => (
+                  <button
+                    key={id}
+                    onClick={() => { panToNode(id); setSearchQuery(''); }}
+                    className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-[#f5f5f5] transition-colors"
+                  >
+                    @{id}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             onClick={fitToView}
             className="px-2 py-1 text-[11px] font-medium rounded bg-white/90 text-[#888] border border-[#e0e0e0] hover:text-[#111] hover:border-[#999] transition-colors"
@@ -773,7 +805,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
           <style>{`
             @keyframes spin { to { transform: rotate(360deg); } }
             @keyframes pulse-ring { 0%, 100% { opacity: 0.8; } 50% { opacity: 0.3; } }
-            .loading-ring { animation: spin 1.2s linear infinite; transform-origin: center; }
+            .loading-ring { animation: spin 1.2s linear infinite; transform-origin: 0px 0px; }
             .search-ring { animation: pulse-ring 1.5s ease-in-out infinite; }
           `}</style>
         </defs>

@@ -190,14 +190,25 @@ export default function SettingsPage() {
 
   return (
     <div className="container py-8 max-w-4xl px-4 md:px-8">
-      <PageHeader title="Settings" description="Manage your account settings and preferences" />
+      <PageHeader title="Settings" />
 
       <div className="grid gap-8">
         {/* Profile Customization */}
         <CardWithHeader
-          title="Profile Customization"
-          description="Personalize your developer profile with custom colors and effects."
+          title="Profile"
+          description="Custom colors and effects."
           icon={Palette}
+          action={isPaid && Object.keys(localStyles).length > 0 ? (
+            <button
+              onClick={() => {
+                setLocalStyles({ primaryColor: '', textColor: '', backgroundColor: '', emoji: '', sparkles: false });
+                toast.success('Profile styles reset');
+              }}
+              className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors"
+            >
+              Reset
+            </button>
+          ) : undefined}
         >
           {isPaid ? (
             <div className="space-y-6">
@@ -313,58 +324,41 @@ export default function SettingsPage() {
               </div>
             </div>
           ) : (
-            <div className="bg-gray-50 p-6 rounded-lg text-center space-y-4">
-              <Palette className="h-12 w-12 text-gray-400 mx-auto" />
-              <div>
-                <h3 className="font-semibold text-lg">Unlock Profile Customization</h3>
-                <p className="text-muted-foreground max-w-md mx-auto mt-2">
-                  Upgrade to Pro to customize your profile colors, add sparkle effects, and make your developer identity truly yours.
-                </p>
-              </div>
-              <Button onClick={handleManageBilling} variant="default">
-                Upgrade to Customize
-              </Button>
+            <div className="py-4 text-center">
+              <p className="text-sm text-[#999] mb-3">Pro feature</p>
+              <a href="/pricing" className="text-sm text-[#111] border-b-2 border-[#111] pb-0.5 hover:text-[#666] hover:border-[#666] transition-colors">
+                Upgrade
+              </a>
             </div>
           )}
         </CardWithHeader>
 
         {/* Current Plan */}
         <CardWithHeader
-          title="Your Plan"
-          description="Manage your subscription and billing."
+          title="Plan"
+          description={`${(plan || 'free').charAt(0).toUpperCase() + (plan || 'free').slice(1)} — ${(!plan || plan === 'free') ? 'Public repositories' : plan === 'byok' ? 'Private repos + BYOK' : 'Private repos + managed AI'}`}
           icon={Key}
+          action={isPaid ? (
+            <button
+              onClick={handleManageBilling}
+              disabled={getBillingPortal.isPending}
+              className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors disabled:opacity-50"
+            >
+              {getBillingPortal.isPending ? 'Loading...' : 'Manage Billing'}
+            </button>
+          ) : (
+            <a href="/pricing" className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors">
+              Upgrade
+            </a>
+          )}
         >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-lg font-semibold capitalize">
-                  {plan || 'Free'} Plan
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {(!plan || plan === 'free') && 'Public repositories only'}
-                  {plan === 'byok' && 'Private repos + BYOK'}
-                  {plan === 'pro' && 'Private repos + managed AI'}
-                </p>
-              </div>
-              {isPaid ? (
-                <Button
-                  variant="outline"
-                  onClick={handleManageBilling}
-                  disabled={getBillingPortal.isPending}
-                >
-                  {getBillingPortal.isPending ? 'Loading...' : 'Manage Billing'}
-                </Button>
-              ) : (
-                <Button variant="outline" asChild>
-                  <a href="/pricing">Upgrade</a>
-                </Button>
-              )}
-            </div>
+          <div />
         </CardWithHeader>
 
         {/* API Key Management */}
         <CardWithHeader
-          title="Bring Your Own Key (BYOK)"
-          description="Add your own Google Gemini API key for unlimited usage."
+          title="BYOK"
+          description="Your own Gemini API key for unlimited usage."
           icon={Key}
         >
           <div className="space-y-4">
@@ -374,15 +368,13 @@ export default function SettingsPage() {
                   <Key className="h-4 w-4 text-green-600" />
                   <span className="text-sm text-green-800">API key is configured</span>
                 </div>
-                <Button 
-                  variant="destructive" 
+                <button
                   onClick={handleDeleteKey}
                   disabled={deleteApiKey.isPending}
-                  className="flex items-center gap-2"
+                  className="text-sm text-red-500 hover:text-red-700 border-b border-transparent hover:border-red-700 transition-colors disabled:opacity-50"
                 >
-                  <Trash2 className="h-4 w-4" />
                   {deleteApiKey.isPending ? 'Deleting...' : 'Delete Key'}
-                </Button>
+                </button>
               </div>
             ) : (
               <div className="space-y-4">
@@ -425,7 +417,7 @@ export default function SettingsPage() {
         {/* Public API Keys */}
         <CardWithHeader
           title="API Keys"
-          description="Manage API keys for programmatic access to the GG REST API."
+          description="Programmatic access to the GG REST API."
           icon={Code2}
         >
           <div className="space-y-4">
@@ -560,8 +552,8 @@ export default function SettingsPage() {
 
         {/* Usage Statistics */}
         <CardWithHeader
-          title="Usage Statistics"
-          description="Your token usage for this month."
+          title="Usage"
+          description="Token usage this month."
           icon={BarChart3}
         >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -613,21 +605,19 @@ export default function SettingsPage() {
 
         {/* Webhook Settings */}
         <CardWithHeader
-          title="PR Review Automation"
-          description="Configure automated pull request reviews for your repositories."
+          title="PR Reviews"
+          description="Automated code reviews on pull requests."
           icon={Webhook}
         >
           <div className="space-y-4">
             {!installationInfo ? (
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-yellow-800 mb-3">
-                  GitHub App not installed. Install the gh.gg app to enable PR reviews.
+              <div className="py-2">
+                <p className="text-sm text-[#999] mb-3">
+                  GitHub App not installed.
                 </p>
-                <Button variant="outline" asChild>
-                  <a href="/install" target="_blank" rel="noopener noreferrer">
-                    Install GitHub App
-                  </a>
-                </Button>
+                <a href="/install" target="_blank" rel="noopener noreferrer" className="text-sm text-[#111] border-b-2 border-[#111] pb-0.5 hover:text-[#666] hover:border-[#666] transition-colors">
+                  Install GitHub App
+                </a>
               </div>
             ) : (
               <div className="space-y-6">

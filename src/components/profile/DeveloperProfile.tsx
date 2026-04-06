@@ -266,20 +266,22 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   const sparkleChars = profileStyles?.emoji ? [profileStyles.emoji] : undefined;
 
   const headerChildren = validProfile ? (
-    <div className="mt-2 space-y-1">
-      {currentUser?.user ? (
-        emailLoading ? (
-          <div className="animate-pulse rounded-md bg-gray-200 h-4 w-32" />
-        ) : emailData?.email ? (
-          <div className="flex items-center gap-2 text-gray-500">
-            <Mail className="h-4 w-4" />
-            <a href={`mailto:${emailData.email}`} className="hover:text-black transition-colors">{emailData.email}</a>
-          </div>
-        ) : null
-      ) : null}
+    <div className="mt-2 space-y-1 min-h-[28px]">
+      {currentUser?.user && (
+        <div className="h-5">
+          {emailLoading ? (
+            <div className="animate-pulse rounded-md bg-gray-200 h-4 w-32" />
+          ) : emailData?.email ? (
+            <div className="flex items-center gap-2 text-gray-500">
+              <Mail className="h-4 w-4" />
+              <a href={`mailto:${emailData.email}`} className="hover:text-black transition-colors">{emailData.email}</a>
+            </div>
+          ) : null}
+        </div>
+      )}
 
       {versionInfo && (
-        <div className="text-sm text-gray-400 flex items-center gap-2 mt-2">
+        <div className="text-sm text-gray-400 flex items-center gap-2">
           <span>Analysis Version</span>
           {versionSelectorElement}
         </div>

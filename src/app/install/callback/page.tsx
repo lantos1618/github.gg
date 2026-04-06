@@ -134,19 +134,19 @@ function InstallCallbackContent() {
               <Button onClick={handleSignIn} className="w-full">
                 Sign In with GitHub
               </Button>
-              <Button onClick={handleContinue} variant="outline" className="w-full">
+              <button onClick={handleContinue} className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors">
                 Go Home
-              </Button>
+              </button>
             </div>
           )}
           {status === 'error' && (
             <div className="space-y-2">
-              <Button onClick={handleRetryLinking} variant="outline" className="w-full">
+              <button onClick={handleRetryLinking} className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors">
                 Try Linking Again
-              </Button>
-              <Button onClick={handleRetry} variant="outline" className="w-full">
+              </button>
+              <button onClick={handleRetry} className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors">
                 Try Installation Again
-              </Button>
+              </button>
               <Button onClick={handleContinue} className="w-full">
                 Go Home
               </Button>

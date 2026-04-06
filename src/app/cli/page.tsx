@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Check, Copy, Terminal, Sparkles, BarChart3, GitBranch } from 'lucide-react';
 
 const BASH_SCRIPT = `# GitHub.gg CLI shortcuts - Add to ~/.bashrc or ~/.zshrc
@@ -70,11 +69,9 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   };
 
   return (
-    <Button
+    <button
       onClick={handleCopy}
-      variant="outline"
-      size="sm"
-      className="gap-2"
+      className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors inline-flex items-center gap-2"
     >
       {copied ? (
         <>
@@ -87,7 +84,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
           {label}
         </>
       )}
-    </Button>
+    </button>
   );
 }
 

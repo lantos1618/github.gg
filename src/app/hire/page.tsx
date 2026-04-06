@@ -81,11 +81,9 @@ export default function HirePage() {
                 AI Job Matching
               </Button>
             </Link>
-            <Link href="/hire/search">
-              <Button variant="outline" className="text-sm">
-                <Search className="h-4 w-4 mr-2" />
-                Search all candidates
-              </Button>
+            <Link href="/hire/search" className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors inline-flex items-center gap-2">
+              <Search className="h-4 w-4" />
+              Search all candidates
             </Link>
           </div>
         </div>

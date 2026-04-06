@@ -335,9 +335,9 @@ export default function HireSearchClient({ initialData }: HireSearchClientProps)
 
             {data.hasMore && (
               <div className="text-center py-4">
-                <Button variant="outline" size="sm">
+                <button className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors">
                   Load more
-                </Button>
+                </button>
               </div>
             )}
           </>

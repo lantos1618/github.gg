@@ -171,10 +171,10 @@ export default function IntelPage() {
                 aria-label="Add repository"
               />
             </div>
-            <Button onClick={addRepo} variant="outline">
-              <Plus className="h-4 w-4 mr-1" />
+            <button onClick={addRepo} className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors inline-flex items-center gap-1">
+              <Plus className="h-4 w-4" />
               Add
-            </Button>
+            </button>
           </div>
 
           {/* Selected Repos */}
@@ -645,10 +645,10 @@ export default function IntelPage() {
                           Score: {user.score}
                         </Badge>
                         {user.email && (
-                          <Button variant="outline" size="sm" className="text-xs h-7">
-                            <Mail className="h-3 w-3 mr-1" />
+                          <button className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors inline-flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
                             Contact
-                          </Button>
+                          </button>
                         )}
                       </div>
                     </div>

@@ -57,6 +57,14 @@ export function ProfileHeader({ username, profile, totalScore, profileStyles, ch
           >
             {totalScore}
           </span>
+          {crackedInfo.isCracked && (
+            <span
+              className={`text-[13px] font-semibold uppercase tracking-[1px] ${crackedInfo.colors.text}`}
+              style={profileStyles?.primaryColor ? { color: profileStyles.primaryColor } : undefined}
+            >
+              cracked
+            </span>
+          )}
         </div>
 
         {/* Archetype + Confidence */}

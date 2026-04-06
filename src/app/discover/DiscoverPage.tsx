@@ -5,6 +5,7 @@ import { trpc } from '@/lib/trpc/client';
 import { Skeleton } from 'boneyard-js/react';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { TextButton } from '@/components/ui/text-button';
 import { NetworkGraph } from '@/components/admin/NetworkGraph';
 import { useSessionHint } from '@/lib/session-context';
 import { PageWidthContainer } from '@/components/PageWidthContainer';
@@ -75,18 +76,22 @@ function NetworkExplorer() {
             placeholder="e.g. torvalds, antfu"
             className="w-48 border-0 border-b-2 border-[#ddd] bg-transparent text-base text-[#111] placeholder:text-[#ccc] hover:border-[#888] focus:border-[#111] focus:outline-none focus:ring-0 transition-colors pb-1"
           />
-          <button
+          <TextButton
             onClick={() => { setNetworkType('following'); handleSearch(); }}
-            className={`pb-1 text-base font-medium border-b-2 transition-colors ${networkType === 'following' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#666]'}`}
+            active={networkType === 'following'}
+            size="base"
+            className="pb-1 font-medium"
           >
             Following
-          </button>
-          <button
+          </TextButton>
+          <TextButton
             onClick={() => { setNetworkType('followers'); handleSearch(); }}
-            className={`pb-1 text-base font-medium border-b-2 transition-colors ${networkType === 'followers' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#666]'}`}
+            active={networkType === 'followers'}
+            size="base"
+            className="pb-1 font-medium"
           >
             Followers
-          </button>
+          </TextButton>
         </div>
       </div>
 
@@ -141,18 +146,20 @@ function NetworkExplorer() {
               {network.users.length} {network.type} of <strong className="text-[#111]">@{network.seed}</strong>
             </span>
             <div className="flex gap-4">
-              <button
+              <TextButton
                 onClick={() => setViewMode('table')}
-                className={`pb-1 text-xs font-semibold tracking-[1px] uppercase border-b-2 transition-colors ${viewMode === 'table' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#666]'}`}
+                active={viewMode === 'table'}
+                className="pb-1 text-xs font-semibold tracking-[1px] uppercase"
               >
                 Table
-              </button>
-              <button
+              </TextButton>
+              <TextButton
                 onClick={() => setViewMode('graph')}
-                className={`pb-1 text-xs font-semibold tracking-[1px] uppercase border-b-2 transition-colors ${viewMode === 'graph' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#666]'}`}
+                active={viewMode === 'graph'}
+                className="pb-1 text-xs font-semibold tracking-[1px] uppercase"
               >
                 Graph
-              </button>
+              </TextButton>
             </div>
           </div>
 

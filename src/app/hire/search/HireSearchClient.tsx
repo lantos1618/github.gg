@@ -5,6 +5,7 @@ import { trpc } from '@/lib/trpc/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
+import { TextButton } from '@/components/ui/text-button';
 import {
   Search,
   ArrowLeft,
@@ -335,9 +336,9 @@ export default function HireSearchClient({ initialData }: HireSearchClientProps)
 
             {data.hasMore && (
               <div className="text-center py-4">
-                <button className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors">
+                <TextButton>
                   Load more
-                </button>
+                </TextButton>
               </div>
             )}
           </>

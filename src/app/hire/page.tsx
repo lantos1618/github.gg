@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowRight, Github, Sparkles, CheckCircle, Users, FileSearch, MessageSquare, Search } from 'lucide-react';
 import Link from 'next/link';
+import { TextLink } from '@/components/ui/text-link';
 
 export default function HirePage() {
   const router = useRouter();
@@ -81,10 +82,10 @@ export default function HirePage() {
                 AI Job Matching
               </Button>
             </Link>
-            <Link href="/hire/search" className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors inline-flex items-center gap-2">
+            <TextLink href="/hire/search" className="inline-flex items-center gap-2">
               <Search className="h-4 w-4" />
               Search all candidates
-            </Link>
+            </TextLink>
           </div>
         </div>
       </div>

@@ -28,6 +28,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { TextButton } from '@/components/ui/text-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -171,10 +172,10 @@ export default function IntelPage() {
                 aria-label="Add repository"
               />
             </div>
-            <button onClick={addRepo} className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors inline-flex items-center gap-1">
+            <TextButton onClick={addRepo} className="inline-flex items-center gap-1">
               <Plus className="h-4 w-4" />
               Add
-            </button>
+            </TextButton>
           </div>
 
           {/* Selected Repos */}
@@ -645,10 +646,10 @@ export default function IntelPage() {
                           Score: {user.score}
                         </Badge>
                         {user.email && (
-                          <button className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors inline-flex items-center gap-1">
+                          <TextButton className="inline-flex items-center gap-1">
                             <Mail className="h-3 w-3" />
                             Contact
-                          </button>
+                          </TextButton>
                         )}
                       </div>
                     </div>

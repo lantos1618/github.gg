@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Check, Copy, Terminal, Sparkles, BarChart3, GitBranch } from 'lucide-react';
+import { TextButton } from '@/components/ui/text-button';
 
 const BASH_SCRIPT = `# GitHub.gg CLI shortcuts - Add to ~/.bashrc or ~/.zshrc
 
@@ -69,9 +70,9 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   };
 
   return (
-    <button
+    <TextButton
       onClick={handleCopy}
-      className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors inline-flex items-center gap-2"
+      className="inline-flex items-center gap-2"
     >
       {copied ? (
         <>
@@ -84,7 +85,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
           {label}
         </>
       )}
-    </button>
+    </TextButton>
   );
 }
 

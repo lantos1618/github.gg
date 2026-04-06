@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth/client';
+import { TextButton } from '@/components/ui/text-button';
 
 function InstallCallbackContent() {
   const searchParams = useSearchParams();
@@ -134,19 +135,19 @@ function InstallCallbackContent() {
               <Button onClick={handleSignIn} className="w-full">
                 Sign In with GitHub
               </Button>
-              <button onClick={handleContinue} className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors">
+              <TextButton onClick={handleContinue}>
                 Go Home
-              </button>
+              </TextButton>
             </div>
           )}
           {status === 'error' && (
             <div className="space-y-2">
-              <button onClick={handleRetryLinking} className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors">
+              <TextButton onClick={handleRetryLinking}>
                 Try Linking Again
-              </button>
-              <button onClick={handleRetry} className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors">
+              </TextButton>
+              <TextButton onClick={handleRetry}>
                 Try Installation Again
-              </button>
+              </TextButton>
               <Button onClick={handleContinue} className="w-full">
                 Go Home
               </Button>

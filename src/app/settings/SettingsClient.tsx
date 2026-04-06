@@ -10,6 +10,8 @@ import { usePlan } from '@/lib/hooks/usePlan';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Key, Trash2, BarChart3, Webhook, Palette, Plus, Copy, Check, Code2, ExternalLink } from 'lucide-react';
 import { PageHeader, CardWithHeader } from '@/components/common';
+import { TextButton } from '@/components/ui/text-button';
+import { TextLink } from '@/components/ui/text-link';
 import { HexColorPicker } from 'react-colorful';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -219,7 +221,7 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
           description="Custom colors and effects."
           icon={Palette}
           action={isPaid ? (
-            <button
+            <TextButton
               type="button"
               onClick={() => {
                 const defaults = { primaryColor: undefined, textColor: undefined, backgroundColor: undefined, emoji: undefined, sparkles: false };
@@ -228,10 +230,9 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
                   onSuccess: () => toast.success('Profile styles reset'),
                 });
               }}
-              className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors"
             >
               Reset
-            </button>
+            </TextButton>
           ) : undefined}
         >
           {isPaid ? (
@@ -350,9 +351,9 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
           ) : (
             <div className="py-4 text-center">
               <p className="text-sm text-[#999] mb-3">Pro feature</p>
-              <a href="/pricing" className="text-sm text-[#111] border-b-2 border-[#111] pb-0.5 hover:text-[#666] hover:border-[#666] transition-colors">
+              <TextLink href="/pricing" active>
                 Upgrade
-              </a>
+              </TextLink>
             </div>
           )}
         </CardWithHeader>
@@ -363,17 +364,16 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
           description={`${(plan || 'free').charAt(0).toUpperCase() + (plan || 'free').slice(1)} — ${(!plan || plan === 'free') ? 'Public repositories' : plan === 'byok' ? 'Private repos + BYOK' : 'Private repos + managed AI'}`}
           icon={Key}
           action={isPaid ? (
-            <button
+            <TextButton
               onClick={handleManageBilling}
               disabled={getBillingPortal.isPending}
-              className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors disabled:opacity-50"
             >
               {getBillingPortal.isPending ? 'Loading...' : 'Manage Billing'}
-            </button>
+            </TextButton>
           ) : (
-            <a href="/pricing" className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors">
+            <TextLink href="/pricing">
               Upgrade
-            </a>
+            </TextLink>
           )}
         >
           <div />
@@ -392,13 +392,13 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
                   <Key className="h-4 w-4 text-green-600" />
                   <span className="text-sm text-green-800">API key is configured</span>
                 </div>
-                <button
+                <TextButton
                   onClick={handleDeleteKey}
                   disabled={deleteApiKey.isPending}
-                  className="text-sm text-red-500 hover:text-red-700 border-b border-transparent hover:border-red-700 transition-colors disabled:opacity-50"
+                  className="text-red-500 hover:text-red-700 hover:border-red-700"
                 >
                   {deleteApiKey.isPending ? 'Deleting...' : 'Delete Key'}
-                </button>
+                </TextButton>
               </div>
             ) : (
               <div className="space-y-4">
@@ -639,9 +639,9 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
                 <p className="text-sm text-[#999] mb-3">
                   GitHub App not installed.
                 </p>
-                <a href="/install" target="_blank" rel="noopener noreferrer" className="text-sm text-[#111] border-b-2 border-[#111] pb-0.5 hover:text-[#666] hover:border-[#666] transition-colors">
+                <TextLink href="/install" external active>
                   Install GitHub App
-                </a>
+                </TextLink>
               </div>
             ) : (
               <div className="space-y-6">

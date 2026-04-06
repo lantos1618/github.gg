@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Check, Copy } from 'lucide-react';
+import { TextButton } from '@/components/ui/text-button';
 import { PageWidthContainer } from '@/components/PageWidthContainer';
 
 type Tab = 'cli' | 'api' | 'mcp';
@@ -88,18 +89,16 @@ export default function DevelopersPage() {
         {/* Tabs */}
         <div className="flex gap-5 mb-8">
           {([['cli', 'CLI'], ['api', 'REST API'], ['mcp', 'MCP']] as const).map(([key, label]) => (
-            <button
+            <TextButton
               key={key}
               onClick={() => setActiveTab(key)}
-              className={`pb-1.5 text-base font-medium border-b-2 transition-colors ${
-                activeTab === key
-                  ? 'border-[#111] text-[#111]'
-                  : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#666]'
-              }`}
+              active={activeTab === key}
+              size="base"
+              className="pb-1.5 font-medium"
             >
               {label}
               {key === 'mcp' && <span className="ml-1.5 text-[10px] text-[#f59e0b] font-semibold uppercase">Soon</span>}
-            </button>
+            </TextButton>
           ))}
         </div>
 

@@ -25,6 +25,7 @@ interface ProfileContentProps {
   currentStep: string;
   logs: SSELogItem[];
   scoreHistory?: { date: string; score: number; source: string }[] | null;
+  scoreHistoryLoading?: boolean;
   profileStyles?: {
     sparkles?: boolean | null;
     emoji?: string | null;
@@ -53,6 +54,7 @@ export function ProfileContent({
   currentStep,
   logs,
   scoreHistory,
+  scoreHistoryLoading,
   profileStyles,
   showSparkles,
   sparkleEffects,
@@ -144,6 +146,7 @@ export function ProfileContent({
         <ProfileSidebar
           profile={profile}
           scoreHistory={scoreHistory}
+          scoreHistoryLoading={scoreHistoryLoading}
         />
       </div>
 

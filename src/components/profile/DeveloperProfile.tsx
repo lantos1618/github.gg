@@ -204,30 +204,28 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   );
 
   // Fetch score history for this user
-  const { data: scoreHistory } = trpc.scoreHistory.getUserScoreHistory.useQuery(
+  const { data: scoreHistory, isLoading: scoreHistoryLoading } = trpc.scoreHistory.getUserScoreHistory.useQuery(
     { username },
     { enabled: !!username, staleTime: 10 * 60 * 1000, refetchOnWindowFocus: false }
   );
 
   // Version selector UI - rendered inline to avoid component identity issues
-  const versionSelectorElement = versionsLoading
-    ? <div className="animate-pulse rounded-md bg-gray-200 ml-2 h-4 w-24 inline-block" />
-    : (!versions || versions.length === 0)
-      ? null
-      : (
-        <select
-          data-testid="profile-version-select"
-          className="ml-2 border-b border-gray-300 bg-transparent py-0.5 text-sm focus:border-black focus:outline-none cursor-pointer"
-          value={selectedVersion ?? versions[0].version}
-          onChange={e => setSelectedVersion(Number(e.target.value))}
-        >
-          {versions.map(v => (
-            <option key={v.version} value={v.version}>
-              v{v.version} ({new Date(v.updatedAt).toLocaleDateString()})
-            </option>
-          ))}
-        </select>
-      );
+  const versionSelectorElement = (!versions || versions.length === 0)
+    ? null
+    : (
+      <select
+        data-testid="profile-version-select"
+        className="ml-2 border-b border-gray-300 bg-transparent py-0.5 text-sm focus:border-black focus:outline-none cursor-pointer"
+        value={selectedVersion ?? versions[0].version}
+        onChange={e => setSelectedVersion(Number(e.target.value))}
+      >
+        {versions.map(v => (
+          <option key={v.version} value={v.version}>
+            v{v.version} ({new Date(v.updatedAt).toLocaleDateString()})
+          </option>
+        ))}
+      </select>
+    );
 
   const getVersionInfo = () => {
     if (!versions || versions.length === 0) return null;
@@ -266,26 +264,33 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   const sparkleChars = profileStyles?.emoji ? [profileStyles.emoji] : undefined;
 
   const headerChildren = validProfile ? (
-    <div className="mt-2 space-y-1 min-h-[28px]">
-      {currentUser?.user && (
-        <div className="h-5">
-          {emailLoading ? (
-            <div className="animate-pulse rounded-md bg-gray-200 h-4 w-32" />
-          ) : emailData?.email ? (
-            <div className="flex items-center gap-2 text-gray-500">
-              <Mail className="h-4 w-4" />
-              <a href={`mailto:${emailData.email}`} className="hover:text-black transition-colors">{emailData.email}</a>
-            </div>
-          ) : null}
-        </div>
-      )}
+    <div className="mt-2 space-y-1 min-h-[52px]">
+      {/* Fixed-height container for email to prevent CLS */}
+      <div className="h-5">
+        {currentUser?.user && emailLoading ? (
+          <div className="animate-pulse rounded-md bg-gray-200 h-4 w-32" />
+        ) : emailData?.email ? (
+          <div className="flex items-center gap-2 text-gray-500">
+            <Mail className="h-4 w-4" />
+            <a href={`mailto:${emailData.email}`} className="hover:text-black transition-colors">{emailData.email}</a>
+          </div>
+        ) : null}
+      </div>
 
-      {versionInfo && (
-        <div className="text-sm text-gray-400 flex items-center gap-2">
-          <span>Analysis Version</span>
-          {versionSelectorElement}
-        </div>
-      )}
+      {/* Fixed-height container for version selector to prevent CLS */}
+      <div className="h-6">
+        {versionsLoading ? (
+          <div className="text-sm text-gray-400 flex items-center gap-2">
+            <span>Analysis Version</span>
+            <div className="animate-pulse rounded-md bg-gray-200 ml-2 h-4 w-24 inline-block" />
+          </div>
+        ) : versionInfo ? (
+          <div className="text-sm text-gray-400 flex items-center gap-2">
+            <span>Analysis Version</span>
+            {versionSelectorElement}
+          </div>
+        ) : null}
+      </div>
     </div>
   ) : null;
 
@@ -357,6 +362,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
             currentStep={currentStep}
             logs={logs}
             scoreHistory={scoreHistory}
+            scoreHistoryLoading={scoreHistoryLoading}
             profileStyles={profileStyles}
             showSparkles={showSparkles}
             sparkleEffects={<SparkleEffects chars={sparkleChars} />}

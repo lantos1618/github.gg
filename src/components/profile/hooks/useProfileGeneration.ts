@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import type { SSEStatus, SSELogItem } from '@/components/analysis/ReusableSSEFeedback';
 import { sanitizeText } from '@/lib/utils/sanitize';
@@ -16,6 +16,9 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
   const [sseStatus, setSseStatus] = useState<SSEStatus>('idle');
   const [currentStep, setCurrentStep] = useState<string>('');
   const [generationError, setGenerationError] = useState<string | null>(null);
+
+  // Ref-based guard to prevent duplicate triggers (survives re-renders and Strict Mode double-mount)
+  const generationInFlightRef = useRef(false);
 
   // Subscription control
   const [shouldGenerate, setShouldGenerate] = useState(false);
@@ -99,6 +102,7 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
             addLog(message, 'info');
           }
         } else if (event.type === 'complete') {
+          generationInFlightRef.current = false;
           setIsGenerating(false);
           setProgress(100);
           setSseStatus('complete');
@@ -113,6 +117,7 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
           if (message.includes('No original (non-forked) public repositories')) {
             message = "This user doesn't have enough original public repositories to generate a meaningful profile yet.";
           }
+          generationInFlightRef.current = false;
           setIsGenerating(false);
           setSseStatus('error');
           setCurrentStep(message);
@@ -123,6 +128,7 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
         }
       },
       onError: (err) => {
+        generationInFlightRef.current = false;
         setShouldGenerate(false);
         setSubscriptionInput(null);
         pollForRecovery(err.message || 'Connection error');
@@ -131,7 +137,8 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
   );
 
   const handleGenerateProfile = useCallback(() => {
-    if (isGenerating) return;
+    if (isGenerating || generationInFlightRef.current) return;
+    generationInFlightRef.current = true;
 
     setProgress(0);
     setLogs([]);
@@ -148,7 +155,8 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
   }, [username, isGenerating]);
 
   const handleGenerateWithSelectedRepos = useCallback((selectedRepoNames: string[], forceRefreshScorecards: boolean = false) => {
-    if (isGenerating) return;
+    if (isGenerating || generationInFlightRef.current) return;
+    generationInFlightRef.current = true;
 
     setProgress(0);
     setLogs([]);

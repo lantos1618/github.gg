@@ -171,11 +171,13 @@ export const profileRouter = router({
       forceRefreshScorecards: z.boolean().optional().default(false), // Force regenerate all scorecards
     }))
     .subscription(async function* ({ input, ctx }) {
+      const { username } = input;
+      const normalizedUsername = username.toLowerCase();
+      const lockKey = `profile:${normalizedUsername}`;
+      let lockAcquired = false;
+
       try {
         yield { type: 'progress', progress: 0, message: 'Starting profile generation...' };
-
-        const { username } = input;
-        const normalizedUsername = username.toLowerCase();
 
         // 1. Check for recently generated profile (within last 5 minutes) to prevent spam/retries
         const recentProfile = await db
@@ -188,7 +190,7 @@ export const profileRouter = router({
         if (recentProfile.length > 0) {
           const profile = recentProfile[0];
           const timeSinceUpdate = new Date().getTime() - profile.updatedAt.getTime();
-          
+
           // If generated less than 5 minutes ago, return it immediately
           if (timeSinceUpdate < 5 * 60 * 1000) {
             yield { type: 'progress', progress: 100, message: 'Profile was just generated! Loading results...' };
@@ -203,6 +205,15 @@ export const profileRouter = router({
             };
             return;
           }
+        }
+
+        // 2. Acquire generation lock to prevent concurrent generations for the same user
+        const { acquireGenerationLock } = await import('@/lib/rate-limit');
+        lockAcquired = await acquireGenerationLock(lockKey, 300);
+
+        if (!lockAcquired) {
+          yield { type: 'error', message: 'A profile generation is already in progress for this user. Please wait for it to complete.' };
+          return;
         }
 
         // Check for active subscription
@@ -555,6 +566,13 @@ export const profileRouter = router({
           console.error('❌ Failed to extract/send developer email:', e);
         }
 
+        // Release lock before signaling completion
+        if (lockAcquired) {
+          const { releaseGenerationLock: releaseLock } = await import('@/lib/rate-limit');
+          await releaseLock(lockKey);
+          lockAcquired = false;
+        }
+
         yield {
           type: 'complete',
           data: {
@@ -565,6 +583,17 @@ export const profileRouter = router({
           },
         };
       } catch (error) {
+        // Release lock on error
+        if (lockAcquired) {
+          try {
+            const { releaseGenerationLock: releaseLock } = await import('@/lib/rate-limit');
+            await releaseLock(lockKey);
+            lockAcquired = false;
+          } catch (releaseErr) {
+            console.error('Failed to release generation lock:', releaseErr);
+          }
+        }
+
         // Log full error details for Vercel error tracking
         const errorDetails = {
           username: input.username,
@@ -575,24 +604,34 @@ export const profileRouter = router({
             name: error.name,
           } : error,
         };
-        
+
         console.error('❌ Error generating developer profile:', JSON.stringify(errorDetails, null, 2));
-        
+
         // Log the raw error object for Vercel's error tracking
         if (error instanceof Error) {
           console.error('Error stack trace:', error.stack);
         }
         console.error('Raw error:', error);
-        
+
         const userFriendlyMessage = error instanceof Error ? error.message : 'Failed to generate developer profile';
         yield { type: 'error', message: userFriendlyMessage };
-        
+
         // Re-throw with full context for Vercel to catch
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: userFriendlyMessage,
           cause: error instanceof Error ? error : undefined,
         });
+      } finally {
+        // Safety net: release lock if still held (e.g., generator abandoned by client disconnect)
+        if (lockAcquired) {
+          try {
+            const { releaseGenerationLock: releaseLock } = await import('@/lib/rate-limit');
+            await releaseLock(lockKey);
+          } catch (releaseErr) {
+            console.error('Failed to release generation lock in finally:', releaseErr);
+          }
+        }
       }
     }),
 

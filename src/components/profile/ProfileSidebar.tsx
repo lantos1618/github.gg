@@ -22,27 +22,38 @@ interface ScoreDataPoint {
 interface ProfileSidebarProps {
   profile: DeveloperProfileType;
   scoreHistory?: ScoreDataPoint[] | null;
+  scoreHistoryLoading?: boolean;
 }
 
-export function ProfileSidebar({ profile, scoreHistory }: ProfileSidebarProps) {
+export function ProfileSidebar({ profile, scoreHistory, scoreHistoryLoading }: ProfileSidebarProps) {
   return (
     <div data-testid="profile-sidebar" className="xl:col-span-4 space-y-10">
 
-      {scoreHistory && scoreHistory.length > 0 && (
-        <section>
-          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
-            Score History
-          </div>
-          <div className="p-4 bg-[#f8f9fa] border border-[#eee] rounded">
-            <ScoreHistory
-              data={scoreHistory}
-              title=""
-              scoreLabel="ELO"
-              color="#111"
-            />
-          </div>
-        </section>
-      )}
+      {/* Fixed-height container for score history to prevent CLS when data loads */}
+      <div className="min-h-[80px]">
+        {scoreHistoryLoading ? (
+          <section>
+            <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
+              Score History
+            </div>
+            <div className="animate-pulse rounded-md bg-gray-200 h-[300px] w-full" />
+          </section>
+        ) : scoreHistory && scoreHistory.length > 0 ? (
+          <section>
+            <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
+              Score History
+            </div>
+            <div className="p-4 bg-[#f8f9fa] border border-[#eee] rounded">
+              <ScoreHistory
+                data={scoreHistory}
+                title=""
+                scoreLabel="ELO"
+                color="#111"
+              />
+            </div>
+          </section>
+        ) : null}
+      </div>
 
       <section>
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">

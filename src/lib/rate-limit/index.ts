@@ -168,16 +168,41 @@ export async function checkIPRateLimit(ip: string): Promise<{
 }
 
 /**
+ * In-memory lock fallback when Redis is unavailable.
+ * Prevents concurrent generations for the same resource within a single process.
+ */
+const memoryLocks = new Map<string, number>();
+
+function acquireMemoryLock(key: string, ttlMs: number): boolean {
+  const now = Date.now();
+  const existing = memoryLocks.get(key);
+  if (existing && now < existing) return false; // still held
+  memoryLocks.set(key, now + ttlMs);
+  return true;
+}
+
+function releaseMemoryLock(key: string): void {
+  memoryLocks.delete(key);
+}
+
+function isMemoryLockHeld(key: string): boolean {
+  const expiry = memoryLocks.get(key);
+  if (!expiry) return false;
+  if (Date.now() >= expiry) { memoryLocks.delete(key); return false; }
+  return true;
+}
+
+/**
  * Generation lock - prevents duplicate concurrent requests for the same resource
- * Uses Redis with TTL to auto-expire stale locks
+ * Uses Redis with TTL to auto-expire stale locks, falls back to in-memory lock
  */
 export async function acquireGenerationLock(
   key: string,
   ttlSeconds: number = 300 // 5 minutes default
 ): Promise<boolean> {
   if (!redis) {
-    logger.warn('Redis not configured, generation lock disabled');
-    return true;
+    logger.warn('Redis not configured, using in-memory generation lock');
+    return acquireMemoryLock(`lock:generation:${key}`, ttlSeconds * 1000);
   }
 
   const lockKey = `lock:generation:${key}`;
@@ -201,9 +226,8 @@ export async function acquireGenerationLock(
  * Release a generation lock
  */
 export async function releaseGenerationLock(key: string): Promise<void> {
-  if (!redis) {
-    return;
-  }
+  releaseMemoryLock(`lock:generation:${key}`);
+  if (!redis) return;
 
   const lockKey = `lock:generation:${key}`;
   await redis.del(lockKey);
@@ -214,11 +238,10 @@ export async function releaseGenerationLock(key: string): Promise<void> {
  * Check if a generation is currently in progress
  */
 export async function isGenerationInProgress(key: string): Promise<boolean> {
-  if (!redis) {
-    return false;
-  }
-
   const lockKey = `lock:generation:${key}`;
+  if (isMemoryLockHeld(lockKey)) return true;
+  if (!redis) return false;
+
   const value = await redis.get(lockKey);
   return value !== null;
 }

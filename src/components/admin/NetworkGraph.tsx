@@ -679,7 +679,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
   return (
     <div
       ref={containerRef}
-      className={isFullscreen ? 'fixed inset-0 z-50 bg-white overflow-hidden' : 'w-full rounded-lg bg-white relative overflow-hidden'}
+      className={isFullscreen ? 'fixed inset-0 z-50 bg-white overflow-hidden select-none' : 'w-full rounded-lg bg-white relative overflow-hidden select-none'}
       style={isFullscreen ? { touchAction: 'none' } : { height: '70vh', minHeight: 600, border: '1px solid #eee', touchAction: 'none' }}
     >
       {/* Top bar */}

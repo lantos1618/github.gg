@@ -37,14 +37,6 @@ export function ProfileHeader({ username, profile, totalScore, profileStyles, ch
           <AvatarImage src={`https://avatars.githubusercontent.com/${username}`} alt={username} />
           <AvatarFallback className="text-2xl bg-[#f8f9fa] text-[#aaa]">{username?.[0]?.toUpperCase()}</AvatarFallback>
         </Avatar>
-        {crackedInfo.isCracked && (
-          <div
-            className={`absolute -bottom-2 -right-2 ${crackedInfo.colors.bg} text-white p-1.5 rounded-full border-2 border-white`}
-            style={profileStyles?.primaryColor ? { backgroundColor: profileStyles.primaryColor } : undefined}
-          >
-            {isSpecial ? <Heart className="h-4 w-4 fill-current" /> : <Flame className="h-4 w-4 fill-current" />}
-          </div>
-        )}
       </div>
 
       {/* Info */}

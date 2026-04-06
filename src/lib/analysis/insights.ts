@@ -110,32 +110,32 @@ export const repoInsightsSchema = z.object({
 // Export TypeScript type
 export type RepoInsights = z.infer<typeof repoInsightsSchema>;
 
-// Helper function to get language color for UI
+// Language colors from GitHub's official linguist data (600+ languages)
+import * as linguistLanguages from 'linguist-languages';
+
+const languageColorCache = new Map<string, string>();
+
 export function getLanguageColor(language: string): string {
-  const colors: Record<string, string> = {
-    'JavaScript': '#f1e05a',
-    'TypeScript': '#2b7489',
-    'Python': '#3572A5',
-    'Java': '#b07219',
-    'C++': '#f34b7d',
-    'C#': '#178600',
-    'Go': '#00ADD8',
-    'Rust': '#dea584',
-    'PHP': '#4F5D95',
-    'Ruby': '#701516',
-    'Swift': '#ffac45',
-    'Kotlin': '#F18E33',
-    'Scala': '#c22d40',
-    'R': '#198ce7',
-    'MATLAB': '#e16737',
-    'Shell': '#89e051',
-    'HTML': '#e34c26',
-    'CSS': '#563d7c',
-    'Vue': '#2c3e50',
-    'React': '#61dafb',
-    'Angular': '#dd0031',
-    'Svelte': '#ff3e00',
-  };
-  
-  return colors[language] || '#6c757d';
+  const cached = languageColorCache.get(language);
+  if (cached) return cached;
+
+  // Direct match
+  const langs = linguistLanguages as Record<string, { color?: string }>;
+  const lang = langs[language];
+  if (lang?.color) {
+    languageColorCache.set(language, lang.color);
+    return lang.color;
+  }
+
+  // Case-insensitive search
+  const lower = language.toLowerCase();
+  for (const [name, data] of Object.entries(langs)) {
+    if (name.toLowerCase() === lower && data.color) {
+      const color = data.color;
+      languageColorCache.set(language, color);
+      return color;
+    }
+  }
+
+  return '#6c757d';
 }

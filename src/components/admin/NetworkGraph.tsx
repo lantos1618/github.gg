@@ -611,6 +611,9 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
 
   const handleMouseLeave = useCallback(() => {
     setDragNode(null); setIsPanning(false); isPanningRef.current = false;
+    // Clear click timer so leaving the graph doesn't trigger navigation
+    if (clickTimerRef.current) { clearTimeout(clickTimerRef.current); clickTimerRef.current = null; }
+    lastClickNodeRef.current = null;
   }, []);
 
   const handleWheel = useCallback((e: React.WheelEvent<SVGSVGElement>) => {

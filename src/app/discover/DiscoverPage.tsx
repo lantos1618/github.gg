@@ -67,13 +67,13 @@ function NetworkExplorer() {
           />
           <button
             onClick={() => { setNetworkType('following'); handleSearch(); }}
-            className={`pb-1 text-base font-medium border-b-2 transition-colors ${networkType === 'following' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#ccc]'}`}
+            className={`pb-1 text-base font-medium border-b-2 transition-colors ${networkType === 'following' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#666]'}`}
           >
             Following
           </button>
           <button
             onClick={() => { setNetworkType('followers'); handleSearch(); }}
-            className={`pb-1 text-base font-medium border-b-2 transition-colors ${networkType === 'followers' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#ccc]'}`}
+            className={`pb-1 text-base font-medium border-b-2 transition-colors ${networkType === 'followers' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#666]'}`}
           >
             Followers
           </button>
@@ -133,13 +133,13 @@ function NetworkExplorer() {
             <div className="flex gap-4">
               <button
                 onClick={() => setViewMode('table')}
-                className={`pb-1 text-xs font-semibold tracking-[1px] uppercase border-b-2 transition-colors ${viewMode === 'table' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#ccc]'}`}
+                className={`pb-1 text-xs font-semibold tracking-[1px] uppercase border-b-2 transition-colors ${viewMode === 'table' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#666]'}`}
               >
                 Table
               </button>
               <button
                 onClick={() => setViewMode('graph')}
-                className={`pb-1 text-xs font-semibold tracking-[1px] uppercase border-b-2 transition-colors ${viewMode === 'graph' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#ccc]'}`}
+                className={`pb-1 text-xs font-semibold tracking-[1px] uppercase border-b-2 transition-colors ${viewMode === 'graph' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#666]'}`}
               >
                 Graph
               </button>

@@ -24,7 +24,7 @@ export function DiagramTypeSelector({
             className={`pb-1 text-base font-medium border-b-2 transition-colors
               ${diagramType === dt.value
                 ? 'border-[#111] text-[#111]'
-                : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#ccc]'
+                : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#666]'
               }
               ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
             `}

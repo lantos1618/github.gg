@@ -97,7 +97,7 @@ export default function DevelopersPage() {
               className={`pb-1.5 text-base font-medium border-b-2 transition-colors ${
                 activeTab === key
                   ? 'border-[#111] text-[#111]'
-                  : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#ccc]'
+                  : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#666]'
               }`}
             >
               {label}

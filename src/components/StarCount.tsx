@@ -1,9 +1,4 @@
-'use client';
-
-import { useState } from 'react';
 import { Star } from 'lucide-react';
-import { trpc } from '@/lib/trpc/client';
-import { useAuth } from '@/lib/auth/client';
 
 interface StarCountProps {
   owner: string;
@@ -11,60 +6,41 @@ interface StarCountProps {
   className?: string;
 }
 
-export function StarCount({ owner, repo, className = '' }: StarCountProps) {
-  const [isHovered, setIsHovered] = useState(false);
-  const { isSignedIn } = useAuth();
+async function getStarCount(owner: string, repo: string): Promise<number | null> {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      headers: { Accept: 'application/vnd.github.v3+json' },
+      next: { revalidate: 600 }, // cache for 10 minutes
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.stargazers_count ?? null;
+  } catch {
+    return null;
+  }
+}
 
-  const { data: repoInfo, isLoading, error } = trpc.github.getRepoInfo.useQuery(
-    { owner, repo },
-    {
-      staleTime: 1000 * 60 * 30,
-      gcTime: 1000 * 60 * 60,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-    }
-  );
-
-  const { data: starredData } = trpc.github.hasStarredRepo.useQuery(
-    { owner, repo },
-    {
-      enabled: isSignedIn,
-      staleTime: 1000 * 60 * 30,
-      refetchOnWindowFocus: false,
-      retry: false,
-    }
-  );
-
-  const hasStarred = starredData?.hasStarred || false;
-
-  const handleClick = () => {
-    window.open(`https://github.com/${owner}/${repo}`, '_blank');
-  };
-
-  const starCountDisplay = isLoading
-    ? '---'
-    : error
-    ? 'N/A'
-    : (repoInfo?.stargazersCount ?? 0).toLocaleString();
+export async function StarCount({ owner, repo, className = '' }: StarCountProps) {
+  const stars = await getStarCount(owner, repo);
 
   return (
-    <button
-      onClick={handleClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+    <a
+      href={`https://github.com/${owner}/${repo}`}
+      target="_blank"
+      rel="noopener noreferrer"
       data-testid="nav-star-count-btn"
-      className={`inline-flex items-center gap-1.5 px-1 sm:px-2 py-1 transition-colors cursor-pointer ${className}`}
+      className={`inline-flex items-center gap-1.5 px-1 sm:px-2 py-1 transition-colors group ${className}`}
     >
       <Star
         size={16}
-        stroke={isHovered || hasStarred ? '#f59e0b' : '#aaa'}
-        fill={isHovered || hasStarred ? '#f59e0b' : 'none'}
+        stroke="#aaa"
+        fill="none"
         strokeWidth={2}
-        className="transition-all duration-300"
+        className="group-hover:stroke-[#f59e0b] group-hover:fill-[#f59e0b] transition-all duration-300"
       />
-      <span className="text-base font-semibold text-[#111]" suppressHydrationWarning>
-        {starCountDisplay}
+      <span className="text-base font-semibold text-[#111]">
+        {stars !== null ? stars.toLocaleString() : '---'}
       </span>
-    </button>
+    </a>
   );
 }

@@ -78,12 +78,9 @@ export default function DevelopersPage() {
       <div className="w-[90%] max-w-5xl mx-auto pt-12 pb-20">
         {/* Header */}
         <div className="mb-10">
-          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
-            Developer Tools
-          </div>
           <h1 className="text-[31px] font-semibold text-[#111] mb-2">Developers</h1>
           <p className="text-base text-[#aaa]">
-            Integrate github.gg into your workflow with CLI tools, REST API, and AI assistants
+            CLI tools, REST API, and AI assistants for your workflow
           </p>
         </div>
 

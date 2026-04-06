@@ -61,9 +61,8 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
       <div className="w-[90%] max-w-5xl mx-auto">
         <div className="flex items-end justify-between gap-4 mb-6">
           <div>
-            <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">Repositories</div>
             <h1 className="text-[31px] font-semibold text-[#111] tracking-tight leading-none">
-              Analyzed Repositories
+              Repositories
               <span className="text-base font-normal text-[#888] ml-3">{totalRepoCount.toLocaleString()}</span>
             </h1>
           </div>

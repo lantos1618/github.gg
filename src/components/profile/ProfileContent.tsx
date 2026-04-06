@@ -107,7 +107,7 @@ export function ProfileContent({
           {/* Executive Summary */}
           <section>
             <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
-              Executive Summary
+              Summary
             </div>
             <p className="text-base text-[#666] leading-[1.7]">{profile.summary}</p>
             {profile.scoreInterpretation && (
@@ -125,7 +125,7 @@ export function ProfileContent({
           {/* Technical Arsenal */}
           <section>
             <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
-              Technical Arsenal
+              Tech Stack
             </div>
             <TechStack techStack={profile.techStack} />
           </section>
@@ -133,10 +133,7 @@ export function ProfileContent({
           {/* Key Repositories */}
           <section>
             <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
-              Key Repositories
-            </div>
-            <div className="text-base text-[#aaa] mb-4">
-              Scored by significance — click any repo to view its full scorecard
+              Repositories
             </div>
             <TopRepos repos={profile.topRepos} username={username} />
           </section>

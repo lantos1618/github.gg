@@ -249,8 +249,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps = {}
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">Admin</div>
-          <h1 className="text-[31px] font-semibold text-[#111]">Dashboard</h1>
+          <h1 className="text-[31px] font-semibold text-[#111]">Admin</h1>
         </div>
         <div className="flex gap-2">
           <button onClick={handleExportDeveloperProfiles} className="px-3 py-1.5 text-base font-medium text-[#666] border border-[#ddd] rounded hover:border-[#111] hover:text-[#111] transition-colors flex items-center gap-1.5">

@@ -54,8 +54,7 @@ function NetworkExplorer() {
     <div>
       <div className="flex items-end justify-between gap-4 mb-6">
         <div>
-          <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">Discover</div>
-          <h1 className="text-[31px] font-semibold text-[#111] tracking-tight leading-none">Find Developers</h1>
+          <h1 className="text-[31px] font-semibold text-[#111] tracking-tight leading-none">Discover</h1>
         </div>
         <div className="flex items-end gap-6 flex-shrink-0">
           <input

@@ -31,7 +31,7 @@ export function ProfileSidebar({ profile, scoreHistory }: ProfileSidebarProps) {
       {scoreHistory && scoreHistory.length > 0 && (
         <section>
           <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
-            ELO Trajectory
+            Score History
           </div>
           <div className="p-4 bg-[#f8f9fa] border border-[#eee] rounded">
             <ScoreHistory
@@ -46,14 +46,14 @@ export function ProfileSidebar({ profile, scoreHistory }: ProfileSidebarProps) {
 
       <section>
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
-          Developer Persona
+          Persona
         </div>
         <DevelopmentStyle traits={profile.developmentStyle} />
       </section>
 
       <section>
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
-          Skill Assessment
+          Skills
         </div>
         <SkillAssessment skills={profile.skillAssessment} />
       </section>
@@ -61,7 +61,7 @@ export function ProfileSidebar({ profile, scoreHistory }: ProfileSidebarProps) {
       {Array.isArray(profile.suggestions) && profile.suggestions.length > 0 && (
         <section>
           <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
-            Growth Areas
+            Growth
           </div>
           <div className="space-y-2">
             {profile.suggestions.map((suggestion, idx) => (

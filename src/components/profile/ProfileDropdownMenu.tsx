@@ -3,16 +3,17 @@
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { LogOut, Settings, Zap } from 'lucide-react';
+import { LogOut, Settings, Shield, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { User as UserType } from '@/lib/auth/types';
 
 interface ProfileDropdownMenuProps {
   user: UserType | null;
   onSignOut: () => Promise<void>;
+  isAdmin?: boolean;
 }
 
-export function ProfileDropdownMenu({ user, onSignOut }: ProfileDropdownMenuProps) {
+export function ProfileDropdownMenu({ user, onSignOut, isAdmin }: ProfileDropdownMenuProps) {
   if (!user) return null;
 
   return (
@@ -47,6 +48,15 @@ export function ProfileDropdownMenu({ user, onSignOut }: ProfileDropdownMenuProp
             <span>Settings</span>
           </Link>
         </DropdownMenuItem>
+
+        {isAdmin && (
+          <DropdownMenuItem asChild>
+            <Link href="/admin" data-testid="nav-user-admin-link">
+              <Shield className="mr-2 h-4 w-4" />
+              <span>Admin</span>
+            </Link>
+          </DropdownMenuItem>
+        )}
 
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onSignOut} data-testid="nav-user-signout-btn">

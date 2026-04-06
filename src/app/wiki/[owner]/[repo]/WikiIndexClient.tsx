@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { WikiGenerationButton } from '@/components/WikiGenerationButton';
 import { WikiIndexMenu } from '@/components/wiki/WikiIndexMenu';
 import { RepoPageLayout } from '@/components/layouts/RepoPageLayout';
+import { PageWidthContainer } from '@/components/PageWidthContainer';
 
 interface WikiIndexClientProps {
   owner: string;
@@ -29,21 +30,21 @@ export function WikiIndexClient({
   if (!toc || toc.pages.length === 0) {
     return (
       <RepoPageLayout user={owner} repo={repo} branches={branches} defaultBranch={defaultBranch} wikiPages={wikiPages}>
-        <div className="w-[90%] max-w-5xl mx-auto py-12">
+        <PageWidthContainer className="py-12">
           <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
             Wiki
           </div>
           <h2 className="text-[20px] font-semibold text-[#111] mb-2">{repo} Documentation</h2>
           <p className="text-base text-[#888] mb-8">No wiki documentation exists for this repository yet.</p>
           <WikiGenerationButton owner={owner} repo={repo} />
-        </div>
+        </PageWidthContainer>
       </RepoPageLayout>
     );
   }
 
   return (
     <RepoPageLayout user={owner} repo={repo} branches={branches} defaultBranch={defaultBranch} wikiPages={wikiPages}>
-      <div className="w-[90%] max-w-5xl mx-auto py-12">
+      <PageWidthContainer className="py-12">
         <div className="flex items-start justify-between mb-6">
           <div>
             <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">Wiki</div>
@@ -73,7 +74,7 @@ export function WikiIndexClient({
             </Link>
           ))}
         </div>
-      </div>
+      </PageWidthContainer>
     </RepoPageLayout>
   );
 }

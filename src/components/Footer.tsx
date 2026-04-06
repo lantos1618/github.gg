@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { PageWidthContainer } from '@/components/PageWidthContainer';
 
 export function Footer() {
   return (
     <footer className="border-t border-[#eee] bg-white flex-shrink-0" data-testid="layout-footer">
-      <div className="w-[90%] max-w-5xl mx-auto py-4">
+      <PageWidthContainer className="py-4">
         <div className="flex flex-col md:flex-row items-center justify-between gap-3">
           <p className="text-[13px] text-[#aaa]">
             &copy; {new Date().getFullYear()} GG. Not affiliated with GitHub, Inc.
@@ -19,7 +20,7 @@ export function Footer() {
             </Link>
           </div>
         </div>
-      </div>
+      </PageWidthContainer>
     </footer>
   );
 }

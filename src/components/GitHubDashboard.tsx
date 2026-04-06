@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { usePageWidth, getWidthClass } from '@/lib/page-width-context';
 
 function DashboardContent({
   pullRequests,
@@ -27,6 +28,7 @@ function DashboardContent({
   prsLoading: boolean,
   issuesLoading: boolean
 }) {
+  const { width } = usePageWidth();
   const formatTimeAgo = (isoString: string) => {
     try {
       return formatDistanceToNow(new Date(isoString), { addSuffix: true });
@@ -36,7 +38,7 @@ function DashboardContent({
   };
 
   return (
-    <div className="flex-1 p-4 lg:p-8 space-y-6 max-w-5xl mx-auto w-full">
+    <div className={`flex-1 p-4 lg:p-8 space-y-6 ${getWidthClass(width)} mx-auto w-full`}>
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-foreground flex items-center gap-3">

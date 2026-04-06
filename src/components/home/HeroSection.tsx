@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowRight, Github } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageWidthContainer } from '@/components/PageWidthContainer';
 
 export function HeroSection() {
   const router = useRouter();
@@ -35,7 +36,7 @@ export function HeroSection() {
 
   return (
     <div className="relative bg-white" data-testid="home-hero-section">
-      <div className="w-[90%] max-w-5xl mx-auto pt-24 pb-20">
+      <PageWidthContainer className="pt-24 pb-20">
 
         {/* Section label */}
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
@@ -115,7 +116,7 @@ export function HeroSection() {
             </button>
           ))}
         </div>
-      </div>
+      </PageWidthContainer>
     </div>
   );
 }

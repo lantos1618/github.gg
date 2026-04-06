@@ -46,8 +46,8 @@ export function TechStack({ techStack }: TechStackProps) {
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
       {items.map((item, i) =>
         item.type === 'label' ? (
-          <span key={`l-${i}`} className="text-[11px] text-[#bbb] font-semibold tracking-[1.5px] uppercase mr-1">
-            {item.tier}
+          <span key={`l-${i}`} className="text-[13px] text-[#999] leading-none">
+            {i > 0 && <span className="mr-1.5">&middot;</span>}{item.tier}
           </span>
         ) : (
           <span

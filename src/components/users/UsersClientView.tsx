@@ -8,6 +8,7 @@ import { Search, ArrowUpDown, Flame, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import type { ScoredMetric, DeveloperArchetype } from '@/lib/types/profile';
+import { PageWidthContainer } from '@/components/PageWidthContainer';
 import { getCrackedInfo } from '@/lib/utils/cracked';
 
 type SortField = 'date' | 'score' | 'username' | 'tokens';
@@ -73,7 +74,7 @@ export function UsersClientView({ initialProfiles, totalProfileCount }: UsersCli
 
   return (
     <div className="min-h-screen bg-white pt-12 pb-20">
-      <div className="w-[90%] max-w-5xl mx-auto">
+      <PageWidthContainer>
         <div className="flex items-end justify-between gap-4 mb-6">
           <div>
             <h1 className="text-[31px] font-semibold text-[#111] tracking-tight leading-none">
@@ -180,7 +181,7 @@ export function UsersClientView({ initialProfiles, totalProfileCount }: UsersCli
             )}
           </>
         )}
-      </div>
+      </PageWidthContainer>
     </div>
   );
 }

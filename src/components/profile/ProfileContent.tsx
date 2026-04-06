@@ -8,6 +8,7 @@ import { ProfileHeader } from './ProfileHeader';
 import { ProfileActions } from './ProfileActions';
 import { ProfileSidebar } from './ProfileSidebar';
 import { ReusableSSEFeedback, type SSEStatus, type SSELogItem } from '@/components/analysis/ReusableSSEFeedback';
+import { usePageWidth, getWidthClass } from '@/lib/page-width-context';
 import type { DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
 
 interface ProfileContentProps {
@@ -59,10 +60,11 @@ export function ProfileContent({
   onConfigure,
   onRefresh,
 }: ProfileContentProps) {
+  const { width } = usePageWidth();
   return (
     <div
       data-testid="profile-content"
-      className="w-[90%] max-w-[900px] mx-auto py-12 space-y-12 relative"
+      className={`w-[90%] ${getWidthClass(width, 'narrow')} mx-auto py-12 space-y-12 relative`}
       style={{
         backgroundColor: profileStyles?.backgroundColor || undefined,
         color: profileStyles?.textColor || undefined,

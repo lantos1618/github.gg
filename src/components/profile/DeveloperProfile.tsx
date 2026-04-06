@@ -8,6 +8,7 @@ import { Mail } from 'lucide-react';
 import { developerProfileSchema, type DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
 import { useRouter } from 'next/navigation';
 import { useProfileGeneration } from './hooks/useProfileGeneration';
+import { usePageWidth, getWidthClass } from '@/lib/page-width-context';
 import { ProfileEmptyState } from './ProfileEmptyState';
 import { ProfileContent } from './ProfileContent';
 import { Skeleton } from 'boneyard-js/react';
@@ -128,6 +129,7 @@ function SparkleEffects({ chars = ['✨', '💖', '🌸', '🧚', '⭐', '🎀']
 }
 
 export function DeveloperProfile({ username, initialData }: DeveloperProfileProps) {
+  const { width } = usePageWidth();
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [showRepoSelector, setShowRepoSelector] = useState(false);
 
@@ -293,7 +295,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
           loading={publicLoading}
           fallback={<ProfileSkeleton />}
           fixture={
-            <div className="w-[90%] max-w-[900px] mx-auto py-12 space-y-12">
+            <div className={`w-[90%] ${getWidthClass(width, 'narrow')} mx-auto py-12 space-y-12`}>
               <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 border-b border-[#eee] pb-10">
                 <div className="flex items-center gap-5">
                   <div className="h-20 w-20 rounded-full bg-gray-200" />

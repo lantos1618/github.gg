@@ -2,6 +2,7 @@ import { FEATURE_COMPARISON } from '@/data/plans';
 import { Check, X } from 'lucide-react';
 import type { Metadata } from 'next';
 import { PricingCardActions } from '@/components/PricingCardActions';
+import { PageWidthContainer } from '@/components/PageWidthContainer';
 
 export const metadata: Metadata = {
   title: 'Pricing - GG',
@@ -25,7 +26,7 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero */}
-      <div className="w-[90%] max-w-5xl mx-auto pt-16 pb-12">
+      <PageWidthContainer className="pt-16 pb-12">
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
           Pricing
         </div>
@@ -41,10 +42,10 @@ export default function PricingPage() {
           Public repos are free, forever. <strong className="text-[#111]">Pro</strong> unlocks AI features, private repo access, and priority support.
           Understand codebases in minutes, not hours.
         </p>
-      </div>
+      </PageWidthContainer>
 
       {/* Pricing Cards */}
-      <div className="w-[90%] max-w-5xl mx-auto pb-16">
+      <PageWidthContainer className="pb-16">
         <div className="grid md:grid-cols-2 gap-6">
           {/* Free Plan */}
           <div className="bg-[#f8f9fa] p-6" style={{ borderLeft: '3px solid #6b7280' }}>
@@ -106,10 +107,10 @@ export default function PricingPage() {
             </p>
           </div>
         </div>
-      </div>
+      </PageWidthContainer>
 
       {/* Quote */}
-      <div className="w-[90%] max-w-5xl mx-auto pb-16">
+      <PageWidthContainer className="pb-16">
         <div className="bg-[#f8f9fa] rounded p-8 text-center" style={{ borderLeft: '3px solid #111' }}>
           <p className="text-base text-[#333] leading-[1.7] mb-3">
             "I used to spend <span className="line-through text-[#aaa]">3 hours</span> understanding a new codebase.
@@ -119,10 +120,10 @@ export default function PricingPage() {
             — Every developer who's ever joined a new project
           </p>
         </div>
-      </div>
+      </PageWidthContainer>
 
       {/* Feature Comparison */}
-      <div className="w-[90%] max-w-5xl mx-auto pb-16">
+      <PageWidthContainer className="pb-16">
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
           Feature Comparison
         </div>
@@ -157,17 +158,17 @@ export default function PricingPage() {
             ))}
           </tbody>
         </table>
-      </div>
+      </PageWidthContainer>
 
       {/* Trust */}
-      <div className="w-[90%] max-w-5xl mx-auto pb-12 text-center">
+      <PageWidthContainer className="pb-12 text-center">
         <p className="text-[13px] text-[#aaa]">
           Cancel anytime · Secure payment via Stripe · Your code stays private
         </p>
-      </div>
+      </PageWidthContainer>
 
       {/* FAQ */}
-      <div className="w-[90%] max-w-5xl mx-auto pb-20">
+      <PageWidthContainer className="pb-20">
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
           Questions
         </div>
@@ -183,7 +184,7 @@ export default function PricingPage() {
             <div className="text-base text-[#666]">{faq.a}</div>
           </div>
         ))}
-      </div>
+      </PageWidthContainer>
     </div>
   );
 }

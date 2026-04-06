@@ -2,6 +2,7 @@
 import { RepoPageLayout } from "@/components/layouts/RepoPageLayout";
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import { GitBranch, Box, Boxes, Workflow, Cog, Wrench } from 'lucide-react';
+import { PageWidthContainer } from '@/components/PageWidthContainer';
 
 const ICON_MAP = {
   GitBranch,
@@ -40,7 +41,7 @@ export function ComingSoon({
 
   return (
     <RepoPageLayout user={user} repo={repo} refName={refName} files={files} totalFiles={totalFiles}>
-      <div className="w-[90%] max-w-5xl mx-auto py-16">
+      <PageWidthContainer className="py-16">
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
           Coming Soon
         </div>
@@ -65,7 +66,7 @@ export function ComingSoon({
             </a>
           </div>
         )}
-      </div>
+      </PageWidthContainer>
     </RepoPageLayout>
   );
 }

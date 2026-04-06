@@ -1,3 +1,5 @@
+import { PageWidthContainer } from '@/components/PageWidthContainer';
+
 export function FeatureGrid() {
   const steps = [
     {
@@ -35,7 +37,7 @@ export function FeatureGrid() {
 
   return (
     <section className="bg-white border-t border-[#eee]" data-testid="home-feature-grid">
-      <div className="w-[90%] max-w-5xl mx-auto py-20">
+      <PageWidthContainer className="py-20">
 
         {/* Section label */}
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
@@ -86,7 +88,7 @@ export function FeatureGrid() {
         <div className="text-[13px] text-[#aaa]">
           Works with any public GitHub repository. Private repos supported with GitHub App installation.
         </div>
-      </div>
+      </PageWidthContainer>
     </section>
   );
 }

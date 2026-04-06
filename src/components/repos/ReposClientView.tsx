@@ -6,6 +6,7 @@ import { Search, ArrowUpDown } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { ScorecardMetric } from '@/lib/types/scorecard';
+import { PageWidthContainer } from '@/components/PageWidthContainer';
 
 type SortField = 'date' | 'score' | 'name';
 type SortOrder = 'asc' | 'desc';
@@ -58,7 +59,7 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
 
   return (
     <div className="min-h-screen bg-white pt-12 pb-20">
-      <div className="w-[90%] max-w-5xl mx-auto">
+      <PageWidthContainer>
         <div className="flex items-end justify-between gap-4 mb-6">
           <div>
             <h1 className="text-[31px] font-semibold text-[#111] tracking-tight leading-none">
@@ -144,7 +145,7 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
             )}
           </>
         )}
-      </div>
+      </PageWidthContainer>
     </div>
   );
 }

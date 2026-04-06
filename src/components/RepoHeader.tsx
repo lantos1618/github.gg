@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/select';
 import { Calendar, Download, Check } from 'lucide-react';
 import { WikiGenerationButton } from './WikiGenerationButton';
+import { PageWidthContainer } from '@/components/PageWidthContainer';
 
 interface RepoHeaderProps {
   user: string;
@@ -52,7 +53,7 @@ export function RepoHeader({
   };
 
   return (
-    <div className="w-[90%] max-w-5xl mx-auto pt-6 sm:pt-8">
+    <PageWidthContainer className="pt-6 sm:pt-8">
       <div className="mb-8">
         {/* Section label */}
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">
@@ -122,7 +123,7 @@ export function RepoHeader({
           <WikiGenerationButton owner={user} repo={repo} />
         </div>
       </div>
-    </div>
+    </PageWidthContainer>
   );
 }
 

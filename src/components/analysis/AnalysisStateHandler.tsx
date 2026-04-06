@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw, LogIn } from 'lucide-react';
 import { useAuth } from '@/lib/auth/client';
 import { ReusableSSEFeedback, type SSEStatus, type SSELogItem } from '@/components/analysis/ReusableSSEFeedback';
+import { PageWidthContainer } from '@/components/PageWidthContainer';
 
 function AnalysisLoadingSkeleton() {
   return (
-    <div className="w-[90%] max-w-5xl mx-auto pt-6 space-y-4">
+    <PageWidthContainer className="pt-6 space-y-4">
       <div className="animate-pulse rounded-md bg-gray-200 h-6 w-48" />
       <div className="animate-pulse rounded-md bg-gray-200 h-4 w-32" />
       <div className="space-y-3 mt-6">
@@ -17,7 +18,7 @@ function AnalysisLoadingSkeleton() {
         <div className="animate-pulse rounded-md bg-gray-200 h-10 w-full" />
         <div className="animate-pulse rounded-md bg-gray-200 h-10 w-full" />
       </div>
-    </div>
+    </PageWidthContainer>
   );
 }
 

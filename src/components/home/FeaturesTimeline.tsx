@@ -1,6 +1,7 @@
 'use client';
 
 import { FeatureRequestBox } from './FeatureRequestBox';
+import { PageWidthContainer } from '@/components/PageWidthContainer';
 
 interface Feature {
   title: string;
@@ -20,7 +21,7 @@ export function FeaturesTimeline({ features }: FeaturesTimelineProps) {
   });
 
   return (
-    <div className="w-[90%] max-w-5xl mx-auto py-16">
+    <PageWidthContainer className="py-16">
       <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
         Roadmap
       </div>
@@ -64,6 +65,6 @@ export function FeaturesTimeline({ features }: FeaturesTimelineProps) {
       <div className="mt-12 text-[13px] text-[#aaa] text-center">
         GG is not affiliated with GitHub, Inc. GitHub is a registered trademark of GitHub, Inc.
       </div>
-    </div>
+    </PageWidthContainer>
   );
 }

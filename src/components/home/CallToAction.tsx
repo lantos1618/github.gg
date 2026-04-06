@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { ArrowRight, Github } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { PageWidthContainer } from '@/components/PageWidthContainer';
 
 export function CallToAction() {
   const router = useRouter();
@@ -36,7 +37,7 @@ export function CallToAction() {
 
   return (
     <section className="bg-[#111] text-white" data-testid="home-cta-section">
-      <div className="w-[90%] max-w-5xl mx-auto py-20">
+      <PageWidthContainer className="py-20">
 
         {/* Section label */}
         <div className="text-[13px] text-[#666] font-semibold tracking-[1.5px] uppercase mb-4">
@@ -100,7 +101,7 @@ export function CallToAction() {
             </tbody>
           </table>
         </div>
-      </div>
+      </PageWidthContainer>
     </section>
   );
 }

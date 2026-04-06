@@ -22,6 +22,6 @@ export function NavbarClient() {
   }
 
   return (
-    <ProfileDropdownMenu user={effectiveUser} onSignOut={signOut} />
+    <ProfileDropdownMenu user={effectiveUser} onSignOut={signOut} isAdmin={hint?.isAdmin ?? false} />
   );
 } 

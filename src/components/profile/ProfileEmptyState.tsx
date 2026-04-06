@@ -4,10 +4,12 @@ import { Button } from '@/components/ui/button';
 import { UpgradePrompt } from '@/components/upgrade';
 import { RefreshCw, FolderGit2 } from 'lucide-react';
 import { ReusableSSEFeedback, type SSEStatus, type SSELogItem } from '@/components/analysis/ReusableSSEFeedback';
+import { PageWidthContainer } from '@/components/PageWidthContainer';
+import { usePageWidth, getWidthClass } from '@/lib/page-width-context';
 
 function ProfileGeneratingSkeleton() {
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6">
+    <PageWidthContainer className="space-y-6">
       <div className="flex items-center gap-4">
         <div className="animate-pulse rounded-full bg-gray-200 h-20 w-20" />
         <div className="space-y-2">
@@ -20,7 +22,7 @@ function ProfileGeneratingSkeleton() {
         <div className="animate-pulse rounded-md bg-gray-200 h-4 w-3/4" />
         <div className="animate-pulse rounded-md bg-gray-200 h-4 w-5/6" />
       </div>
-    </div>
+    </PageWidthContainer>
   );
 }
 
@@ -54,21 +56,22 @@ export function ProfileEmptyState({
   onGenerate,
   onReconnect,
 }: ProfileEmptyStateProps) {
+  const { width } = usePageWidth();
   const isActivelyGenerating = isGenerating && sseStatus !== 'idle';
 
   if (isActivelyGenerating) {
     return (
       <div data-testid="profile-empty-state" className="py-8">
-        <div className="w-full max-w-5xl mx-auto">
+        <PageWidthContainer>
           <ReusableSSEFeedback status={sseStatus} progress={progress} logs={logs} className="mb-8" />
-        </div>
+        </PageWidthContainer>
         <ProfileGeneratingSkeleton />
       </div>
     );
   }
 
   return (
-    <div data-testid="profile-empty-state" className="w-[90%] max-w-5xl mx-auto py-20 text-center">
+    <div data-testid="profile-empty-state" className={`w-[90%] ${getWidthClass(width)} mx-auto py-20 text-center`}>
       {/* Section label */}
       <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
         Developer Profile

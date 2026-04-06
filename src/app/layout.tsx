@@ -9,6 +9,7 @@ import { PostHogProvider } from './providers'
 import { Analytics } from "@vercel/analytics/next";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { SessionProvider, type SessionHint } from '@/lib/session-context';
+import { PageWidthProvider } from '@/lib/page-width-context';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import '@/lib/boneyard-config';
@@ -84,12 +85,15 @@ export default async function RootLayout({
     if (session?.user) {
       // better-auth includes additionalFields (githubUsername) on the user object
       const user = session.user as typeof session.user & { githubUsername?: string };
+      const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
+      const isAdmin = !!user.email && adminEmails.includes(user.email.toLowerCase());
       sessionHint = {
         userId: user.id,
         name: user.name ?? null,
         image: user.image ?? null,
         githubUsername: user.githubUsername ?? null,
         plan: null, // Plan is fetched per-page where needed
+        isAdmin,
       };
     }
   } catch {
@@ -133,6 +137,7 @@ export default async function RootLayout({
         <PostHogProvider>
           <TRPCProvider>
             <SessionProvider hint={sessionHint}>
+            <PageWidthProvider>
             <NavbarServer />
             {process.env.NODE_ENV === 'development' && (
               <div style={{
@@ -162,6 +167,7 @@ export default async function RootLayout({
               closeButton
               duration={4000}
             />
+          </PageWidthProvider>
           </SessionProvider>
           </TRPCProvider>
         </PostHogProvider>

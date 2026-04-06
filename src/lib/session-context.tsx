@@ -9,6 +9,7 @@ export interface SessionHint {
   image: string | null;
   githubUsername: string | null;
   plan: string | null;
+  isAdmin: boolean;
 }
 
 const SessionContext = createContext<SessionHint | null>(null);

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { StarCount } from './StarCount';
 import { NavbarClient } from './NavbarClient';
 import { NavbarLinks } from './NavbarLinks';
+import { PageWidthToggle } from './PageWidthToggle';
 
 export function NavbarServer() {
   return (
@@ -20,6 +21,7 @@ export function NavbarServer() {
         {/* Right side */}
         <div className="flex items-center gap-4 ml-auto px-4 sm:px-6">
           <StarCount owner="lantos1618" repo="github.gg" />
+          <PageWidthToggle />
           <NavbarClient />
         </div>
       </div>

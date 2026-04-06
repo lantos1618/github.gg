@@ -1,24 +1,27 @@
 "use client";
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import { Skeleton } from 'boneyard-js/react';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { NetworkGraph } from '@/components/admin/NetworkGraph';
+import { useSessionHint } from '@/lib/session-context';
+import { PageWidthContainer } from '@/components/PageWidthContainer';
 
 export default function DiscoverPage() {
   return (
     <div className="min-h-screen bg-white pt-12 pb-20">
-      <div className="w-[90%] max-w-5xl mx-auto">
+      <PageWidthContainer>
         <NetworkExplorer />
-      </div>
+      </PageWidthContainer>
     </div>
   );
 }
 
 function NetworkExplorer() {
-  const [seedUsername, setSeedUsername] = useState('');
+  const hint = useSessionHint();
+  const [seedUsername, setSeedUsername] = useState(hint?.githubUsername || '');
   const [activeUsername, setActiveUsername] = useState('');
   const [networkType, setNetworkType] = useState<'followers' | 'following'>('following');
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
@@ -43,12 +46,20 @@ function NetworkExplorer() {
     }
   }, [trpcUtils, networkType]);
 
-  const handleSearch = () => {
+  const handleSearch = useCallback(() => {
     if (seedUsername.trim()) {
       setActiveUsername(seedUsername.trim().replace(/^@/, ''));
       setSelectedUsers(new Set());
     }
-  };
+  }, [seedUsername]);
+
+  // Auto-trigger search on mount if username is pre-filled from session
+  useEffect(() => {
+    if (seedUsername && !activeUsername) {
+      handleSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div>

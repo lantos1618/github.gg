@@ -8,6 +8,7 @@ import { formatCost, calculatePerUserCostAndUsage } from '@/lib/utils/cost-calcu
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Image from 'next/image';
 import { SortableTable } from '@/components/ui/sortable-table';
+import { PageWidthContainer } from '@/components/PageWidthContainer';
 import Link from 'next/link';
 import { ReusableSSEFeedback, type SSELogItem, type SSEStatus } from '@/components/analysis/ReusableSSEFeedback';
 import { sanitizeText } from '@/lib/utils/sanitize';
@@ -245,7 +246,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps = {}
   };
 
   return (
-    <div className="w-[90%] max-w-5xl mx-auto py-12 space-y-10">
+    <PageWidthContainer className="py-12 space-y-10">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -438,6 +439,6 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps = {}
           )}
         </div>
       </div>
-    </div>
+    </PageWidthContainer>
   );
 }

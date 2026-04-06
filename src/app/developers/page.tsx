@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Check, Copy } from 'lucide-react';
+import { PageWidthContainer } from '@/components/PageWidthContainer';
 
 type Tab = 'cli' | 'api' | 'mcp';
 
@@ -75,7 +76,7 @@ export default function DevelopersPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="w-[90%] max-w-5xl mx-auto pt-12 pb-20">
+      <PageWidthContainer className="pt-12 pb-20">
         {/* Header */}
         <div className="mb-10">
           <h1 className="text-[31px] font-semibold text-[#111] mb-2">Developers</h1>
@@ -231,7 +232,7 @@ export default function DevelopersPage() {
             </div>
           </div>
         )}
-      </div>
+      </PageWidthContainer>
     </div>
   );
 }

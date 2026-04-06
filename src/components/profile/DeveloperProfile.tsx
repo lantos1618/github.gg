@@ -266,7 +266,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   const headerChildren = validProfile ? (
     <div className="mt-2 space-y-1 min-h-[52px]">
       {/* Fixed-height container for email to prevent CLS */}
-      <div className="h-5">
+      <div className="h-5 overflow-hidden">
         {currentUser?.user && emailLoading ? (
           <div className="animate-pulse rounded-md bg-gray-200 h-4 w-32" />
         ) : emailData?.email ? (

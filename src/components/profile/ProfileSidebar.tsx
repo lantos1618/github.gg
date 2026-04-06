@@ -27,7 +27,7 @@ interface ProfileSidebarProps {
 
 export function ProfileSidebar({ profile, scoreHistory, scoreHistoryLoading }: ProfileSidebarProps) {
   return (
-    <div data-testid="profile-sidebar" className="xl:col-span-4 space-y-10">
+    <div data-testid="profile-sidebar" className="xl:col-span-4 space-y-10 min-h-[500px]">
 
       {/* Fixed-height container for score history to prevent CLS when data loads */}
       <div className="min-h-[80px]">

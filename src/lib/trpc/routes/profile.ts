@@ -676,12 +676,17 @@ export const profileRouter = router({
         .groupBy(developerProfileCache.username)
         .as('max_versions');
 
-      // 2. Join with the cache table to get the full profile for that version
-      // This ensures we paginate over unique users (latest version) rather than all versions
+      // 2. Join with the cache table to get only the fields needed for the listing
+      // Extracts specific JSONB fields instead of the entire profile blob (~6KB → ~200B per row)
       const profiles = await db
         .select({
           username: developerProfileCache.username,
-          profileData: developerProfileCache.profileData,
+          profileData: sql<Record<string, unknown>>`jsonb_build_object(
+            'summary', ${developerProfileCache.profileData}->'summary',
+            'skillAssessment', ${developerProfileCache.profileData}->'skillAssessment',
+            'developerArchetype', ${developerProfileCache.profileData}->'developerArchetype',
+            'profileConfidence', ${developerProfileCache.profileData}->'profileConfidence'
+          )`,
           updatedAt: developerProfileCache.updatedAt,
           version: developerProfileCache.version,
         })

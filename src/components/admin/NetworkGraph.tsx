@@ -62,6 +62,17 @@ const PALETTE = {
 
 function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
 
+/** Scale node radius by follower count (log scale so huge accounts don't dominate). */
+const getNodeRadius = (followers: number, isSeed: boolean): number => {
+  if (isSeed) return 35;
+  const MIN = 8;
+  const MAX = 32;
+  if (followers <= 0) return MIN;
+  // Log scale: log(1) = 0, log(1000) ≈ 3, log(1M) ≈ 6
+  const scale = Math.log10(followers + 1) / Math.log10(1_000_000);
+  return MIN + (MAX - MIN) * Math.min(scale, 1);
+};
+
 function getDegreeCounts(edges: GraphEdge[]): Map<string, number> {
   const c = new Map<string, number>();
   for (const e of edges) {
@@ -137,7 +148,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
 
     nodes.push({
       id: seed, x: cx, y: cy, vx: 0, vy: 0,
-      radius: 32, color: PALETTE.seed, isSeed: true,
+      radius: getNodeRadius(0, true), color: PALETTE.seed, isSeed: true,
       isExpanded: true, isLoading: false,
       avatar: `https://github.com/${seed}.png?size=128`,
       user: null, hidden: false,
@@ -148,7 +159,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
 
     users.forEach((u, i) => {
       const angle = angleStep * i - Math.PI / 2; // start from top
-      const r = clamp(Math.log(u.followers + 2) * 5, 14, 28);
+      const r = getNodeRadius(u.followers, false);
       const jitter = (Math.random() - 0.5) * 30;
       nodes.push({
         id: u.username,
@@ -193,7 +204,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
 
       const angle = angleStep * i;
       const sp = 140 + Math.random() * 80;
-      const r = clamp(Math.log(u.followers + 2) * 5, 14, 28);
+      const r = getNodeRadius(u.followers, false);
 
       nodes.push({
         id: u.username,

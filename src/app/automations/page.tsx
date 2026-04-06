@@ -233,7 +233,7 @@ export default function AutomationsPage() {
               Sign in with GitHub to install our app and start automating your repositories.
             </p>
             <Button size="lg" asChild>
-              <Link href="/auth/sign-in?callbackURL=/automations">
+              <Link href="/auth/sign-in?redirect=/automations">
                 Sign In with GitHub
               </Link>
             </Button>

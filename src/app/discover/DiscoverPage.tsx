@@ -57,28 +57,26 @@ function NetworkExplorer() {
           <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">Discover</div>
           <h1 className="text-[31px] font-semibold text-[#111] tracking-tight leading-none">Find Developers</h1>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-end gap-6 flex-shrink-0">
           <input
             value={seedUsername}
             onChange={(e) => setSeedUsername(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             placeholder="e.g. torvalds, antfu"
-            className="w-48 border-0 border-b border-[#ddd] bg-transparent text-base text-[#111] placeholder:text-[#ccc] hover:border-[#888] focus:border-[#111] focus:outline-none focus:ring-0 transition-colors py-1.5"
+            className="w-48 border-0 border-b-2 border-[#ddd] bg-transparent text-base text-[#111] placeholder:text-[#ccc] hover:border-[#888] focus:border-[#111] focus:outline-none focus:ring-0 transition-colors pb-1"
           />
-          <div className="flex gap-4">
-            <button
-              onClick={() => { setNetworkType('following'); handleSearch(); }}
-              className={`pb-1 text-base font-medium border-b-2 transition-colors ${networkType === 'following' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#ccc]'}`}
-            >
-              Following
-            </button>
-            <button
-              onClick={() => { setNetworkType('followers'); handleSearch(); }}
-              className={`pb-1 text-base font-medium border-b-2 transition-colors ${networkType === 'followers' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#ccc]'}`}
-            >
-              Followers
-            </button>
-          </div>
+          <button
+            onClick={() => { setNetworkType('following'); handleSearch(); }}
+            className={`pb-1 text-base font-medium border-b-2 transition-colors ${networkType === 'following' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#ccc]'}`}
+          >
+            Following
+          </button>
+          <button
+            onClick={() => { setNetworkType('followers'); handleSearch(); }}
+            className={`pb-1 text-base font-medium border-b-2 transition-colors ${networkType === 'followers' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#ccc]'}`}
+          >
+            Followers
+          </button>
         </div>
       </div>
 

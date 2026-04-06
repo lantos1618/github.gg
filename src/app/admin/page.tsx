@@ -11,7 +11,7 @@ export default async function AdminPage() {
   const headersList = await headers();
   const session = await auth.api.getSession({ headers: headersList } as Request);
   if (!session?.user) {
-    redirect('/auth/sign-in?callbackURL=/admin');
+    redirect('/auth/sign-in?redirect=/admin');
   }
 
   const caller = await createCaller();

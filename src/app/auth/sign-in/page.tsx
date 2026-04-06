@@ -9,16 +9,16 @@ function SignInContent() {
   const { signIn, isSignedIn, isLoading } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const callbackURL = searchParams.get('callbackURL') || '/';
+  const redirectTo = searchParams.get('redirect') || '/';
 
   useEffect(() => {
     if (isLoading) return;
     if (isSignedIn) {
-      router.replace(callbackURL);
+      router.replace(redirectTo);
     } else {
-      signIn(callbackURL);
+      signIn(redirectTo);
     }
-  }, [isSignedIn, isLoading, signIn, callbackURL, router]);
+  }, [isSignedIn, isLoading, signIn, redirectTo, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

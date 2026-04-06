@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 
 export interface NetworkUser {
   username: string;
@@ -83,6 +84,7 @@ function curvedEdgePath(sx: number, sy: number, tx: number, ty: number, curvatur
 }
 
 export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: NetworkGraphProps) {
+  const router = useRouter();
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const nodesRef = useRef<GraphNode[]>([]);
@@ -582,7 +584,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
         if (clickTimerRef.current && lastClickNodeRef.current === nodeId) {
           clearTimeout(clickTimerRef.current);
           clickTimerRef.current = null; lastClickNodeRef.current = null;
-          window.open(`/${nodeId}`, '_blank');
+          router.push(`/${nodeId}`);
         } else {
           if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
           lastClickNodeRef.current = nodeId;

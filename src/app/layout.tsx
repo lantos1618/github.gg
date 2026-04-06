@@ -12,6 +12,9 @@ import { SessionProvider, type SessionHint } from '@/lib/session-context';
 import { PageWidthProvider } from '@/lib/page-width-context';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
+import { db } from '@/db';
+import { userSubscriptions } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 import '@/lib/boneyard-config';
 
 const geistSans = Geist({
@@ -87,12 +90,22 @@ export default async function RootLayout({
       const user = session.user as typeof session.user & { githubUsername?: string };
       const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
       const isAdmin = !!user.email && adminEmails.includes(user.email.toLowerCase());
+      // Fetch plan with a single lightweight DB query
+      let plan: string | null = null;
+      try {
+        const sub = await db.query.userSubscriptions.findFirst({
+          where: eq(userSubscriptions.userId, user.id),
+          columns: { plan: true, status: true },
+        });
+        if (sub?.status === 'active') plan = sub.plan;
+      } catch { /* no plan */ }
+
       sessionHint = {
         userId: user.id,
         name: user.name ?? null,
         image: user.image ?? null,
         githubUsername: user.githubUsername ?? null,
-        plan: null, // Plan is fetched per-page where needed
+        plan,
         isAdmin,
       };
     }

@@ -1,24 +1,27 @@
 'use client';
 
 import { useAuth } from '@/lib/auth/client';
+import { useSessionHint } from '@/lib/session-context';
 import { SignInButton } from './SignInButton';
 import { ProfileDropdownMenu } from './profile/ProfileDropdownMenu';
+import type { User } from '@/lib/auth/types';
 
 export function NavbarClient() {
-  const { user, isSignedIn, isLoading, signOut } = useAuth();
+  const hint = useSessionHint();
+  const { user, isSignedIn, signOut } = useAuth();
 
-  // Always render SignInButton during SSR and loading to prevent hydration mismatch
-  if (isLoading) {
+  // Use server hint immediately, then live data when available
+  const hintUser: User | null = hint
+    ? { id: hint.userId, name: hint.name ?? '', email: '', image: hint.image, githubUsername: hint.githubUsername }
+    : null;
+  const effectiveUser = user ?? hintUser;
+  const effectiveSignedIn = isSignedIn || !!hint;
+
+  if (!effectiveSignedIn || !effectiveUser) {
     return <SignInButton />;
   }
 
   return (
-    <>
-      {isSignedIn ? (
-        <ProfileDropdownMenu user={user ?? null} onSignOut={signOut} />
-      ) : (
-        <SignInButton />
-      )}
-    </>
+    <ProfileDropdownMenu user={effectiveUser} onSignOut={signOut} />
   );
 } 

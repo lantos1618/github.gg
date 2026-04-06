@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc/client';
 import { usePlan } from '@/lib/hooks/usePlan';
 import { useAuth } from '@/lib/auth/client';
+import { useSessionHint } from '@/lib/session-context';
 import { toast } from 'sonner';
 import { ArrowRight } from 'lucide-react';
 interface PricingCardActionsProps {
@@ -12,9 +13,12 @@ interface PricingCardActionsProps {
 }
 
 export function PricingCardActions({ planType, isPro }: PricingCardActionsProps) {
-  const { isSignedIn, signIn } = useAuth();
+  const hint = useSessionHint();
+  const { isSignedIn: authSignedIn, signIn } = useAuth();
+  const isSignedIn = authSignedIn || !!hint;
 
-  const { plan, isLoading: planLoading } = usePlan();
+  const { plan: livePlan, isLoading: planLoading } = usePlan();
+  const plan = livePlan ?? hint?.plan;
 
   const createCheckout = trpc.billing.createCheckoutSession.useMutation({
     onSuccess: (data) => {
@@ -28,7 +32,8 @@ export function PricingCardActions({ planType, isPro }: PricingCardActionsProps)
   });
 
   const isCurrent = plan === planType;
-  const isLoading = planLoading || createCheckout.isPending;
+  // Only show loading if signed in and plan hasn't resolved yet
+  const isLoading = (isSignedIn && planLoading && !plan) || createCheckout.isPending;
 
   const handleAction = () => {
     if (!isSignedIn) {

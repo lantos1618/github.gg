@@ -8,6 +8,9 @@ import { Toaster } from 'sonner'
 import { PostHogProvider } from './providers'
 import { Analytics } from "@vercel/analytics/next";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
+import { SessionProvider, type SessionHint } from '@/lib/session-context';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
 import '@/lib/boneyard-config';
 
 const geistSans = Geist({
@@ -68,11 +71,31 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Read session from cookie server-side — ~1ms, no DB hit on cache
+  let sessionHint: SessionHint | null = null;
+  try {
+    const headersList = await headers();
+    const session = await auth.api.getSession({ headers: headersList } as Request);
+    if (session?.user) {
+      // better-auth includes additionalFields (githubUsername) on the user object
+      const user = session.user as typeof session.user & { githubUsername?: string };
+      sessionHint = {
+        userId: user.id,
+        name: user.name ?? null,
+        image: user.image ?? null,
+        githubUsername: user.githubUsername ?? null,
+        plan: null, // Plan is fetched per-page where needed
+      };
+    }
+  } catch {
+    // No session — anonymous user
+  }
+
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <head>
@@ -109,6 +132,7 @@ export default function RootLayout({
         </a>
         <PostHogProvider>
           <TRPCProvider>
+            <SessionProvider hint={sessionHint}>
             <NavbarServer />
             {process.env.NODE_ENV === 'development' && (
               <div style={{
@@ -138,6 +162,7 @@ export default function RootLayout({
               closeButton
               duration={4000}
             />
+          </SessionProvider>
           </TRPCProvider>
         </PostHogProvider>
         <Analytics />

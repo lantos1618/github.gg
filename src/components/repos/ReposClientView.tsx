@@ -84,16 +84,16 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
           </div>
         ) : (
           <>
-            <table className="w-full text-base border-collapse">
+            <table className="w-full text-base border-collapse table-fixed">
               <thead>
                 <tr className="border-b border-[#ddd]">
-                  <td className="py-2 text-xs text-[#999] font-semibold cursor-pointer hover:text-[#111] transition-colors" onClick={() => toggleSort('name')}>
+                  <td className="w-[60%] py-2 text-xs text-[#999] font-semibold cursor-pointer hover:text-[#111] transition-colors" onClick={() => toggleSort('name')}>
                     <span className="inline-flex items-center gap-1">Repository {sortField === 'name' && <ArrowUpDown className="h-3 w-3" />}</span>
                   </td>
-                  <td className="py-2 text-xs text-[#999] font-semibold text-center cursor-pointer hover:text-[#111] transition-colors hidden lg:table-cell" onClick={() => toggleSort('score')}>
+                  <td className="w-[15%] py-2 text-xs text-[#999] font-semibold text-center cursor-pointer hover:text-[#111] transition-colors hidden lg:table-cell" onClick={() => toggleSort('score')}>
                     <span className="inline-flex items-center gap-1">Score {sortField === 'score' && <ArrowUpDown className="h-3 w-3" />}</span>
                   </td>
-                  <td className="py-2 text-xs text-[#999] font-semibold text-right cursor-pointer hover:text-[#111] transition-colors hidden sm:table-cell" onClick={() => toggleSort('date')}>
+                  <td className="w-[25%] py-2 text-xs text-[#999] font-semibold text-right cursor-pointer hover:text-[#111] transition-colors hidden sm:table-cell" onClick={() => toggleSort('date')}>
                     <span className="inline-flex items-center gap-1">Analyzed {sortField === 'date' && <ArrowUpDown className="h-3 w-3" />}</span>
                   </td>
                 </tr>
@@ -104,7 +104,7 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
                   return (
                     <tr key={`${fullName}-${repo.ref}-${repo.version}`} className="border-b border-[#f0f0f0] hover:bg-[#fafafa] transition-colors">
                       <td className="py-3">
-                        <Link href={`/${fullName}/scorecard`} className="group">
+                        <Link href={`/${fullName}/scorecard`} className="group block truncate">
                           <span className="font-medium text-[#111] group-hover:text-[#666] transition-colors">{fullName}</span>
                           {repo.ref !== 'main' && repo.ref !== 'master' && repo.ref && (
                             <span className="ml-2 text-[13px] font-mono text-[#aaa]">{repo.ref}</span>
@@ -120,7 +120,7 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
                           )}
                         </Link>
                       </td>
-                      <td className="py-3 text-right hidden sm:table-cell">
+                      <td className="py-3 text-right hidden sm:table-cell" suppressHydrationWarning>
                         <Link href={`/${fullName}/scorecard`} className="text-base text-[#888]">
                           {formatDistanceToNow(new Date(repo.updatedAt), { addSuffix: true })}
                         </Link>

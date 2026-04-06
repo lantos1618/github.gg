@@ -22,5 +22,23 @@ export default async function UsersPage() {
     caller.profile.getAnalyzedProfileCount(),
   ]);
 
-  return <UsersClientView initialProfiles={profiles} totalProfileCount={totalCount} />;
+  // Strip heavy fields (topRepos, techStack, suggestions, developmentStyle, etc.)
+  // before sending to client — the table only needs username, score, summary, and updatedAt
+  const lightProfiles = profiles.map(p => {
+    const profileData = p.profileData as Record<string, unknown> | null;
+    return {
+      username: p.username,
+      updatedAt: p.updatedAt,
+      version: p.version,
+      totalTokens: p.totalTokens,
+      profileData: profileData ? {
+        summary: (profileData as { summary?: string }).summary,
+        skillAssessment: (profileData as { skillAssessment?: unknown }).skillAssessment,
+        developerArchetype: (profileData as { developerArchetype?: unknown }).developerArchetype,
+        profileConfidence: (profileData as { profileConfidence?: unknown }).profileConfidence,
+      } : null,
+    };
+  });
+
+  return <UsersClientView initialProfiles={lightProfiles} totalProfileCount={totalCount} />;
 }

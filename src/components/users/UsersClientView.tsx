@@ -7,15 +7,23 @@ import { Badge } from '@/components/ui/badge';
 import { Search, ArrowUpDown, Flame, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
-import type { DeveloperProfile } from '@/lib/types/profile';
+import type { ScoredMetric, DeveloperArchetype } from '@/lib/types/profile';
 import { getCrackedInfo } from '@/lib/utils/cracked';
 
 type SortField = 'date' | 'score' | 'username' | 'tokens';
 type SortOrder = 'asc' | 'desc';
 
+/** Lightweight profile shape — only the fields needed for the table listing */
+interface LightProfileData {
+  summary?: string;
+  skillAssessment?: ScoredMetric[];
+  developerArchetype?: DeveloperArchetype;
+  profileConfidence?: number;
+}
+
 interface DeveloperProfileEntry {
   username: string;
-  profileData: DeveloperProfile | unknown;
+  profileData: LightProfileData | unknown;
   updatedAt: Date | string;
   totalTokens?: number;
   version?: number;
@@ -37,14 +45,14 @@ export function UsersClientView({ initialProfiles, totalProfileCount }: UsersCli
     profile.username.toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
 
-  const getProfileScore = (profile: DeveloperProfile) => {
+  const getProfileScore = (profile: LightProfileData) => {
     if (!profile.skillAssessment?.length) return 0;
     return Math.round((profile.skillAssessment.reduce((acc, skill) => acc + skill.score, 0) / profile.skillAssessment.length) * 10);
   };
 
   const comparators: Record<SortField, (a: DeveloperProfileEntry, b: DeveloperProfileEntry) => number> = {
     date: (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-    score: (a, b) => getProfileScore(b.profileData as DeveloperProfile) - getProfileScore(a.profileData as DeveloperProfile),
+    score: (a, b) => getProfileScore(b.profileData as LightProfileData) - getProfileScore(a.profileData as LightProfileData),
     username: (a, b) => a.username.localeCompare(b.username),
     tokens: (a, b) => (b.totalTokens || 0) - (a.totalTokens || 0),
   };
@@ -91,24 +99,24 @@ export function UsersClientView({ initialProfiles, totalProfileCount }: UsersCli
           </div>
         ) : (
           <>
-            <table className="w-full text-base border-collapse">
+            <table className="w-full text-base border-collapse table-fixed">
               <thead>
                 <tr className="border-b border-[#ddd]">
-                  <td className="py-2 text-xs text-[#999] font-semibold cursor-pointer hover:text-[#111] transition-colors" onClick={() => toggleSort('username')}>
+                  <td className="w-[40%] py-2 text-xs text-[#999] font-semibold cursor-pointer hover:text-[#111] transition-colors" onClick={() => toggleSort('username')}>
                     <span className="inline-flex items-center gap-1">Developer {sortField === 'username' && <ArrowUpDown className="h-3 w-3" />}</span>
                   </td>
-                  <td className="py-2 text-xs text-[#999] font-semibold hidden lg:table-cell">Summary</td>
-                  <td className="py-2 text-xs text-[#999] font-semibold text-center cursor-pointer hover:text-[#111] transition-colors" onClick={() => toggleSort('score')}>
+                  <td className="w-[35%] py-2 text-xs text-[#999] font-semibold hidden lg:table-cell">Summary</td>
+                  <td className="w-[12%] py-2 text-xs text-[#999] font-semibold text-center cursor-pointer hover:text-[#111] transition-colors" onClick={() => toggleSort('score')}>
                     <span className="inline-flex items-center gap-1">Score {sortField === 'score' && <ArrowUpDown className="h-3 w-3" />}</span>
                   </td>
-                  <td className="py-2 text-xs text-[#999] font-semibold text-right cursor-pointer hover:text-[#111] transition-colors hidden sm:table-cell" onClick={() => toggleSort('date')}>
+                  <td className="w-[13%] py-2 text-xs text-[#999] font-semibold text-right cursor-pointer hover:text-[#111] transition-colors hidden sm:table-cell" onClick={() => toggleSort('date')}>
                     <span className="inline-flex items-center gap-1">Analyzed {sortField === 'date' && <ArrowUpDown className="h-3 w-3" />}</span>
                   </td>
                 </tr>
               </thead>
               <tbody>
                 {paginatedProfiles.map((profile) => {
-                  const profileData = profile.profileData as DeveloperProfile;
+                  const profileData = profile.profileData as LightProfileData;
                   const avgScore = profileData.skillAssessment?.length
                     ? Math.round((profileData.skillAssessment.reduce((acc, skill) => acc + skill.score, 0) / profileData.skillAssessment.length) * 10)
                     : null;
@@ -118,14 +126,14 @@ export function UsersClientView({ initialProfiles, totalProfileCount }: UsersCli
                   return (
                     <tr key={`${profile.username}-${profile.version}`} className="border-b border-[#f0f0f0] hover:bg-[#fafafa] transition-colors">
                       <td className="py-3">
-                        <Link href={`/${profile.username}`} className="flex items-center gap-3 group">
-                          <Avatar className="h-8 w-8 border border-[#eee]">
+                        <Link href={`/${profile.username}`} className="flex items-center gap-3 group min-w-0">
+                          <Avatar className="h-8 w-8 flex-shrink-0 border border-[#eee]">
                             <AvatarImage src={`https://avatars.githubusercontent.com/${profile.username}`} alt={profile.username} />
                             <AvatarFallback className="bg-[#f8f9fa] text-[#aaa] text-[13px]">{profile.username[0]?.toUpperCase()}</AvatarFallback>
                           </Avatar>
-                          <div>
+                          <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className="font-medium text-[#111] group-hover:text-[#666] transition-colors">{profile.username}</span>
+                              <span className="font-medium text-[#111] group-hover:text-[#666] transition-colors truncate">{profile.username}</span>
                               {crackedInfo.isCracked && (
                                 <Badge className={`${crackedInfo.colors.bg} text-white border-none px-1.5 py-0 text-[10px] font-semibold uppercase tracking-[0.5px] flex items-center gap-0.5`}>
                                   {isSpecial ? <Heart className="h-2.5 w-2.5 fill-current" /> : <Flame className="h-2.5 w-2.5 fill-current" />}
@@ -138,7 +146,7 @@ export function UsersClientView({ initialProfiles, totalProfileCount }: UsersCli
                       </td>
                       <td className="py-3 hidden lg:table-cell">
                         <Link href={`/${profile.username}`}>
-                          <p className="text-base text-[#888] line-clamp-1 max-w-md">{profileData.summary || 'No summary'}</p>
+                          <p className="text-base text-[#888] truncate">{profileData.summary || 'No summary'}</p>
                         </Link>
                       </td>
                       <td className="py-3 text-center">
@@ -148,7 +156,7 @@ export function UsersClientView({ initialProfiles, totalProfileCount }: UsersCli
                           ) : <span className="text-[#ccc]">N/A</span>}
                         </Link>
                       </td>
-                      <td className="py-3 text-right hidden sm:table-cell">
+                      <td className="py-3 text-right hidden sm:table-cell" suppressHydrationWarning>
                         <Link href={`/${profile.username}`} className="text-base text-[#888]">
                           {formatDistanceToNow(new Date(profile.updatedAt), { addSuffix: true })}
                         </Link>

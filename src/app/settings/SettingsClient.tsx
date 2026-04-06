@@ -111,7 +111,9 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
   const debouncedStyles = useDebounce(localStyles, 1000);
 
   useEffect(() => {
-    if (Object.keys(debouncedStyles).length > 0 && JSON.stringify(debouncedStyles) !== JSON.stringify(profileStyles)) {
+    // Only auto-save if styles have real values (not from a reset) and differ from server
+    const hasRealValues = Object.values(debouncedStyles).some(v => v !== undefined && v !== '');
+    if (hasRealValues && Object.keys(debouncedStyles).length > 0 && JSON.stringify(debouncedStyles) !== JSON.stringify(profileStyles)) {
       updateStylesMutation.mutate({ styles: debouncedStyles });
     }
   }, [debouncedStyles]);
@@ -216,11 +218,15 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
           title="Profile"
           description="Custom colors and effects."
           icon={Palette}
-          action={isPaid && Object.keys(localStyles).length > 0 ? (
+          action={isPaid ? (
             <button
+              type="button"
               onClick={() => {
-                setLocalStyles({ primaryColor: '', textColor: '', backgroundColor: '', emoji: '', sparkles: false });
-                toast.success('Profile styles reset');
+                const defaults = { primaryColor: undefined, textColor: undefined, backgroundColor: undefined, emoji: undefined, sparkles: false };
+                setLocalStyles(defaults);
+                updateStylesMutation.mutate({ styles: {} }, {
+                  onSuccess: () => toast.success('Profile styles reset'),
+                });
               }}
               className="text-sm text-[#999] hover:text-[#666] border-b border-transparent hover:border-[#666] transition-colors"
             >

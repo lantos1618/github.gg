@@ -4,7 +4,7 @@ import { ArrowLeft, Copy, ExternalLink } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'API Documentation - GG',
-  description: 'Public REST API for accessing GitHub developer profiles, scorecards, and arena rankings',
+  description: 'Public REST API for accessing GitHub developer profiles and scorecards',
 };
 
 const endpoints = [
@@ -90,56 +90,6 @@ const endpoints = [
   "ref": "main"
 }`,
   },
-  {
-    method: 'GET',
-    path: '/api/v1/arena/leaderboard',
-    description: 'Get arena rankings leaderboard',
-    params: [
-      { name: 'limit', type: 'query', description: 'Max results (default 50, max 100)' },
-      { name: 'offset', type: 'query', description: 'Pagination offset' },
-      { name: 'tier', type: 'query', description: 'Filter by tier (optional)' },
-    ],
-    example: '/api/v1/arena/leaderboard?limit=10',
-    response: `{
-  "leaderboard": [
-    {
-      "rank": 1,
-      "username": "developer1",
-      "eloRating": 1850,
-      "tier": "Diamond",
-      "wins": 45,
-      "losses": 12,
-      "winRate": 78.9,
-      "totalBattles": 57,
-      "winStreak": 5
-    }
-  ],
-  "limit": 10,
-  "offset": 0
-}`,
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/arena/rankings/:username',
-    description: 'Get arena ranking for a specific user',
-    params: [
-      { name: 'username', type: 'path', description: 'GitHub username' },
-    ],
-    example: '/api/v1/arena/rankings/torvalds',
-    response: `{
-  "username": "torvalds",
-  "ranking": {
-    "rank": 42,
-    "eloRating": 1650,
-    "tier": "Platinum",
-    "wins": 28,
-    "losses": 15,
-    "winRate": 65.1,
-    "totalBattles": 43,
-    "winStreak": 2
-  }
-}`,
-  },
 ];
 
 const archetypes = [
@@ -162,7 +112,7 @@ export default function ApiDocsPage() {
           </Link>
           <h1 className="text-3xl font-bold text-gray-900">API Documentation</h1>
           <p className="text-gray-500 mt-2">
-            Public REST API for accessing developer profiles, scorecards, and arena rankings.
+            Public REST API for accessing developer profiles and scorecards.
           </p>
         </div>
       </div>

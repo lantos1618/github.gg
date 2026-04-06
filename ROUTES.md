@@ -9,18 +9,10 @@ github.gg
 ├── /users ........................... Developer Profiles (browsable list)
 ├── /repos ........................... Analyzed Repositories (browsable list)
 ├── /developers ...................... Developer Docs (CLI, REST API, MCP)
-├── /arena ........................... Dev Rank (ELO leaderboard + battles)
-│   ├── [tab: leaderboard] ........... Search & rank table
-│   ├── [tab: battle] ................ Start coding battle
-│   └── [tab: history] ............... Past battle results
-│
 ├── /hire ............................ Hiring Tool (landing)
 │   ├── /hire/match .................. AI Job Matching
 │   ├── /hire/search ................. Search All Candidates
 │   └── /hire/:username .............. Individual Developer Assessment
-│
-├── /wrapped ......................... GitHub Wrapped (year in review)
-│   └── /wrapped/:year/:username ..... Individual Wrapped Story
 │
 ├── /pricing ......................... Plans & Feature Comparison
 ├── /settings ........................ User Settings (auth required)
@@ -71,11 +63,8 @@ github.gg
 │   ├── /profiles/:username .......... GET developer profile
 │   ├── /profiles/search ............. GET search profiles
 │   ├── /scorecards/:owner/:repo ..... GET repo scorecard
-│   ├── /arena/leaderboard ........... GET arena leaderboard
-│   └── /arena/rankings/:username .... GET user arena ranking
 │
 ├── /profile/generate ................ POST generate developer profile (SSE)
-├── /arena/battle .................... POST start arena battle
 ├── /feature-request ................. POST submit feature request
 ├── /admin/export-developer-profiles . GET export profiles (admin)
 │
@@ -83,7 +72,6 @@ github.gg
 │   ├── /github ...................... GitHub webhook (push, PR, install)
 │   └── /stripe ...................... Stripe webhook (subscriptions)
 │
-└── /wrapped/:year/:username/badge.svg  GET SVG badge
 ```
 
 ## SEO / Sitemaps
@@ -106,9 +94,8 @@ github.gg
 | GG (logo)  | /            | Home                |
 | Profiles   | /users       | Developer list      |
 | Repos      | /repos       | Repository list     |
-| Dev Rank   | /arena       | Leaderboard         |
-| Wrapped    | /wrapped     | Year in review      |
 | Hire       | /hire        | Recruiter tool      |
+| Discover   | /discover    | Network explorer    |
 | Developers | /developers  | CLI/API/MCP docs    |
 
 ### User Menu (authenticated)

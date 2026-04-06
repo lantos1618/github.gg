@@ -68,7 +68,6 @@ const endpoints = [
   { method: 'GET', path: '/api/v1/profiles/:username', description: 'Get a developer profile by GitHub username', example: 'curl -H "Authorization: Bearer gg_xxx" https://github.gg/api/v1/profiles/torvalds' },
   { method: 'GET', path: '/api/v1/profiles/search', description: 'Search developer profiles with filters', example: 'curl -H "Authorization: Bearer gg_xxx" "https://github.gg/api/v1/profiles/search?skills=React,TypeScript"' },
   { method: 'GET', path: '/api/v1/scorecards/:owner/:repo', description: 'Get repository scorecard analysis', example: 'curl -H "Authorization: Bearer gg_xxx" https://github.gg/api/v1/scorecards/facebook/react' },
-  { method: 'GET', path: '/api/v1/arena/leaderboard', description: 'Get arena rankings leaderboard', example: 'curl -H "Authorization: Bearer gg_xxx" https://github.gg/api/v1/arena/leaderboard' },
 ];
 
 export default function DevelopersPage() {
@@ -158,7 +157,7 @@ export default function DevelopersPage() {
             <div>
               <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">REST API</div>
               <p className="text-base text-[#666] leading-[1.6]">
-                Programmatic access to developer profiles, scorecards, and arena rankings.
+                Programmatic access to developer profiles and scorecards.
               </p>
             </div>
 

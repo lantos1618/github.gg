@@ -13,7 +13,7 @@ export function TextButton({ className, active, size = 'sm', children, ...props 
         size === 'sm' ? 'text-sm' : 'text-base',
         active
           ? 'border-[#111] text-[#111]'
-          : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#666]',
+          : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#666] active:text-[#111] active:border-[#111]',
         props.disabled && 'opacity-50 cursor-not-allowed',
         className
       )}

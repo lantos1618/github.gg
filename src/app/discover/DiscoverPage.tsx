@@ -85,7 +85,7 @@ function NetworkExplorer() {
         fallback={
           <div className="py-6 space-y-3">
             <div className="animate-pulse rounded-md bg-gray-200 h-8 w-48 mx-auto" />
-            <div className="animate-pulse rounded-md bg-gray-200 h-[300px] w-full" />
+            <div className="animate-pulse rounded-md bg-gray-200 h-[70vh] min-h-[600px] w-full" />
           </div>
         }
         fixture={

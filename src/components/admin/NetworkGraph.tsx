@@ -92,7 +92,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
   const animFrameRef = useRef<number>(0);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [dragNode, setDragNode] = useState<string | null>(null);
-  const [dimensions, setDimensions] = useState({ width: 900, height: 640 });
+  const [dimensions, setDimensions] = useState({ width: 900, height: 800 });
   const [isPanning, setIsPanning] = useState(false);
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [hideLeaves, setHideLeaves] = useState(false);
@@ -104,7 +104,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
   const dragStartPos = useRef({ x: 0, y: 0 });
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastClickNodeRef = useRef<string | null>(null);
-  const viewBoxRef = useRef({ x: 0, y: 0, w: 900, h: 640 });
+  const viewBoxRef = useRef({ x: 0, y: 0, w: 900, h: 800 });
   const isPanningRef = useRef(false);
   const autoFitEnabledRef = useRef(true);
   const [structureVersion, setStructureVersion] = useState(0);
@@ -473,6 +473,17 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
     return () => { running = false; cancelAnimationFrame(animFrameRef.current); };
   }, [simulate]);
 
+  // Capture wheel events with { passive: false } to prevent page scroll when zooming
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handleWheelCapture = (e: WheelEvent) => {
+      e.preventDefault();
+    };
+    el.addEventListener('wheel', handleWheelCapture, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheelCapture);
+  }, []);
+
   // Observe container size
   useEffect(() => {
     const el = containerRef.current;
@@ -649,8 +660,8 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
   return (
     <div
       ref={containerRef}
-      className={isFullscreen ? 'fixed inset-0 z-50 bg-white' : 'w-full rounded-lg bg-white relative overflow-hidden'}
-      style={isFullscreen ? undefined : { height: 640, border: '1px solid #eee' }}
+      className={isFullscreen ? 'fixed inset-0 z-50 bg-white overflow-hidden' : 'w-full rounded-lg bg-white relative overflow-hidden'}
+      style={isFullscreen ? { touchAction: 'none' } : { height: '70vh', minHeight: 600, border: '1px solid #eee', touchAction: 'none' }}
     >
       {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between z-10 px-4 py-3 bg-gradient-to-b from-white via-white/95 to-transparent pointer-events-none">

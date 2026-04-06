@@ -8,7 +8,6 @@ import { formatCost, calculatePerUserCostAndUsage } from '@/lib/utils/cost-calcu
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Image from 'next/image';
 import { SortableTable } from '@/components/ui/sortable-table';
-import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { ReusableSSEFeedback, type SSELogItem, type SSEStatus } from '@/components/analysis/ReusableSSEFeedback';
 import { sanitizeText } from '@/lib/utils/sanitize';
@@ -23,7 +22,16 @@ function getCurrentMonthRange() {
   };
 }
 
-export default function AdminDashboard() {
+interface AdminDashboardProps {
+  initialData?: {
+    usageStats: any | null;
+    subscriptionStats: any | null;
+    allUsers: any | null;
+    dailyStats: any | null;
+  };
+}
+
+export default function AdminDashboard({ initialData }: AdminDashboardProps = {}) {
   const [dateRange] = useState(getCurrentMonthRange());
   const [userSortKey, setUserSortKey] = useState<string>('createdAt');
   const [userSortDirection, setUserSortDirection] = useState<'asc' | 'desc' | null>('desc');
@@ -41,13 +49,13 @@ export default function AdminDashboard() {
   const { data: usageStats, refetch: refetchUsage, isLoading: loadingUsage } = trpc.admin.getUsageStats.useQuery({
     startDate: dateRange.startDate,
     endDate: dateRange.endDate,
-  });
-  const { data: subscriptionStats, refetch: refetchSubscriptions, isLoading: loadingSubs } = trpc.admin.getSubscriptionStats.useQuery();
+  }, { initialData: initialData?.usageStats ?? undefined, staleTime: 2 * 60 * 1000 });
+  const { data: subscriptionStats, refetch: refetchSubscriptions, isLoading: loadingSubs } = trpc.admin.getSubscriptionStats.useQuery(undefined, { initialData: initialData?.subscriptionStats ?? undefined, staleTime: 2 * 60 * 1000 });
   const { data: allUsers, refetch: refetchUsers, isLoading: loadingUsers } = trpc.admin.getAllUsers.useQuery({
     startDate: dateRange.startDate,
     endDate: dateRange.endDate,
-  });
-  const { data: dailyStats, isLoading: loadingDailyStats } = trpc.admin.getDailyStats.useQuery();
+  }, { initialData: initialData?.allUsers ?? undefined, staleTime: 2 * 60 * 1000 });
+  const { data: dailyStats, isLoading: loadingDailyStats } = trpc.admin.getDailyStats.useQuery(undefined, { initialData: initialData?.dailyStats ?? undefined, staleTime: 2 * 60 * 1000 });
   const triggerAnalysisMutation = trpc.admin.triggerAnalysis.useMutation();
 
   // Admin Profile Generation Subscription
@@ -375,9 +383,9 @@ export default function AdminDashboard() {
         </div>
         {loading ? (
           <div className="space-y-2">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
+            <div className="animate-pulse rounded-md bg-gray-200 h-10 w-full" />
+            <div className="animate-pulse rounded-md bg-gray-200 h-10 w-full" />
+            <div className="animate-pulse rounded-md bg-gray-200 h-10 w-full" />
           </div>
         ) : noData ? (
           <div className="py-8 text-center text-base text-[#aaa]">No usage data this month.</div>

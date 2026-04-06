@@ -4,7 +4,6 @@ import { ReactNode, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import { ExternalLink, AlertCircle, Sparkles, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { MarkdownCardRenderer } from '@/components/MarkdownCardRenderer';
@@ -173,11 +172,11 @@ export function ResourceDetailView<TItem, TAnalysis extends { markdown: string }
     return (
       <RepoPageLayout user={user} repo={repo} files={[]} totalFiles={0}>
         <div className="container py-8 max-w-6xl space-y-4">
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-4 w-32" />
+          <div className="animate-pulse rounded-md bg-gray-200 h-8 w-64" />
+          <div className="animate-pulse rounded-md bg-gray-200 h-4 w-32" />
           <div className="space-y-3 mt-6">
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
+            <div className="animate-pulse rounded-md bg-gray-200 h-24 w-full" />
+            <div className="animate-pulse rounded-md bg-gray-200 h-24 w-full" />
           </div>
         </div>
       </RepoPageLayout>

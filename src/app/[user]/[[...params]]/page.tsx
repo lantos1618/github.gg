@@ -17,6 +17,7 @@ import type { DeveloperProfile as DeveloperProfileType } from '@/lib/types/profi
 import { buildCanonicalUrl, isInvalidTab } from '@/lib/utils/seo';
 import { ProfileJsonLd } from '@/components/seo/ProfileJsonLd';
 import { RepoJsonLd } from '@/components/seo/RepoJsonLd';
+import { createCaller } from '@/lib/trpc/server';
 
 // Use ISR with 5-minute revalidation to cache profile pages and reduce DB load
 export const revalidate = 300;
@@ -199,8 +200,13 @@ export default async function Page({ params }: PageProps) {
   }
 
   if (tab === 'diagram') {
+    let initialDiagram: any = null;
+    try {
+      const caller = await createCaller();
+      initialDiagram = await caller.diagram.publicGetDiagram({ user, repo, ref: ref || 'main', diagramType: 'flowchart' });
+    } catch {}
     return (
-      <DiagramClientView user={user} repo={repo} refName={ref} path={path} />
+      <DiagramClientView user={user} repo={repo} refName={ref} path={path} initialDiagram={initialDiagram} />
     );
   }
 

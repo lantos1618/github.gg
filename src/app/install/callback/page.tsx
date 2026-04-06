@@ -4,7 +4,6 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth/client';
 
@@ -165,9 +164,9 @@ export default function InstallCallbackPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center space-y-4">
-            <Skeleton className="h-12 w-12 rounded-full mx-auto" />
-            <Skeleton className="h-6 w-48 mx-auto" />
-            <Skeleton className="h-4 w-64 mx-auto" />
+            <div className="animate-pulse rounded-full bg-gray-200 h-12 w-12 mx-auto" />
+            <div className="animate-pulse rounded-md bg-gray-200 h-6 w-48 mx-auto" />
+            <div className="animate-pulse rounded-md bg-gray-200 h-4 w-64 mx-auto" />
           </CardHeader>
         </Card>
       </div>

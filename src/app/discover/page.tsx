@@ -9,7 +9,7 @@ export default async function Page() {
   const headersList = await headers();
   const session = await auth.api.getSession({ headers: headersList } as Request);
   if (!session?.user) {
-    redirect('/api/auth/sign-in');
+    redirect('/auth/sign-in?callbackURL=/discover');
   }
   return <DiscoverPage />;
 }

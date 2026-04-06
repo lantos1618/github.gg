@@ -65,16 +65,16 @@ function NetworkExplorer() {
             placeholder="e.g. torvalds, antfu"
             className="w-48 border-0 border-b border-[#ddd] bg-transparent text-base text-[#111] placeholder:text-[#ccc] hover:border-[#888] focus:border-[#111] focus:outline-none focus:ring-0 transition-colors py-1.5"
           />
-          <div className="flex gap-1">
+          <div className="flex gap-4">
             <button
               onClick={() => { setNetworkType('following'); handleSearch(); }}
-              className={`px-3 py-1.5 text-base font-medium rounded transition-colors ${networkType === 'following' ? 'bg-[#111] text-white' : 'bg-[#f8f9fa] text-[#666] border border-[#eee]'}`}
+              className={`pb-1 text-base font-medium border-b-2 transition-colors ${networkType === 'following' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#ccc]'}`}
             >
               Following
             </button>
             <button
               onClick={() => { setNetworkType('followers'); handleSearch(); }}
-              className={`px-3 py-1.5 text-base font-medium rounded transition-colors ${networkType === 'followers' ? 'bg-[#111] text-white' : 'bg-[#f8f9fa] text-[#666] border border-[#eee]'}`}
+              className={`pb-1 text-base font-medium border-b-2 transition-colors ${networkType === 'followers' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#ccc]'}`}
             >
               Followers
             </button>
@@ -132,16 +132,16 @@ function NetworkExplorer() {
             <span className="text-base text-[#888]">
               {network.users.length} {network.type} of <strong className="text-[#111]">@{network.seed}</strong>
             </span>
-            <div className="flex gap-1">
+            <div className="flex gap-4">
               <button
                 onClick={() => setViewMode('table')}
-                className={`px-3 py-1.5 text-xs font-semibold tracking-[1px] uppercase rounded transition-colors ${viewMode === 'table' ? 'bg-[#111] text-white' : 'bg-[#f8f9fa] text-[#666] border border-[#eee]'}`}
+                className={`pb-1 text-xs font-semibold tracking-[1px] uppercase border-b-2 transition-colors ${viewMode === 'table' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#ccc]'}`}
               >
                 Table
               </button>
               <button
                 onClick={() => setViewMode('graph')}
-                className={`px-3 py-1.5 text-xs font-semibold tracking-[1px] uppercase rounded transition-colors ${viewMode === 'graph' ? 'bg-[#111] text-white' : 'bg-[#f8f9fa] text-[#666] border border-[#eee]'}`}
+                className={`pb-1 text-xs font-semibold tracking-[1px] uppercase border-b-2 transition-colors ${viewMode === 'graph' ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#ccc]'}`}
               >
                 Graph
               </button>

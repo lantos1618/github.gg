@@ -1,7 +1,6 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { trpc } from '@/lib/trpc/client';
 import { usePlan } from '@/lib/hooks/usePlan';
 import { useAuth } from '@/lib/auth/client';
@@ -58,7 +57,7 @@ export function PricingCardActions({ planType, isPro }: PricingCardActionsProps)
   // Pro plan button - loading state
   if (isLoading) {
     return (
-      <Skeleton className="w-full h-10 rounded" />
+      <div className="animate-pulse rounded-md bg-gray-200 w-full h-10" />
     );
   }
 

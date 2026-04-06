@@ -89,15 +89,15 @@ export default function DevelopersPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1.5 mb-8">
+        <div className="flex gap-5 mb-8">
           {([['cli', 'CLI'], ['api', 'REST API'], ['mcp', 'MCP']] as const).map(([key, label]) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              className={`px-4 py-2 text-base font-medium rounded transition-colors ${
+              className={`pb-1.5 text-base font-medium border-b-2 transition-colors ${
                 activeTab === key
-                  ? 'bg-[#111] text-white'
-                  : 'bg-[#f8f9fa] text-[#666] border border-[#eee] hover:border-[#aaa] hover:text-[#111]'
+                  ? 'border-[#111] text-[#111]'
+                  : 'border-transparent text-[#999] hover:text-[#666] hover:border-[#ccc]'
               }`}
             >
               {label}

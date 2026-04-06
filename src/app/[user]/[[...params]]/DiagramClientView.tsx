@@ -16,7 +16,6 @@ import { trpc } from '@/lib/trpc/client';
 import { usePlan } from '@/lib/hooks/usePlan';
 import { VersionDropdown } from '@/components/VersionDropdown';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { RefreshCw } from 'lucide-react';
 import { ReusableSSEFeedback } from '@/components/analysis/ReusableSSEFeedback';
 
@@ -59,12 +58,14 @@ function DiagramClientView({
   user,
   repo,
   refName,
-  path
+  path,
+  initialDiagram
 }: {
   user: string;
   repo: string;
   refName?: string;
   path?: string;
+  initialDiagram?: any;
 }) {
   // State management
   const [diagramType, setDiagramType] = useState<DiagramType>('flowchart');
@@ -92,7 +93,7 @@ function DiagramClientView({
   // Use the public endpoint for cached diagram
   const { data: publicDiagram, isLoading: publicLoading } = selectedVersion
     ? trpc.diagram.getDiagramByVersion.useQuery({ user, repo, ref: refName || 'main', diagramType, version: selectedVersion }, { enabled: !!user && !!repo && !!diagramType && !!selectedVersion })
-    : trpc.diagram.publicGetDiagram.useQuery({ user, repo, ref: refName || 'main', diagramType }, { enabled: !!user && !!repo && !!diagramType });
+    : trpc.diagram.publicGetDiagram.useQuery({ user, repo, ref: refName || 'main', diagramType }, { enabled: !!user && !!repo && !!diagramType, initialData: initialDiagram as any, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false });
 
   // Check if repository is private
   const isPrivateRepo = (publicDiagram as { error?: string })?.error === 'This repository is private';
@@ -182,8 +183,8 @@ function DiagramClientView({
   } else if (filesLoading || publicLoading || planLoading) {
     mainContent = (
       <div className="max-w-screen-xl w-full mx-auto px-4 pt-4 pb-8 space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-[400px] w-full" />
+        <div className="animate-pulse rounded-md bg-gray-200 h-8 w-48" />
+        <div className="animate-pulse rounded-md bg-gray-200 h-[400px] w-full" />
       </div>
     );
   } else if (filesError) {
@@ -274,8 +275,8 @@ function DiagramClientView({
           <>
             {isPending && (
               <div className="my-8 space-y-4">
-                <Skeleton className="h-8 w-48" />
-                <Skeleton className="h-[300px] w-full" />
+                <div className="animate-pulse rounded-md bg-gray-200 h-8 w-48" />
+                <div className="animate-pulse rounded-md bg-gray-200 h-[300px] w-full" />
               </div>
             )}
 

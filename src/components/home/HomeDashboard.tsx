@@ -3,21 +3,20 @@
 import { type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/lib/auth/client';
-import { Skeleton } from '@/components/ui/skeleton';
 // Dashboard skeleton for signed-in users while dashboard loads
 function DashboardSkeleton() {
   return (
     <div className="h-[calc(100vh-3.5rem)] bg-background flex">
       <div className="w-64 border-r border-border p-4 space-y-3 hidden lg:block">
-        <Skeleton className="h-8 w-full" />
-        <Skeleton className="h-8 w-full" />
-        <Skeleton className="h-8 w-full" />
+        <div className="animate-pulse rounded-md bg-gray-200 h-8 w-full" />
+        <div className="animate-pulse rounded-md bg-gray-200 h-8 w-full" />
+        <div className="animate-pulse rounded-md bg-gray-200 h-8 w-full" />
       </div>
       <div className="flex-1 p-8 space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
+        <div className="animate-pulse rounded-md bg-gray-200 h-8 w-48" />
+        <div className="animate-pulse rounded-md bg-gray-200 h-12 w-full" />
+        <div className="animate-pulse rounded-md bg-gray-200 h-12 w-full" />
+        <div className="animate-pulse rounded-md bg-gray-200 h-12 w-full" />
       </div>
     </div>
   );

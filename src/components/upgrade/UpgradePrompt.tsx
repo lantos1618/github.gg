@@ -3,7 +3,7 @@
 import { trpc } from '@/lib/trpc/client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/lib/auth/client';
+import { useAuthWithHint } from '@/lib/hooks/useAuthWithHint';
 import { ArrowRight } from 'lucide-react';
 
 const FEATURE_CONTEXTS = {
@@ -66,7 +66,7 @@ export function UpgradePrompt({
   variant = 'card',
   showPrice = true,
 }: UpgradePromptProps) {
-  const { isSignedIn, signIn } = useAuth();
+  const { isSignedIn, signIn } = useAuthWithHint();
   const [isLoading, setIsLoading] = useState(false);
   const createCheckout = trpc.billing.createCheckoutSession.useMutation();
 

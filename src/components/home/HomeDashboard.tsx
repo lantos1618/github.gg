@@ -2,7 +2,7 @@
 
 import { type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
-import { useAuth } from '@/lib/auth/client';
+import { useAuthWithHint } from '@/lib/hooks/useAuthWithHint';
 // Dashboard skeleton for signed-in users while dashboard loads
 function DashboardSkeleton() {
   return (
@@ -32,7 +32,7 @@ const GitHubDashboard = dynamic(
 );
 
 export function HomeDashboard({ children }: { children: ReactNode }) {
-  const { isSignedIn, isLoading } = useAuth();
+  const { isSignedIn, isLoading } = useAuthWithHint();
 
   // While auth is loading, show the server-rendered landing content
   if (isLoading) {

@@ -3,10 +3,11 @@
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { LogOut, Settings, Shield, Zap, Columns2, Columns3 } from 'lucide-react';
+import { LogOut, Settings, Shield, Zap, Columns2, Columns3, User } from 'lucide-react';
 import Link from 'next/link';
 import { User as UserType } from '@/lib/auth/types';
 import { usePageWidth } from '@/lib/page-width-context';
+import { useSessionHint } from '@/lib/session-context';
 
 interface ProfileDropdownMenuProps {
   user: UserType | null;
@@ -16,6 +17,8 @@ interface ProfileDropdownMenuProps {
 
 export function ProfileDropdownMenu({ user, onSignOut, isAdmin }: ProfileDropdownMenuProps) {
   const { width, toggle } = usePageWidth();
+  const hint = useSessionHint();
+  const profileUsername = user?.githubUsername || hint?.githubUsername;
   if (!user) return null;
 
   return (
@@ -36,6 +39,15 @@ export function ProfileDropdownMenu({ user, onSignOut, isAdmin }: ProfileDropdow
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+
+        {profileUsername && (
+          <DropdownMenuItem asChild>
+            <Link href={`/${profileUsername}`} data-testid="nav-user-profile-link">
+              <User className="mr-2 h-4 w-4" />
+              <span>Profile</span>
+            </Link>
+          </DropdownMenuItem>
+        )}
 
         <DropdownMenuItem asChild>
           <Link href="/automations" data-testid="nav-user-automations-link">

@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { trpc } from '@/lib/trpc/client';
-import { Skeleton } from 'boneyard-js/react';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { TextButton } from '@/components/ui/text-button';
@@ -95,49 +94,19 @@ function NetworkExplorer() {
         </div>
       </div>
 
-      <Skeleton
-        name="discover-network"
-        loading={isLoading && !network}
-        fallback={
-          <div className="py-6 space-y-3">
-            <div className="animate-pulse rounded-md bg-gray-200 h-8 w-48 mx-auto" />
-            <div className="animate-pulse rounded-md bg-gray-200 h-[70vh] min-h-[600px] w-full" />
-          </div>
-        }
-        fixture={
-          <div className="py-6">
-            <div className="flex items-center justify-between mb-3">
-              <div className="h-5 w-64 bg-gray-200 rounded" />
-              <div className="flex gap-1">
-                <div className="h-8 w-16 bg-gray-200 rounded" />
-                <div className="h-8 w-16 bg-gray-200 rounded" />
-              </div>
+      {/* Loading skeleton — only for the data area, not the chrome */}
+      {isLoading && !network && (
+        <div className="space-y-3 mt-6">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 py-3 border-b border-[#f0f0f0]">
+              <div className="animate-pulse rounded-full bg-gray-200 h-6 w-6 flex-shrink-0" />
+              <div className="animate-pulse rounded-md bg-gray-200 h-4 w-24" />
+              <div className="animate-pulse rounded-md bg-gray-200 h-4 w-40 hidden lg:block" />
+              <div className="animate-pulse rounded-md bg-gray-200 h-4 w-8 ml-auto" />
             </div>
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[#ddd]">
-                  {['Developer', 'Bio', 'Repos', 'Followers', 'GG'].map(h => (
-                    <td key={h} className="py-2"><div className="h-3 w-16 bg-gray-200 rounded" /></td>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i} className="border-b border-[#f0f0f0]">
-                    <td className="py-2"><div className="flex items-center gap-2"><div className="h-6 w-6 rounded-full bg-gray-200" /><div className="h-4 w-24 bg-gray-200 rounded" /></div></td>
-                    <td className="py-2"><div className="h-4 w-40 bg-gray-200 rounded" /></td>
-                    <td className="py-2 text-center"><div className="h-4 w-8 bg-gray-200 rounded mx-auto" /></td>
-                    <td className="py-2 text-center"><div className="h-4 w-12 bg-gray-200 rounded mx-auto" /></td>
-                    <td className="py-2 text-center"><div className="h-4 w-8 bg-gray-200 rounded mx-auto" /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        }
-      >
-        <div />
-      </Skeleton>
+          ))}
+        </div>
+      )}
 
       {network && (
         <>

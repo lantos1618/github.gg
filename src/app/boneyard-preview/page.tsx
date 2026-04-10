@@ -128,48 +128,6 @@ export default function BoneyardPreview() {
         </Skeleton>
       </section>
 
-      {/* Discover Network */}
-      <section>
-        <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-4">discover-network</h2>
-        <Skeleton
-          name="discover-network"
-          loading={false}
-          fixture={
-            <div className="py-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="h-5 w-64 bg-gray-200 rounded" />
-                <div className="flex gap-1">
-                  <div className="h-8 w-16 bg-gray-200 rounded" />
-                  <div className="h-8 w-16 bg-gray-200 rounded" />
-                </div>
-              </div>
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[#ddd]">
-                    {['Developer', 'Bio', 'Repos', 'Followers', 'GG'].map(h => (
-                      <td key={h} className="py-2"><div className="h-3 w-16 bg-gray-200 rounded" /></td>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <tr key={i} className="border-b border-[#f0f0f0]">
-                      <td className="py-2"><div className="flex items-center gap-2"><div className="h-6 w-6 rounded-full bg-gray-200" /><div className="h-4 w-24 bg-gray-200 rounded" /></div></td>
-                      <td className="py-2"><div className="h-4 w-40 bg-gray-200 rounded" /></td>
-                      <td className="py-2 text-center"><div className="h-4 w-8 bg-gray-200 rounded mx-auto" /></td>
-                      <td className="py-2 text-center"><div className="h-4 w-12 bg-gray-200 rounded mx-auto" /></td>
-                      <td className="py-2 text-center"><div className="h-4 w-8 bg-gray-200 rounded mx-auto" /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          }
-        >
-          <div className="text-sm text-gray-400">Network table renders here</div>
-        </Skeleton>
-      </section>
-
       {/* Repo List Sidebar */}
       <section className="max-w-xs">
         <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-4">repo-list-sidebar</h2>

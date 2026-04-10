@@ -5,7 +5,6 @@ import { registerBones } from 'boneyard-js/react'
 import _profile_content from './profile-content.bones.json'
 import _dashboard_prs from './dashboard-prs.bones.json'
 import _dashboard_issues from './dashboard-issues.bones.json'
-import _discover_network from './discover-network.bones.json'
 import _repo_list_sidebar from './repo-list-sidebar.bones.json'
 import _activity_feed from './activity-feed.bones.json'
 
@@ -13,7 +12,6 @@ registerBones({
   "profile-content": _profile_content,
   "dashboard-prs": _dashboard_prs,
   "dashboard-issues": _dashboard_issues,
-  "discover-network": _discover_network,
   "repo-list-sidebar": _repo_list_sidebar,
   "activity-feed": _activity_feed,
 })

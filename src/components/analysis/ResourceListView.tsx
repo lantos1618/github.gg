@@ -72,8 +72,8 @@ export function ResourceListView<TItem>({
 
         {/* Search + Filter */}
         <div className="mb-6 flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ccc]" />
+          <div className="group relative flex-1">
+            <Search className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ccc] group-focus-within:text-[#111] transition-colors" />
             <Input placeholder={searchPlaceholder} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-6" />
           </div>
           <Select value={state} onValueChange={(value) => setState(value as 'open' | 'closed' | 'all')}>

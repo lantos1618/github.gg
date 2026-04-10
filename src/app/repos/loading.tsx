@@ -10,15 +10,30 @@ export default function ReposLoading() {
             <span className="text-base text-[#ccc]">Search repositories...</span>
           </div>
         </div>
-        <div className="space-y-3">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-4 py-3 border-b border-[#f0f0f0]">
-              <div className="animate-pulse rounded-md bg-gray-200 h-4 w-48" />
-              <div className="animate-pulse rounded-md bg-gray-200 h-4 w-16 hidden lg:block" />
-              <div className="animate-pulse rounded-md bg-gray-200 h-4 w-10 ml-auto" />
-            </div>
-          ))}
-        </div>
+        <table className="w-full text-base border-collapse table-fixed">
+          <thead>
+            <tr className="border-b border-[#ddd]">
+              <td className="w-[60%] py-2 text-xs text-[#999] font-semibold">Repository</td>
+              <td className="w-[15%] py-2 text-xs text-[#999] font-semibold text-center hidden lg:table-cell">Score</td>
+              <td className="w-[25%] py-2 text-xs text-[#999] font-semibold text-right hidden sm:table-cell">Analyzed</td>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <tr key={i} className="border-b border-[#f0f0f0]">
+                <td className="py-3">
+                  <div className="animate-pulse rounded-md bg-gray-200 h-4 w-48" />
+                </td>
+                <td className="py-3 hidden lg:table-cell">
+                  <div className="animate-pulse rounded-md bg-gray-200 h-4 w-16 mx-auto" />
+                </td>
+                <td className="py-3 hidden sm:table-cell">
+                  <div className="animate-pulse rounded-md bg-gray-200 h-4 w-20 ml-auto" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

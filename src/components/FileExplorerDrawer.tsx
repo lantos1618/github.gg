@@ -290,8 +290,8 @@ export function FileExplorerDrawer({
           )}
 
           {/* Search */}
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <div className="group relative mb-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-[#111] transition-colors" />
             <Input
               placeholder="Search files..."
               value={searchTerm}

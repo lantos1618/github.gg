@@ -67,8 +67,8 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
               <span className="text-base font-normal text-[#888] ml-3">{totalRepoCount.toLocaleString()}</span>
             </h1>
           </div>
-          <div className="relative w-64 flex-shrink-0">
-            <Search className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ccc]" />
+          <div className="group relative w-64 flex-shrink-0">
+            <Search className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ccc] group-focus-within:text-[#111] transition-colors" />
             <Input
               type="text"
               placeholder="Search repositories..."

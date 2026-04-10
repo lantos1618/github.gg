@@ -65,8 +65,8 @@ export function HeroSection() {
 
         {/* Search */}
         <div className="mb-6">
-          <form onSubmit={handleAnalyze} className="relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#ccc]">
+          <form onSubmit={handleAnalyze} className="group relative">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#ccc] group-focus-within:text-[#111] transition-colors">
               <Github className="h-5 w-5" />
             </div>
             <Input

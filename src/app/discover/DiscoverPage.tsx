@@ -74,7 +74,7 @@ function NetworkExplorer() {
             onChange={(e) => setSeedUsername(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             placeholder="e.g. torvalds, antfu"
-            className="w-48 border-0 border-b-2 border-[#ddd] bg-transparent text-base text-[#111] placeholder:text-[#ccc] hover:border-[#888] focus:border-[#111] focus:outline-none focus:ring-0 transition-colors pb-1"
+            className="w-48 border-0 border-b-2 border-[#ddd] bg-transparent text-base text-[#111] placeholder:text-[#ccc] hover:border-[#888] focus:border-[#111] focus:text-[#000] focus:placeholder:text-[#999] focus:outline-none focus:ring-0 transition-colors pb-1"
           />
           <TextButton
             onClick={() => { setNetworkType('following'); handleSearch(); }}

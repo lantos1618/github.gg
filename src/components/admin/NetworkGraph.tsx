@@ -725,7 +725,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search graph..."
-              className="w-32 px-2 py-1 text-[11px] border border-[#e0e0e0] rounded bg-white/90 text-[#333] placeholder:text-[#ccc] focus:outline-none focus:border-[#999] transition-colors"
+              className="w-32 px-2 py-1 text-[11px] border border-[#e0e0e0] rounded bg-white/90 text-[#333] placeholder:text-[#ccc] focus:outline-none focus:border-[#111] focus:text-[#000] focus:placeholder:text-[#888] transition-colors"
             />
             {searchQuery && searchMatches.size > 0 && (
               <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-[#e0e0e0] rounded shadow-lg max-h-48 overflow-y-auto z-20">

@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import AnalysisClientView from './AnalysisClientView';
 import RepoClientView from './RepoClientView';
 import DiagramClientView from './DiagramClientView';
@@ -40,6 +41,77 @@ import { DeveloperProfile } from '@/components/profile';
 
 function UserClientView({ user, initialProfile }: { user: string, initialProfile?: SerializableInitialProfileData }) {
   return <DeveloperProfile username={user} initialData={initialProfile} />;
+}
+
+function ProfileShell({ username }: { username: string }) {
+  return (
+    <div className="min-h-screen bg-white pt-12 pb-20">
+      <div className="w-[90%] max-w-[900px] mx-auto space-y-8">
+        <div className="flex gap-6 sm:gap-8">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`https://avatars.githubusercontent.com/${username}`}
+            alt={username}
+            className="rounded-full h-20 w-20 sm:h-24 sm:w-24 flex-shrink-0 border-2 border-[#ddd]"
+          />
+          <div className="min-w-0 pt-2">
+            <a
+              href={`https://github.com/${username}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[31px] font-semibold text-[#111] hover:text-[#666] transition-colors leading-tight"
+            >
+              {username}
+            </a>
+            <div className="mt-1">
+              <div className="animate-pulse rounded-md bg-gray-200 h-4 w-32" />
+            </div>
+            <div className="mt-2 space-y-1">
+              <div className="animate-pulse rounded-md bg-gray-200 h-4 w-40" />
+              <div className="animate-pulse rounded-md bg-gray-200 h-4 w-28" />
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-12">
+          <div className="xl:col-span-8 space-y-8">
+            <div className="space-y-3">
+              <div className="animate-pulse rounded-md bg-gray-200 h-4 w-full" />
+              <div className="animate-pulse rounded-md bg-gray-200 h-4 w-5/6" />
+              <div className="animate-pulse rounded-md bg-gray-200 h-4 w-4/6" />
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="animate-pulse rounded-md bg-gray-200 h-5 w-20" />
+              ))}
+            </div>
+          </div>
+          <div className="xl:col-span-4 space-y-8 min-h-[500px]">
+            <div className="animate-pulse rounded-md bg-gray-200 h-[180px] w-full" />
+            <div className="animate-pulse rounded-md bg-gray-200 h-[140px] w-full" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+async function ProfileLoader({ user }: { user: string }) {
+  const data = await getProfileData(user);
+  const initialProfile: SerializableInitialProfileData = {
+    ...data,
+    lastUpdated: data.lastUpdated?.toISOString() ?? null,
+  };
+  return (
+    <>
+      <ProfileJsonLd
+        name={user}
+        username={user}
+        avatarUrl={`https://avatars.githubusercontent.com/${user}`}
+        bio={initialProfile.profile?.summary}
+      />
+      <UserClientView user={user} initialProfile={initialProfile} />
+    </>
+  );
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -127,22 +199,10 @@ export default async function Page({ params }: PageProps) {
   const isProfileRoute = !rest || rest.length === 0 || !rest[0];
 
   if (isProfileRoute) {
-    // Only fetch profile data for profile routes (not repo pages)
-    const data = await getProfileData(user);
-    const initialProfile: SerializableInitialProfileData = {
-      ...data,
-      lastUpdated: data.lastUpdated?.toISOString() ?? null,
-    };
     return (
-      <>
-        <ProfileJsonLd
-          name={user}
-          username={user}
-          avatarUrl={`https://avatars.githubusercontent.com/${user}`}
-          bio={initialProfile.profile?.summary}
-        />
-        <UserClientView user={user} initialProfile={initialProfile} />
-      </>
+      <Suspense fallback={<ProfileShell username={user} />}>
+        <ProfileLoader user={user} />
+      </Suspense>
     );
   }
 

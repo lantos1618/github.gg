@@ -247,6 +247,10 @@ h1[id], h2[id], h3[id], h4[id], h5[id], h6[id],
 }
 
 @layer base {
+  * {
+    border-color: var(--border);
+  }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -262,11 +266,6 @@ h1[id], h2[id], h3[id], h4[id], h5[id], h6[id],
   select {
     @apply cursor-pointer;
   }
-}
-
-/* Ensure all borders use the theme border color */
-* {
-  border-color: var(--border);
 }
 
 /* Override Milkdown editor border colors */

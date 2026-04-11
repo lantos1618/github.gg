@@ -33,7 +33,7 @@ export function NavbarLinks() {
         Discover
       </Link>
       <Link
-        href="/developers"
+        href="/api"
         className="text-base font-medium text-[#888] hover:text-[#111] transition-colors"
         data-testid="nav-developers-link"
       >

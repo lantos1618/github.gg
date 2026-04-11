@@ -17,6 +17,16 @@ const nextConfig = {
   },
   allowedDevOrigins: ["https://dev.github.gg", "dev.github.gg"],
 
+  async redirects() {
+    return [
+      {
+        source: '/developers',
+        destination: '/api',
+        permanent: true,
+      },
+    ];
+  },
+
   // Exclude shiki from server externalization to avoid version conflicts
   serverExternalPackages: [],
 

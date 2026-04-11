@@ -82,7 +82,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
-    "drizzle-orm": "^0.44.6",
+    "drizzle-orm": "^0.45.2",
     "entities": "^7.0.0",
     "framer-motion": "^12.23.24",
     "gunzip-maybe": "^1.4.2",

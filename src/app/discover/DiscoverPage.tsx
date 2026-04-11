@@ -25,7 +25,7 @@ function NetworkExplorer() {
   const [activeUsername, setActiveUsername] = useState('');
   const [networkType, setNetworkType] = useState<'followers' | 'following'>('following');
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<'table' | 'graph'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'graph'>('graph');
   const trpcUtils = trpc.useUtils();
 
   const { data: network, isLoading } = trpc.discover.getNetworkUsers.useQuery(

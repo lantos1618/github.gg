@@ -94,17 +94,10 @@ function NetworkExplorer() {
         </div>
       </div>
 
-      {/* Loading skeleton — only for the data area, not the chrome */}
+      {/* Loading state */}
       {isLoading && !network && (
-        <div className="space-y-3 mt-6">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-4 py-3 border-b border-[#f0f0f0]">
-              <div className="animate-pulse rounded-full bg-gray-200 h-6 w-6 flex-shrink-0" />
-              <div className="animate-pulse rounded-md bg-gray-200 h-4 w-24" />
-              <div className="animate-pulse rounded-md bg-gray-200 h-4 w-40 hidden lg:block" />
-              <div className="animate-pulse rounded-md bg-gray-200 h-4 w-8 ml-auto" />
-            </div>
-          ))}
+        <div className="py-16 text-center">
+          <Loader2 className="h-5 w-5 animate-spin text-[#ccc] mx-auto" />
         </div>
       )}
 

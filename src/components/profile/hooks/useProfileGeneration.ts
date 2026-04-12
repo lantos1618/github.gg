@@ -187,7 +187,13 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
         utils.profile.publicGetProfile.invalidate({ username });
         utils.profile.getProfileVersions.invalidate({ username });
       } else if (status?.lockExists) {
-        setGenerationError('Generation is still in progress. Please wait a moment and try again.');
+        // Lock exists but no profile yet — poll until it completes
+        setIsGenerating(true);
+        setSseStatus('processing');
+        setCurrentStep('Reconnecting to generation in progress...');
+        setGenerationError(null);
+        addLog('Reconnecting to active generation...', 'info');
+        pollForRecovery('Generation timed out. Please try again.');
       } else {
         handleGenerateProfile();
       }

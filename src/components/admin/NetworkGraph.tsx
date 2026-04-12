@@ -11,11 +11,9 @@ export interface NetworkUser {
   followers: number;
   publicRepos: number;
   hasGGProfile: boolean;
-  // Unified network fields
   isFollower?: boolean;
   isFollowing?: boolean;
   isMutual?: boolean;
-  // Semantic similarity fields
   similarity?: number;
   archetype?: string | null;
   score?: number | null;
@@ -30,7 +28,7 @@ export interface EdgeFilter {
   semantic: boolean;
 }
 
-interface NetworkGraphProps {
+export interface NetworkGraphProps {
   users: NetworkUser[];
   seed: string;
   semanticUsers?: NetworkUser[];
@@ -61,8 +59,8 @@ interface GraphEdge {
   source: string;
   target: string;
   type: EdgeType;
-  similarity?: number; // 0-100 for semantic edges
-  direction?: EdgeDirection; // social edge direction relative to seed
+  similarity?: number;
+  direction?: EdgeDirection;
 }
 
 const PALETTE = {
@@ -72,7 +70,7 @@ const PALETTE = {
   edge: '#e8e8e8',
   edgeActive: '#bbb',
   edgeMutual: '#e8a838',
-  edgeSemantic: '#8b5cf6',      // purple for semantic similarity edges
+  edgeSemantic: '#8b5cf6',
   edgeSemanticActive: '#7c3aed',
   label: '#333',
   labelMuted: '#999',
@@ -89,13 +87,11 @@ const PALETTE = {
 
 function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
 
-/** Scale node radius by follower count (log scale so huge accounts don't dominate). */
 const getNodeRadius = (followers: number, isSeed: boolean): number => {
   if (isSeed) return 35;
   const MIN = 8;
   const MAX = 32;
   if (followers <= 0) return MIN;
-  // Log scale: log(1) = 0, log(1000) ≈ 3, log(1M) ≈ 6
   const scale = Math.log10(followers + 1) / Math.log10(1_000_000);
   return MIN + (MAX - MIN) * Math.min(scale, 1);
 };
@@ -109,32 +105,137 @@ function getDegreeCounts(edges: GraphEdge[]): Map<string, number> {
   return c;
 }
 
-// Compute a curved path between two points, shortened by node radii so arrows are visible
-function curvedEdgePath(sx: number, sy: number, tx: number, ty: number, curvature: number = 0.15, srcRadius: number = 0, tgtRadius: number = 0): string {
-  const dx = tx - sx;
-  const dy = ty - sy;
-  const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-  const nx = dx / dist;
-  const ny = dy / dist;
-  // Shorten start and end by node radius + padding so arrows sit outside the circle
-  const pad = 6;
-  const startX = sx + nx * (srcRadius + pad);
-  const startY = sy + ny * (srcRadius + pad);
-  const endX = tx - nx * (tgtRadius + pad);
-  const endY = ty - ny * (tgtRadius + pad);
-  const mx = (startX + endX) / 2;
-  const my = (startY + endY) / 2;
-  const edx = endX - startX;
-  const edy = endY - startY;
-  // perpendicular offset
-  const cx = mx - edy * curvature;
-  const cy = my + edx * curvature;
-  return `M${startX},${startY} Q${cx},${cy} ${endX},${endY}`;
+// --- QuadTree for Barnes-Hut and Hit Testing ---
+class QuadTree {
+  bounds: { x: number, y: number, w: number, h: number };
+  mass: number = 0;
+  cx: number = 0;
+  cy: number = 0;
+  node: GraphNode | null = null;
+  children: QuadTree[] | null = null;
+
+  constructor(bounds: { x: number, y: number, w: number, h: number }) {
+    this.bounds = bounds;
+  }
+
+  insert(node: GraphNode): boolean {
+    if (!this.contains(node.x, node.y)) return false;
+
+    if (this.children === null && this.node === null) {
+      this.node = node;
+      this.mass = 1;
+      this.cx = node.x;
+      this.cy = node.y;
+      return true;
+    }
+
+    if (this.children === null) {
+      this.subdivide();
+      const existing = this.node!;
+      this.node = null;
+      this.insertIntoChildren(existing);
+    }
+
+    this.insertIntoChildren(node);
+
+    const totalMass = this.mass + 1;
+    this.cx = (this.cx * this.mass + node.x) / totalMass;
+    this.cy = (this.cy * this.mass + node.y) / totalMass;
+    this.mass = totalMass;
+
+    return true;
+  }
+
+  subdivide() {
+    const { x, y, w, h } = this.bounds;
+    const hw = w / 2;
+    const hh = h / 2;
+    this.children = [
+      new QuadTree({ x, y, w: hw, h: hh }),
+      new QuadTree({ x: x + hw, y, w: hw, h: hh }),
+      new QuadTree({ x, y: y + hh, w: hw, h: hh }),
+      new QuadTree({ x: x + hw, y: y + hh, w: hw, h: hh })
+    ];
+  }
+
+  insertIntoChildren(node: GraphNode) {
+    if (!this.children) return;
+    for (let i = 0; i < 4; i++) {
+      if (this.children[i].insert(node)) break;
+    }
+  }
+
+  contains(x: number, y: number) {
+    const { x: bx, y: by, w, h } = this.bounds;
+    return x >= bx && x <= bx + w && y >= by && y <= by + h;
+  }
+
+  intersects(x: number, y: number, w: number, h: number) {
+    const { x: bx, y: by, w: bw, h: bh } = this.bounds;
+    return !(x > bx + bw || x + w < bx || y > by + bh || y + h < by);
+  }
+}
+
+function applyBarnesHut(node: GraphNode, qt: QuadTree, theta: number, repulsion: number) {
+  if (qt.mass === 0) return;
+  const dx = qt.cx - node.x;
+  const dy = qt.cy - node.y;
+  const distSq = dx * dx + dy * dy;
+  const dist = Math.sqrt(distSq) || 1;
+
+  if (qt.children === null || (qt.bounds.w / dist) < theta) {
+    if (qt.node !== node) {
+      const minD = node.radius + (qt.node ? qt.node.radius : 10) + 20;
+      const eff = Math.max(dist, minD * 0.4);
+      const f = (repulsion * qt.mass) / (eff * eff);
+      node.vx -= (dx / dist) * f;
+      node.vy -= (dy / dist) * f;
+    }
+  } else {
+    for (let i = 0; i < 4; i++) {
+      applyBarnesHut(node, qt.children[i], theta, repulsion);
+    }
+  }
+}
+
+function hitTestQuadTree(qt: QuadTree, x: number, y: number, padding: number): GraphNode | null {
+  if (!qt.intersects(x - padding, y - padding, padding * 2, padding * 2)) return null;
+  if (qt.node) {
+    const dx = qt.node.x - x;
+    const dy = qt.node.y - y;
+    if (Math.sqrt(dx * dx + dy * dy) <= qt.node.radius + padding) return qt.node;
+  }
+  if (qt.children) {
+    for (let i = 0; i < 4; i++) {
+      const found = hitTestQuadTree(qt.children[i], x, y, padding);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+// --- Image Cache ---
+const imageCache = new Map<string, HTMLImageElement | ImageBitmap>();
+function getCachedImage(url: string): HTMLImageElement | ImageBitmap | null {
+  if (imageCache.has(url)) return imageCache.get(url)!;
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = url;
+  imageCache.set(url, img);
+  img.onload = async () => {
+    try {
+      const bmp = await createImageBitmap(img);
+      imageCache.set(url, bmp);
+    } catch (e) {
+      // fallback to img
+    }
+  };
+  return null;
 }
 
 export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandNode, onSelectionChange }: NetworkGraphProps) {
   const router = useRouter();
-  const svgRef = useRef<SVGSVGElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const nodesRef = useRef<GraphNode[]>([]);
   const edgesRef = useRef<GraphEdge[]>([]);
@@ -158,8 +259,8 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
   const isPanningRef = useRef(false);
   const autoFitEnabledRef = useRef(true);
   const [structureVersion, setStructureVersion] = useState(0);
+  const quadTreeRef = useRef<QuadTree | null>(null);
 
-  // Search matches
   const searchMatches = useMemo(() => {
     if (!searchQuery.trim()) return new Set<string>();
     const q = searchQuery.toLowerCase();
@@ -168,13 +269,12 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
         .filter(n => n.id.toLowerCase().includes(q) || n.user?.name?.toLowerCase().includes(q))
         .map(n => n.id)
     );
-  }, [searchQuery, structureVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchQuery, structureVersion]);
 
   useEffect(() => {
     onSelectionChange?.(selectedNodes);
   }, [selectedNodes, onSelectionChange]);
 
-  // Build graph data
   useEffect(() => {
     const semKey = semanticUsers?.map(u => u.username).join(',') || '';
     const dataKey = `${seed}:${users.map(u => u.username).join(',')}:${semKey}`;
@@ -196,12 +296,11 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
     });
     existingIds.add(seed);
 
-    // Social network users — arrange in a ring around the seed
     const angleStep = (2 * Math.PI) / Math.max(users.length, 1);
     const spread = Math.min(dimensions.width, dimensions.height) * 0.38;
 
     users.forEach((u, i) => {
-      const angle = angleStep * i - Math.PI / 2; // start from top
+      const angle = angleStep * i - Math.PI / 2;
       const r = getNodeRadius(u.followers, false);
       const jitter = (Math.random() - 0.5) * 30;
       nodes.push({
@@ -218,18 +317,16 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
       edges.push({ source: seed, target: u.username, type: 'social', direction: dir });
     });
 
-    // Semantic similarity users — arrange in a wider ring, offset
     if (semanticUsers?.length) {
       const semAngleStep = (2 * Math.PI) / Math.max(semanticUsers.length, 1);
       const semSpread = spread * 1.6;
 
       semanticUsers.forEach((u, i) => {
         if (existingIds.has(u.username)) {
-          // Already in the social graph — just add a semantic edge
           edges.push({ source: seed, target: u.username, type: 'semantic', similarity: u.similarity });
           return;
         }
-        const angle = semAngleStep * i - Math.PI / 4; // offset from social ring
+        const angle = semAngleStep * i - Math.PI / 4;
         const r = getNodeRadius(u.followers, false);
         const jitter = (Math.random() - 0.5) * 30;
         nodes.push({
@@ -237,7 +334,7 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
           x: cx + Math.cos(angle) * (semSpread + jitter),
           y: cy + Math.sin(angle) * (semSpread + jitter),
           vx: 0, vy: 0, radius: r,
-          color: PALETTE.ggProfile, // semantic users always have GG profiles
+          color: PALETTE.ggProfile,
           isSeed: false, isExpanded: false, isLoading: false,
           avatar: u.avatar, user: u, hidden: false,
         });
@@ -253,7 +350,6 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
     setStructureVersion(v => v + 1);
   }, [users, seed, semanticUsers, dimensions]);
 
-  // Add nodes on expand
   const addNodes = useCallback((parentId: string, newUsers: NetworkUser[]) => {
     const nodes = nodesRef.current;
     const edges = edgesRef.current;
@@ -334,7 +430,6 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
     });
   }, []);
 
-  // Fit to view
   const fitToView = useCallback(() => {
     const nodes = nodesRef.current.filter(n => !n.hidden);
     if (nodes.length === 0) return;
@@ -362,7 +457,6 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
     };
   }, [dimensions]);
 
-  // Pan to a specific node without changing zoom level
   const panToNode = useCallback((nodeId: string) => {
     const node = nodesRef.current.find(n => n.id === nodeId);
     if (!node) return;
@@ -376,7 +470,6 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
     autoFitEnabledRef.current = false;
   }, []);
 
-  // Hide leaves filter
   useEffect(() => {
     const nodes = nodesRef.current;
     const edges = edgesRef.current;
@@ -390,135 +483,182 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
       n.hidden = !n.isSeed && (degrees.get(n.id) || 0) < 2;
     }
     setStructureVersion(v => v + 1);
-  }, [hideLeaves, structureVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hideLeaves, structureVersion]);
 
-  // Force simulation
+  const nodeDepths = useMemo(() => {
+    const depths = new Map<string, number>();
+    depths.set(seed, 0);
+    const queue = [seed];
+    const adj = new Map<string, string[]>();
+    for (const e of edgesRef.current) {
+      if (!adj.has(e.source)) adj.set(e.source, []);
+      if (!adj.has(e.target)) adj.set(e.target, []);
+      adj.get(e.source)!.push(e.target);
+      adj.get(e.target)!.push(e.source);
+    }
+    while (queue.length > 0) {
+      const cur = queue.shift()!;
+      const d = depths.get(cur)!;
+      for (const neighbor of adj.get(cur) || []) {
+        if (!depths.has(neighbor)) {
+          depths.set(neighbor, d + 1);
+          queue.push(neighbor);
+        }
+      }
+    }
+    return depths;
+  }, [edgesRef.current, seed, structureVersion]);
+
+  const currentMaxDepth = useMemo(() => {
+    let max = 0;
+    for (const d of nodeDepths.values()) if (d !== Infinity) max = Math.max(max, d);
+    return max;
+  }, [nodeDepths]);
+
+  const nodesWithVisibleEdges = useMemo(() => {
+    const set = new Set<string>();
+    for (const edge of edgesRef.current) {
+      let visible = true;
+      if (edgeFilter) {
+        const dir = edge.direction;
+        if (edge.type === 'semantic' && !edgeFilter.semantic) visible = false;
+        if (edge.type === 'social') {
+          if (dir === 'following' && !edgeFilter.following) visible = false;
+          if (dir === 'follower' && !edgeFilter.followers) visible = false;
+          if (dir === 'mutual' && !edgeFilter.following && !edgeFilter.followers) visible = false;
+        }
+      }
+      if (visible) {
+        set.add(edge.source);
+        set.add(edge.target);
+      }
+    }
+    return set;
+  }, [edgesRef.current, edgeFilter, structureVersion]);
+
+  const isNodeFilteredOut = useCallback((node: GraphNode): boolean => {
+    if (node.isSeed) return false;
+    const depth = nodeDepths.get(node.id) ?? Infinity;
+    if (depth > maxDepth) return true;
+    if (edgeFilter && !nodesWithVisibleEdges.has(node.id)) return true;
+    return false;
+  }, [nodeDepths, maxDepth, edgeFilter, nodesWithVisibleEdges]);
+
   const simulate = useCallback(() => {
     const allNodes = nodesRef.current;
     const edges = edgesRef.current;
-    const nodes = allNodes.filter(n => !n.hidden);
+    const nodes = allNodes.filter(n => !n.hidden && !isNodeFilteredOut(n));
     if (nodes.length === 0) return;
 
     const iteration = iterationRef.current;
     const n = nodes.length;
-    // Never fully freeze — keep minimum alpha so dragging always works
     const alpha = Math.max(0.02, 1 - iteration * 0.005);
 
-    {
-      const repulsion = (4000 + n * 100) * alpha;
-      const springK = 0.01;
-      const springLen = 160 + Math.sqrt(n) * 14;
-      const damping = 0.82;
-      const cx = dimensions.width / 2;
-      const cy = dimensions.height / 2;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const node of nodes) {
+      if (node.x < minX) minX = node.x;
+      if (node.y < minY) minY = node.y;
+      if (node.x > maxX) maxX = node.x;
+      if (node.y > maxY) maxY = node.y;
+    }
+    const pad = 100;
+    const qt = new QuadTree({ x: minX - pad, y: minY - pad, w: (maxX - minX) + pad * 2, h: (maxY - minY) + pad * 2 });
+    for (const node of nodes) qt.insert(node);
+    quadTreeRef.current = qt;
 
-      // Repulsion (O(n^2) — fine for < 500 nodes)
+    const repulsion = (4000 + n * 100) * alpha;
+    const springK = 0.01;
+    const springLen = 160 + Math.sqrt(n) * 14;
+    const damping = 0.82;
+    const cx = dimensions.width / 2;
+    const cy = dimensions.height / 2;
+
+    for (const node of nodes) {
+      applyBarnesHut(node, qt, 0.9, repulsion);
+    }
+
+    if (alpha > 0.03) {
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
           const dx = nodes[j].x - nodes[i].x;
           const dy = nodes[j].y - nodes[i].y;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const minD = nodes[i].radius + nodes[j].radius + 20;
-          const eff = Math.max(dist, minD * 0.4);
-          const f = repulsion / (eff * eff);
-          const fx = (dx / dist) * f;
-          const fy = (dy / dist) * f;
-          nodes[i].vx -= fx; nodes[i].vy -= fy;
-          nodes[j].vx += fx; nodes[j].vy += fy;
-        }
-      }
-
-      // Hard collision resolution
-      if (alpha > 0.03) {
-        for (let i = 0; i < nodes.length; i++) {
-          for (let j = i + 1; j < nodes.length; j++) {
-            const dx = nodes[j].x - nodes[i].x;
-            const dy = nodes[j].y - nodes[i].y;
-            const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
-            const minD = nodes[i].radius + nodes[j].radius + 10;
-            if (dist < minD) {
-              const overlap = (minD - dist) / 2;
-              const nx = dx / dist, ny = dy / dist;
-              if (nodes[i].id !== dragNode) { nodes[i].x -= nx * overlap; nodes[i].y -= ny * overlap; }
-              if (nodes[j].id !== dragNode) { nodes[j].x += nx * overlap; nodes[j].y += ny * overlap; }
-            }
+          const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
+          const minD = nodes[i].radius + nodes[j].radius + 10;
+          if (dist < minD) {
+            const overlap = (minD - dist) / 2;
+            const nx = dx / dist, ny = dy / dist;
+            if (nodes[i].id !== dragNode) { nodes[i].x -= nx * overlap; nodes[i].y -= ny * overlap; }
+            if (nodes[j].id !== dragNode) { nodes[j].x += nx * overlap; nodes[j].y += ny * overlap; }
           }
         }
       }
-
-      // Spring forces — different parameters per edge type
-      const visibleIds = new Set(nodes.map(n => n.id));
-      const nMap = new Map(nodes.map(n => [n.id, n]));
-      for (const edge of edges) {
-        if (!visibleIds.has(edge.source) || !visibleIds.has(edge.target)) continue;
-        const src = nMap.get(edge.source);
-        const tgt = nMap.get(edge.target);
-        if (!src || !tgt) continue;
-
-        // Semantic edges: shorter = more similar, softer pull
-        let edgeSpringLen = springLen;
-        let edgeSpringK = springK;
-        if (edge.type === 'semantic') {
-          const sim = (edge.similarity ?? 50) / 100; // 0-1
-          edgeSpringLen = springLen * (1 - sim * 0.6); // high similarity → shorter
-          edgeSpringK = springK * 0.6; // softer pull for semantic
-        }
-
-        const dx = tgt.x - src.x;
-        const dy = tgt.y - src.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const disp = dist - edgeSpringLen;
-        const f = edgeSpringK * disp;
-        const fx = (dx / dist) * f;
-        const fy = (dy / dist) * f;
-        src.vx += fx; src.vy += fy;
-        tgt.vx -= fx; tgt.vy -= fy;
-      }
-
-      // Center gravity
-      for (const node of nodes) {
-        node.vx += (cx - node.x) * 0.0004 * alpha;
-        node.vy += (cy - node.y) * 0.0004 * alpha;
-      }
-
-      // Integrate
-      for (const node of nodes) {
-        if (node.id === dragNode) continue;
-        node.vx *= damping;
-        node.vy *= damping;
-        node.x += node.vx;
-        node.y += node.vy;
-      }
-
-      // Soft pin seed to center
-      const seedNode = allNodes[0];
-      if (seedNode?.isSeed && seedNode.id !== dragNode) {
-        seedNode.x += (cx - seedNode.x) * 0.015;
-        seedNode.y += (cy - seedNode.y) * 0.015;
-      }
     }
 
-    // Auto-fit only during initial layout settling, then disable
+    const visibleIds = new Set(nodes.map(n => n.id));
+    const nMap = new Map(nodes.map(n => [n.id, n]));
+    for (const edge of edges) {
+      if (!visibleIds.has(edge.source) || !visibleIds.has(edge.target)) continue;
+      const src = nMap.get(edge.source);
+      const tgt = nMap.get(edge.target);
+      if (!src || !tgt) continue;
+
+      let edgeSpringLen = springLen;
+      let edgeSpringK = springK;
+      if (edge.type === 'semantic') {
+        const sim = (edge.similarity ?? 50) / 100;
+        edgeSpringLen = springLen * (1 - sim * 0.6);
+        edgeSpringK = springK * 0.6;
+      }
+
+      const dx = tgt.x - src.x;
+      const dy = tgt.y - src.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const disp = dist - edgeSpringLen;
+      const f = edgeSpringK * disp;
+      const fx = (dx / dist) * f;
+      const fy = (dy / dist) * f;
+      src.vx += fx; src.vy += fy;
+      tgt.vx -= fx; tgt.vy -= fy;
+    }
+
+    for (const node of nodes) {
+      node.vx += (cx - node.x) * 0.0004 * alpha;
+      node.vy += (cy - node.y) * 0.0004 * alpha;
+    }
+
+    for (const node of nodes) {
+      if (node.id === dragNode) continue;
+      node.vx *= damping;
+      node.vy *= damping;
+      node.x += node.vx;
+      node.y += node.vy;
+    }
+
+    const seedNode = allNodes[0];
+    if (seedNode?.isSeed && seedNode.id !== dragNode) {
+      seedNode.x += (cx - seedNode.x) * 0.015;
+      seedNode.y += (cy - seedNode.y) * 0.015;
+    }
+
     if (autoFitEnabledRef.current && iteration % 3 === 0 && !isPanningRef.current && !dragNode) {
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      let fMinX = Infinity, fMinY = Infinity, fMaxX = -Infinity, fMaxY = -Infinity;
       for (const node of nodes) {
         const pad = node.radius + 70;
-        minX = Math.min(minX, node.x - pad);
-        minY = Math.min(minY, node.y - pad);
-        maxX = Math.max(maxX, node.x + pad);
-        maxY = Math.max(maxY, node.y + pad);
+        fMinX = Math.min(fMinX, node.x - pad);
+        fMinY = Math.min(fMinY, node.y - pad);
+        fMaxX = Math.max(fMaxX, node.x + pad);
+        fMaxY = Math.max(fMaxY, node.y + pad);
       }
-      const cW = maxX - minX, cH = maxY - minY;
+      const cW = fMaxX - fMinX, cH = fMaxY - fMinY;
       const aspect = dimensions.width / dimensions.height;
       let fitW = cW, fitH = cH;
       if (fitW / fitH > aspect) fitH = fitW / aspect;
       else fitW = fitH * aspect;
       const tW = Math.max(fitW, dimensions.width * 0.6);
       const tH = Math.max(fitH, dimensions.height * 0.6);
-      const tX = (minX + maxX) / 2 - tW / 2;
-      const tY = (minY + maxY) / 2 - tH / 2;
+      const tX = (fMinX + fMaxX) / 2 - tW / 2;
+      const tY = (fMinY + fMaxY) / 2 - tH / 2;
       const vb = viewBoxRef.current;
-      // Faster lerp early, slower later for smooth settling
       const t = iteration < 60 ? 0.15 : 0.05;
       viewBoxRef.current = {
         x: vb.x + (tX - vb.x) * t,
@@ -527,64 +667,348 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
         h: vb.h + (tH - vb.h) * t,
       };
 
-      // Disable auto-fit once the initial layout has settled
       if (iteration >= 120) {
         autoFitEnabledRef.current = false;
       }
     }
 
     iterationRef.current++;
-  }, [dimensions, dragNode]);
+  }, [dimensions, dragNode, isNodeFilteredOut]);
 
-  // Render loop — direct DOM updates
+  const drawArrow = (ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, color: string) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-10, 4);
+    ctx.lineTo(-10, -4);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.restore();
+  };
+
+  const render = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const { width, height } = dimensions;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
+
+    ctx.clearRect(0, 0, width, height);
+
+    const vb = viewBoxRef.current;
+    const scaleX = width / vb.w;
+    const scaleY = height / vb.h;
+    const scale = Math.min(scaleX, scaleY);
+
+    ctx.save();
+    ctx.scale(scale, scale);
+    ctx.translate(-vb.x, -vb.y);
+
+    const isFar = vb.w > 5000;
+    const isMedium = vb.w > 1000 && vb.w <= 5000;
+    const isClose = vb.w <= 1000;
+
+    const nodes = nodesRef.current;
+    const edges = edgesRef.current;
+    const degrees = getDegreeCounts(edges);
+    const nMap = new Map(nodes.map(n => [n.id, n]));
+
+    // Draw Edges
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const edge of edges) {
+      const src = nMap.get(edge.source);
+      const tgt = nMap.get(edge.target);
+      if (!src || !tgt || src.hidden || tgt.hidden || isNodeFilteredOut(src) || isNodeFilteredOut(tgt)) continue;
+
+      if (edgeFilter) {
+        const dir = edge.direction;
+        if (edge.type === 'semantic' && !edgeFilter.semantic) continue;
+        if (edge.type === 'social') {
+          if (dir === 'following' && !edgeFilter.following) continue;
+          if (dir === 'follower' && !edgeFilter.followers) continue;
+          if (dir === 'mutual' && !edgeFilter.following && !edgeFilter.followers) continue;
+        }
+      }
+
+      const hovered = hoveredNode === edge.source || hoveredNode === edge.target;
+      const srcDeg = degrees.get(edge.source) || 0;
+      const tgtDeg = degrees.get(edge.target) || 0;
+      const isMutual = edge.direction === 'mutual' || (srcDeg >= 2 && tgtDeg >= 2);
+      const isSemantic = edge.type === 'semantic';
+      const dist = Math.sqrt((tgt.x - src.x) ** 2 + (tgt.y - src.y) ** 2);
+      const opacity = hovered ? 0.7 : isSemantic ? 0.35 : isMutual ? 0.4 : clamp(1 - dist / 1200, 0.15, 0.6);
+
+      const strokeColor = hovered
+        ? (isSemantic ? PALETTE.edgeSemanticActive : PALETTE.edgeActive)
+        : isSemantic ? PALETTE.edgeSemantic
+        : isMutual ? PALETTE.edgeMutual
+        : PALETTE.edge;
+
+      ctx.beginPath();
+      const curvature = isSemantic ? 0.15 : isMutual ? 0.12 : 0.06;
+      const pad = 6;
+      const dx = tgt.x - src.x;
+      const dy = tgt.y - src.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const nx = dx / d;
+      const ny = dy / d;
+      const startX = src.x + nx * (src.radius + pad);
+      const startY = src.y + ny * (src.radius + pad);
+      const endX = tgt.x - nx * (tgt.radius + pad);
+      const endY = tgt.y - ny * (tgt.radius + pad);
+      const mx = (startX + endX) / 2;
+      const my = (startY + endY) / 2;
+      const edx = endX - startX;
+      const edy = endY - startY;
+      const cx = mx - edy * curvature;
+      const cy = my + edx * curvature;
+
+      ctx.moveTo(startX, startY);
+      ctx.quadraticCurveTo(cx, cy, endX, endY);
+      
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = hovered ? 1.5 : isSemantic ? 1 : isMutual ? 1.2 : 0.8;
+      ctx.globalAlpha = opacity;
+      if (isSemantic) ctx.setLineDash([4, 3]);
+      else ctx.setLineDash([]);
+      ctx.stroke();
+
+      if (!isFar) {
+        const drawArr = (x: number, y: number, angle: number) => drawArrow(ctx, x, y, angle, strokeColor);
+        if (edge.direction === 'following' || edge.direction === 'mutual' || edge.type === 'social') {
+          const t = 1;
+          const tx = 2 * (1 - t) * (cx - startX) + 2 * t * (endX - cx);
+          const ty = 2 * (1 - t) * (cy - startY) + 2 * t * (endY - cy);
+          drawArr(endX, endY, Math.atan2(ty, tx));
+        }
+        if (edge.direction === 'follower' || edge.direction === 'mutual') {
+          const t = 0;
+          const tx = 2 * (1 - t) * (cx - startX) + 2 * t * (endX - cx);
+          const ty = 2 * (1 - t) * (cy - startY) + 2 * t * (endY - cy);
+          drawArr(startX, startY, Math.atan2(ty, tx) + Math.PI);
+        }
+      }
+    }
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+
+    // Draw Nodes
+    for (const node of nodes) {
+      if (node.hidden || isNodeFilteredOut(node)) continue;
+      const hovered = hoveredNode === node.id;
+      const selected = selectedNodes.has(node.id);
+      const deg = degrees.get(node.id) || 0;
+      const isMutual = !node.isSeed && deg >= 2;
+      const isSearchHit = searchMatches.has(node.id);
+
+      ctx.save();
+      ctx.translate(node.x, node.y);
+
+      if (isSearchHit) {
+        ctx.beginPath();
+        ctx.arc(0, 0, node.radius + 8, 0, Math.PI * 2);
+        ctx.strokeStyle = PALETTE.searchHit;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      if (selected) {
+        ctx.beginPath();
+        ctx.arc(0, 0, node.radius + 6, 0, Math.PI * 2);
+        ctx.strokeStyle = PALETTE.ringSelected;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.35;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+
+      if (isFar) {
+        ctx.beginPath();
+        ctx.arc(0, 0, 2, 0, Math.PI * 2);
+        ctx.fillStyle = node.color;
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(0, 0, node.radius, 0, Math.PI * 2);
+        ctx.fillStyle = node.color;
+        ctx.fill();
+
+        if (isClose || hovered || node.isSeed) {
+          if (node.isSeed && node.id.includes('.')) {
+            ctx.fillStyle = '#111';
+            ctx.fill();
+            ctx.fillStyle = 'white';
+            ctx.font = `800 ${node.radius * 0.7}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('GG', 0, 0);
+          } else {
+            const img = getCachedImage(node.avatar);
+            if (img) {
+              ctx.save();
+              ctx.clip();
+              ctx.drawImage(img, -node.radius, -node.radius, node.radius * 2, node.radius * 2);
+              ctx.restore();
+            }
+          }
+        }
+
+        let ringColor = PALETTE.ring;
+        if (isSearchHit) ringColor = PALETTE.searchHit;
+        else if (selected) ringColor = PALETTE.ringSelected;
+        else if (node.isSeed) ringColor = PALETTE.seed;
+        else if (hovered) ringColor = '#111';
+        else if (deg >= 2) ringColor = PALETTE.ringMutual;
+        else if (node.isExpanded) ringColor = PALETTE.ringExpanded;
+        else if (node.color === PALETTE.ggProfile) ringColor = PALETTE.ggProfile;
+
+        let ringWidth = 1.5;
+        if (isSearchHit || selected) ringWidth = 3;
+        else if (hovered || node.isSeed) ringWidth = 2.5;
+        else if (deg >= 2 || node.isExpanded) ringWidth = 2;
+
+        ctx.beginPath();
+        ctx.arc(0, 0, node.radius + 2, 0, Math.PI * 2);
+        ctx.strokeStyle = ringColor;
+        ctx.lineWidth = ringWidth;
+        ctx.stroke();
+
+        if (node.isLoading) {
+          ctx.beginPath();
+          ctx.arc(0, 0, node.radius + 5, 0, Math.PI * 2);
+          ctx.strokeStyle = PALETTE.ringLoading;
+          ctx.lineWidth = 2;
+          ctx.setLineDash([node.radius * 2, node.radius * 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        if (isMutual && !hovered) {
+          const bx = node.radius * 0.7;
+          const by = -node.radius * 0.7;
+          ctx.beginPath();
+          ctx.arc(bx, by, 7, 0, Math.PI * 2);
+          ctx.fillStyle = PALETTE.ringMutual;
+          ctx.fill();
+          ctx.strokeStyle = 'white';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.fillStyle = 'white';
+          ctx.font = '700 8px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(deg.toString(), bx, by + 1);
+        }
+
+        if (node.isExpanded && !node.isSeed && !isMutual) {
+          const bx = node.radius * 0.7;
+          const by = -node.radius * 0.7;
+          ctx.beginPath();
+          ctx.arc(bx, by, 3, 0, Math.PI * 2);
+          ctx.fillStyle = PALETTE.ringExpanded;
+          ctx.fill();
+          ctx.strokeStyle = 'white';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
+        if (isClose || isMedium && (isMutual || hovered || node.isSeed)) {
+          ctx.fillStyle = hovered ? PALETTE.label : PALETTE.labelMuted;
+          ctx.font = `${node.isSeed || hovered || isMutual ? 600 : 400} ${node.isSeed ? 11 : 9}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          const label = node.id.length > 14 ? node.id.slice(0, 12) + '…' : node.id;
+          ctx.fillText(label, 0, node.radius + 14);
+
+          if ((isMutual || hovered) && !node.isSeed && node.user) {
+            ctx.fillStyle = PALETTE.labelMuted;
+            ctx.font = '8px sans-serif';
+            ctx.fillText(`${node.user.followers.toLocaleString()} followers`, 0, node.radius + 24);
+          }
+        }
+      }
+      ctx.restore();
+    }
+
+    // Draw Tooltips
+    if (hoveredNode) {
+      const node = nMap.get(hoveredNode);
+      if (node && !node.isSeed && node.user) {
+        ctx.save();
+        const isMutual = (degrees.get(node.id) || 0) >= 2;
+        ctx.translate(node.x, node.y + node.radius + (isMutual ? 32 : 20));
+
+        const hasSimilarity = node.user.similarity != null;
+        const hasArchetype = !!node.user.archetype;
+        const hasSkills = node.user.topSkills && node.user.topSkills.length > 0;
+        const bioText = node.user.bio || (hasSimilarity ? node.user.archetype : null);
+        const extraLines = (hasArchetype && hasSimilarity ? 1 : 0) + (hasSkills ? 1 : 0);
+        const cardHeight = (bioText ? 58 : 38) + extraLines * 12;
+
+        ctx.fillStyle = PALETTE.labelBg;
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.roundRect(-90, 0, 180, cardHeight, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.textAlign = 'center';
+        ctx.fillStyle = PALETTE.label;
+        ctx.font = '600 10px sans-serif';
+        ctx.fillText(node.user.name || node.id, 0, 14);
+
+        ctx.fillStyle = PALETTE.labelMuted;
+        ctx.font = '8.5px sans-serif';
+        const deg = degrees.get(node.id) || 0;
+        ctx.fillText(`${node.user.followers.toLocaleString()} followers · ${node.user.publicRepos} repos${hasSimilarity ? ` · ${node.user.similarity}% match` : ` · ${deg} links`}`, 0, 26);
+
+        if (bioText) {
+          ctx.fillStyle = '#aaa';
+          ctx.font = '8px sans-serif';
+          ctx.fillText(bioText.length > 40 ? bioText.slice(0, 38) + '…' : bioText, 0, 40);
+        }
+
+        if (hasSkills) {
+          ctx.fillStyle = PALETTE.edgeSemantic;
+          ctx.font = '7.5px sans-serif';
+          ctx.fillText(node.user.topSkills!.slice(0, 3).join(' · '), 0, bioText ? 52 : 40);
+        }
+
+        if (!node.isExpanded && !node.isLoading) {
+          ctx.fillStyle = '#bbb';
+          ctx.font = 'italic 7.5px sans-serif';
+          ctx.fillText('click to explore network', 0, cardHeight - 4);
+        }
+
+        ctx.restore();
+      }
+    }
+
+    ctx.restore();
+  }, [dimensions, hoveredNode, selectedNodes, searchMatches, edgeFilter, isNodeFilteredOut]);
+
   useEffect(() => {
     let running = true;
     const tick = () => {
       if (!running) return;
       simulate();
-
-      const svg = svgRef.current;
-      if (svg) {
-        const vb = viewBoxRef.current;
-        svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
-
-        const nodes = nodesRef.current;
-        const edges = edgesRef.current;
-        const nMap = new Map(nodes.map(n => [n.id, n]));
-
-        // Update edges (curved paths)
-        const edgeEls = svg.querySelectorAll('.graph-edge');
-        edgeEls.forEach((el, i) => {
-          const edge = edges[i];
-          if (!edge) return;
-          const src = nMap.get(edge.source);
-          const tgt = nMap.get(edge.target);
-          if (!src || !tgt || src.hidden || tgt.hidden) {
-            el.setAttribute('visibility', 'hidden');
-            return;
-          }
-          el.setAttribute('visibility', 'visible');
-          el.setAttribute('d', curvedEdgePath(src.x, src.y, tgt.x, tgt.y, 0.08, src.radius, tgt.radius));
-        });
-
-        // Update nodes
-        const nodeEls = svg.querySelectorAll('.graph-node');
-        nodeEls.forEach((el, i) => {
-          const node = nodes[i];
-          if (!node) return;
-          if (node.hidden) { (el as HTMLElement).style.display = 'none'; return; }
-          (el as HTMLElement).style.display = '';
-          el.setAttribute('transform', `translate(${node.x},${node.y})`);
-        });
-      }
-
+      render();
       animFrameRef.current = requestAnimationFrame(tick);
     };
     animFrameRef.current = requestAnimationFrame(tick);
     return () => { running = false; cancelAnimationFrame(animFrameRef.current); };
-  }, [simulate]);
+  }, [simulate, render]);
 
-  // Capture wheel events with { passive: false } to prevent page scroll when zooming
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -595,7 +1019,6 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
     return () => el.removeEventListener('wheel', handleWheelCapture);
   }, []);
 
-  // Observe container size
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -609,47 +1032,44 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
     return () => obs.disconnect();
   }, []);
 
-  // Mouse handlers
-  const getSvgPoint = useCallback((e: React.MouseEvent | MouseEvent) => {
-    const svg = svgRef.current;
-    if (!svg) return null;
-    const pt = svg.createSVGPoint();
-    pt.x = e.clientX; pt.y = e.clientY;
-    const ctm = svg.getScreenCTM();
-    if (!ctm) return null;
-    return pt.matrixTransform(ctm.inverse());
-  }, []);
+  const getCanvasPoint = useCallback((e: React.MouseEvent | MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const vb = viewBoxRef.current;
+    const scaleX = vb.w / dimensions.width;
+    const scaleY = vb.h / dimensions.height;
+    return { x: vb.x + x * scaleX, y: vb.y + y * scaleY };
+  }, [dimensions]);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    const svgPt = getSvgPoint(e);
-    if (!svgPt) return;
-    const nodes = nodesRef.current;
-    for (let i = nodes.length - 1; i >= 0; i--) {
-      const node = nodes[i];
-      if (node.hidden) continue;
-      const dx = svgPt.x - node.x, dy = svgPt.y - node.y;
-      if (Math.sqrt(dx * dx + dy * dy) <= node.radius + 4) {
-        setDragNode(node.id);
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const pt = getCanvasPoint(e);
+    if (!pt) return;
+    
+    if (quadTreeRef.current) {
+      const hit = hitTestQuadTree(quadTreeRef.current, pt.x, pt.y, 6);
+      if (hit && !hit.hidden && !isNodeFilteredOut(hit)) {
+        setDragNode(hit.id);
         dragStartPos.current = { x: e.clientX, y: e.clientY };
-        node.vx = 0; node.vy = 0;
-        e.preventDefault();
+        hit.vx = 0; hit.vy = 0;
         return;
       }
     }
+
     setIsPanning(true);
     isPanningRef.current = true;
     const vb = viewBoxRef.current;
     panStart.current = { x: e.clientX, y: e.clientY, vx: vb.x, vy: vb.y };
-    e.preventDefault();
-  }, [getSvgPoint]);
+  }, [getCanvasPoint, isNodeFilteredOut]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (dragNode) {
-      const svgPt = getSvgPoint(e);
-      if (!svgPt) return;
+      const pt = getCanvasPoint(e);
+      if (!pt) return;
       const node = nodesRef.current.find(n => n.id === dragNode);
-      if (node) { node.x = svgPt.x; node.y = svgPt.y; node.vx = 0; node.vy = 0; }
-      // Reheat simulation so other nodes react to the drag
+      if (node) { node.x = pt.x; node.y = pt.y; node.vx = 0; node.vy = 0; }
       iterationRef.current = Math.min(iterationRef.current, 120);
       return;
     }
@@ -663,20 +1083,18 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
       };
       return;
     }
-    const svgPt = getSvgPoint(e);
-    if (!svgPt) return;
-    let found: string | null = null;
-    const nodes = nodesRef.current;
-    for (let i = nodes.length - 1; i >= 0; i--) {
-      const node = nodes[i];
-      if (node.hidden) continue;
-      const dx = svgPt.x - node.x, dy = svgPt.y - node.y;
-      if (Math.sqrt(dx * dx + dy * dy) <= node.radius + 6) { found = node.id; break; }
+    const pt = getCanvasPoint(e);
+    if (!pt) return;
+    
+    if (quadTreeRef.current) {
+      const hit = hitTestQuadTree(quadTreeRef.current, pt.x, pt.y, 6);
+      setHoveredNode(hit && !hit.hidden && !isNodeFilteredOut(hit) ? hit.id : null);
+    } else {
+      setHoveredNode(null);
     }
-    setHoveredNode(found);
-  }, [dragNode, isPanning, dimensions, getSvgPoint]);
+  }, [dragNode, isPanning, dimensions, getCanvasPoint, isNodeFilteredOut]);
 
-  const handleMouseUp = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+  const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (dragNode) {
       const dx = e.clientX - dragStartPos.current.x;
       const dy = e.clientY - dragStartPos.current.y;
@@ -707,126 +1125,36 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
       }
     }
     setDragNode(null); setIsPanning(false); isPanningRef.current = false;
-  }, [dragNode, handleExpand, toggleSelection]);
+  }, [dragNode, handleExpand, toggleSelection, router]);
 
   const handleMouseLeave = useCallback(() => {
     setDragNode(null); setIsPanning(false); isPanningRef.current = false;
-    // Clear click timer so leaving the graph doesn't trigger navigation
     if (clickTimerRef.current) { clearTimeout(clickTimerRef.current); clickTimerRef.current = null; }
     lastClickNodeRef.current = null;
   }, []);
 
-  const handleWheel = useCallback((e: React.WheelEvent<SVGSVGElement>) => {
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    const svgPt = getSvgPoint(e);
-    if (!svgPt) return;
+    const pt = getCanvasPoint(e);
+    if (!pt) return;
     const factor = e.deltaY > 0 ? 1.08 : 0.92;
     const vb = viewBoxRef.current;
     const newW = clamp(vb.w * factor, 200, dimensions.width * 12);
     const newH = clamp(vb.h * factor, 140, dimensions.height * 12);
-    const rx = (svgPt.x - vb.x) / vb.w;
-    const ry = (svgPt.y - vb.y) / vb.h;
-    viewBoxRef.current = { x: svgPt.x - rx * newW, y: svgPt.y - ry * newH, w: newW, h: newH };
+    const rx = (pt.x - vb.x) / vb.w;
+    const ry = (pt.y - vb.y) / vb.h;
+    viewBoxRef.current = { x: pt.x - rx * newW, y: pt.y - ry * newH, w: newW, h: newH };
     autoFitEnabledRef.current = false;
-  }, [dimensions, getSvgPoint]);
+  }, [dimensions, getCanvasPoint]);
 
-  // Computed values for rendering
   const nodes = nodesRef.current;
   const edges = edgesRef.current;
   const degrees = getDegreeCounts(edges);
-  const nodeMap = new Map(nodes.map(n => [n.id, n]));
-
-  // Compute hop distance from seed via BFS
-  const nodeDepths = useMemo(() => {
-    const depths = new Map<string, number>();
-    depths.set(seed, 0);
-    const queue = [seed];
-    const adj = new Map<string, string[]>();
-    for (const e of edges) {
-      if (!adj.has(e.source)) adj.set(e.source, []);
-      if (!adj.has(e.target)) adj.set(e.target, []);
-      adj.get(e.source)!.push(e.target);
-      adj.get(e.target)!.push(e.source);
-    }
-    while (queue.length > 0) {
-      const cur = queue.shift()!;
-      const d = depths.get(cur)!;
-      for (const neighbor of adj.get(cur) || []) {
-        if (!depths.has(neighbor)) {
-          depths.set(neighbor, d + 1);
-          queue.push(neighbor);
-        }
-      }
-    }
-    return depths;
-  }, [edges, seed, structureVersion]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const currentMaxDepth = useMemo(() => {
-    let max = 0;
-    for (const d of nodeDepths.values()) if (d !== Infinity) max = Math.max(max, d);
-    return max;
-  }, [nodeDepths]);
-
-  // Compute which nodes are connected by visible edges (respecting edgeFilter)
-  const nodesWithVisibleEdges = useMemo(() => {
-    const set = new Set<string>();
-    for (const edge of edges) {
-      let visible = true;
-      if (edgeFilter) {
-        const dir = edge.direction;
-        if (edge.type === 'semantic' && !edgeFilter.semantic) visible = false;
-        if (edge.type === 'social') {
-          if (dir === 'following' && !edgeFilter.following) visible = false;
-          if (dir === 'follower' && !edgeFilter.followers) visible = false;
-          if (dir === 'mutual' && !edgeFilter.following && !edgeFilter.followers) visible = false;
-        }
-      }
-      if (visible) {
-        set.add(edge.source);
-        set.add(edge.target);
-      }
-    }
-    return set;
-  }, [edges, edgeFilter, structureVersion]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const isNodeFilteredOut = (node: GraphNode): boolean => {
-    if (node.isSeed) return false; // always show seed
-    // Depth filter
-    const depth = nodeDepths.get(node.id) ?? Infinity;
-    if (depth > maxDepth) return true;
-    // Edge type filter
-    if (edgeFilter && !nodesWithVisibleEdges.has(node.id)) return true;
-    return false;
-  };
 
   const totalVisible = nodes.filter(n => !n.hidden && !isNodeFilteredOut(n)).length;
   const totalEdges = edges.length;
   const routerCount = nodes.filter(n => !n.isSeed && !n.hidden && !isNodeFilteredOut(n) && (degrees.get(n.id) || 0) >= 2).length;
 
-  const getRingColor = (node: GraphNode, hovered: boolean, selected: boolean, isSearchHit: boolean) => {
-    if (isSearchHit) return PALETTE.searchHit;
-    if (selected) return PALETTE.ringSelected;
-    if (node.isSeed) return PALETTE.seed;
-    if (hovered) return '#111';
-    const deg = degrees.get(node.id) || 0;
-    if (deg >= 2) return PALETTE.ringMutual;
-    if (node.isExpanded) return PALETTE.ringExpanded;
-    if (node.color === PALETTE.ggProfile) return PALETTE.ggProfile;
-    return PALETTE.ring;
-  };
-
-  const getRingWidth = (node: GraphNode, hovered: boolean, selected: boolean, isSearchHit: boolean) => {
-    if (isSearchHit) return 3;
-    if (selected) return 3;
-    if (hovered || node.isSeed) return 2.5;
-    if ((degrees.get(node.id) || 0) >= 2) return 2;
-    if (node.isExpanded) return 2;
-    return 1.5;
-  };
-
-  const vb = viewBoxRef.current;
-
-  // Escape to exit fullscreen
   useEffect(() => {
     if (!isFullscreen) return;
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsFullscreen(false); };
@@ -845,7 +1173,6 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
       className={isFullscreen ? 'fixed inset-0 z-50 bg-white overflow-hidden select-none' : 'w-full rounded-lg bg-white relative overflow-hidden select-none'}
       style={isFullscreen ? { touchAction: 'none' } : { height: '70vh', minHeight: 600, border: '1px solid #eee', touchAction: 'none' }}
     >
-      {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between z-10 px-4 py-3 bg-gradient-to-b from-white via-white/95 to-transparent pointer-events-none">
         <div className="flex items-center gap-4 pointer-events-auto">
           <div className="flex gap-3 text-[11px] text-[#888] font-medium">
@@ -913,7 +1240,6 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
           >
             {hideLeaves ? 'All' : 'Routers'}
           </button>
-          {/* Depth +/- control */}
           {currentMaxDepth > 1 && (
             <div className="flex items-center gap-0.5 bg-white/90 border border-[#e0e0e0] rounded overflow-hidden">
               <button
@@ -952,304 +1278,19 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
         </div>
       </div>
 
-      {/* Bottom hints */}
       <div className="absolute bottom-2 right-3 text-[10px] text-[#c0c0c0] z-10 select-none">
         click expand · double-click profile · cmd+click new tab · shift select · scroll zoom{isFullscreen ? ' · esc exit' : ''}
       </div>
 
-      <svg
-        ref={svgRef}
-        width="100%" height="100%"
-        viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`}
+      <canvas
+        ref={canvasRef}
+        style={{ width: '100%', height: '100%', cursor: dragNode ? 'grabbing' : isPanning ? 'grabbing' : hoveredNode ? 'pointer' : 'grab' }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
         onWheel={handleWheel}
-        style={{ cursor: dragNode ? 'grabbing' : isPanning ? 'grabbing' : hoveredNode ? 'pointer' : 'grab' }}
-      >
-        <defs>
-          {nodes.map(node => (
-            <clipPath key={`clip-${node.id}`} id={`clip-${node.id}`}>
-              <circle r={node.radius} cx={0} cy={0} />
-            </clipPath>
-          ))}
-          {/* Subtle drop shadow for nodes */}
-          <filter id="node-shadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="#000" floodOpacity="0.08" />
-          </filter>
-          <filter id="node-shadow-hover" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#000" floodOpacity="0.12" />
-          </filter>
-          {/* Arrowhead markers for directed edges */}
-          <marker id="arrow-social" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
-            <path d="M0,0 L10,3 L0,6" fill={PALETTE.edge} />
-          </marker>
-          <marker id="arrow-social-visible" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
-            <path d="M0,0 L10,3 L0,6" fill="#bbb" />
-          </marker>
-          <marker id="arrow-social-active" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
-            <path d="M0,0 L10,3 L0,6" fill={PALETTE.edgeActive} />
-          </marker>
-          <marker id="arrow-mutual" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
-            <path d="M0,0 L10,3 L0,6" fill={PALETTE.edgeMutual} />
-          </marker>
-          <marker id="arrow-semantic" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
-            <path d="M0,0 L10,3 L0,6" fill={PALETTE.edgeSemantic} />
-          </marker>
-          <style>{`
-            @keyframes spin { to { transform: rotate(360deg); } }
-            @keyframes pulse-ring { 0%, 100% { opacity: 0.8; } 50% { opacity: 0.3; } }
-            .loading-ring { animation: spin 1.2s linear infinite; transform-origin: 0px 0px; }
-            .search-ring { animation: pulse-ring 1.5s ease-in-out infinite; }
-          `}</style>
-        </defs>
-
-        {/* Edges — curved bezier paths with directional arrows */}
-        {edges.map((edge, i) => {
-          const src = nodeMap.get(edge.source);
-          const tgt = nodeMap.get(edge.target);
-          if (!src || !tgt) return null;
-
-          // Hide edges to nodes beyond max depth
-          const srcDepth = nodeDepths.get(edge.source) ?? Infinity;
-          const tgtDepth = nodeDepths.get(edge.target) ?? Infinity;
-          if (srcDepth > maxDepth || tgtDepth > maxDepth) return null;
-
-          // Apply edge filter
-          if (edgeFilter) {
-            const dir = edge.direction;
-            if (edge.type === 'semantic' && !edgeFilter.semantic) return null;
-            if (edge.type === 'social') {
-              if (dir === 'following' && !edgeFilter.following) return null;
-              if (dir === 'follower' && !edgeFilter.followers) return null;
-              if (dir === 'mutual' && !edgeFilter.following && !edgeFilter.followers) return null;
-            }
-          }
-
-          const hovered = hoveredNode === edge.source || hoveredNode === edge.target;
-          const srcDeg = degrees.get(edge.source) || 0;
-          const tgtDeg = degrees.get(edge.target) || 0;
-          const isMutual = edge.direction === 'mutual' || (srcDeg >= 2 && tgtDeg >= 2);
-          const isSemantic = edge.type === 'semantic';
-          const dist = Math.sqrt((tgt.x - src.x) ** 2 + (tgt.y - src.y) ** 2);
-          const opacity = hovered ? 0.7 : isSemantic ? 0.35 : isMutual ? 0.4 : clamp(1 - dist / 1200, 0.15, 0.6);
-
-          const strokeColor = hovered
-            ? (isSemantic ? PALETTE.edgeSemanticActive : PALETTE.edgeActive)
-            : isSemantic ? PALETTE.edgeSemantic
-            : isMutual ? PALETTE.edgeMutual
-            : PALETTE.edge;
-
-          // Arrow marker — always visible, color matches edge
-          let markerEnd: string | undefined;
-          let markerStart: string | undefined;
-          const markerId = isSemantic ? 'arrow-semantic' : isMutual ? 'arrow-mutual' : hovered ? 'arrow-social-active' : 'arrow-social-visible';
-          const markerRef = `url(#${markerId})`;
-          if (edge.direction === 'following') {
-            markerEnd = markerRef;
-          } else if (edge.direction === 'follower') {
-            markerStart = markerRef;
-          } else if (edge.direction === 'mutual') {
-            markerEnd = markerRef;
-            markerStart = markerRef;
-          } else if (edge.type === 'social') {
-            // No direction info (expanded nodes) — default arrow to target
-            markerEnd = markerRef;
-          }
-
-          return (
-            <path
-              key={`edge-${i}`}
-              className="graph-edge"
-              d={curvedEdgePath(src.x, src.y, tgt.x, tgt.y, isSemantic ? 0.15 : isMutual ? 0.12 : 0.06, src.radius, tgt.radius)}
-              fill="none"
-              stroke={strokeColor}
-              strokeWidth={hovered ? 1.5 : isSemantic ? 1 : isMutual ? 1.2 : 0.8}
-              strokeDasharray={isSemantic ? '4 3' : undefined}
-              opacity={opacity}
-              markerEnd={markerEnd}
-              markerStart={markerStart}
-            />
-          );
-        })}
-
-        {/* Nodes */}
-        {nodes.map(node => {
-          if (isNodeFilteredOut(node)) return null;
-          const hovered = hoveredNode === node.id;
-          const selected = selectedNodes.has(node.id);
-          const deg = degrees.get(node.id) || 0;
-          const isMutual = !node.isSeed && deg >= 2;
-          const isSearchHit = searchMatches.has(node.id);
-
-          return (
-            <g
-              key={node.id}
-              className="graph-node"
-              transform={`translate(${node.x},${node.y})`}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                dragStartPos.current = { x: e.clientX, y: e.clientY };
-                setDragNode(node.id);
-                node.vx = 0; node.vy = 0;
-              }}
-              onMouseEnter={() => setHoveredNode(node.id)}
-              onMouseLeave={() => { if (!dragNode) setHoveredNode(null); }}
-              filter={hovered ? 'url(#node-shadow-hover)' : 'url(#node-shadow)'}
-            >
-              {/* Search pulse ring */}
-              {isSearchHit && (
-                <circle
-                  className="search-ring"
-                  r={node.radius + 8}
-                  fill="none"
-                  stroke={PALETTE.searchHit}
-                  strokeWidth={2}
-                />
-              )}
-
-              {/* Selection glow */}
-              {selected && (
-                <circle r={node.radius + 6} fill="none" stroke={PALETTE.ringSelected} strokeWidth={2} opacity={0.35} />
-              )}
-
-              {/* Border ring */}
-              <circle
-                r={node.radius + 2}
-                fill="white"
-                stroke={getRingColor(node, hovered, selected, isSearchHit)}
-                strokeWidth={getRingWidth(node, hovered, selected, isSearchHit)}
-              />
-
-              {/* Avatar or GG label for non-GitHub seeds */}
-              {node.isSeed && node.id.includes('.') ? (
-                <g>
-                  <circle r={node.radius} fill="#111" />
-                  <text
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    fill="white"
-                    fontSize={node.radius * 0.7}
-                    fontWeight={800}
-                    letterSpacing={1}
-                    style={{ pointerEvents: 'none' }}
-                  >
-                    GG
-                  </text>
-                </g>
-              ) : (
-                <image
-                  href={node.avatar}
-                  x={-node.radius} y={-node.radius}
-                  width={node.radius * 2} height={node.radius * 2}
-                  clipPath={`url(#clip-${node.id})`}
-                  preserveAspectRatio="xMidYMid slice"
-                />
-              )}
-
-              {/* Loading spinner */}
-              {node.isLoading && (
-                <circle
-                  className="loading-ring"
-                  r={node.radius + 5}
-                  fill="none" stroke={PALETTE.ringLoading}
-                  strokeWidth={2}
-                  strokeDasharray={`${node.radius * 2} ${node.radius * 4}`}
-                  strokeLinecap="round"
-                />
-              )}
-
-              {/* Connection count badge */}
-              {isMutual && !hovered && (
-                <g>
-                  <circle cx={node.radius * 0.7} cy={-node.radius * 0.7} r={7}
-                    fill={PALETTE.ringMutual} stroke="white" strokeWidth={1.5} />
-                  <text x={node.radius * 0.7} y={-node.radius * 0.7 + 3.5}
-                    textAnchor="middle" fill="white" fontSize={8} fontWeight={700}>{deg}</text>
-                </g>
-              )}
-
-              {/* Expanded dot */}
-              {node.isExpanded && !node.isSeed && !isMutual && (
-                <circle cx={node.radius * 0.7} cy={-node.radius * 0.7} r={3}
-                  fill={PALETTE.ringExpanded} stroke="white" strokeWidth={1} />
-              )}
-
-              {/* Always-visible label */}
-              <text
-                y={node.radius + 14}
-                textAnchor="middle"
-                fill={hovered ? PALETTE.label : PALETTE.labelMuted}
-                fontSize={node.isSeed ? 11 : 9}
-                fontWeight={node.isSeed || hovered || isMutual ? 600 : 400}
-                style={{ pointerEvents: 'none' }}
-              >
-                {node.id.length > 14 ? node.id.slice(0, 12) + '…' : node.id}
-              </text>
-
-              {/* Follower count for routers / hovered */}
-              {(isMutual || hovered) && !node.isSeed && node.user && (
-                <text
-                  y={node.radius + 24}
-                  textAnchor="middle"
-                  fill={PALETTE.labelMuted}
-                  fontSize={8}
-                  style={{ pointerEvents: 'none' }}
-                >
-                  {node.user.followers.toLocaleString()} followers
-                </text>
-              )}
-
-              {/* Hover tooltip card */}
-              {hovered && !node.isSeed && node.user && (() => {
-                const hasSimilarity = node.user.similarity != null;
-                const hasArchetype = !!node.user.archetype;
-                const hasSkills = node.user.topSkills && node.user.topSkills.length > 0;
-                const bioText = node.user.bio || (hasSimilarity ? node.user.archetype : null);
-                const extraLines = (hasArchetype && hasSimilarity ? 1 : 0) + (hasSkills ? 1 : 0);
-                const cardHeight = (bioText ? 58 : 38) + extraLines * 12;
-
-                return (
-                  <g transform={`translate(0, ${node.radius + (isMutual ? 32 : 20)})`}>
-                    <rect
-                      x={-90} y={0}
-                      width={180}
-                      height={cardHeight}
-                      rx={6}
-                      fill={PALETTE.labelBg}
-                      stroke="#e0e0e0"
-                      strokeWidth={0.5}
-                    />
-                    <text x={0} y={14} textAnchor="middle" fill={PALETTE.label} fontSize={10} fontWeight={600}>
-                      {node.user.name || node.id}
-                    </text>
-                    <text x={0} y={26} textAnchor="middle" fill={PALETTE.labelMuted} fontSize={8.5}>
-                      {node.user.followers.toLocaleString()} followers · {node.user.publicRepos} repos
-                      {hasSimilarity ? ` · ${node.user.similarity}% match` : ` · ${deg} links`}
-                    </text>
-                    {bioText && (
-                      <text x={0} y={40} textAnchor="middle" fill="#aaa" fontSize={8}>
-                        {bioText.length > 40 ? bioText.slice(0, 38) + '…' : bioText}
-                      </text>
-                    )}
-                    {hasSkills && (
-                      <text x={0} y={bioText ? 52 : 40} textAnchor="middle" fill={PALETTE.edgeSemantic} fontSize={7.5}>
-                        {node.user.topSkills!.slice(0, 3).join(' · ')}
-                      </text>
-                    )}
-                    {!node.isExpanded && !node.isLoading && (
-                      <text x={0} y={cardHeight - 4} textAnchor="middle" fill="#bbb" fontSize={7.5} fontStyle="italic">
-                        click to explore network
-                      </text>
-                    )}
-                  </g>
-                );
-              })()}
-            </g>
-          );
-        })}
-      </svg>
+      />
     </div>
   );
 }

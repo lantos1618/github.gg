@@ -109,16 +109,27 @@ function getDegreeCounts(edges: GraphEdge[]): Map<string, number> {
   return c;
 }
 
-// Compute a curved path between two points with slight perpendicular offset
-function curvedEdgePath(sx: number, sy: number, tx: number, ty: number, curvature: number = 0.15): string {
-  const mx = (sx + tx) / 2;
-  const my = (sy + ty) / 2;
+// Compute a curved path between two points, shortened by node radii so arrows are visible
+function curvedEdgePath(sx: number, sy: number, tx: number, ty: number, curvature: number = 0.15, srcRadius: number = 0, tgtRadius: number = 0): string {
   const dx = tx - sx;
   const dy = ty - sy;
+  const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+  const nx = dx / dist;
+  const ny = dy / dist;
+  // Shorten start and end by node radius + padding so arrows sit outside the circle
+  const pad = 6;
+  const startX = sx + nx * (srcRadius + pad);
+  const startY = sy + ny * (srcRadius + pad);
+  const endX = tx - nx * (tgtRadius + pad);
+  const endY = ty - ny * (tgtRadius + pad);
+  const mx = (startX + endX) / 2;
+  const my = (startY + endY) / 2;
+  const edx = endX - startX;
+  const edy = endY - startY;
   // perpendicular offset
-  const cx = mx - dy * curvature;
-  const cy = my + dx * curvature;
-  return `M${sx},${sy} Q${cx},${cy} ${tx},${ty}`;
+  const cx = mx - edy * curvature;
+  const cy = my + edx * curvature;
+  return `M${startX},${startY} Q${cx},${cy} ${endX},${endY}`;
 }
 
 export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandNode, onSelectionChange }: NetworkGraphProps) {
@@ -136,6 +147,7 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
   const [hideLeaves, setHideLeaves] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [maxDepth, setMaxDepth] = useState<number>(Infinity);
   const panStart = useRef({ x: 0, y: 0, vx: 0, vy: 0 });
   const iterationRef = useRef(0);
   const initializedForRef = useRef<string>('');
@@ -552,7 +564,7 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
             return;
           }
           el.setAttribute('visibility', 'visible');
-          el.setAttribute('d', curvedEdgePath(src.x, src.y, tgt.x, tgt.y, 0.08));
+          el.setAttribute('d', curvedEdgePath(src.x, src.y, tgt.x, tgt.y, 0.08, src.radius, tgt.radius));
         });
 
         // Update nodes
@@ -724,9 +736,72 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
   const degrees = getDegreeCounts(edges);
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
 
-  const totalVisible = nodes.filter(n => !n.hidden).length;
+  // Compute hop distance from seed via BFS
+  const nodeDepths = useMemo(() => {
+    const depths = new Map<string, number>();
+    depths.set(seed, 0);
+    const queue = [seed];
+    const adj = new Map<string, string[]>();
+    for (const e of edges) {
+      if (!adj.has(e.source)) adj.set(e.source, []);
+      if (!adj.has(e.target)) adj.set(e.target, []);
+      adj.get(e.source)!.push(e.target);
+      adj.get(e.target)!.push(e.source);
+    }
+    while (queue.length > 0) {
+      const cur = queue.shift()!;
+      const d = depths.get(cur)!;
+      for (const neighbor of adj.get(cur) || []) {
+        if (!depths.has(neighbor)) {
+          depths.set(neighbor, d + 1);
+          queue.push(neighbor);
+        }
+      }
+    }
+    return depths;
+  }, [edges, seed, structureVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const currentMaxDepth = useMemo(() => {
+    let max = 0;
+    for (const d of nodeDepths.values()) if (d !== Infinity) max = Math.max(max, d);
+    return max;
+  }, [nodeDepths]);
+
+  // Compute which nodes are connected by visible edges (respecting edgeFilter)
+  const nodesWithVisibleEdges = useMemo(() => {
+    const set = new Set<string>();
+    for (const edge of edges) {
+      let visible = true;
+      if (edgeFilter) {
+        const dir = edge.direction;
+        if (edge.type === 'semantic' && !edgeFilter.semantic) visible = false;
+        if (edge.type === 'social') {
+          if (dir === 'following' && !edgeFilter.following) visible = false;
+          if (dir === 'follower' && !edgeFilter.followers) visible = false;
+          if (dir === 'mutual' && !edgeFilter.following && !edgeFilter.followers) visible = false;
+        }
+      }
+      if (visible) {
+        set.add(edge.source);
+        set.add(edge.target);
+      }
+    }
+    return set;
+  }, [edges, edgeFilter, structureVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isNodeFilteredOut = (node: GraphNode): boolean => {
+    if (node.isSeed) return false; // always show seed
+    // Depth filter
+    const depth = nodeDepths.get(node.id) ?? Infinity;
+    if (depth > maxDepth) return true;
+    // Edge type filter
+    if (edgeFilter && !nodesWithVisibleEdges.has(node.id)) return true;
+    return false;
+  };
+
+  const totalVisible = nodes.filter(n => !n.hidden && !isNodeFilteredOut(n)).length;
   const totalEdges = edges.length;
-  const routerCount = nodes.filter(n => !n.isSeed && !n.hidden && (degrees.get(n.id) || 0) >= 2).length;
+  const routerCount = nodes.filter(n => !n.isSeed && !n.hidden && !isNodeFilteredOut(n) && (degrees.get(n.id) || 0) >= 2).length;
 
   const getRingColor = (node: GraphNode, hovered: boolean, selected: boolean, isSearchHit: boolean) => {
     if (isSearchHit) return PALETTE.searchHit;
@@ -838,6 +913,26 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
           >
             {hideLeaves ? 'All' : 'Routers'}
           </button>
+          {/* Depth +/- control */}
+          <div className="flex items-center gap-0.5 bg-white/90 border border-[#e0e0e0] rounded overflow-hidden">
+            <button
+              onClick={() => setMaxDepth(d => Math.max(1, d === Infinity ? currentMaxDepth : d - 1))}
+              disabled={maxDepth <= 1}
+              className="px-1.5 py-0.5 text-[11px] font-bold text-[#888] hover:text-[#111] disabled:opacity-30 transition-colors"
+            >
+              &minus;
+            </button>
+            <span className="px-1 text-[10px] font-mono text-[#666] min-w-[28px] text-center">
+              {maxDepth === Infinity ? `${currentMaxDepth}` : maxDepth}d
+            </span>
+            <button
+              onClick={() => setMaxDepth(d => d === Infinity ? Infinity : d >= currentMaxDepth ? Infinity : d + 1)}
+              disabled={maxDepth === Infinity}
+              className="px-1.5 py-0.5 text-[11px] font-bold text-[#888] hover:text-[#111] disabled:opacity-30 transition-colors"
+            >
+              +
+            </button>
+          </div>
           {selectedNodes.size > 0 && (
             <button
               onClick={() => setSelectedNodes(new Set())}
@@ -905,6 +1000,11 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
           const tgt = nodeMap.get(edge.target);
           if (!src || !tgt) return null;
 
+          // Hide edges to nodes beyond max depth
+          const srcDepth = nodeDepths.get(edge.source) ?? Infinity;
+          const tgtDepth = nodeDepths.get(edge.target) ?? Infinity;
+          if (srcDepth > maxDepth || tgtDepth > maxDepth) return null;
+
           // Apply edge filter
           if (edgeFilter) {
             const dir = edge.direction;
@@ -947,7 +1047,7 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
             <path
               key={`edge-${i}`}
               className="graph-edge"
-              d={curvedEdgePath(src.x, src.y, tgt.x, tgt.y, isSemantic ? 0.15 : isMutual ? 0.12 : 0.06)}
+              d={curvedEdgePath(src.x, src.y, tgt.x, tgt.y, isSemantic ? 0.15 : isMutual ? 0.12 : 0.06, src.radius, tgt.radius)}
               fill="none"
               stroke={strokeColor}
               strokeWidth={hovered ? 1.5 : isSemantic ? 1 : isMutual ? 1.2 : 0.8}
@@ -961,6 +1061,7 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
 
         {/* Nodes */}
         {nodes.map(node => {
+          if (isNodeFilteredOut(node)) return null;
           const hovered = hoveredNode === node.id;
           const selected = selectedNodes.has(node.id);
           const deg = degrees.get(node.id) || 0;
@@ -1006,14 +1107,31 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
                 strokeWidth={getRingWidth(node, hovered, selected, isSearchHit)}
               />
 
-              {/* Avatar */}
-              <image
-                href={node.avatar}
-                x={-node.radius} y={-node.radius}
-                width={node.radius * 2} height={node.radius * 2}
-                clipPath={`url(#clip-${node.id})`}
-                preserveAspectRatio="xMidYMid slice"
-              />
+              {/* Avatar or GG label for non-GitHub seeds */}
+              {node.isSeed && node.id.includes('.') ? (
+                <g>
+                  <circle r={node.radius} fill="#111" />
+                  <text
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fill="white"
+                    fontSize={node.radius * 0.7}
+                    fontWeight={800}
+                    letterSpacing={1}
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    GG
+                  </text>
+                </g>
+              ) : (
+                <image
+                  href={node.avatar}
+                  x={-node.radius} y={-node.radius}
+                  width={node.radius * 2} height={node.radius * 2}
+                  clipPath={`url(#clip-${node.id})`}
+                  preserveAspectRatio="xMidYMid slice"
+                />
+              )}
 
               {/* Loading spinner */}
               {node.isLoading && (

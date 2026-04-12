@@ -11,11 +11,30 @@ export interface NetworkUser {
   followers: number;
   publicRepos: number;
   hasGGProfile: boolean;
+  // Unified network fields
+  isFollower?: boolean;
+  isFollowing?: boolean;
+  isMutual?: boolean;
+  // Semantic similarity fields
+  similarity?: number;
+  archetype?: string | null;
+  score?: number | null;
+  topSkills?: string[];
+}
+
+export type EdgeType = 'social' | 'semantic';
+
+export interface EdgeFilter {
+  following: boolean;
+  followers: boolean;
+  semantic: boolean;
 }
 
 interface NetworkGraphProps {
   users: NetworkUser[];
   seed: string;
+  semanticUsers?: NetworkUser[];
+  edgeFilter?: EdgeFilter;
   onExpandNode?: (username: string) => Promise<NetworkUser[] | null>;
   onSelectionChange?: (selected: Set<string>) => void;
 }
@@ -36,9 +55,14 @@ interface GraphNode {
   hidden: boolean;
 }
 
+export type EdgeDirection = 'following' | 'follower' | 'mutual' | null;
+
 interface GraphEdge {
   source: string;
   target: string;
+  type: EdgeType;
+  similarity?: number; // 0-100 for semantic edges
+  direction?: EdgeDirection; // social edge direction relative to seed
 }
 
 const PALETTE = {
@@ -48,12 +72,15 @@ const PALETTE = {
   edge: '#e8e8e8',
   edgeActive: '#bbb',
   edgeMutual: '#e8a838',
+  edgeSemantic: '#8b5cf6',      // purple for semantic similarity edges
+  edgeSemanticActive: '#7c3aed',
   label: '#333',
   labelMuted: '#999',
   labelBg: 'rgba(255,255,255,0.96)',
   ring: '#ddd',
   ringExpanded: '#111',
   ringMutual: '#e8a838',
+  ringSemantic: '#8b5cf6',
   ringSelected: '#3b82f6',
   ringLoading: '#3b82f6',
   searchHit: '#ef4444',
@@ -94,7 +121,7 @@ function curvedEdgePath(sx: number, sy: number, tx: number, ty: number, curvatur
   return `M${sx},${sy} Q${cx},${cy} ${tx},${ty}`;
 }
 
-export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: NetworkGraphProps) {
+export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandNode, onSelectionChange }: NetworkGraphProps) {
   const router = useRouter();
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -137,7 +164,8 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
 
   // Build graph data
   useEffect(() => {
-    const dataKey = `${seed}:${users.map(u => u.username).join(',')}`;
+    const semKey = semanticUsers?.map(u => u.username).join(',') || '';
+    const dataKey = `${seed}:${users.map(u => u.username).join(',')}:${semKey}`;
     if (initializedForRef.current === dataKey) return;
     initializedForRef.current = dataKey;
 
@@ -145,6 +173,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
     const cy = dimensions.height / 2;
     const nodes: GraphNode[] = [];
     const edges: GraphEdge[] = [];
+    const existingIds = new Set<string>();
 
     nodes.push({
       id: seed, x: cx, y: cy, vx: 0, vy: 0,
@@ -153,7 +182,9 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
       avatar: `https://github.com/${seed}.png?size=128`,
       user: null, hidden: false,
     });
+    existingIds.add(seed);
 
+    // Social network users — arrange in a ring around the seed
     const angleStep = (2 * Math.PI) / Math.max(users.length, 1);
     const spread = Math.min(dimensions.width, dimensions.height) * 0.38;
 
@@ -170,15 +201,45 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
         isSeed: false, isExpanded: false, isLoading: false,
         avatar: u.avatar, user: u, hidden: false,
       });
-      edges.push({ source: seed, target: u.username });
+      existingIds.add(u.username);
+      const dir: EdgeDirection = u.isMutual ? 'mutual' : u.isFollowing ? 'following' : u.isFollower ? 'follower' : null;
+      edges.push({ source: seed, target: u.username, type: 'social', direction: dir });
     });
+
+    // Semantic similarity users — arrange in a wider ring, offset
+    if (semanticUsers?.length) {
+      const semAngleStep = (2 * Math.PI) / Math.max(semanticUsers.length, 1);
+      const semSpread = spread * 1.6;
+
+      semanticUsers.forEach((u, i) => {
+        if (existingIds.has(u.username)) {
+          // Already in the social graph — just add a semantic edge
+          edges.push({ source: seed, target: u.username, type: 'semantic', similarity: u.similarity });
+          return;
+        }
+        const angle = semAngleStep * i - Math.PI / 4; // offset from social ring
+        const r = getNodeRadius(u.followers, false);
+        const jitter = (Math.random() - 0.5) * 30;
+        nodes.push({
+          id: u.username,
+          x: cx + Math.cos(angle) * (semSpread + jitter),
+          y: cy + Math.sin(angle) * (semSpread + jitter),
+          vx: 0, vy: 0, radius: r,
+          color: PALETTE.ggProfile, // semantic users always have GG profiles
+          isSeed: false, isExpanded: false, isLoading: false,
+          avatar: u.avatar, user: u, hidden: false,
+        });
+        existingIds.add(u.username);
+        edges.push({ source: seed, target: u.username, type: 'semantic', similarity: u.similarity });
+      });
+    }
 
     nodesRef.current = nodes;
     edgesRef.current = edges;
     iterationRef.current = 0;
     viewBoxRef.current = { x: 0, y: 0, w: dimensions.width, h: dimensions.height };
     setStructureVersion(v => v + 1);
-  }, [users, seed, dimensions]);
+  }, [users, seed, semanticUsers, dimensions]);
 
   // Add nodes on expand
   const addNodes = useCallback((parentId: string, newUsers: NetworkUser[]) => {
@@ -197,7 +258,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
           (e.source === parentId && e.target === u.username) ||
           (e.source === u.username && e.target === parentId)
         )) {
-          edges.push({ source: parentId, target: u.username });
+          edges.push({ source: parentId, target: u.username, type: 'social' });
         }
         return;
       }
@@ -216,7 +277,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
         isSeed: false, isExpanded: false, isLoading: false,
         avatar: u.avatar, user: u, hidden: false,
       });
-      edges.push({ source: parentId, target: u.username });
+      edges.push({ source: parentId, target: u.username, type: 'social' });
       added++;
     });
 
@@ -373,7 +434,7 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
         }
       }
 
-      // Spring forces
+      // Spring forces — different parameters per edge type
       const visibleIds = new Set(nodes.map(n => n.id));
       const nMap = new Map(nodes.map(n => [n.id, n]));
       for (const edge of edges) {
@@ -381,11 +442,21 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
         const src = nMap.get(edge.source);
         const tgt = nMap.get(edge.target);
         if (!src || !tgt) continue;
+
+        // Semantic edges: shorter = more similar, softer pull
+        let edgeSpringLen = springLen;
+        let edgeSpringK = springK;
+        if (edge.type === 'semantic') {
+          const sim = (edge.similarity ?? 50) / 100; // 0-1
+          edgeSpringLen = springLen * (1 - sim * 0.6); // high similarity → shorter
+          edgeSpringK = springK * 0.6; // softer pull for semantic
+        }
+
         const dx = tgt.x - src.x;
         const dy = tgt.y - src.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const disp = dist - springLen;
-        const f = springK * disp;
+        const disp = dist - edgeSpringLen;
+        const f = edgeSpringK * disp;
         const fx = (dx / dist) * f;
         const fy = (dy / dist) * f;
         src.vx += fx; src.vy += fy;
@@ -715,6 +786,11 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#c8c8c8]" /> New
             </span>
+            {semanticUsers && semanticUsers.length > 0 && (
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-0.5 bg-[#8b5cf6] rounded" style={{ borderTop: '1px dashed #8b5cf6' }} /> Similar
+              </span>
+            )}
           </div>
           <span className="text-[11px] text-[#bbb] font-mono">{totalVisible} nodes · {totalEdges} edges · {routerCount} routers</span>
         </div>
@@ -802,6 +878,19 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
           <filter id="node-shadow-hover" x="-20%" y="-20%" width="140%" height="140%">
             <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#000" floodOpacity="0.12" />
           </filter>
+          {/* Arrowhead markers for directed edges */}
+          <marker id="arrow-social" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,3 L0,6" fill={PALETTE.edge} />
+          </marker>
+          <marker id="arrow-social-active" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,3 L0,6" fill={PALETTE.edgeActive} />
+          </marker>
+          <marker id="arrow-mutual" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,3 L0,6" fill={PALETTE.edgeMutual} />
+          </marker>
+          <marker id="arrow-semantic" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,3 L0,6" fill={PALETTE.edgeSemantic} />
+          </marker>
           <style>{`
             @keyframes spin { to { transform: rotate(360deg); } }
             @keyframes pulse-ring { 0%, 100% { opacity: 0.8; } 50% { opacity: 0.3; } }
@@ -810,27 +899,62 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
           `}</style>
         </defs>
 
-        {/* Edges — curved bezier paths */}
+        {/* Edges — curved bezier paths with directional arrows */}
         {edges.map((edge, i) => {
           const src = nodeMap.get(edge.source);
           const tgt = nodeMap.get(edge.target);
           if (!src || !tgt) return null;
+
+          // Apply edge filter
+          if (edgeFilter) {
+            const dir = edge.direction;
+            if (edge.type === 'semantic' && !edgeFilter.semantic) return null;
+            if (edge.type === 'social') {
+              if (dir === 'following' && !edgeFilter.following) return null;
+              if (dir === 'follower' && !edgeFilter.followers) return null;
+              if (dir === 'mutual' && !edgeFilter.following && !edgeFilter.followers) return null;
+            }
+          }
+
           const hovered = hoveredNode === edge.source || hoveredNode === edge.target;
           const srcDeg = degrees.get(edge.source) || 0;
           const tgtDeg = degrees.get(edge.target) || 0;
-          const isMutual = srcDeg >= 2 && tgtDeg >= 2;
+          const isMutual = edge.direction === 'mutual' || (srcDeg >= 2 && tgtDeg >= 2);
+          const isSemantic = edge.type === 'semantic';
           const dist = Math.sqrt((tgt.x - src.x) ** 2 + (tgt.y - src.y) ** 2);
-          const opacity = hovered ? 0.7 : isMutual ? 0.4 : clamp(1 - dist / 1200, 0.15, 0.6);
+          const opacity = hovered ? 0.7 : isSemantic ? 0.35 : isMutual ? 0.4 : clamp(1 - dist / 1200, 0.15, 0.6);
+
+          const strokeColor = hovered
+            ? (isSemantic ? PALETTE.edgeSemanticActive : PALETTE.edgeActive)
+            : isSemantic ? PALETTE.edgeSemantic
+            : isMutual ? PALETTE.edgeMutual
+            : PALETTE.edge;
+
+          // Arrow marker — following: seed→target, follower: target→seed, mutual: both ends
+          let markerEnd: string | undefined;
+          let markerStart: string | undefined;
+          const markerRef = hovered ? 'url(#arrow-social-active)' : isMutual ? 'url(#arrow-mutual)' : isSemantic ? 'url(#arrow-semantic)' : 'url(#arrow-social)';
+          if (edge.direction === 'following') {
+            markerEnd = markerRef; // seed follows them → arrow points to target
+          } else if (edge.direction === 'follower') {
+            markerStart = markerRef; // they follow seed → arrow points to source (seed)
+          } else if (edge.direction === 'mutual') {
+            markerEnd = markerRef;
+            markerStart = markerRef;
+          }
 
           return (
             <path
               key={`edge-${i}`}
               className="graph-edge"
-              d={curvedEdgePath(src.x, src.y, tgt.x, tgt.y, isMutual ? 0.12 : 0.06)}
+              d={curvedEdgePath(src.x, src.y, tgt.x, tgt.y, isSemantic ? 0.15 : isMutual ? 0.12 : 0.06)}
               fill="none"
-              stroke={hovered ? PALETTE.edgeActive : isMutual ? PALETTE.edgeMutual : PALETTE.edge}
-              strokeWidth={hovered ? 1.5 : isMutual ? 1.2 : 0.8}
+              stroke={strokeColor}
+              strokeWidth={hovered ? 1.5 : isSemantic ? 1 : isMutual ? 1.2 : 0.8}
+              strokeDasharray={isSemantic ? '4 3' : undefined}
               opacity={opacity}
+              markerEnd={markerEnd}
+              markerStart={markerStart}
             />
           );
         })}
@@ -945,35 +1069,50 @@ export function NetworkGraph({ users, seed, onExpandNode, onSelectionChange }: N
               )}
 
               {/* Hover tooltip card */}
-              {hovered && !node.isSeed && node.user && (
-                <g transform={`translate(0, ${node.radius + (isMutual ? 32 : 20)})`}>
-                  <rect
-                    x={-90} y={0}
-                    width={180}
-                    height={node.user.bio ? 58 : 38}
-                    rx={6}
-                    fill={PALETTE.labelBg}
-                    stroke="#e0e0e0"
-                    strokeWidth={0.5}
-                  />
-                  <text x={0} y={14} textAnchor="middle" fill={PALETTE.label} fontSize={10} fontWeight={600}>
-                    {node.user.name || node.id}
-                  </text>
-                  <text x={0} y={26} textAnchor="middle" fill={PALETTE.labelMuted} fontSize={8.5}>
-                    {node.user.followers.toLocaleString()} followers · {node.user.publicRepos} repos · {deg} links
-                  </text>
-                  {node.user.bio && (
-                    <text x={0} y={40} textAnchor="middle" fill="#aaa" fontSize={8}>
-                      {node.user.bio.length > 40 ? node.user.bio.slice(0, 38) + '…' : node.user.bio}
+              {hovered && !node.isSeed && node.user && (() => {
+                const hasSimilarity = node.user.similarity != null;
+                const hasArchetype = !!node.user.archetype;
+                const hasSkills = node.user.topSkills && node.user.topSkills.length > 0;
+                const bioText = node.user.bio || (hasSimilarity ? node.user.archetype : null);
+                const extraLines = (hasArchetype && hasSimilarity ? 1 : 0) + (hasSkills ? 1 : 0);
+                const cardHeight = (bioText ? 58 : 38) + extraLines * 12;
+
+                return (
+                  <g transform={`translate(0, ${node.radius + (isMutual ? 32 : 20)})`}>
+                    <rect
+                      x={-90} y={0}
+                      width={180}
+                      height={cardHeight}
+                      rx={6}
+                      fill={PALETTE.labelBg}
+                      stroke="#e0e0e0"
+                      strokeWidth={0.5}
+                    />
+                    <text x={0} y={14} textAnchor="middle" fill={PALETTE.label} fontSize={10} fontWeight={600}>
+                      {node.user.name || node.id}
                     </text>
-                  )}
-                  {!node.isExpanded && !node.isLoading && (
-                    <text x={0} y={node.user.bio ? 52 : 36} textAnchor="middle" fill="#bbb" fontSize={7.5} fontStyle="italic">
-                      click to explore network
+                    <text x={0} y={26} textAnchor="middle" fill={PALETTE.labelMuted} fontSize={8.5}>
+                      {node.user.followers.toLocaleString()} followers · {node.user.publicRepos} repos
+                      {hasSimilarity ? ` · ${node.user.similarity}% match` : ` · ${deg} links`}
                     </text>
-                  )}
-                </g>
-              )}
+                    {bioText && (
+                      <text x={0} y={40} textAnchor="middle" fill="#aaa" fontSize={8}>
+                        {bioText.length > 40 ? bioText.slice(0, 38) + '…' : bioText}
+                      </text>
+                    )}
+                    {hasSkills && (
+                      <text x={0} y={bioText ? 52 : 40} textAnchor="middle" fill={PALETTE.edgeSemantic} fontSize={7.5}>
+                        {node.user.topSkills!.slice(0, 3).join(' · ')}
+                      </text>
+                    )}
+                    {!node.isExpanded && !node.isLoading && (
+                      <text x={0} y={cardHeight - 4} textAnchor="middle" fill="#bbb" fontSize={7.5} fontStyle="italic">
+                        click to explore network
+                      </text>
+                    )}
+                  </g>
+                );
+              })()}
             </g>
           );
         })}

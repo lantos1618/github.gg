@@ -104,14 +104,14 @@ export function UsersClientView({ initialProfiles, totalProfileCount }: UsersCli
               <thead>
                 <tr className="border-b border-[#ddd]">
                   <td className="w-[40%] py-2 text-xs text-[#999] font-semibold cursor-pointer hover:text-[#111] transition-colors" onClick={() => toggleSort('username')}>
-                    <span className="inline-flex items-center gap-1">Developer {sortField === 'username' && <ArrowUpDown className="h-3 w-3" />}</span>
+                    <span className="inline-flex items-center gap-1">Developer <ArrowUpDown className={`h-3 w-3 ${sortField !== 'username' ? 'invisible' : ''}`} /></span>
                   </td>
                   <td className="w-[35%] py-2 text-xs text-[#999] font-semibold hidden lg:table-cell">Summary</td>
                   <td className="w-[12%] py-2 text-xs text-[#999] font-semibold text-center cursor-pointer hover:text-[#111] transition-colors" onClick={() => toggleSort('score')}>
-                    <span className="inline-flex items-center gap-1">Score {sortField === 'score' && <ArrowUpDown className="h-3 w-3" />}</span>
+                    <span className="inline-flex items-center gap-1">Score <ArrowUpDown className={`h-3 w-3 ${sortField !== 'score' ? 'invisible' : ''}`} /></span>
                   </td>
                   <td className="w-[13%] py-2 text-xs text-[#999] font-semibold text-right cursor-pointer hover:text-[#111] transition-colors hidden sm:table-cell" onClick={() => toggleSort('date')}>
-                    <span className="inline-flex items-center gap-1">Analyzed {sortField === 'date' && <ArrowUpDown className="h-3 w-3" />}</span>
+                    <span className="inline-flex items-center gap-1">Analyzed <ArrowUpDown className={`h-3 w-3 ${sortField !== 'date' ? 'invisible' : ''}`} /></span>
                   </td>
                 </tr>
               </thead>

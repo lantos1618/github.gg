@@ -1,7 +1,11 @@
+'use client';
+
+import { PageWidthContainer } from '@/components/PageWidthContainer';
+
 export default function AdminLoading() {
   return (
     <div className="min-h-screen bg-white pt-12 pb-20">
-      <div className="w-[90%] max-w-5xl mx-auto space-y-6">
+      <PageWidthContainer className="space-y-6">
         <h1 className="text-[31px] font-semibold text-[#111]">Admin</h1>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -20,7 +24,7 @@ export default function AdminLoading() {
             </div>
           ))}
         </div>
-      </div>
+      </PageWidthContainer>
     </div>
   );
 }

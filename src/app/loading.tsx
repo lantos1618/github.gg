@@ -1,7 +1,11 @@
+'use client';
+
+import { PageWidthContainer } from '@/components/PageWidthContainer';
+
 export default function Loading() {
   return (
     <div className="min-h-screen bg-white pt-12 pb-20">
-      <div className="w-[90%] max-w-5xl mx-auto space-y-6">
+      <PageWidthContainer className="space-y-6">
         <div className="animate-pulse rounded-md bg-gray-200 h-8 w-48" />
         <div className="animate-pulse rounded-md bg-gray-200 h-10 w-full max-w-md" />
         <div className="space-y-3 mt-8">
@@ -9,7 +13,7 @@ export default function Loading() {
           <div className="animate-pulse rounded-md bg-gray-200 h-12 w-full" />
           <div className="animate-pulse rounded-md bg-gray-200 h-12 w-full" />
         </div>
-      </div>
+      </PageWidthContainer>
     </div>
   );
 }

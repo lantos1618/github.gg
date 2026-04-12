@@ -914,25 +914,33 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
             {hideLeaves ? 'All' : 'Routers'}
           </button>
           {/* Depth +/- control */}
-          <div className="flex items-center gap-0.5 bg-white/90 border border-[#e0e0e0] rounded overflow-hidden">
-            <button
-              onClick={() => setMaxDepth(d => Math.max(1, d === Infinity ? currentMaxDepth : d - 1))}
-              disabled={maxDepth <= 1}
-              className="px-1.5 py-0.5 text-[11px] font-bold text-[#888] hover:text-[#111] disabled:opacity-30 transition-colors"
-            >
-              &minus;
-            </button>
-            <span className="px-1 text-[10px] font-mono text-[#666] min-w-[28px] text-center">
-              {maxDepth === Infinity ? `${currentMaxDepth}` : maxDepth}d
-            </span>
-            <button
-              onClick={() => setMaxDepth(d => d === Infinity ? Infinity : d >= currentMaxDepth ? Infinity : d + 1)}
-              disabled={maxDepth === Infinity}
-              className="px-1.5 py-0.5 text-[11px] font-bold text-[#888] hover:text-[#111] disabled:opacity-30 transition-colors"
-            >
-              +
-            </button>
-          </div>
+          {currentMaxDepth > 1 && (
+            <div className="flex items-center gap-0.5 bg-white/90 border border-[#e0e0e0] rounded overflow-hidden">
+              <button
+                onClick={() => setMaxDepth(d => {
+                  const cur = d === Infinity ? currentMaxDepth : d;
+                  return Math.max(1, cur - 1);
+                })}
+                disabled={maxDepth !== Infinity && maxDepth <= 1}
+                className="px-1.5 py-0.5 text-[11px] font-bold text-[#888] hover:text-[#111] disabled:opacity-30 transition-colors"
+              >
+                &minus;
+              </button>
+              <span className="px-1 text-[10px] font-mono text-[#666] min-w-[28px] text-center">
+                {maxDepth === Infinity ? 'all' : `${maxDepth}d`}
+              </span>
+              <button
+                onClick={() => setMaxDepth(d => {
+                  if (d === Infinity) return Infinity;
+                  return d + 1 > currentMaxDepth ? Infinity : d + 1;
+                })}
+                disabled={maxDepth === Infinity}
+                className="px-1.5 py-0.5 text-[11px] font-bold text-[#888] hover:text-[#111] disabled:opacity-30 transition-colors"
+              >
+                +
+              </button>
+            </div>
+          )}
           {selectedNodes.size > 0 && (
             <button
               onClick={() => setSelectedNodes(new Set())}
@@ -976,6 +984,9 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
           {/* Arrowhead markers for directed edges */}
           <marker id="arrow-social" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
             <path d="M0,0 L10,3 L0,6" fill={PALETTE.edge} />
+          </marker>
+          <marker id="arrow-social-visible" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,3 L0,6" fill="#bbb" />
           </marker>
           <marker id="arrow-social-active" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
             <path d="M0,0 L10,3 L0,6" fill={PALETTE.edgeActive} />
@@ -1030,17 +1041,21 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
             : isMutual ? PALETTE.edgeMutual
             : PALETTE.edge;
 
-          // Arrow marker — following: seed→target, follower: target→seed, mutual: both ends
+          // Arrow marker — always visible, color matches edge
           let markerEnd: string | undefined;
           let markerStart: string | undefined;
-          const markerRef = hovered ? 'url(#arrow-social-active)' : isMutual ? 'url(#arrow-mutual)' : isSemantic ? 'url(#arrow-semantic)' : 'url(#arrow-social)';
+          const markerId = isSemantic ? 'arrow-semantic' : isMutual ? 'arrow-mutual' : hovered ? 'arrow-social-active' : 'arrow-social-visible';
+          const markerRef = `url(#${markerId})`;
           if (edge.direction === 'following') {
-            markerEnd = markerRef; // seed follows them → arrow points to target
+            markerEnd = markerRef;
           } else if (edge.direction === 'follower') {
-            markerStart = markerRef; // they follow seed → arrow points to source (seed)
+            markerStart = markerRef;
           } else if (edge.direction === 'mutual') {
             markerEnd = markerRef;
             markerStart = markerRef;
+          } else if (edge.type === 'social') {
+            // No direction info (expanded nodes) — default arrow to target
+            markerEnd = markerRef;
           }
 
           return (

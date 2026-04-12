@@ -8,9 +8,9 @@ import { getProfileData } from '@/lib/profile/service';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
 import { TRPCError } from '@trpc/server';
-import { createGitHubServiceForUserOperations, createPublicGitHubService } from '@/lib/github';
+import { createGitHubServiceForUserOperations } from '@/lib/github';
 import type { DeveloperProfile } from '@/lib/types/profile';
-import { Octokit } from '@octokit/rest';
+
 import { handleTRPCGitHubError } from '@/lib/github/error-handler';
 import { isPgErrorWithCode } from '@/lib/db/utils';
 import { generateEmbedding, formatEmbeddingForPg } from '@/lib/ai/embeddings';
@@ -54,6 +54,7 @@ export const profileRouter = router({
       }
 
       // 2. Check our cached developer emails table
+      // Note: Scraping is done during profile generation only, not on page view
       const cachedEmail = await db.query.developerEmails.findFirst({
         where: eq(developerEmails.username, normalizedUsername),
       });
@@ -61,27 +62,7 @@ export const profileRouter = router({
         return { email: cachedEmail.email, source: 'cache' };
       }
 
-      // 3. If not found, scan public GitHub commits as a fallback
-      try {
-        const publicGithubService = createPublicGitHubService();
-        const repos = await publicGithubService.getUserRepositories(username);
-        
-        if (!repos || repos.length === 0) {
-          return { email: null, source: 'no_repos' };
-        }
-        
-        // Scan top 10 repos to keep it fast
-        const topRepos = repos.slice(0, 10).map(r => ({ name: r.name }));
-        
-        // Create a dedicated Octokit instance for commit scanning
-        const octokit = new Octokit({ auth: process.env.GITHUB_PUBLIC_API_KEY! });
-        const foundEmail = await findAndStoreDeveloperEmail(octokit, username, topRepos);
-        
-        return { email: foundEmail, source: foundEmail ? 'github_scan' : 'not_found' };
-      } catch (error) {
-        console.error(`Failed to find email for ${username}:`, error);
-        return { email: null, source: 'error' };
-      }
+      return { email: null, source: 'not_found' };
     }),
 
   generateProfile: protectedProcedure

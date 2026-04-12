@@ -35,6 +35,7 @@ interface SerializableInitialProfileData {
   cached: boolean;
   stale: boolean;
   lastUpdated: string | null;
+  email?: string | null;
 }
 
 import { DeveloperProfile } from '@/components/profile';
@@ -98,8 +99,11 @@ function ProfileShell({ username }: { username: string }) {
 async function ProfileLoader({ user }: { user: string }) {
   const data = await getProfileData(user);
   const initialProfile: SerializableInitialProfileData = {
-    ...data,
+    profile: data.profile,
+    cached: data.cached,
+    stale: data.stale,
     lastUpdated: data.lastUpdated?.toISOString() ?? null,
+    email: data.email,
   };
   return (
     <>

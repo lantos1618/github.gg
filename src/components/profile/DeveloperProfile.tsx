@@ -18,6 +18,7 @@ interface SerializableInitialProfileData {
   cached: boolean;
   stale: boolean;
   lastUpdated: string | null;
+  email?: string | null;
 }
 
 interface DeveloperProfileProps {
@@ -198,6 +199,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     { username },
     {
       enabled: !!currentUser?.user,
+      initialData: initialData?.email ? { email: initialData.email, source: 'ssr' } : undefined,
       refetchOnWindowFocus: false,
       staleTime: 10 * 60 * 1000,
     }

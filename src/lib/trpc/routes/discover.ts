@@ -52,9 +52,10 @@ async function batchGetUserDetails(
 async function getGGProfiles(logins: string[]): Promise<Set<string>> {
   if (logins.length === 0) return new Set();
   try {
+    const lowered = logins.map(l => l.toLowerCase());
     const rows = await db.execute(sql`
       SELECT DISTINCT username FROM developer_profile_cache
-      WHERE username = ANY(${logins.map(l => l.toLowerCase())})
+      WHERE username = ANY(${sql`ARRAY[${sql.join(lowered.map(l => sql`${l}`), sql`, `)}]`}::text[])
     `);
     return new Set((rows as unknown as Array<{ username: string }>).map(r => r.username));
   } catch {

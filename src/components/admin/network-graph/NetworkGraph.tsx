@@ -336,13 +336,22 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     if (expandable.length === 0) { expandAllRef.current = false; return; }
 
     let completed = 0;
+    let idx = 0;
     setExpandAllProgress({ current: 0, total: expandable.length });
 
-    const BATCH = 5;
-    for (let i = 0; i < expandable.length; i += BATCH) {
-      if (!expandAllRef.current) break;
-      const batch = expandable.slice(i, i + BATCH).filter(n => !n.isExpanded && !n.isLoading);
+    // AIMD: aggressive ramp — start at 5, double on fast, halve on slow
+    let batchSize = 5;
+    const FAST_MS = 1500;
+    const SLOW_MS = 4000;
+
+    while (idx < expandable.length && expandAllRef.current) {
+      const batch = expandable.slice(idx, idx + batchSize).filter(n => !n.isExpanded && !n.isLoading);
+      idx += batchSize;
+      if (batch.length === 0) continue;
       for (const node of batch) { node.isLoading = true; }
+
+      const t0 = performance.now();
+      let errors = 0;
 
       await Promise.all(batch.map(async (node) => {
         try {
@@ -351,10 +360,15 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
           else { node.isLoading = false; node.isExpanded = true; }
         } catch {
           node.isLoading = false;
+          errors++;
         }
         completed++;
         setExpandAllProgress({ current: completed, total: expandable.length });
       }));
+
+      const elapsed = performance.now() - t0;
+      if (errors > 0 || elapsed > SLOW_MS) batchSize = Math.max(2, Math.floor(batchSize / 2));
+      else if (elapsed < FAST_MS) batchSize = Math.min(30, Math.floor(batchSize * 1.5));
     }
 
     setExpandAllProgress(null);

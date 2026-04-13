@@ -1,5 +1,6 @@
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { getCrackedInfo } from '@/lib/utils/cracked';
+import { Flame, Heart } from 'lucide-react';
 import type { DeveloperProfile as DeveloperProfileType } from '@/lib/types/profile';
 import type { ReactNode } from 'react';
 
@@ -53,10 +54,11 @@ export function ProfileHeader({ username, profile, totalScore, profileStyles, ch
           {crackedInfo.isCracked ? (
             <span
               data-testid="profile-header-score-badge"
-              className={`text-base font-semibold uppercase tracking-[1px] ${crackedInfo.colors.text}`}
+              className={`text-base font-semibold uppercase tracking-[1px] ${crackedInfo.colors.text} flex items-center gap-1`}
               style={profileStyles?.primaryColor ? { color: profileStyles.primaryColor } : undefined}
             >
-              cracked
+              {isSpecial ? <Heart className="h-4 w-4 fill-current" /> : <Flame className="h-4 w-4 fill-current" />}
+              <span className="hidden sm:inline">cracked</span>
             </span>
           ) : (
             <span

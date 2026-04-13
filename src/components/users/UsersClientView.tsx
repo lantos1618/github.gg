@@ -138,7 +138,7 @@ export function UsersClientView({ initialProfiles, totalProfileCount }: UsersCli
                               {crackedInfo.isCracked && (
                                 <Badge className={`${crackedInfo.colors.bg} text-white border-none px-1.5 py-0 text-[10px] font-semibold uppercase tracking-[0.5px] flex items-center gap-0.5`}>
                                   {isSpecial ? <Heart className="h-2.5 w-2.5 fill-current" /> : <Flame className="h-2.5 w-2.5 fill-current" />}
-                                  C
+                                  <span className="hidden sm:inline">cracked</span>
                                 </Badge>
                               )}
                             </div>

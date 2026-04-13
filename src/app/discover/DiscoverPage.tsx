@@ -113,7 +113,7 @@ function NetworkExplorer() {
   const isStaleData = network && network.seed.toLowerCase() !== activeUsername.toLowerCase();
   const currentNetwork = isStaleData ? null : network;
   const isLoading = discoverMode === 'network'
-    ? (!!activeUsername && !currentNetwork)
+    ? (!!activeUsername && networkLoading)
     : (allProfilesLoading && !allProfiles);
 
   const archetypeCounts = useMemo(() => {

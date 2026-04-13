@@ -323,13 +323,25 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     if (expandable.length === 0) { expandAllRef.current = false; return; }
 
     let completed = 0;
+    let idx = 0;
     setExpandAllProgress({ current: 0, total: expandable.length });
 
-    const BATCH = 5;
-    for (let i = 0; i < expandable.length; i += BATCH) {
-      if (!expandAllRef.current) break;
-      const batch = expandable.slice(i, i + BATCH).filter(n => !n.isExpanded && !n.isLoading);
+    // AIMD (additive increase / multiplicative decrease) adaptive batching
+    // Start small, ramp up if fast, cut back if slow/erroring
+    let batchSize = 3;
+    const MIN_BATCH = 1;
+    const MAX_BATCH = 20;
+    const FAST_THRESHOLD_MS = 2000;
+    const SLOW_THRESHOLD_MS = 5000;
+
+    while (idx < expandable.length && expandAllRef.current) {
+      const batch = expandable.slice(idx, idx + batchSize).filter(n => !n.isExpanded && !n.isLoading);
+      idx += batchSize;
+      if (batch.length === 0) continue;
       for (const node of batch) { node.isLoading = true; }
+
+      const t0 = performance.now();
+      let batchErrors = 0;
 
       await Promise.all(batch.map(async (node) => {
         try {
@@ -338,10 +350,20 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
           else { node.isLoading = false; node.isExpanded = true; }
         } catch {
           node.isLoading = false;
+          batchErrors++;
         }
         completed++;
         setExpandAllProgress({ current: completed, total: expandable.length });
       }));
+
+      const elapsed = performance.now() - t0;
+
+      // Adapt: fast + no errors → grow, slow or errors → shrink
+      if (batchErrors > 0 || elapsed > SLOW_THRESHOLD_MS) {
+        batchSize = Math.max(MIN_BATCH, Math.floor(batchSize / 2));
+      } else if (elapsed < FAST_THRESHOLD_MS) {
+        batchSize = Math.min(MAX_BATCH, batchSize + 2);
+      }
     }
 
     setExpandAllProgress(null);

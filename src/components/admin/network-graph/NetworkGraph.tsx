@@ -33,6 +33,7 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [maxDepth, setMaxDepth] = useState<number>(Infinity);
+  const [expandAllProgress, setExpandAllProgress] = useState<{ current: number; total: number } | null>(null);
   const panStart = useRef({ x: 0, y: 0, vx: 0, vy: 0 });
   const iterationRef = useRef(0);
   const initializedForRef = useRef<string>('');
@@ -279,6 +280,49 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
     return false;
   }, [nodeDepths, maxDepth, edgeFilter, nodesWithVisibleEdges]);
 
+  // --- Expand All ---
+  const expandAllRef = useRef(false);
+
+  const handleExpandAll = useCallback(async () => {
+    if (!onExpandNode || expandAllRef.current) return;
+    expandAllRef.current = true;
+
+    const expandable = nodesRef.current.filter(
+      n => !n.isSeed && !n.isExpanded && !n.isLoading && !n.hidden && !isNodeFilteredOut(n)
+    );
+    if (expandable.length === 0) { expandAllRef.current = false; return; }
+
+    setExpandAllProgress({ current: 0, total: expandable.length });
+
+    for (let i = 0; i < expandable.length; i++) {
+      if (!expandAllRef.current) break;
+      const node = expandable[i];
+      if (node.isExpanded || node.isLoading) {
+        setExpandAllProgress({ current: i + 1, total: expandable.length });
+        continue;
+      }
+      node.isLoading = true;
+      setStructureVersion(v => v + 1);
+      try {
+        const newUsers = await onExpandNode(node.id);
+        if (newUsers) addNodes(node.id, newUsers);
+        else { node.isLoading = false; node.isExpanded = true; setStructureVersion(v => v + 1); }
+      } catch {
+        node.isLoading = false;
+        setStructureVersion(v => v + 1);
+      }
+      setExpandAllProgress({ current: i + 1, total: expandable.length });
+    }
+
+    setExpandAllProgress(null);
+    expandAllRef.current = false;
+  }, [onExpandNode, addNodes, isNodeFilteredOut]);
+
+  const cancelExpandAll = useCallback(() => {
+    expandAllRef.current = false;
+    setExpandAllProgress(null);
+  }, []);
+
   // --- Simulation + render loop ---
   useEffect(() => {
     let running = true;
@@ -502,6 +546,13 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
               <span className="px-1 text-[10px] font-mono text-[#666] min-w-[28px] text-center">{maxDepth === Infinity ? 'all' : `${maxDepth}d`}</span>
               <button onClick={() => setMaxDepth(d => { if (d === Infinity) return Infinity; return d + 1 > currentMaxDepth ? Infinity : d + 1; })} disabled={maxDepth === Infinity} className="px-1.5 py-0.5 text-[11px] font-bold text-[#888] hover:text-[#111] disabled:opacity-30 transition-colors">+</button>
             </div>
+          )}
+          {expandAllProgress ? (
+            <button onClick={cancelExpandAll} className="px-2 py-1 text-[11px] font-medium rounded bg-[#111] text-white border border-[#111] hover:bg-[#333] transition-colors">
+              {expandAllProgress.current}/{expandAllProgress.total} &times;
+            </button>
+          ) : (
+            <button onClick={handleExpandAll} className="px-2 py-1 text-[11px] font-medium rounded bg-white/90 text-[#888] border border-[#e0e0e0] hover:text-[#111] hover:border-[#999] transition-colors" title="Expand all visible nodes">Expand All</button>
           )}
           {selectedNodes.size > 0 && (
             <button onClick={() => setSelectedNodes(new Set())} className="px-2 py-1 text-[11px] font-medium text-[#3b82f6] bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors">{selectedNodes.size} selected &times;</button>

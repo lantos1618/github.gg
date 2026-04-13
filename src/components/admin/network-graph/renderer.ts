@@ -55,10 +55,7 @@ export function renderGraph(opts: RenderOptions) {
   ctx.scale(scale, scale);
   ctx.translate(-vb.x, -vb.y);
 
-  // LOD thresholds
-  const isFar = vb.w > 5000;
-  const isMedium = vb.w > 1000 && vb.w <= 5000;
-  const isClose = vb.w <= 1000;
+  // Per-node LOD uses screen-space radius instead of global zoom thresholds
 
   const degrees = getDegreeCounts(edges);
   const nMap = new Map(nodes.map(n => [n.id, n]));
@@ -123,8 +120,8 @@ export function renderGraph(opts: RenderOptions) {
     else ctx.setLineDash([]);
     ctx.stroke();
 
-    // Arrowheads (skip at far zoom)
-    if (!isFar) {
+    // Arrowheads (skip when edges are tiny on screen)
+    if (dist * scale > 20) {
       const arrowColor = hovered ? PALETTE.edgeActive : isMutualEdge ? PALETTE.edgeMutual : '#bbb';
       if (edge.direction === 'following' || edge.direction === 'mutual' || edge.type === 'social') {
         const t = 1;
@@ -175,10 +172,18 @@ export function renderGraph(opts: RenderOptions) {
       ctx.globalAlpha = 1;
     }
 
-    if (isFar) {
-      // LOD: far zoom — just a dot
+    // Screen-space radius determines what details to render per node
+    const screenR = node.radius * scale;
+    const showAvatar = screenR >= 4 || hovered || node.isSeed;
+    const showRing = screenR >= 3;
+    const showLabel = screenR >= 6 || (screenR >= 4 && (isMutualNode || hovered || node.isSeed));
+    const showBadge = screenR >= 5;
+
+    if (screenR < 2 && !hovered && !node.isSeed) {
+      // Tiny on screen — just a dot
+      const dotR = Math.max(node.radius * 0.4, 2);
       ctx.beginPath();
-      ctx.arc(0, 0, 2, 0, Math.PI * 2);
+      ctx.arc(0, 0, dotR, 0, Math.PI * 2);
       ctx.fillStyle = node.color;
       ctx.fill();
     } else {
@@ -188,8 +193,8 @@ export function renderGraph(opts: RenderOptions) {
       ctx.fillStyle = node.color;
       ctx.fill();
 
-      // Avatar (close zoom or hovered/seed)
-      if (isClose || hovered || node.isSeed) {
+      // Avatar
+      if (showAvatar) {
         if (node.isSeed && node.id.includes('.')) {
           // GG label for non-GitHub seeds
           ctx.fillStyle = '#111';
@@ -213,25 +218,27 @@ export function renderGraph(opts: RenderOptions) {
       }
 
       // Border ring
-      let ringColor: string = PALETTE.ring;
-      if (isSearchHit) ringColor = PALETTE.searchHit;
-      else if (selected) ringColor = PALETTE.ringSelected;
-      else if (node.isSeed) ringColor = PALETTE.seed;
-      else if (hovered) ringColor = '#111';
-      else if (deg >= 2) ringColor = PALETTE.ringMutual;
-      else if (node.isExpanded) ringColor = PALETTE.ringExpanded;
-      else if (node.color === PALETTE.ggProfile) ringColor = PALETTE.ggProfile;
+      if (showRing) {
+        let ringColor: string = PALETTE.ring;
+        if (isSearchHit) ringColor = PALETTE.searchHit;
+        else if (selected) ringColor = PALETTE.ringSelected;
+        else if (node.isSeed) ringColor = PALETTE.seed;
+        else if (hovered) ringColor = '#111';
+        else if (deg >= 2) ringColor = PALETTE.ringMutual;
+        else if (node.isExpanded) ringColor = PALETTE.ringExpanded;
+        else if (node.color === PALETTE.ggProfile) ringColor = PALETTE.ggProfile;
 
-      let ringWidth = 1.5;
-      if (isSearchHit || selected) ringWidth = 3;
-      else if (hovered || node.isSeed) ringWidth = 2.5;
-      else if (deg >= 2 || node.isExpanded) ringWidth = 2;
+        let ringWidth = 1.5;
+        if (isSearchHit || selected) ringWidth = 3;
+        else if (hovered || node.isSeed) ringWidth = 2.5;
+        else if (deg >= 2 || node.isExpanded) ringWidth = 2;
 
-      ctx.beginPath();
-      ctx.arc(0, 0, node.radius + 2, 0, Math.PI * 2);
-      ctx.strokeStyle = ringColor;
-      ctx.lineWidth = ringWidth;
-      ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, node.radius + 2, 0, Math.PI * 2);
+        ctx.strokeStyle = ringColor;
+        ctx.lineWidth = ringWidth;
+        ctx.stroke();
+      }
 
       // Loading spinner
       if (node.isLoading) {
@@ -245,7 +252,7 @@ export function renderGraph(opts: RenderOptions) {
       }
 
       // Connection count badge
-      if (isMutualNode && !hovered) {
+      if (showBadge && isMutualNode && !hovered) {
         const bx = node.radius * 0.7;
         const by = -node.radius * 0.7;
         ctx.beginPath();
@@ -263,7 +270,7 @@ export function renderGraph(opts: RenderOptions) {
       }
 
       // Expanded dot
-      if (node.isExpanded && !node.isSeed && !isMutualNode) {
+      if (showBadge && node.isExpanded && !node.isSeed && !isMutualNode) {
         const bx = node.radius * 0.7;
         const by = -node.radius * 0.7;
         ctx.beginPath();
@@ -275,8 +282,8 @@ export function renderGraph(opts: RenderOptions) {
         ctx.stroke();
       }
 
-      // Labels (close zoom, or medium zoom for important nodes)
-      if (isClose || (isMedium && (isMutualNode || hovered || node.isSeed))) {
+      // Labels
+      if (showLabel) {
         ctx.fillStyle = hovered ? PALETTE.label : PALETTE.labelMuted;
         ctx.font = `${node.isSeed || hovered || isMutualNode ? 600 : 400} ${node.isSeed ? 11 : 9}px sans-serif`;
         ctx.textAlign = 'center';

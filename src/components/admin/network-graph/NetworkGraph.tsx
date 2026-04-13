@@ -25,11 +25,17 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
   const nodesRef = useRef<GraphNode[]>([]);
   const edgesRef = useRef<GraphEdge[]>([]);
   const animFrameRef = useRef<number>(0);
-  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
-  const [dragNode, setDragNode] = useState<string | null>(null);
+
+  // P0 FIX: interaction state lives in refs, NOT useState.
+  // useState caused the RAF loop to tear down + restart on every hover/drag.
+  const hoveredNodeRef = useRef<string | null>(null);
+  const dragNodeRef = useRef<string | null>(null);
+  const selectedNodesRef = useRef<Set<string>>(new Set());
+  const isPanningRef = useRef(false);
+
+  // React state only for things that affect the DOM (toolbar, etc.)
   const [dimensions, setDimensions] = useState({ width: 900, height: 800 });
-  const [isPanning, setIsPanning] = useState(false);
-  const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
+  const [selectedCount, setSelectedCount] = useState(0); // just for toolbar badge
   const [hideLeaves, setHideLeaves] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,10 +49,20 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastClickNodeRef = useRef<string | null>(null);
   const viewBoxRef = useRef<ViewBox>({ x: 0, y: 0, w: 900, h: 800 });
-  const isPanningRef = useRef(false);
   const autoFitEnabledRef = useRef(true);
   const [structureVersion, setStructureVersion] = useState(0);
   const quadTreeRef = useRef<QuadTree | null>(null);
+
+  // Pre-computed degrees — only recalculated when structure changes, not per-frame
+  const degreesRef = useRef<Map<string, number>>(new Map());
+
+  // Refs for values the RAF loop reads (avoids stale closures without restarting the loop)
+  const edgeFilterRef = useRef(edgeFilter);
+  edgeFilterRef.current = edgeFilter;
+  const springScaleRef = useRef(springScale);
+  springScaleRef.current = springScale;
+  const dimensionsRef = useRef(dimensions);
+  dimensionsRef.current = dimensions;
 
   // --- Search ---
   const searchMatches = useMemo(() => {
@@ -58,10 +74,12 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
         .map(n => n.id)
     );
   }, [searchQuery, structureVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  const searchMatchesRef = useRef(searchMatches);
+  searchMatchesRef.current = searchMatches;
 
   useEffect(() => {
-    onSelectionChange?.(selectedNodes);
-  }, [selectedNodes, onSelectionChange]);
+    onSelectionChange?.(selectedNodesRef.current);
+  }, [selectedCount, onSelectionChange]);
 
   // --- Build graph data ---
   useEffect(() => {
@@ -103,7 +121,7 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
       });
       existingIds.add(u.username);
       const dir: EdgeDirection = u.isMutual ? 'mutual' : u.isFollowing ? 'following' : u.isFollower ? 'follower' : null;
-      edges.push({ source: seed, target: u.username, type: 'social', direction: dir });
+      edges.push({ source: seed, target: u.username, type: 'social', direction: dir, rand: Math.random() });
     });
 
     if (semanticUsers?.length) {
@@ -111,7 +129,7 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
       const semSpread = spread * 1.6;
       semanticUsers.forEach((u, i) => {
         if (existingIds.has(u.username)) {
-          edges.push({ source: seed, target: u.username, type: 'semantic', similarity: u.similarity });
+          edges.push({ source: seed, target: u.username, type: 'semantic', similarity: u.similarity, rand: Math.random() });
           return;
         }
         const angle = semAngleStep * i - Math.PI / 4;
@@ -127,15 +145,14 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
           avatar: u.avatar, user: u, hidden: false,
         });
         existingIds.add(u.username);
-        edges.push({ source: seed, target: u.username, type: 'semantic', similarity: u.similarity });
+        edges.push({ source: seed, target: u.username, type: 'semantic', similarity: u.similarity, rand: Math.random() });
       });
     }
 
     nodesRef.current = nodes;
     edgesRef.current = edges;
+    degreesRef.current = getDegreeCounts(edges);
     iterationRef.current = 0;
-    // Only reset viewBox on first build — subsequent rebuilds (e.g. semanticUsers arriving)
-    // keep the current view to avoid avatar flash from zoom reset
     const isFirstBuild = viewBoxRef.current.w === dimensions.width && viewBoxRef.current.x === 0;
     if (isFirstBuild) {
       viewBoxRef.current = { x: 0, y: 0, w: dimensions.width, h: dimensions.height };
@@ -156,7 +173,7 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     newUsers.forEach((u, i) => {
       if (existingIds.has(u.username)) {
         if (!edges.some(e => (e.source === parentId && e.target === u.username) || (e.source === u.username && e.target === parentId))) {
-          edges.push({ source: parentId, target: u.username, type: 'social' });
+          edges.push({ source: parentId, target: u.username, type: 'social', rand: Math.random() });
         }
         return;
       }
@@ -172,11 +189,12 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
         isSeed: false, isExpanded: false, isLoading: false,
         avatar: u.avatar, user: u, hidden: false,
       });
-      edges.push({ source: parentId, target: u.username, type: 'social' });
+      edges.push({ source: parentId, target: u.username, type: 'social', rand: Math.random() });
       added++;
     });
     parent.isExpanded = true;
     parent.isLoading = false;
+    degreesRef.current = getDegreeCounts(edges);
     if (added > 0) iterationRef.current = Math.max(0, iterationRef.current - 100);
     setStructureVersion(v => v + 1);
   }, []);
@@ -186,16 +204,19 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     const node = nodesRef.current.find(n => n.id === username);
     if (!node || node.isExpanded || node.isLoading) return;
     node.isLoading = true;
-    setStructureVersion(v => v + 1);
     try {
       const newUsers = await onExpandNode(username);
       if (newUsers) addNodes(username, newUsers);
-      else { node.isLoading = false; node.isExpanded = true; setStructureVersion(v => v + 1); }
-    } catch { node.isLoading = false; setStructureVersion(v => v + 1); }
+      else { node.isLoading = false; node.isExpanded = true; }
+    } catch { node.isLoading = false; }
   }, [onExpandNode, addNodes]);
 
   const toggleSelection = useCallback((nodeId: string) => {
-    setSelectedNodes(prev => { const next = new Set(prev); if (next.has(nodeId)) next.delete(nodeId); else next.add(nodeId); return next; });
+    const s = selectedNodesRef.current;
+    const next = new Set(s);
+    if (next.has(nodeId)) next.delete(nodeId); else next.add(nodeId);
+    selectedNodesRef.current = next;
+    setSelectedCount(next.size);
   }, []);
 
   // --- View helpers ---
@@ -224,15 +245,14 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     autoFitEnabledRef.current = false;
   }, []);
 
-  // --- Leaf hiding ---
+  // --- Leaf hiding (P0 FIX: removed structureVersion from deps to prevent infinite loop) ---
   useEffect(() => {
     const nodes = nodesRef.current;
     const edges = edgesRef.current;
-    if (!hideLeaves) { for (const n of nodes) n.hidden = false; setStructureVersion(v => v + 1); return; }
+    if (!hideLeaves) { for (const n of nodes) n.hidden = false; return; }
     const degrees = getDegreeCounts(edges);
     for (const n of nodes) n.hidden = !n.isSeed && (degrees.get(n.id) || 0) < 2;
-    setStructureVersion(v => v + 1);
-  }, [hideLeaves, structureVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hideLeaves]);
 
   // --- Depth + filtering ---
   const nodeDepths = useMemo(() => {
@@ -287,6 +307,8 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     if (edgeFilter && !nodesWithVisibleEdges.has(node.id)) return true;
     return false;
   }, [nodeDepths, maxDepth, edgeFilter, nodesWithVisibleEdges]);
+  const isNodeFilteredOutRef = useRef(isNodeFilteredOut);
+  isNodeFilteredOutRef.current = isNodeFilteredOut;
 
   // --- Expand All ---
   const expandAllRef = useRef(false);
@@ -308,16 +330,14 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
       if (!expandAllRef.current) break;
       const batch = expandable.slice(i, i + BATCH).filter(n => !n.isExpanded && !n.isLoading);
       for (const node of batch) { node.isLoading = true; }
-      setStructureVersion(v => v + 1);
 
       await Promise.all(batch.map(async (node) => {
         try {
           const newUsers = await onExpandNode(node.id);
           if (newUsers) addNodes(node.id, newUsers);
-          else { node.isLoading = false; node.isExpanded = true; setStructureVersion(v => v + 1); }
+          else { node.isLoading = false; node.isExpanded = true; }
         } catch {
           node.isLoading = false;
-          setStructureVersion(v => v + 1);
         }
         completed++;
         setExpandAllProgress({ current: completed, total: expandable.length });
@@ -333,26 +353,29 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     setExpandAllProgress(null);
   }, []);
 
-  // --- Simulation + render loop ---
+  // --- Simulation + render loop (P0 FIX: no rapidly-changing state in deps) ---
   useEffect(() => {
     let running = true;
     const tick = () => {
       if (!running) return;
+      const dims = dimensionsRef.current;
+      const filterFn = isNodeFilteredOutRef.current;
+
       const { quadTree, nextIteration } = simulateTick({
         nodes: nodesRef.current,
         edges: edgesRef.current,
-        dimensions,
-        dragNode,
+        dimensions: dims,
+        dragNode: dragNodeRef.current,
         iteration: iterationRef.current,
-        isNodeFilteredOut,
-        springScale,
+        isNodeFilteredOut: filterFn,
+        springScale: springScaleRef.current,
       });
       quadTreeRef.current = quadTree;
       iterationRef.current = nextIteration;
 
       // Auto-fit during settling
-      if (autoFitEnabledRef.current && iterationRef.current % 3 === 0 && !isPanningRef.current && !dragNode) {
-        viewBoxRef.current = autoFitViewBox(nodesRef.current, dimensions, viewBoxRef.current, iterationRef.current, isNodeFilteredOut);
+      if (autoFitEnabledRef.current && iterationRef.current % 3 === 0 && !isPanningRef.current && !dragNodeRef.current) {
+        viewBoxRef.current = autoFitViewBox(nodesRef.current, dims, viewBoxRef.current, iterationRef.current, filterFn);
         if (iterationRef.current >= 120) autoFitEnabledRef.current = false;
       }
 
@@ -362,12 +385,13 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
           nodes: nodesRef.current,
           edges: edgesRef.current,
           viewBox: viewBoxRef.current,
-          dimensions,
-          hoveredNode,
-          selectedNodes,
-          searchMatches,
-          edgeFilter,
-          isNodeFilteredOut,
+          dimensions: dims,
+          hoveredNode: hoveredNodeRef.current,
+          selectedNodes: selectedNodesRef.current,
+          searchMatches: searchMatchesRef.current,
+          edgeFilter: edgeFilterRef.current,
+          isNodeFilteredOut: filterFn,
+          degrees: degreesRef.current,
         });
       }
 
@@ -375,7 +399,13 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     };
     animFrameRef.current = requestAnimationFrame(tick);
     return () => { running = false; cancelAnimationFrame(animFrameRef.current); };
-  }, [dimensions, dragNode, hoveredNode, selectedNodes, searchMatches, edgeFilter, isNodeFilteredOut, springScale]);
+  }, []); // P0 FIX: empty deps — loop never restarts. Reads from refs.
+
+  // Re-kick simulation when these change
+  useEffect(() => {
+    iterationRef.current = Math.max(0, iterationRef.current - 80);
+    autoFitEnabledRef.current = true;
+  }, [springScale, isFullscreen]);
 
   // --- Event handlers ---
   useEffect(() => {
@@ -406,39 +436,48 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     const vb = viewBoxRef.current;
-    return { x: vb.x + x * (vb.w / dimensions.width), y: vb.y + y * (vb.h / dimensions.height) };
-  }, [dimensions]);
+    const dims = dimensionsRef.current;
+    return { x: vb.x + x * (vb.w / dims.width), y: vb.y + y * (vb.h / dims.height) };
+  }, []);
+
+  const updateCursor = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.style.cursor = dragNodeRef.current ? 'grabbing' : isPanningRef.current ? 'grabbing' : hoveredNodeRef.current ? 'pointer' : 'grab';
+  }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const pt = getCanvasPoint(e);
     if (!pt) return;
     if (quadTreeRef.current) {
       const hit = hitTestQuadTree(quadTreeRef.current, pt.x, pt.y, 6);
-      if (hit && !hit.hidden && !isNodeFilteredOut(hit)) {
-        setDragNode(hit.id);
+      if (hit && !hit.hidden && !isNodeFilteredOutRef.current(hit)) {
+        dragNodeRef.current = hit.id;
         dragStartPos.current = { x: e.clientX, y: e.clientY };
         hit.vx = 0; hit.vy = 0;
+        updateCursor();
         return;
       }
     }
-    setIsPanning(true);
     isPanningRef.current = true;
     const vb = viewBoxRef.current;
     panStart.current = { x: e.clientX, y: e.clientY, vx: vb.x, vy: vb.y };
-  }, [getCanvasPoint, isNodeFilteredOut]);
+    updateCursor();
+  }, [getCanvasPoint, updateCursor]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (dragNode) {
+    if (dragNodeRef.current) {
       const pt = getCanvasPoint(e);
       if (!pt) return;
-      const node = nodesRef.current.find(n => n.id === dragNode);
+      const node = nodesRef.current.find(n => n.id === dragNodeRef.current);
       if (node) { node.x = pt.x; node.y = pt.y; node.vx = 0; node.vy = 0; }
       iterationRef.current = Math.min(iterationRef.current, 120);
       return;
     }
-    if (isPanning) {
+    if (isPanningRef.current) {
       const vb = viewBoxRef.current;
-      const scale = vb.w / dimensions.width;
+      const dims = dimensionsRef.current;
+      const scale = vb.w / dims.width;
       viewBoxRef.current = { ...vb, x: panStart.current.vx - (e.clientX - panStart.current.x) * scale, y: panStart.current.vy - (e.clientY - panStart.current.y) * scale };
       return;
     }
@@ -446,27 +485,27 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     if (!pt) return;
     if (quadTreeRef.current) {
       const hit = hitTestQuadTree(quadTreeRef.current, pt.x, pt.y, 6);
-      setHoveredNode(hit && !hit.hidden && !isNodeFilteredOut(hit) ? hit.id : null);
-    } else setHoveredNode(null);
-  }, [dragNode, isPanning, dimensions, getCanvasPoint, isNodeFilteredOut]);
+      hoveredNodeRef.current = hit && !hit.hidden && !isNodeFilteredOutRef.current(hit) ? hit.id : null;
+    } else hoveredNodeRef.current = null;
+    updateCursor();
+  }, [getCanvasPoint, updateCursor]);
 
   const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (dragNode) {
+    if (dragNodeRef.current) {
       const dx = e.clientX - dragStartPos.current.x;
       const dy = e.clientY - dragStartPos.current.y;
       if (Math.sqrt(dx * dx + dy * dy) < 5) {
-        const nodeId = dragNode;
-        if (e.metaKey || e.ctrlKey) { window.open(`/${nodeId}`, '_blank'); setDragNode(null); setIsPanning(false); isPanningRef.current = false; return; }
-        // Double-click detection
+        const nodeId = dragNodeRef.current;
+        if (e.metaKey || e.ctrlKey) { window.open(`/${nodeId}`, '_blank'); dragNodeRef.current = null; isPanningRef.current = false; updateCursor(); return; }
         if (clickTimerRef.current && lastClickNodeRef.current === nodeId) {
           clearTimeout(clickTimerRef.current); clickTimerRef.current = null; lastClickNodeRef.current = null;
           handleExpand(nodeId);
         } else {
-          // Single click — select (shift to multi-select)
           if (e.shiftKey) {
             toggleSelection(nodeId);
           } else {
-            setSelectedNodes(new Set([nodeId]));
+            selectedNodesRef.current = new Set([nodeId]);
+            setSelectedCount(1);
           }
           if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
           lastClickNodeRef.current = nodeId;
@@ -474,14 +513,17 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
         }
       }
     }
-    setDragNode(null); setIsPanning(false); isPanningRef.current = false;
-  }, [dragNode, handleExpand, toggleSelection, router]);
+    dragNodeRef.current = null; isPanningRef.current = false;
+    updateCursor();
+  }, [handleExpand, toggleSelection, updateCursor]);
 
   const handleMouseLeave = useCallback(() => {
-    setDragNode(null); setIsPanning(false); isPanningRef.current = false;
+    dragNodeRef.current = null; isPanningRef.current = false;
+    hoveredNodeRef.current = null;
     if (clickTimerRef.current) { clearTimeout(clickTimerRef.current); clickTimerRef.current = null; }
     lastClickNodeRef.current = null;
-  }, []);
+    updateCursor();
+  }, [updateCursor]);
 
   const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
@@ -489,21 +531,20 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     if (!pt) return;
     const factor = e.deltaY > 0 ? 1.08 : 0.92;
     const vb = viewBoxRef.current;
-    const newW = clamp(vb.w * factor, 200, dimensions.width * 12);
-    const newH = clamp(vb.h * factor, 140, dimensions.height * 12);
+    const dims = dimensionsRef.current;
+    const newW = clamp(vb.w * factor, 200, dims.width * 12);
+    const newH = clamp(vb.h * factor, 140, dims.height * 12);
     const rx = (pt.x - vb.x) / vb.w;
     const ry = (pt.y - vb.y) / vb.h;
     viewBoxRef.current = { x: pt.x - rx * newW, y: pt.y - ry * newH, w: newW, h: newH };
     autoFitEnabledRef.current = false;
-  }, [dimensions, getCanvasPoint]);
+  }, [getCanvasPoint]);
 
-  // --- Computed stats ---
-  const nodes = nodesRef.current;
-  const edges = edgesRef.current;
-  const degrees = getDegreeCounts(edges);
-  const totalVisible = nodes.filter(n => !n.hidden && !isNodeFilteredOut(n)).length;
-  const totalEdges = edges.length;
-  const routerCount = nodes.filter(n => !n.isSeed && !n.hidden && !isNodeFilteredOut(n) && (degrees.get(n.id) || 0) >= 2).length;
+  // --- Computed stats (for toolbar only, not hot path) ---
+  const degrees = degreesRef.current;
+  const totalVisible = nodesRef.current.filter(n => !n.hidden && !isNodeFilteredOut(n)).length;
+  const totalEdges = edgesRef.current.length;
+  const routerCount = nodesRef.current.filter(n => !n.isSeed && !n.hidden && !isNodeFilteredOut(n) && (degrees.get(n.id) || 0) >= 2).length;
 
   // --- Fullscreen ---
   useEffect(() => {
@@ -512,17 +553,6 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [isFullscreen]);
-
-  useEffect(() => {
-    autoFitEnabledRef.current = true;
-    iterationRef.current = Math.max(0, iterationRef.current - 50);
-  }, [isFullscreen]);
-
-  // Re-settle simulation when spring scale changes
-  useEffect(() => {
-    iterationRef.current = Math.max(0, iterationRef.current - 80);
-    autoFitEnabledRef.current = true;
-  }, [springScale]);
 
   // --- Render ---
   return (
@@ -582,8 +612,8 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
           ) : (
             <button onClick={handleExpandAll} className="px-2 py-1 text-[11px] font-medium rounded bg-white/90 text-[#888] border border-[#e0e0e0] hover:text-[#111] hover:border-[#999] transition-colors" title="Expand all visible nodes">Expand All</button>
           )}
-          {selectedNodes.size > 0 && (
-            <button onClick={() => setSelectedNodes(new Set())} className="px-2 py-1 text-[11px] font-medium text-[#3b82f6] bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors">{selectedNodes.size} selected &times;</button>
+          {selectedCount > 0 && (
+            <button onClick={() => { selectedNodesRef.current = new Set(); setSelectedCount(0); }} className="px-2 py-1 text-[11px] font-medium text-[#3b82f6] bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors">{selectedCount} selected &times;</button>
           )}
         </div>
       </div>
@@ -597,7 +627,7 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
         ref={canvasRef}
         width={dimensions.width}
         height={dimensions.height}
-        style={{ width: '100%', height: '100%', cursor: dragNode ? 'grabbing' : isPanning ? 'grabbing' : hoveredNode ? 'pointer' : 'grab' }}
+        style={{ width: '100%', height: '100%', cursor: 'grab' }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}

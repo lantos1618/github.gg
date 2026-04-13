@@ -1,36 +1,83 @@
 /**
- * Global avatar image cache. Loads images lazily, promotes to ImageBitmap for GPU-friendly Canvas drawing.
+ * LRU avatar image cache with circular pre-rendering.
+ * - Bounded to MAX_SIZE entries to prevent memory leaks
+ * - Pre-renders circular clipped avatars so renderer avoids ctx.clip() per frame
+ * - Evicts oldest entries and calls bitmap.close() to free GPU memory
  */
-const imageCache = new Map<string, HTMLImageElement | ImageBitmap>();
+
+const MAX_SIZE = 1000;
+
+interface CacheEntry {
+  image: ImageBitmap;
+  lastUsed: number;
+}
+
+const imageCache = new Map<string, CacheEntry>();
+const pendingUrls = new Set<string>();
 const failedUrls = new Set<string>();
 
-export function getCachedImage(url: string): HTMLImageElement | ImageBitmap | null {
+function evictIfNeeded() {
+  if (imageCache.size <= MAX_SIZE) return;
+  // Find and remove least recently used entries
+  const entries = [...imageCache.entries()].sort((a, b) => a[1].lastUsed - b[1].lastUsed);
+  const toRemove = entries.slice(0, imageCache.size - MAX_SIZE + 50); // evict 50 extra for headroom
+  for (const [url, entry] of toRemove) {
+    entry.image.close();
+    imageCache.delete(url);
+  }
+}
+
+/**
+ * Create a circular-clipped ImageBitmap from the source.
+ * This eliminates the need for ctx.clip() in the hot render loop.
+ */
+async function createCircularBitmap(source: HTMLImageElement): Promise<ImageBitmap> {
+  const size = Math.min(source.naturalWidth, source.naturalHeight, 128); // cap resolution
+  const offscreen = new OffscreenCanvas(size, size);
+  const ctx = offscreen.getContext('2d')!;
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.drawImage(source, 0, 0, size, size);
+  return createImageBitmap(offscreen);
+}
+
+export function getCachedImage(url: string): ImageBitmap | null {
   if (!url || failedUrls.has(url)) return null;
 
   const cached = imageCache.get(url);
   if (cached) {
-    // ImageBitmap is always ready to draw
-    if (cached instanceof ImageBitmap) return cached;
-    // HTMLImageElement — only return if fully loaded
-    if ((cached as HTMLImageElement).complete && (cached as HTMLImageElement).naturalWidth > 0) return cached;
-    return null; // still loading
+    cached.lastUsed = performance.now();
+    return cached.image;
   }
 
+  // Already loading
+  if (pendingUrls.has(url)) return null;
+
   // Start loading
+  pendingUrls.add(url);
   const img = new Image();
   img.crossOrigin = 'anonymous';
   img.src = url;
-  imageCache.set(url, img);
   img.onload = async () => {
+    pendingUrls.delete(url);
     try {
-      const bmp = await createImageBitmap(img);
-      imageCache.set(url, bmp);
+      const bmp = await createCircularBitmap(img);
+      imageCache.set(url, { image: bmp, lastUsed: performance.now() });
+      evictIfNeeded();
     } catch {
-      // fallback to HTMLImageElement (already in cache)
+      // Fallback: try plain bitmap
+      try {
+        const bmp = await createImageBitmap(img);
+        imageCache.set(url, { image: bmp, lastUsed: performance.now() });
+        evictIfNeeded();
+      } catch {
+        failedUrls.add(url);
+      }
     }
   };
   img.onerror = () => {
-    imageCache.delete(url);
+    pendingUrls.delete(url);
     failedUrls.add(url);
   };
   return null;

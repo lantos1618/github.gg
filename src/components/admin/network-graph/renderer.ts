@@ -1,5 +1,5 @@
 import type { GraphNode, GraphEdge, ViewBox, EdgeFilter } from './types';
-import { PALETTE, clamp, getDegreeCounts } from './types';
+import { PALETTE, clamp } from './types';
 import { getCachedImage } from './images';
 
 /**
@@ -30,6 +30,7 @@ interface RenderOptions {
   searchMatches: Set<string>;
   edgeFilter?: EdgeFilter;
   isNodeFilteredOut: (node: GraphNode) => boolean;
+  degrees: Map<string, number>; // pre-computed, not per-frame
 }
 
 // WeakMap avoids module-level state issues with HMR/SSR
@@ -39,7 +40,7 @@ const ctxCache = new WeakMap<HTMLCanvasElement, CanvasRenderingContext2D>();
  * Full Canvas2D render pass — optimized for 3k+ nodes / 20k+ edges.
  */
 export function renderGraph(opts: RenderOptions) {
-  const { canvas, nodes, edges, viewBox: vb, dimensions, hoveredNode, selectedNodes, searchMatches, edgeFilter, isNodeFilteredOut } = opts;
+  const { canvas, nodes, edges, viewBox: vb, dimensions, hoveredNode, selectedNodes, searchMatches, edgeFilter, isNodeFilteredOut, degrees } = opts;
 
   // Cache context per canvas element
   let ctx = ctxCache.get(canvas);
@@ -76,10 +77,11 @@ export function renderGraph(opts: RenderOptions) {
   const vpTop = vb.y;
   const vpRight = vb.x + vb.w;
   const vpBottom = vb.y + vb.h;
-  const vpPad = 100; // padding so edges near viewport boundary aren't clipped
+  const vpPad = 100;
 
-  const degrees = getDegreeCounts(edges);
-  const nMap = new Map(nodes.map(n => [n.id, n]));
+  // degrees passed in pre-computed; build node map once
+  const nMap = new Map<string, GraphNode>();
+  for (let i = 0; i < nodes.length; i++) nMap.set(nodes[i].id, nodes[i]);
   const totalEdges = edges.length;
 
   // --- Draw Edges (batched by style) ---
@@ -89,9 +91,8 @@ export function renderGraph(opts: RenderOptions) {
   // At very high edge counts, skip non-hovered basic edges to maintain fps
   const edgeBudget = 8000;
   const skipBasicEdges = totalEdges > edgeBudget && !hoveredNode;
-  // Sampling rate: draw roughly edgeBudget out of totalEdges
-  const sampleRate = skipBasicEdges ? edgeBudget / totalEdges : 1;
-  let edgeSampleCounter = 0;
+  // Stable sampling: use edge.rand so the SAME edges are hidden every frame (no flicker)
+  const sampleThreshold = skipBasicEdges ? edgeBudget / totalEdges : 1;
 
   // Collect hovered edges to draw on top
   interface EdgePath { startX: number; startY: number; cpx: number; cpy: number; endX: number; endY: number }
@@ -154,12 +155,8 @@ export function renderGraph(opts: RenderOptions) {
       continue;
     }
 
-    // Sampling: skip some basic edges at high counts
-    if (skipBasicEdges) {
-      edgeSampleCounter += sampleRate;
-      if (edgeSampleCounter < 1) continue;
-      edgeSampleCounter -= 1;
-    }
+    // Stable sampling: skip edges with high rand value (same edges hidden every frame)
+    if (skipBasicEdges && edge.rand > sampleThreshold) continue;
 
     // Add to batched basic path
     ctx.moveTo(startX, startY);
@@ -237,6 +234,8 @@ export function renderGraph(opts: RenderOptions) {
 
   // --- Draw Nodes ---
   ctx.imageSmoothingEnabled = scale > 0.5;
+  const MAX_LABELS = 80;
+  let labelCount = 0;
 
   for (const node of nodes) {
     if (node.hidden || isNodeFilteredOut(node)) continue;
@@ -309,12 +308,8 @@ export function renderGraph(opts: RenderOptions) {
         } else {
           const img = getCachedImage(node.avatar);
           if (img) {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(0, 0, node.radius, 0, Math.PI * 2);
-            ctx.clip();
+            // Image is pre-rendered as circle in images.ts — no ctx.clip() needed
             ctx.drawImage(img, -node.radius, -node.radius, node.radius * 2, node.radius * 2);
-            ctx.restore();
           }
         }
       }
@@ -383,8 +378,9 @@ export function renderGraph(opts: RenderOptions) {
         ctx.stroke();
       }
 
-      // Labels
-      if (showLabel) {
+      // Labels (capped to prevent fillText bottleneck)
+      if (showLabel && labelCount < MAX_LABELS) {
+        labelCount++;
         const isGG = node.color === PALETTE.ggProfile;
         ctx.fillStyle = hovered ? PALETTE.label : isGG ? PALETTE.ggProfile : PALETTE.labelMuted;
         ctx.font = `${node.isSeed || hovered || isMutualNode || isGG ? 600 : 400} ${node.isSeed ? 11 : 9}px sans-serif`;

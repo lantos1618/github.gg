@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { developerProfileCache, networkCache } from '@/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, inArray } from 'drizzle-orm';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import { Octokit } from '@octokit/rest';
@@ -53,11 +53,10 @@ async function getGGProfiles(logins: string[]): Promise<Set<string>> {
   if (logins.length === 0) return new Set();
   try {
     const lowered = logins.map(l => l.toLowerCase());
-    const rows = await db.execute(sql`
-      SELECT DISTINCT username FROM developer_profile_cache
-      WHERE username = ANY(${sql`ARRAY[${sql.join(lowered.map(l => sql`${l}`), sql`, `)}]`}::text[])
-    `);
-    return new Set((rows as unknown as Array<{ username: string }>).map(r => r.username));
+    const rows = await db.selectDistinct({ username: developerProfileCache.username })
+      .from(developerProfileCache)
+      .where(inArray(developerProfileCache.username, lowered));
+    return new Set(rows.map(r => r.username));
   } catch {
     return new Set();
   }

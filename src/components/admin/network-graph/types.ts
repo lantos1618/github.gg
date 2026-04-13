@@ -46,6 +46,8 @@ export interface GraphEdge {
   type: EdgeType;
   similarity?: number;
   direction?: EdgeDirection;
+  /** Stable random [0,1) for deterministic edge sampling (no flicker) */
+  rand: number;
 }
 
 export interface ViewBox {

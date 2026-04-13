@@ -41,10 +41,10 @@ const ctxCache = new WeakMap<HTMLCanvasElement, CanvasRenderingContext2D>();
 export function renderGraph(opts: RenderOptions) {
   const { canvas, nodes, edges, viewBox: vb, dimensions, hoveredNode, selectedNodes, searchMatches, edgeFilter, isNodeFilteredOut } = opts;
 
-  // Cache context per canvas — alpha:false skips compositing with page background
+  // Cache context per canvas element
   let ctx = ctxCache.get(canvas);
   if (!ctx) {
-    ctx = canvas.getContext('2d', { alpha: false }) as CanvasRenderingContext2D;
+    ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
     if (!ctx) return;
     ctxCache.set(canvas, ctx);
   }
@@ -61,9 +61,7 @@ export function renderGraph(opts: RenderOptions) {
   }
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  // White background (since alpha:false)
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, width, height);
+  ctx.clearRect(0, 0, width, height);
 
   const scaleX = width / vb.w;
   const scaleY = height / vb.h;

@@ -64,7 +64,11 @@ function NetworkExplorer() {
   // Merge enrichment into network users
   const enrichedNetwork = useMemo(() => {
     if (!network) return null;
-    if (!enrichment) return network;
+    if (!enrichment) {
+      console.log('[discover] enrichment not yet loaded, showing basic data');
+      return network;
+    }
+    console.log(`[discover] merging enrichment for ${Object.keys(enrichment).length} users`);
     return {
       ...network,
       users: network.users.map(u => {

@@ -192,7 +192,9 @@ export const discoverRouter = router({
       const githubService = await createGitHubServiceForUserOperations(ctx.session);
       const octokit = githubService['octokit'];
 
+      console.log(`[discover:enrich] fetching details for ${input.usernames.length} users via GraphQL`);
       const details = await batchGetUserDetails(octokit, input.usernames);
+      console.log(`[discover:enrich] got ${details.size} results`);
 
       const enriched: Record<string, { name: string | null; bio: string | null; followers: number; publicRepos: number }> = {};
       for (const [key, val] of details) {

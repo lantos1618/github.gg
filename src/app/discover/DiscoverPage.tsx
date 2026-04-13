@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import Link from 'next/link';
 import { TextButton } from '@/components/ui/text-button';
@@ -47,47 +47,11 @@ function NetworkExplorer() {
 
   const toggleFilter = (key: keyof EdgeFilter) => setEdgeFilter(prev => ({ ...prev, [key]: !prev[key] }));
 
-  // --- Data queries ---
-  // Fast initial load — just follower/following lists + GG check, no enrichment
+  // --- Data queries (server does all enrichment + caching) ---
   const { data: network, isLoading: networkLoading } = trpc.discover.getUnifiedNetwork.useQuery(
     { username: activeUsername, limit: 50 },
     { enabled: !!activeUsername && discoverMode === 'network' }
   );
-
-  // Lazy enrichment — fires after graph shows, fills in name/bio/followers
-  const networkUsernames = useMemo(() => network?.users.map(u => u.username) || [], [network]);
-  const { data: enrichment } = trpc.discover.enrichUsers.useQuery(
-    { usernames: networkUsernames },
-    { enabled: networkUsernames.length > 0 && discoverMode === 'network' }
-  );
-
-  // Merge enrichment into network users
-  const enrichedNetwork = useMemo(() => {
-    if (!network) return null;
-    if (!enrichment) {
-      console.log('[discover] enrichment not yet loaded, showing basic data');
-      return network;
-    }
-    console.log(`[discover] merging enrichment for ${Object.keys(enrichment).length} users`);
-    return {
-      ...network,
-      users: network.users.map(u => {
-        const details = enrichment[u.username.toLowerCase()];
-        if (!details) return u;
-        return { ...u, name: details.name, bio: details.bio, followers: details.followers, publicRepos: details.publicRepos };
-      }).sort((a, b) => b.followers - a.followers),
-    };
-  }, [network, enrichment]);
-
-  // Cache enriched data in PG for next visit
-  const cacheNetwork = trpc.discover.cacheEnrichedNetwork.useMutation();
-  const cachedSeedRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (enrichedNetwork && enrichment && enrichedNetwork.seed && cachedSeedRef.current !== enrichedNetwork.seed) {
-      cachedSeedRef.current = enrichedNetwork.seed;
-      cacheNetwork.mutate({ username: enrichedNetwork.seed, data: enrichedNetwork });
-    }
-  }, [enrichedNetwork, enrichment, cacheNetwork]);
 
   const { data: similarData } = trpc.discover.getSimilarDevelopers.useQuery(
     { username: activeUsername, limit: 15 },
@@ -99,7 +63,6 @@ function NetworkExplorer() {
     { enabled: discoverMode === 'explore', staleTime: 5 * 60 * 1000 }
   );
 
-  // --- Callbacks ---
   const handleExpandNode = useCallback(async (username: string) => {
     try {
       const result = await trpcUtils.discover.getNetworkUsers.fetch({ username, type: 'following', limit: 30 });
@@ -117,7 +80,6 @@ function NetworkExplorer() {
     }
   }, [seedUsername]);
 
-  // Auto-search with session username on mount
   useEffect(() => {
     if (hint?.githubUsername && !activeUsername) {
       setSeedUsername(hint.githubUsername);
@@ -146,8 +108,7 @@ function NetworkExplorer() {
     [allProfiles]
   );
 
-  const isStaleData = enrichedNetwork && enrichedNetwork.seed.toLowerCase() !== activeUsername.toLowerCase();
-  const currentNetwork = isStaleData ? null : enrichedNetwork;
+  const currentNetwork = network && network.seed.toLowerCase() === activeUsername.toLowerCase() ? network : null;
   const isLoading = discoverMode === 'network'
     ? (!!activeUsername && networkLoading)
     : (allProfilesLoading && !allProfiles);
@@ -158,10 +119,8 @@ function NetworkExplorer() {
     return counts;
   }, [allProfileUsers]);
 
-  // --- Render ---
   return (
     <div>
-      {/* Header */}
       <div className="flex items-end justify-between gap-4 mb-6">
         <h1 className="text-[31px] font-semibold text-[#111] tracking-tight leading-none">Discover</h1>
         <div className="flex items-end gap-6 flex-shrink-0">
@@ -214,7 +173,6 @@ function NetworkExplorer() {
           </div>
         }
       >
-        {/* ======= MY NETWORK MODE ======= */}
         {discoverMode === 'network' && currentNetwork && (
           <>
             <div className="flex items-center justify-between mb-3">
@@ -262,7 +220,6 @@ function NetworkExplorer() {
           </div>
         )}
 
-        {/* ======= EXPLORE ALL MODE ======= */}
         {discoverMode === 'explore' && allProfiles && (
           <>
             <div className="flex items-center justify-between mb-3">
@@ -297,7 +254,6 @@ function NetworkExplorer() {
   );
 }
 
-/** Table for "My Network" mode */
 function NetworkTable({ users, semanticUsers }: { users: NetworkUser[]; semanticUsers: NetworkUser[] }) {
   return (
     <table className="w-full text-base border-collapse">
@@ -366,7 +322,6 @@ function NetworkTable({ users, semanticUsers }: { users: NetworkUser[]; semantic
   );
 }
 
-/** Table for "Explore All" mode */
 function ExploreAllTable({ profiles }: { profiles: Array<{
   username: string;
   avatar: string;

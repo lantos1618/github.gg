@@ -20,7 +20,7 @@ interface GraphQLUserResult {
 
 /**
  * Batch-fetch user details via GitHub GraphQL API.
- * One request for up to ~100 users instead of N individual REST calls.
+ * One request for up to ~50 users instead of N individual REST calls.
  */
 async function batchGetUserDetails(
   octokit: Octokit,
@@ -29,7 +29,7 @@ async function batchGetUserDetails(
   const results = new Map<string, GraphQLUserResult>();
   if (logins.length === 0) return results;
 
-  const CHUNK = 100;
+  const CHUNK = 50;
   for (let i = 0; i < logins.length; i += CHUNK) {
     const chunk = logins.slice(i, i + CHUNK);
     const fragments = chunk.map((login, idx) =>
@@ -42,7 +42,7 @@ async function batchGetUserDetails(
         if (val?.login) results.set(val.login.toLowerCase(), val);
       }
     } catch (err) {
-      console.error('GraphQL batch user fetch failed:', err);
+      console.error('[discover] GraphQL batch failed:', err);
     }
   }
   return results;
@@ -52,17 +52,16 @@ async function batchGetUserDetails(
 async function getGGProfiles(logins: string[]): Promise<Set<string>> {
   if (logins.length === 0) return new Set();
   try {
-    const lowered = logins.map(l => l.toLowerCase());
     const rows = await db.selectDistinct({ username: developerProfileCache.username })
       .from(developerProfileCache)
-      .where(inArray(developerProfileCache.username, lowered));
+      .where(inArray(developerProfileCache.username, logins.map(l => l.toLowerCase())));
     return new Set(rows.map(r => r.username));
   } catch {
     return new Set();
   }
 }
 
-// --- Network cache helpers ---
+// --- Network cache ---
 interface CachedNetworkData {
   users: Array<{
     username: string;
@@ -111,9 +110,8 @@ async function setCachedNetwork(username: string, data: CachedNetworkData): Prom
 
 export const discoverRouter = router({
   /**
-   * Fast initial network load — just follower/following lists + GG check.
-   * No per-user enrichment. Returns in ~1s instead of 10s+.
-   * Cached in PG for 24h. If cache hit, returns enriched data.
+   * Fetch unified network: followers + following + enrichment via GraphQL.
+   * Single server call does everything. Cached in PG for 24h.
    */
   getUnifiedNetwork: protectedProcedure
     .input(z.object({
@@ -121,7 +119,6 @@ export const discoverRouter = router({
       limit: z.number().min(1).max(100).default(50),
     }))
     .query(async ({ input, ctx }) => {
-      // Cache hit returns full enriched data
       const cached = await getCachedNetwork(input.username);
       if (cached) {
         console.log(`[discover] cache HIT for ${input.username} (${cached.users.length} users)`);
@@ -132,14 +129,14 @@ export const discoverRouter = router({
       const githubService = await createGitHubServiceForUserOperations(ctx.session);
       const octokit = githubService['octokit'];
 
-      // 3 requests in parallel: followers + following + seed avatar
+      // Fetch followers + following + seed profile in parallel
       const [{ data: followersRaw }, { data: followingRaw }, seedProfile] = await Promise.all([
         octokit.users.listFollowersForUser({ username: input.username, per_page: input.limit }),
         octokit.users.listFollowingForUser({ username: input.username, per_page: input.limit }),
         octokit.users.getByUsername({ username: input.username }).then(r => r.data).catch(() => null),
       ]);
 
-      // Merge follower/following into unified map
+      // Merge
       const userMap = new Map<string, { login: string; avatar_url: string; isFollower: boolean; isFollowing: boolean }>();
       for (const u of followersRaw) {
         userMap.set(u.login.toLowerCase(), { login: u.login, avatar_url: u.avatar_url, isFollower: true, isFollowing: false });
@@ -151,79 +148,48 @@ export const discoverRouter = router({
         else userMap.set(key, { login: u.login, avatar_url: u.avatar_url, isFollower: false, isFollowing: true });
       }
 
-      // Just GG profile check — fast single SQL query
+      // Enrich via GraphQL + GG check in parallel
       const allLogins = Array.from(userMap.values()).map(u => u.login);
-      const ggProfiles = await getGGProfiles(allLogins);
+      const [userDetails, ggProfiles] = await Promise.all([
+        batchGetUserDetails(octokit, allLogins),
+        getGGProfiles(allLogins),
+      ]);
 
-      const users = Array.from(userMap.values()).map(u => ({
-        username: u.login,
-        avatar: u.avatar_url,
-        name: null as string | null,
-        bio: null as string | null,
-        publicRepos: 0,
-        followers: 0,
-        following: 0,
-        isFollower: u.isFollower,
-        isFollowing: u.isFollowing,
-        isMutual: u.isFollower && u.isFollowing,
-        hasGGProfile: ggProfiles.has(u.login.toLowerCase()),
-      }));
+      const users = Array.from(userMap.values()).map(u => {
+        const details = userDetails.get(u.login.toLowerCase());
+        return {
+          username: u.login,
+          avatar: u.avatar_url,
+          name: details?.name || null,
+          bio: details?.bio || null,
+          publicRepos: details?.repositories?.totalCount || 0,
+          followers: details?.followers?.totalCount || 0,
+          following: details?.following?.totalCount || 0,
+          isFollower: u.isFollower,
+          isFollowing: u.isFollowing,
+          isMutual: u.isFollower && u.isFollowing,
+          hasGGProfile: ggProfiles.has(u.login.toLowerCase()),
+        };
+      }).sort((a, b) => b.followers - a.followers);
 
       const seedAvatar = seedProfile?.avatar_url || `https://avatars.githubusercontent.com/${input.username}`;
 
-      return {
+      const result: CachedNetworkData = {
         users,
         seed: input.username,
         seedAvatar,
         followerCount: followersRaw.length,
         followingCount: followingRaw.length,
-      } satisfies CachedNetworkData;
+      };
+
+      // Cache in background
+      setCachedNetwork(input.username, result);
+
+      return result;
     }),
 
   /**
-   * Lazy enrichment — batch-fetch details for a list of usernames.
-   * Called by client after initial graph is shown.
-   */
-  enrichUsers: protectedProcedure
-    .input(z.object({
-      usernames: z.array(z.string()).min(1).max(200),
-    }))
-    .query(async ({ input, ctx }) => {
-      const githubService = await createGitHubServiceForUserOperations(ctx.session);
-      const octokit = githubService['octokit'];
-
-      console.log(`[discover:enrich] fetching details for ${input.usernames.length} users via GraphQL`);
-      const details = await batchGetUserDetails(octokit, input.usernames);
-      console.log(`[discover:enrich] got ${details.size} results`);
-
-      const enriched: Record<string, { name: string | null; bio: string | null; followers: number; publicRepos: number }> = {};
-      for (const [key, val] of details) {
-        enriched[key] = {
-          name: val.name,
-          bio: val.bio,
-          followers: val.followers.totalCount,
-          publicRepos: val.repositories.totalCount,
-        };
-      }
-      return enriched;
-    }),
-
-  /**
-   * Cache enriched network data in PG. Called by client after enrichment completes.
-   */
-  cacheEnrichedNetwork: protectedProcedure
-    .input(z.object({
-      username: z.string().min(1),
-      data: z.any(),
-    }))
-    .mutation(async ({ input }) => {
-      await setCachedNetwork(input.username, input.data as CachedNetworkData);
-      console.log(`[discover] cached enriched network for ${input.username}`);
-      return { ok: true };
-    }),
-
-  /**
-   * Find developers semantically similar to a given username using pgvector.
+   * Find developers semantically similar via pgvector.
    */
   getSimilarDevelopers: publicProcedure
     .input(z.object({
@@ -291,7 +257,7 @@ export const discoverRouter = router({
     }),
 
   /**
-   * Return all GG profiles as lightweight nodes for the graph.
+   * All GG profiles for Explore All mode.
    */
   getAllGGProfileNodes: publicProcedure
     .input(z.object({
@@ -339,7 +305,7 @@ export const discoverRouter = router({
     }),
 
   /**
-   * Expand a single node — fetch their following. Uses cache or fast basic load.
+   * Expand a single node — fetch their following with enrichment.
    */
   getNetworkUsers: protectedProcedure
     .input(z.object({
@@ -348,13 +314,11 @@ export const discoverRouter = router({
       limit: z.number().min(1).max(100).default(50),
     }))
     .query(async ({ input, ctx }) => {
-      // Check cache
       const cached = await getCachedNetwork(input.username);
       if (cached) {
-        console.log(`[discover:expand] cache HIT for ${input.username} (${cached.users.length} users)`);
+        console.log(`[discover:expand] cache HIT for ${input.username}`);
         return { users: cached.users, seed: input.username, type: input.type };
       }
-      console.log(`[discover:expand] cache MISS for ${input.username} — fetching from GitHub`);
 
       const githubService = await createGitHubServiceForUserOperations(ctx.session);
       const octokit = githubService['octokit'];
@@ -365,21 +329,27 @@ export const discoverRouter = router({
       });
 
       const logins = data.map((u: { login: string }) => u.login);
-      const ggProfiles = await getGGProfiles(logins);
+      const [userDetails, ggProfiles] = await Promise.all([
+        batchGetUserDetails(octokit, logins),
+        getGGProfiles(logins),
+      ]);
 
-      const users = data.map((u: { login: string; avatar_url: string }) => ({
-        username: u.login,
-        avatar: u.avatar_url,
-        name: null as string | null,
-        bio: null as string | null,
-        publicRepos: 0,
-        followers: 0,
-        following: 0,
-        isFollower: false,
-        isFollowing: true,
-        isMutual: false,
-        hasGGProfile: ggProfiles.has(u.login.toLowerCase()),
-      }));
+      const users = data.map((u: { login: string; avatar_url: string }) => {
+        const details = userDetails.get(u.login.toLowerCase());
+        return {
+          username: u.login,
+          avatar: u.avatar_url,
+          name: details?.name || null,
+          bio: details?.bio || null,
+          publicRepos: details?.repositories?.totalCount || 0,
+          followers: details?.followers?.totalCount || 0,
+          following: details?.following?.totalCount || 0,
+          isFollower: false,
+          isFollowing: true,
+          isMutual: false,
+          hasGGProfile: ggProfiles.has(u.login.toLowerCase()),
+        };
+      }).sort((a, b) => b.followers - a.followers);
 
       return { users, seed: input.username, type: input.type };
     }),

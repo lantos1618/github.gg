@@ -159,30 +159,6 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     setStructureVersion(v => v + 1);
   }, [users, seed, seedAvatar, semanticUsers, dimensions]);
 
-  // --- Patch nodes when enrichment arrives (same users, but with real follower counts) ---
-  useEffect(() => {
-    const nodes = nodesRef.current;
-    if (nodes.length === 0) return;
-    const userMap = new Map(users.map(u => [u.username, u]));
-    let patched = 0;
-    for (const node of nodes) {
-      if (node.isSeed) continue;
-      const u = userMap.get(node.id);
-      if (!u) continue;
-      // Only patch if data actually changed (enrichment arrived)
-      if (u.followers > 0 && node.user?.followers !== u.followers) {
-        node.radius = getNodeRadius(u.followers, false);
-        node.user = u;
-        node.color = u.hasGGProfile ? PALETTE.ggProfile : PALETTE.noProfile;
-        patched++;
-      } else if (u.name && !node.user?.name) {
-        node.user = u;
-        patched++;
-      }
-    }
-    if (patched > 0) console.log(`[graph] patched ${patched} nodes with enrichment data`);
-  }, [users]);
-
   // --- Node expansion ---
   const addNodes = useCallback((parentId: string, newUsers: NetworkUser[]) => {
     const nodes = nodesRef.current;
@@ -345,25 +321,13 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     if (expandable.length === 0) { expandAllRef.current = false; return; }
 
     let completed = 0;
-    let idx = 0;
     setExpandAllProgress({ current: 0, total: expandable.length });
 
-    // AIMD adaptive batching — persisted across sessions via localStorage
-    const storedBatch = typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('gg:expand-batch') || '') : NaN;
-    let batchSize = isNaN(storedBatch) ? 3 : storedBatch;
-    const MIN_BATCH = 1;
-    const MAX_BATCH = 50;
-    const FAST_THRESHOLD_MS = 2000;
-    const SLOW_THRESHOLD_MS = 5000;
-
-    while (idx < expandable.length && expandAllRef.current) {
-      const batch = expandable.slice(idx, idx + batchSize).filter(n => !n.isExpanded && !n.isLoading);
-      idx += batchSize;
-      if (batch.length === 0) continue;
+    const BATCH = 5;
+    for (let i = 0; i < expandable.length; i += BATCH) {
+      if (!expandAllRef.current) break;
+      const batch = expandable.slice(i, i + BATCH).filter(n => !n.isExpanded && !n.isLoading);
       for (const node of batch) { node.isLoading = true; }
-
-      const t0 = performance.now();
-      let batchErrors = 0;
 
       await Promise.all(batch.map(async (node) => {
         try {
@@ -372,28 +336,11 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
           else { node.isLoading = false; node.isExpanded = true; }
         } catch {
           node.isLoading = false;
-          batchErrors++;
         }
         completed++;
         setExpandAllProgress({ current: completed, total: expandable.length });
       }));
-
-      const elapsed = performance.now() - t0;
-      const prevSize = batchSize;
-
-      // Adapt: fast + no errors → grow, slow or errors → shrink
-      if (batchErrors > 0 || elapsed > SLOW_THRESHOLD_MS) {
-        batchSize = Math.max(MIN_BATCH, Math.floor(batchSize / 2));
-      } else if (elapsed < FAST_THRESHOLD_MS) {
-        batchSize = Math.min(MAX_BATCH, batchSize + 2);
-      }
-
-      console.log(`[expand] batch ${batch.length} nodes in ${Math.round(elapsed)}ms | errors: ${batchErrors} | batch size: ${prevSize} → ${batchSize} | progress: ${completed}/${expandable.length}`);
     }
-
-    // Persist learned batch size for next session
-    try { localStorage.setItem('gg:expand-batch', String(batchSize)); } catch {}
-    console.log(`[expand] done — final batch size: ${batchSize}`);
 
     setExpandAllProgress(null);
     expandAllRef.current = false;

@@ -456,13 +456,29 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     autoFitEnabledRef.current = true;
   }, [springScale, isFullscreen]);
 
-  // --- Event handlers ---
+  // --- Wheel zoom (native listener, NOT React — React registers as passive) ---
   useEffect(() => {
-    const el = containerRef.current;
+    const el = canvasRef.current;
     if (!el) return;
-    const h = (e: WheelEvent) => e.preventDefault();
-    el.addEventListener('wheel', h, { passive: false });
-    return () => el.removeEventListener('wheel', h);
+    const handleWheelNative = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const vb = viewBoxRef.current;
+      const dims = dimensionsRef.current;
+      const ptX = vb.x + x * (vb.w / dims.width);
+      const ptY = vb.y + y * (vb.h / dims.height);
+      const factor = e.deltaY > 0 ? 1.08 : 0.92;
+      const newW = clamp(vb.w * factor, 200, dims.width * 12);
+      const newH = clamp(vb.h * factor, 140, dims.height * 12);
+      const rx = (ptX - vb.x) / vb.w;
+      const ry = (ptY - vb.y) / vb.h;
+      viewBoxRef.current = { x: ptX - rx * newW, y: ptY - ry * newH, w: newW, h: newH };
+      autoFitEnabledRef.current = false;
+    };
+    el.addEventListener('wheel', handleWheelNative, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheelNative);
   }, []);
 
   useEffect(() => {
@@ -574,20 +590,6 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     updateCursor();
   }, [updateCursor]);
 
-  const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    const pt = getCanvasPoint(e);
-    if (!pt) return;
-    const factor = e.deltaY > 0 ? 1.08 : 0.92;
-    const vb = viewBoxRef.current;
-    const dims = dimensionsRef.current;
-    const newW = clamp(vb.w * factor, 200, dims.width * 12);
-    const newH = clamp(vb.h * factor, 140, dims.height * 12);
-    const rx = (pt.x - vb.x) / vb.w;
-    const ry = (pt.y - vb.y) / vb.h;
-    viewBoxRef.current = { x: pt.x - rx * newW, y: pt.y - ry * newH, w: newW, h: newH };
-    autoFitEnabledRef.current = false;
-  }, [getCanvasPoint]);
 
   // --- Computed stats (for toolbar only, not hot path) ---
   const degrees = degreesRef.current;
@@ -681,7 +683,6 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        onWheel={handleWheel}
       />
     </div>
   );

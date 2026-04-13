@@ -18,10 +18,6 @@ interface GraphQLUserResult {
   repositories: { totalCount: number };
 }
 
-/**
- * Batch-fetch user details via GitHub GraphQL API.
- * One request for up to ~50 users instead of N individual REST calls.
- */
 async function batchGetUserDetails(
   octokit: Octokit,
   logins: string[],
@@ -48,7 +44,6 @@ async function batchGetUserDetails(
   return results;
 }
 
-/** Batch check which usernames have GG profiles */
 async function getGGProfiles(logins: string[]): Promise<Set<string>> {
   if (logins.length === 0) return new Set();
   try {
@@ -61,7 +56,6 @@ async function getGGProfiles(logins: string[]): Promise<Set<string>> {
   }
 }
 
-// --- Network cache ---
 interface CachedNetworkData {
   users: Array<{
     username: string;
@@ -103,15 +97,14 @@ async function setCachedNetwork(username: string, data: CachedNetworkData): Prom
         target: networkCache.username,
         set: { networkData: data as any, updatedAt: new Date() },
       });
-  } catch {
-    // table might not exist yet
-  }
+  } catch {}
 }
 
 export const discoverRouter = router({
   /**
-   * Fetch unified network: followers + following + enrichment via GraphQL.
-   * Single server call does everything. Cached in PG for 24h.
+   * Fast initial load — followers + following lists + GG check.
+   * No GraphQL enrichment (would timeout on Vercel).
+   * If PG cache has enriched data from a previous visit, returns that instead.
    */
   getUnifiedNetwork: protectedProcedure
     .input(z.object({
@@ -119,24 +112,23 @@ export const discoverRouter = router({
       limit: z.number().min(1).max(100).default(50),
     }))
     .query(async ({ input, ctx }) => {
+      // Cache hit returns fully enriched data
       const cached = await getCachedNetwork(input.username);
       if (cached) {
         console.log(`[discover] cache HIT for ${input.username} (${cached.users.length} users)`);
         return cached;
       }
-      console.log(`[discover] cache MISS for ${input.username} — fetching from GitHub`);
+      console.log(`[discover] cache MISS for ${input.username}`);
 
       const githubService = await createGitHubServiceForUserOperations(ctx.session);
       const octokit = githubService['octokit'];
 
-      // Fetch followers + following + seed profile in parallel
       const [{ data: followersRaw }, { data: followingRaw }, seedProfile] = await Promise.all([
         octokit.users.listFollowersForUser({ username: input.username, per_page: input.limit }),
         octokit.users.listFollowingForUser({ username: input.username, per_page: input.limit }),
         octokit.users.getByUsername({ username: input.username }).then(r => r.data).catch(() => null),
       ]);
 
-      // Merge
       const userMap = new Map<string, { login: string; avatar_url: string; isFollower: boolean; isFollowing: boolean }>();
       for (const u of followersRaw) {
         userMap.set(u.login.toLowerCase(), { login: u.login, avatar_url: u.avatar_url, isFollower: true, isFollowing: false });
@@ -148,49 +140,74 @@ export const discoverRouter = router({
         else userMap.set(key, { login: u.login, avatar_url: u.avatar_url, isFollower: false, isFollowing: true });
       }
 
-      // Enrich via GraphQL + GG check in parallel
       const allLogins = Array.from(userMap.values()).map(u => u.login);
-      const [userDetails, ggProfiles] = await Promise.all([
-        batchGetUserDetails(octokit, allLogins),
-        getGGProfiles(allLogins),
-      ]);
+      const ggProfiles = await getGGProfiles(allLogins);
 
-      const users = Array.from(userMap.values()).map(u => {
-        const details = userDetails.get(u.login.toLowerCase());
-        return {
-          username: u.login,
-          avatar: u.avatar_url,
-          name: details?.name || null,
-          bio: details?.bio || null,
-          publicRepos: details?.repositories?.totalCount || 0,
-          followers: details?.followers?.totalCount || 0,
-          following: details?.following?.totalCount || 0,
-          isFollower: u.isFollower,
-          isFollowing: u.isFollowing,
-          isMutual: u.isFollower && u.isFollowing,
-          hasGGProfile: ggProfiles.has(u.login.toLowerCase()),
-        };
-      }).sort((a, b) => b.followers - a.followers);
+      const users = Array.from(userMap.values()).map(u => ({
+        username: u.login,
+        avatar: u.avatar_url,
+        name: null as string | null,
+        bio: null as string | null,
+        publicRepos: 0,
+        followers: 0,
+        following: 0,
+        isFollower: u.isFollower,
+        isFollowing: u.isFollowing,
+        isMutual: u.isFollower && u.isFollowing,
+        hasGGProfile: ggProfiles.has(u.login.toLowerCase()),
+      }));
 
       const seedAvatar = seedProfile?.avatar_url || `https://avatars.githubusercontent.com/${input.username}`;
 
-      const result: CachedNetworkData = {
+      // Don't cache un-enriched data — enrichUsers will cache the full version
+      return {
         users,
         seed: input.username,
         seedAvatar,
         followerCount: followersRaw.length,
         followingCount: followingRaw.length,
-      };
-
-      // Cache in background
-      setCachedNetwork(input.username, result);
-
-      return result;
+      } satisfies CachedNetworkData;
     }),
 
   /**
-   * Find developers semantically similar via pgvector.
+   * Enrich users with GraphQL details. Server writes enriched data to PG cache.
+   * Called by client after initial graph is shown.
    */
+  enrichUsers: protectedProcedure
+    .input(z.object({
+      seed: z.string().min(1),
+      usernames: z.array(z.string()).min(1).max(200),
+    }))
+    .query(async ({ input, ctx }) => {
+      const githubService = await createGitHubServiceForUserOperations(ctx.session);
+      const octokit = githubService['octokit'];
+
+      const details = await batchGetUserDetails(octokit, input.usernames);
+
+      const enriched: Record<string, { name: string | null; bio: string | null; followers: number; publicRepos: number }> = {};
+      for (const [key, val] of details) {
+        enriched[key] = {
+          name: val.name,
+          bio: val.bio,
+          followers: val.followers.totalCount,
+          publicRepos: val.repositories.totalCount,
+        };
+      }
+
+      // Update PG cache with enriched data so next visit is instant + complete
+      const cached = await getCachedNetwork(input.seed);
+      if (cached) {
+        const updatedUsers = cached.users.map(u => {
+          const d = enriched[u.username.toLowerCase()];
+          return d ? { ...u, name: d.name, bio: d.bio, followers: d.followers, publicRepos: d.publicRepos } : u;
+        }).sort((a, b) => b.followers - a.followers);
+        await setCachedNetwork(input.seed, { ...cached, users: updatedUsers });
+        console.log(`[discover] cached enriched data for ${input.seed}`);
+      }
+
+      return enriched;
+    }),
+
   getSimilarDevelopers: publicProcedure
     .input(z.object({
       username: z.string().min(1),
@@ -236,62 +253,46 @@ export const discoverRouter = router({
         similarity: number;
       }>;
 
-      const users = similar.map(row => {
-        const profile = row.profileData;
-        const avgScore = profile.skillAssessment?.length
-          ? Math.round((profile.skillAssessment.reduce((acc, s) => acc + s.score, 0) / profile.skillAssessment.length) * 10)
-          : null;
-
-        return {
-          username: row.username,
-          avatar: `https://avatars.githubusercontent.com/${row.username}`,
-          summary: profile.summary || null,
-          archetype: profile.developerArchetype || null,
-          score: avgScore,
-          similarity: Math.round(Number(row.similarity) * 100),
-          topSkills: (profile.skillAssessment || []).slice(0, 3).map(s => s.metric),
-        };
-      });
-
-      return { users, seed: username, hasEmbedding: true };
+      return {
+        users: similar.map(row => {
+          const profile = row.profileData;
+          const avgScore = profile.skillAssessment?.length
+            ? Math.round((profile.skillAssessment.reduce((acc, s) => acc + s.score, 0) / profile.skillAssessment.length) * 10)
+            : null;
+          return {
+            username: row.username,
+            avatar: `https://avatars.githubusercontent.com/${row.username}`,
+            summary: profile.summary || null,
+            archetype: profile.developerArchetype || null,
+            score: avgScore,
+            similarity: Math.round(Number(row.similarity) * 100),
+            topSkills: (profile.skillAssessment || []).slice(0, 3).map(s => s.metric),
+          };
+        }),
+        seed: username,
+        hasEmbedding: true,
+      };
     }),
 
-  /**
-   * All GG profiles for Explore All mode.
-   */
   getAllGGProfileNodes: publicProcedure
-    .input(z.object({
-      limit: z.number().min(1).max(500).default(200),
-    }).optional())
+    .input(z.object({ limit: z.number().min(1).max(500).default(200) }).optional())
     .query(async ({ input }) => {
       const limit = input?.limit ?? 200;
-
       const profiles = await db.execute(sql`
-        SELECT
-          p.username,
-          p.profile_data as "profileData",
-          p.updated_at as "updatedAt"
+        SELECT p.username, p.profile_data as "profileData", p.updated_at as "updatedAt"
         FROM developer_profile_cache p
         INNER JOIN (
-          SELECT username, MAX(version) as max_version
-          FROM developer_profile_cache
-          GROUP BY username
+          SELECT username, MAX(version) as max_version FROM developer_profile_cache GROUP BY username
         ) latest ON p.username = latest.username AND p.version = latest.max_version
         WHERE p.profile_data IS NOT NULL
-        ORDER BY p.updated_at DESC
-        LIMIT ${limit}
-      `) as unknown as Array<{
-        username: string;
-        profileData: DeveloperProfile;
-        updatedAt: string;
-      }>;
+        ORDER BY p.updated_at DESC LIMIT ${limit}
+      `) as unknown as Array<{ username: string; profileData: DeveloperProfile; updatedAt: string }>;
 
       return profiles.map(row => {
         const profile = row.profileData;
         const avgScore = profile.skillAssessment?.length
           ? Math.round((profile.skillAssessment.reduce((acc, s) => acc + s.score, 0) / profile.skillAssessment.length) * 10)
           : null;
-
         return {
           username: row.username,
           avatar: `https://avatars.githubusercontent.com/${row.username}`,
@@ -305,7 +306,7 @@ export const discoverRouter = router({
     }),
 
   /**
-   * Expand a single node — fetch their following with enrichment.
+   * Expand a single node — fast list + GG check (no GraphQL to avoid timeout).
    */
   getNetworkUsers: protectedProcedure
     .input(z.object({
@@ -316,7 +317,6 @@ export const discoverRouter = router({
     .query(async ({ input, ctx }) => {
       const cached = await getCachedNetwork(input.username);
       if (cached) {
-        console.log(`[discover:expand] cache HIT for ${input.username}`);
         return { users: cached.users, seed: input.username, type: input.type };
       }
 
@@ -329,27 +329,21 @@ export const discoverRouter = router({
       });
 
       const logins = data.map((u: { login: string }) => u.login);
-      const [userDetails, ggProfiles] = await Promise.all([
-        batchGetUserDetails(octokit, logins),
-        getGGProfiles(logins),
-      ]);
+      const ggProfiles = await getGGProfiles(logins);
 
-      const users = data.map((u: { login: string; avatar_url: string }) => {
-        const details = userDetails.get(u.login.toLowerCase());
-        return {
-          username: u.login,
-          avatar: u.avatar_url,
-          name: details?.name || null,
-          bio: details?.bio || null,
-          publicRepos: details?.repositories?.totalCount || 0,
-          followers: details?.followers?.totalCount || 0,
-          following: details?.following?.totalCount || 0,
-          isFollower: false,
-          isFollowing: true,
-          isMutual: false,
-          hasGGProfile: ggProfiles.has(u.login.toLowerCase()),
-        };
-      }).sort((a, b) => b.followers - a.followers);
+      const users = data.map((u: { login: string; avatar_url: string }) => ({
+        username: u.login,
+        avatar: u.avatar_url,
+        name: null as string | null,
+        bio: null as string | null,
+        publicRepos: 0,
+        followers: 0,
+        following: 0,
+        isFollower: false,
+        isFollowing: true,
+        isMutual: false,
+        hasGGProfile: ggProfiles.has(u.login.toLowerCase()),
+      }));
 
       return { users, seed: input.username, type: input.type };
     }),

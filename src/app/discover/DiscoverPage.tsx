@@ -53,6 +53,27 @@ function NetworkExplorer() {
     { enabled: !!activeUsername && discoverMode === 'network' }
   );
 
+  // Lazy enrichment — separate call so getUnifiedNetwork returns fast
+  const networkUsernames = useMemo(() => network?.users.map(u => u.username) || [], [network]);
+  const isAlreadyEnriched = network?.users?.[0]?.followers != null && network.users[0].followers > 0;
+  const { data: enrichment } = trpc.discover.enrichUsers.useQuery(
+    { seed: activeUsername, usernames: networkUsernames },
+    { enabled: networkUsernames.length > 0 && !isAlreadyEnriched && discoverMode === 'network' }
+  );
+
+  // Merge enrichment into network data
+  const enrichedNetwork = useMemo(() => {
+    if (!network) return null;
+    if (!enrichment) return network;
+    return {
+      ...network,
+      users: network.users.map(u => {
+        const d = enrichment[u.username.toLowerCase()];
+        return d ? { ...u, name: d.name, bio: d.bio, followers: d.followers, publicRepos: d.publicRepos } : u;
+      }).sort((a, b) => b.followers - a.followers),
+    };
+  }, [network, enrichment]);
+
   const { data: similarData } = trpc.discover.getSimilarDevelopers.useQuery(
     { username: activeUsername, limit: 15 },
     { enabled: !!activeUsername && discoverMode === 'network' }
@@ -108,7 +129,7 @@ function NetworkExplorer() {
     [allProfiles]
   );
 
-  const currentNetwork = network && network.seed.toLowerCase() === activeUsername.toLowerCase() ? network : null;
+  const currentNetwork = enrichedNetwork && enrichedNetwork.seed.toLowerCase() === activeUsername.toLowerCase() ? enrichedNetwork : null;
   const isLoading = discoverMode === 'network'
     ? (!!activeUsername && networkLoading)
     : (allProfilesLoading && !allProfiles);

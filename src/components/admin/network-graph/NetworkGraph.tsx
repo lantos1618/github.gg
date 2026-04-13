@@ -159,6 +159,21 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     setStructureVersion(v => v + 1);
   }, [users, seed, seedAvatar, semanticUsers, dimensions]);
 
+  // Patch nodes when enrichment data arrives (same usernames, now with real followers)
+  useEffect(() => {
+    if (nodesRef.current.length === 0) return;
+    const userMap = new Map(users.map(u => [u.username, u]));
+    for (const node of nodesRef.current) {
+      if (node.isSeed) continue;
+      const u = userMap.get(node.id);
+      if (u && u.followers > 0 && node.user?.followers !== u.followers) {
+        node.radius = getNodeRadius(u.followers, false);
+        node.user = u;
+        node.color = u.hasGGProfile ? PALETTE.ggProfile : PALETTE.noProfile;
+      }
+    }
+  }, [users]);
+
   // --- Node expansion ---
   const addNodes = useCallback((parentId: string, newUsers: NetworkUser[]) => {
     const nodes = nodesRef.current;

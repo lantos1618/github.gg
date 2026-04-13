@@ -567,7 +567,7 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
           <div className="flex items-center gap-0.5 bg-white/90 border border-[#e0e0e0] rounded overflow-hidden" title="Link distance">
             <button onClick={() => setSpringScale(s => Math.max(0.3, +(s - 0.2).toFixed(1)))} disabled={springScale <= 0.3} className="px-1.5 py-0.5 text-[11px] font-bold text-[#888] hover:text-[#111] disabled:opacity-30 transition-colors">&minus;</button>
             <span className="px-1 text-[10px] font-mono text-[#666] min-w-[28px] text-center">{springScale === 1.0 ? '1x' : `${springScale.toFixed(1)}x`}</span>
-            <button onClick={() => setSpringScale(s => Math.min(3.0, +(s + 0.2).toFixed(1)))} disabled={springScale >= 3.0} className="px-1.5 py-0.5 text-[11px] font-bold text-[#888] hover:text-[#111] disabled:opacity-30 transition-colors">+</button>
+            <button onClick={() => setSpringScale(s => Math.min(10.0, +(s + 0.2).toFixed(1)))} disabled={springScale >= 10.0} className="px-1.5 py-0.5 text-[11px] font-bold text-[#888] hover:text-[#111] disabled:opacity-30 transition-colors">+</button>
           </div>
           {expandAllProgress ? (
             <button onClick={cancelExpandAll} className="px-2 py-1 text-[11px] font-medium rounded bg-[#111] text-white border border-[#111] hover:bg-[#333] transition-colors">

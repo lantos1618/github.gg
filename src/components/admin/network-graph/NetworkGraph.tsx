@@ -161,6 +161,30 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     setStructureVersion(v => v + 1);
   }, [users, seed, seedAvatar, semanticUsers, dimensions]);
 
+  // --- Patch nodes when enrichment arrives (same users, but with real follower counts) ---
+  useEffect(() => {
+    const nodes = nodesRef.current;
+    if (nodes.length === 0) return;
+    const userMap = new Map(users.map(u => [u.username, u]));
+    let patched = 0;
+    for (const node of nodes) {
+      if (node.isSeed) continue;
+      const u = userMap.get(node.id);
+      if (!u) continue;
+      // Only patch if data actually changed (enrichment arrived)
+      if (u.followers > 0 && node.user?.followers !== u.followers) {
+        node.radius = getNodeRadius(u.followers, false);
+        node.user = u;
+        node.color = u.hasGGProfile ? PALETTE.ggProfile : PALETTE.noProfile;
+        patched++;
+      } else if (u.name && !node.user?.name) {
+        node.user = u;
+        patched++;
+      }
+    }
+    if (patched > 0) console.log(`[graph] patched ${patched} nodes with enrichment data`);
+  }, [users]);
+
   // --- Node expansion ---
   const addNodes = useCallback((parentId: string, newUsers: NetworkUser[]) => {
     const nodes = nodesRef.current;

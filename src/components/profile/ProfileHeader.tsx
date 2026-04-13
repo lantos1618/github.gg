@@ -51,24 +51,23 @@ export function ProfileHeader({ username, profile, totalScore, profileStyles, ch
           >
             {username}
           </a>
-          {crackedInfo.isCracked ? (
+          {crackedInfo.isCracked && (
             <span
-              data-testid="profile-header-score-badge"
               className={`text-base font-semibold uppercase tracking-[1px] ${crackedInfo.colors.text} flex items-center gap-1`}
               style={profileStyles?.primaryColor ? { color: profileStyles.primaryColor } : undefined}
             >
               {isSpecial ? <Heart className="h-4 w-4 fill-current" /> : <Flame className="h-4 w-4 fill-current" />}
               <span className="hidden sm:inline">cracked</span>
             </span>
-          ) : (
-            <span
-              data-testid="profile-header-score-badge"
-              className="text-base font-medium text-[#888]"
-              style={profileStyles?.primaryColor ? { color: profileStyles.primaryColor } : undefined}
-            >
-              {totalScore}
-            </span>
           )}
+          {crackedInfo.isCracked && <span className="text-[#ddd] text-base select-none">|</span>}
+          <span
+            data-testid="profile-header-score-badge"
+            className={`text-base font-medium ${crackedInfo.isCracked ? crackedInfo.colors.text : 'text-[#888]'}`}
+            style={profileStyles?.primaryColor ? { color: profileStyles.primaryColor } : undefined}
+          >
+            {totalScore}
+          </span>
         </div>
 
         {/* Archetype + Confidence */}

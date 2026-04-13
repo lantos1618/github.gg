@@ -174,12 +174,13 @@ export function renderGraph(opts: RenderOptions) {
 
     // Screen-space radius determines what details to render per node
     const screenR = node.radius * scale;
-    const showAvatar = screenR >= 4 || hovered || node.isSeed;
-    const showRing = screenR >= 3;
-    const showLabel = screenR >= 6 || (screenR >= 4 && (isMutualNode || hovered || node.isSeed));
+    const hasHighFollowers = node.user && node.user.followers >= 500;
+    const showAvatar = screenR >= 4 || hovered || node.isSeed || hasHighFollowers;
+    const showRing = screenR >= 3 || hasHighFollowers;
+    const showLabel = screenR >= 6 || hasHighFollowers || (screenR >= 4 && (isMutualNode || hovered || node.isSeed));
     const showBadge = screenR >= 5;
 
-    if (screenR < 2 && !hovered && !node.isSeed) {
+    if (screenR < 2 && !hovered && !node.isSeed && !hasHighFollowers) {
       // Tiny on screen — just a dot
       const dotR = Math.max(node.radius * 0.4, 2);
       ctx.beginPath();

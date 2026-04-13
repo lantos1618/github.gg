@@ -29,20 +29,30 @@ export function simulateTick(opts: SimulationOptions): { quadTree: QuadTree; nex
   // Build quadtree for Barnes-Hut
   const qt = buildQuadTree(nodes);
 
-  const repulsion = (4000 + n * 100) * alpha;
-  const springK = 0.01;
+  // Scale forces down at large node counts to prevent instability
+  const nScale = n > 500 ? Math.sqrt(500 / n) : 1;
+  const repulsion = (4000 + Math.min(n, 500) * 100) * alpha * nScale;
+  const springK = 0.01 * nScale;
   const springLen = (160 + Math.sqrt(n) * 14) * springScale;
-  const damping = 0.82;
+  const baseDamping = n > 1000 ? 0.7 : n > 500 ? 0.75 : 0.82;
+  const maxVelocity = n > 500 ? 8 : 15;
   const cx = dimensions.width / 2;
   const cy = dimensions.height / 2;
+
+  // Pre-compute degree counts for adaptive damping
+  const degreeCounts = new Map<string, number>();
+  for (const edge of edges) {
+    degreeCounts.set(edge.source, (degreeCounts.get(edge.source) || 0) + 1);
+    degreeCounts.set(edge.target, (degreeCounts.get(edge.target) || 0) + 1);
+  }
 
   // Barnes-Hut repulsion (O(n log n))
   for (const node of nodes) {
     applyBarnesHut(node, qt, 0.9, repulsion);
   }
 
-  // Hard collision resolution (only during settling)
-  if (alpha > 0.03) {
+  // Hard collision resolution — skip at large n (quadtree repulsion handles it)
+  if (n <= 500 && alpha > 0.03) {
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
         const dx = nodes[j].x - nodes[i].x;
@@ -94,11 +104,25 @@ export function simulateTick(opts: SimulationOptions): { quadTree: QuadTree; nex
     node.vy += (cy - node.y) * 0.0004 * alpha;
   }
 
-  // Integrate
+  // Integrate with adaptive damping and velocity cap
   for (const node of nodes) {
     if (node.id === dragNode) continue;
+
+    // High-degree nodes get stronger damping to prevent oscillation
+    const deg = degreeCounts.get(node.id) || 0;
+    const damping = deg > 10 ? baseDamping * 0.7 : deg > 5 ? baseDamping * 0.85 : baseDamping;
+
     node.vx *= damping;
     node.vy *= damping;
+
+    // Velocity cap — prevents runaway oscillation
+    const speed = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
+    if (speed > maxVelocity) {
+      const scale = maxVelocity / speed;
+      node.vx *= scale;
+      node.vy *= scale;
+    }
+
     node.x += node.vx;
     node.y += node.vy;
   }

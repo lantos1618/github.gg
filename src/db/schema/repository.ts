@@ -187,6 +187,15 @@ export const userScoreHistory = pgTable('user_score_history', {
   usernameHistoryIdx: index('username_history_idx').on(table.username, table.createdAt),
 }));
 
+export const networkCache = pgTable('network_cache', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  username: text('username').notNull(),
+  networkData: jsonb('network_data').notNull(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  networkCacheUsernameIdx: uniqueIndex('network_cache_username_idx').on(table.username),
+}));
+
 export const developerProfileCache = pgTable('developer_profile_cache', {
   id: uuid('id').primaryKey().defaultRandom(),
   username: text('username').notNull(),

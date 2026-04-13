@@ -1,16 +1,76 @@
 import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
-import { developerProfileCache } from '@/db/schema';
+import { developerProfileCache, networkCache } from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import { formatEmbeddingForPg } from '@/lib/ai/embeddings';
 import type { DeveloperProfile } from '@/lib/types/profile';
 
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/** Run promises in batches of `size` for controlled parallelism */
+async function batchAll<T, R>(items: T[], size: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = [];
+  for (let i = 0; i < items.length; i += size) {
+    const batch = items.slice(i, i + size);
+    const batchResults = await Promise.all(batch.map(fn));
+    results.push(...batchResults);
+  }
+  return results;
+}
+
+interface CachedNetworkData {
+  users: Array<{
+    username: string;
+    avatar: string;
+    name: string | null;
+    bio: string | null;
+    publicRepos: number;
+    followers: number;
+    following?: number;
+    isFollower: boolean;
+    isFollowing: boolean;
+    isMutual: boolean;
+    hasGGProfile: boolean;
+  }>;
+  seed: string;
+  seedAvatar: string;
+  followerCount: number;
+  followingCount: number;
+}
+
+async function getCachedNetwork(username: string): Promise<CachedNetworkData | null> {
+  try {
+    const rows = await db.select().from(networkCache).where(eq(networkCache.username, username.toLowerCase())).limit(1);
+    if (rows.length === 0) return null;
+    const row = rows[0];
+    const age = Date.now() - new Date(row.updatedAt).getTime();
+    if (age > CACHE_TTL_MS) return null;
+    return row.networkData as CachedNetworkData;
+  } catch {
+    return null; // table might not exist yet
+  }
+}
+
+async function setCachedNetwork(username: string, data: CachedNetworkData): Promise<void> {
+  try {
+    await db.insert(networkCache)
+      .values({ username: username.toLowerCase(), networkData: data as any, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: networkCache.username,
+        set: { networkData: data as any, updatedAt: new Date() },
+      });
+  } catch {
+    // table might not exist yet — non-critical
+  }
+}
+
 export const discoverRouter = router({
   /**
    * Fetch unified GitHub followers + following for a user.
    * Returns a merged set with relationship flags: isFollower, isFollowing, isMutual.
+   * Results are cached in PG for 24h.
    */
   getUnifiedNetwork: protectedProcedure
     .input(z.object({
@@ -18,11 +78,15 @@ export const discoverRouter = router({
       limit: z.number().min(1).max(100).default(50),
     }))
     .query(async ({ input, ctx }) => {
+      // Check cache first
+      const cached = await getCachedNetwork(input.username);
+      if (cached) return cached;
+
       const githubService = await createGitHubServiceForUserOperations(ctx.session);
       const octokit = githubService['octokit'];
 
-      // Fetch both followers and following in parallel
-      const [{ data: followersRaw }, { data: followingRaw }] = await Promise.all([
+      // Fetch followers, following, and seed profile in parallel
+      const [{ data: followersRaw }, { data: followingRaw }, seedProfile] = await Promise.all([
         octokit.users.listFollowersForUser({
           username: input.username,
           per_page: input.limit,
@@ -31,6 +95,7 @@ export const discoverRouter = router({
           username: input.username,
           per_page: input.limit,
         }),
+        octokit.users.getByUsername({ username: input.username }).then(r => r.data).catch(() => null),
       ]);
 
       // Merge into a map keyed by login
@@ -64,67 +129,59 @@ export const discoverRouter = router({
         }
       }
 
-      // Enrich with basic profile info in parallel
-      const enriched = await Promise.all(
-        Array.from(userMap.values()).map(async (u) => {
-          try {
-            const { data: profile } = await octokit.users.getByUsername({ username: u.login });
-            const existingProfile = await db.query.developerProfileCache.findFirst({
-              where: eq(developerProfileCache.username, u.login.toLowerCase()),
-            });
-            return {
-              username: u.login,
-              avatar: u.avatar_url,
-              name: profile.name,
-              bio: profile.bio,
-              publicRepos: profile.public_repos,
-              followers: profile.followers,
-              following: profile.following,
-              isFollower: u.isFollower,
-              isFollowing: u.isFollowing,
-              isMutual: u.isFollower && u.isFollowing,
-              hasGGProfile: !!existingProfile,
-            };
-          } catch {
-            return {
-              username: u.login,
-              avatar: u.avatar_url,
-              name: null,
-              bio: null,
-              publicRepos: 0,
-              followers: 0,
-              following: 0,
-              isFollower: u.isFollower,
-              isFollowing: u.isFollowing,
-              isMutual: u.isFollower && u.isFollowing,
-              hasGGProfile: false,
-            };
-          }
-        })
-      );
+      // Enrich with profile info — 10 concurrent requests
+      const enriched = await batchAll(Array.from(userMap.values()), 10, async (u) => {
+        try {
+          const { data: profile } = await octokit.users.getByUsername({ username: u.login });
+          const existingProfile = await db.query.developerProfileCache.findFirst({
+            where: eq(developerProfileCache.username, u.login.toLowerCase()),
+          });
+          return {
+            username: u.login,
+            avatar: u.avatar_url,
+            name: profile.name,
+            bio: profile.bio,
+            publicRepos: profile.public_repos,
+            followers: profile.followers,
+            following: profile.following,
+            isFollower: u.isFollower,
+            isFollowing: u.isFollowing,
+            isMutual: u.isFollower && u.isFollowing,
+            hasGGProfile: !!existingProfile,
+          };
+        } catch {
+          return {
+            username: u.login,
+            avatar: u.avatar_url,
+            name: null,
+            bio: null,
+            publicRepos: 0,
+            followers: 0,
+            following: 0,
+            isFollower: u.isFollower,
+            isFollowing: u.isFollowing,
+            isMutual: u.isFollower && u.isFollowing,
+            hasGGProfile: false,
+          };
+        }
+      });
 
       enriched.sort((a, b) => b.followers - a.followers);
 
-      // Get seed user's avatar from the first API response or fetch directly
-      const seedFollower = followersRaw.find(u => u.login.toLowerCase() === input.username.toLowerCase());
-      const seedFollowing = followingRaw.find(u => u.login.toLowerCase() === input.username.toLowerCase());
-      let seedAvatar = seedFollower?.avatar_url || seedFollowing?.avatar_url;
-      if (!seedAvatar) {
-        try {
-          const { data: seedProfile } = await octokit.users.getByUsername({ username: input.username });
-          seedAvatar = seedProfile.avatar_url;
-        } catch {
-          seedAvatar = `https://github.com/${input.username}.png?size=128`;
-        }
-      }
+      const seedAvatar = seedProfile?.avatar_url || `https://avatars.githubusercontent.com/${input.username}`;
 
-      return {
+      const result: CachedNetworkData = {
         users: enriched,
         seed: input.username,
         seedAvatar,
         followerCount: followersRaw.length,
         followingCount: followingRaw.length,
       };
+
+      // Cache in background — don't await
+      setCachedNetwork(input.username, result);
+
+      return result;
     }),
 
   /**
@@ -200,7 +257,6 @@ export const discoverRouter = router({
 
   /**
    * Return all GG profiles as lightweight nodes for the graph.
-   * Includes 2D position hints derived from embeddings via PCA/t-SNE on the client.
    */
   getAllGGProfileNodes: publicProcedure
     .input(z.object({
@@ -247,7 +303,9 @@ export const discoverRouter = router({
       });
     }),
 
-  // Keep the old endpoint for backwards compat during transition
+  /**
+   * Expand a single node — fetch their following with caching.
+   */
   getNetworkUsers: protectedProcedure
     .input(z.object({
       username: z.string().min(1),
@@ -255,6 +313,12 @@ export const discoverRouter = router({
       limit: z.number().min(1).max(100).default(50),
     }))
     .query(async ({ input, ctx }) => {
+      // Check cache for expand too
+      const cached = await getCachedNetwork(input.username);
+      if (cached) {
+        return { users: cached.users, seed: input.username, type: input.type };
+      }
+
       const githubService = await createGitHubServiceForUserOperations(ctx.session);
       const octokit = githubService['octokit'];
 
@@ -263,38 +327,42 @@ export const discoverRouter = router({
         per_page: input.limit,
       });
 
-      // Enrich with basic profile info in parallel
-      const enriched = await Promise.all(
-        data.map(async (u: { login: string; avatar_url: string; html_url: string }) => {
-          try {
-            const { data: profile } = await octokit.users.getByUsername({ username: u.login });
-            const existingProfile = await db.query.developerProfileCache.findFirst({
-              where: eq(developerProfileCache.username, u.login.toLowerCase()),
-            });
-            return {
-              username: u.login,
-              avatar: u.avatar_url,
-              name: profile.name,
-              bio: profile.bio,
-              publicRepos: profile.public_repos,
-              followers: profile.followers,
-              following: profile.following,
-              hasGGProfile: !!existingProfile,
-            };
-          } catch {
-            return {
-              username: u.login,
-              avatar: u.avatar_url,
-              name: null,
-              bio: null,
-              publicRepos: 0,
-              followers: 0,
-              following: 0,
-              hasGGProfile: false,
-            };
-          }
-        })
-      );
+      // Enrich — 10 concurrent requests
+      const enriched = await batchAll(data, 10, async (u: { login: string; avatar_url: string; html_url: string }) => {
+        try {
+          const { data: profile } = await octokit.users.getByUsername({ username: u.login });
+          const existingProfile = await db.query.developerProfileCache.findFirst({
+            where: eq(developerProfileCache.username, u.login.toLowerCase()),
+          });
+          return {
+            username: u.login,
+            avatar: u.avatar_url,
+            name: profile.name,
+            bio: profile.bio,
+            publicRepos: profile.public_repos,
+            followers: profile.followers,
+            following: profile.following,
+            isFollower: false,
+            isFollowing: true,
+            isMutual: false,
+            hasGGProfile: !!existingProfile,
+          };
+        } catch {
+          return {
+            username: u.login,
+            avatar: u.avatar_url,
+            name: null,
+            bio: null,
+            publicRepos: 0,
+            followers: 0,
+            following: 0,
+            isFollower: false,
+            isFollowing: true,
+            isMutual: false,
+            hasGGProfile: false,
+          };
+        }
+      });
 
       enriched.sort((a, b) => b.followers - a.followers);
 

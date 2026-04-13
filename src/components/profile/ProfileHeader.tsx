@@ -50,19 +50,21 @@ export function ProfileHeader({ username, profile, totalScore, profileStyles, ch
           >
             {username}
           </a>
-          <span
-            data-testid="profile-header-score-badge"
-            className="text-base font-medium text-[#888]"
-            style={profileStyles?.primaryColor ? { color: profileStyles.primaryColor } : undefined}
-          >
-            {totalScore}
-          </span>
-          {crackedInfo.isCracked && (
+          {crackedInfo.isCracked ? (
             <span
-              className={`text-[13px] font-semibold uppercase tracking-[1px] ${crackedInfo.colors.text}`}
+              data-testid="profile-header-score-badge"
+              className={`text-base font-semibold uppercase tracking-[1px] ${crackedInfo.colors.text}`}
               style={profileStyles?.primaryColor ? { color: profileStyles.primaryColor } : undefined}
             >
               cracked
+            </span>
+          ) : (
+            <span
+              data-testid="profile-header-score-badge"
+              className="text-base font-medium text-[#888]"
+              style={profileStyles?.primaryColor ? { color: profileStyles.primaryColor } : undefined}
+            >
+              {totalScore}
             </span>
           )}
         </div>

@@ -39,15 +39,6 @@ function NetworkExplorer() {
   const hint = useSessionHint();
   const [seedUsername, setSeedUsername] = useState('');
   const [activeUsername, setActiveUsername] = useState('');
-  const [hydrated, setHydrated] = useState(false);
-
-  // Apply session hint after hydration to avoid SSR mismatch
-  useEffect(() => {
-    if (!hydrated && hint?.githubUsername) {
-      setSeedUsername(hint.githubUsername);
-      setHydrated(true);
-    }
-  }, [hint, hydrated]);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('graph');
   const [discoverMode, setDiscoverMode] = useState<DiscoverMode>('network');
@@ -90,11 +81,15 @@ function NetworkExplorer() {
     }
   }, [seedUsername]);
 
-  // Auto-trigger search once session hint is applied
+  // Auto-search with session username on mount
   useEffect(() => {
-    if (hydrated && seedUsername && !activeUsername) handleSearch();
+    if (hint?.githubUsername && !activeUsername) {
+      setSeedUsername(hint.githubUsername);
+      setActiveUsername(hint.githubUsername);
+      setDiscoverMode('network');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated]);
+  }, [hint?.githubUsername]);
 
   // --- Derived data ---
   const semanticUsers: NetworkUser[] = useMemo(() =>

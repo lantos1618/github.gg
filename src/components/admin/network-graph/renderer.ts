@@ -32,11 +32,8 @@ interface RenderOptions {
   isNodeFilteredOut: (node: GraphNode) => boolean;
 }
 
-// Cache the context to avoid repeated getContext calls + avoid resizing every frame
-let _cachedCtx: CanvasRenderingContext2D | null = null;
-let _cachedCanvas: HTMLCanvasElement | null = null;
-let _lastW = 0;
-let _lastH = 0;
+// WeakMap avoids module-level state issues with HMR/SSR
+const ctxCache = new WeakMap<HTMLCanvasElement, CanvasRenderingContext2D>();
 
 /**
  * Full Canvas2D render pass — optimized for 3k+ nodes / 20k+ edges.
@@ -44,24 +41,23 @@ let _lastH = 0;
 export function renderGraph(opts: RenderOptions) {
   const { canvas, nodes, edges, viewBox: vb, dimensions, hoveredNode, selectedNodes, searchMatches, edgeFilter, isNodeFilteredOut } = opts;
 
-  // Cache context — alpha:false skips compositing with page background
-  if (_cachedCanvas !== canvas) {
-    _cachedCtx = canvas.getContext('2d', { alpha: false }) as CanvasRenderingContext2D;
-    _cachedCanvas = canvas;
+  // Cache context per canvas — alpha:false skips compositing with page background
+  let ctx = ctxCache.get(canvas);
+  if (!ctx) {
+    ctx = canvas.getContext('2d', { alpha: false }) as CanvasRenderingContext2D;
+    if (!ctx) return;
+    ctxCache.set(canvas, ctx);
   }
-  const ctx = _cachedCtx;
-  if (!ctx) return;
 
   const dpr = window.devicePixelRatio || 1;
   const { width, height } = dimensions;
 
   // Only resize canvas when dimensions actually change (resizing clears + is expensive)
-  const targetW = width * dpr;
-  const targetH = height * dpr;
+  const targetW = Math.round(width * dpr);
+  const targetH = Math.round(height * dpr);
   if (canvas.width !== targetW || canvas.height !== targetH) {
     canvas.width = targetW;
     canvas.height = targetH;
-    _lastW = 0; // force redraw
   }
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

@@ -11,13 +11,14 @@ import { renderGraph } from './renderer';
 export interface NetworkGraphProps {
   users: NetworkUser[];
   seed: string;
+  seedAvatar?: string;
   semanticUsers?: NetworkUser[];
   edgeFilter?: EdgeFilter;
   onExpandNode?: (username: string) => Promise<NetworkUser[] | null>;
   onSelectionChange?: (selected: Set<string>) => void;
 }
 
-export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandNode, onSelectionChange }: NetworkGraphProps) {
+export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilter, onExpandNode, onSelectionChange }: NetworkGraphProps) {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -34,6 +35,7 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
   const [searchQuery, setSearchQuery] = useState('');
   const [maxDepth, setMaxDepth] = useState<number>(Infinity);
   const [expandAllProgress, setExpandAllProgress] = useState<{ current: number; total: number } | null>(null);
+  const [springScale, setSpringScale] = useState(1.0);
   const panStart = useRef({ x: 0, y: 0, vx: 0, vy: 0 });
   const iterationRef = useRef(0);
   const initializedForRef = useRef<string>('');
@@ -78,7 +80,7 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
       id: seed, x: cx, y: cy, vx: 0, vy: 0,
       radius: getNodeRadius(0, true), color: PALETTE.seed, isSeed: true,
       isExpanded: true, isLoading: false,
-      avatar: `https://github.com/${seed}.png?size=128`,
+      avatar: seedAvatar || `https://avatars.githubusercontent.com/${seed}`,
       user: null, hidden: false,
     });
     existingIds.add(seed);
@@ -140,7 +142,7 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
     }
     autoFitEnabledRef.current = true;
     setStructureVersion(v => v + 1);
-  }, [users, seed, semanticUsers, dimensions]);
+  }, [users, seed, seedAvatar, semanticUsers, dimensions]);
 
   // --- Node expansion ---
   const addNodes = useCallback((parentId: string, newUsers: NetworkUser[]) => {
@@ -343,6 +345,7 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
         dragNode,
         iteration: iterationRef.current,
         isNodeFilteredOut,
+        springScale,
       });
       quadTreeRef.current = quadTree;
       iterationRef.current = nextIteration;
@@ -372,7 +375,7 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
     };
     animFrameRef.current = requestAnimationFrame(tick);
     return () => { running = false; cancelAnimationFrame(animFrameRef.current); };
-  }, [dimensions, dragNode, hoveredNode, selectedNodes, searchMatches, edgeFilter, isNodeFilteredOut]);
+  }, [dimensions, dragNode, hoveredNode, selectedNodes, searchMatches, edgeFilter, isNodeFilteredOut, springScale]);
 
   // --- Event handlers ---
   useEffect(() => {
@@ -509,6 +512,12 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
     iterationRef.current = Math.max(0, iterationRef.current - 50);
   }, [isFullscreen]);
 
+  // Re-settle simulation when spring scale changes
+  useEffect(() => {
+    iterationRef.current = Math.max(0, iterationRef.current - 80);
+    autoFitEnabledRef.current = true;
+  }, [springScale]);
+
   // --- Render ---
   return (
     <div
@@ -522,8 +531,8 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
           <div className="flex gap-3 text-[11px] text-[#888] font-medium">
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#111]" /> Seed</span>
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full border-[1.5px] border-[#3b82f6] bg-white" /> Router</span>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#22863a]" /> GG</span>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#c8c8c8]" /> New</span>
+            <span className="flex items-center gap-1.5"><span className="text-[#22863a] font-semibold">aa</span> GG</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#94a3b8]" /> New</span>
             {semanticUsers && semanticUsers.length > 0 && (
               <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#8b5cf6] rounded" style={{ borderTop: '1px dashed #8b5cf6' }} /> Similar</span>
             )}
@@ -555,6 +564,11 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
               <button onClick={() => setMaxDepth(d => { if (d === Infinity) return Infinity; return d + 1 > currentMaxDepth ? Infinity : d + 1; })} disabled={maxDepth === Infinity} className="px-1.5 py-0.5 text-[11px] font-bold text-[#888] hover:text-[#111] disabled:opacity-30 transition-colors">+</button>
             </div>
           )}
+          <div className="flex items-center gap-0.5 bg-white/90 border border-[#e0e0e0] rounded overflow-hidden" title="Link distance">
+            <button onClick={() => setSpringScale(s => Math.max(0.3, +(s - 0.2).toFixed(1)))} disabled={springScale <= 0.3} className="px-1.5 py-0.5 text-[11px] font-bold text-[#888] hover:text-[#111] disabled:opacity-30 transition-colors">&minus;</button>
+            <span className="px-1 text-[10px] font-mono text-[#666] min-w-[28px] text-center">{springScale === 1.0 ? '1x' : `${springScale.toFixed(1)}x`}</span>
+            <button onClick={() => setSpringScale(s => Math.min(3.0, +(s + 0.2).toFixed(1)))} disabled={springScale >= 3.0} className="px-1.5 py-0.5 text-[11px] font-bold text-[#888] hover:text-[#111] disabled:opacity-30 transition-colors">+</button>
+          </div>
           {expandAllProgress ? (
             <button onClick={cancelExpandAll} className="px-2 py-1 text-[11px] font-medium rounded bg-[#111] text-white border border-[#111] hover:bg-[#333] transition-colors">
               {expandAllProgress.current}/{expandAllProgress.total} &times;

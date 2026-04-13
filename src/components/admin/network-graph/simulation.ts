@@ -8,6 +8,7 @@ interface SimulationOptions {
   dragNode: string | null;
   iteration: number;
   isNodeFilteredOut: (node: GraphNode) => boolean;
+  springScale?: number;
 }
 
 /**
@@ -16,7 +17,7 @@ interface SimulationOptions {
  * Returns the quadtree for use in hit testing.
  */
 export function simulateTick(opts: SimulationOptions): { quadTree: QuadTree; nextIteration: number } {
-  const { nodes: allNodes, edges, dimensions, dragNode, iteration, isNodeFilteredOut } = opts;
+  const { nodes: allNodes, edges, dimensions, dragNode, iteration, isNodeFilteredOut, springScale = 1.0 } = opts;
   const nodes = allNodes.filter(n => !n.hidden && !isNodeFilteredOut(n));
   if (nodes.length === 0) {
     return { quadTree: new QuadTree({ x: 0, y: 0, w: 1, h: 1 }), nextIteration: iteration + 1 };
@@ -30,7 +31,7 @@ export function simulateTick(opts: SimulationOptions): { quadTree: QuadTree; nex
 
   const repulsion = (4000 + n * 100) * alpha;
   const springK = 0.01;
-  const springLen = 160 + Math.sqrt(n) * 14;
+  const springLen = (160 + Math.sqrt(n) * 14) * springScale;
   const damping = 0.82;
   const cx = dimensions.width / 2;
   const cy = dimensions.height / 2;

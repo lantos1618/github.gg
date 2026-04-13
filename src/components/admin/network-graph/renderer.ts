@@ -226,7 +226,6 @@ export function renderGraph(opts: RenderOptions) {
         else if (hovered) ringColor = '#111';
         else if (deg >= 2) ringColor = PALETTE.ringMutual;
         else if (node.isExpanded) ringColor = PALETTE.ringExpanded;
-        else if (node.color === PALETTE.ggProfile) ringColor = PALETTE.ggProfile;
 
         let ringWidth = 1.5;
         if (isSearchHit || selected) ringWidth = 3;
@@ -284,8 +283,9 @@ export function renderGraph(opts: RenderOptions) {
 
       // Labels
       if (showLabel) {
-        ctx.fillStyle = hovered ? PALETTE.label : PALETTE.labelMuted;
-        ctx.font = `${node.isSeed || hovered || isMutualNode ? 600 : 400} ${node.isSeed ? 11 : 9}px sans-serif`;
+        const isGG = node.color === PALETTE.ggProfile;
+        ctx.fillStyle = hovered ? PALETTE.label : isGG ? PALETTE.ggProfile : PALETTE.labelMuted;
+        ctx.font = `${node.isSeed || hovered || isMutualNode || isGG ? 600 : 400} ${node.isSeed ? 11 : 9}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         const label = node.id.length > 14 ? node.id.slice(0, 12) + '\u2026' : node.id;

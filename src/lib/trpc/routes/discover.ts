@@ -105,9 +105,23 @@ export const discoverRouter = router({
 
       enriched.sort((a, b) => b.followers - a.followers);
 
+      // Get seed user's avatar from the first API response or fetch directly
+      const seedFollower = followersRaw.find(u => u.login.toLowerCase() === input.username.toLowerCase());
+      const seedFollowing = followingRaw.find(u => u.login.toLowerCase() === input.username.toLowerCase());
+      let seedAvatar = seedFollower?.avatar_url || seedFollowing?.avatar_url;
+      if (!seedAvatar) {
+        try {
+          const { data: seedProfile } = await octokit.users.getByUsername({ username: input.username });
+          seedAvatar = seedProfile.avatar_url;
+        } catch {
+          seedAvatar = `https://github.com/${input.username}.png?size=128`;
+        }
+      }
+
       return {
         users: enriched,
         seed: input.username,
+        seedAvatar,
         followerCount: followersRaw.length,
         followingCount: followingRaw.length,
       };

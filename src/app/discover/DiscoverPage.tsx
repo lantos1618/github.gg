@@ -256,6 +256,7 @@ function NetworkExplorer() {
               <NetworkGraph
                 users={currentNetwork.users}
                 seed={currentNetwork.seed}
+                seedAvatar={currentNetwork.seedAvatar}
                 semanticUsers={semanticUsers}
                 edgeFilter={edgeFilter}
                 onExpandNode={handleExpandNode}

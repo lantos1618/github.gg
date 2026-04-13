@@ -158,8 +158,6 @@ export const profileRouter = router({
       let lockAcquired = false;
 
       try {
-        yield { type: 'progress', progress: 0, message: 'Starting profile generation...' };
-
         // 1. Check for recently generated profile (within last 5 minutes) to prevent spam/retries
         const recentProfile = await db
           .select()
@@ -188,14 +186,16 @@ export const profileRouter = router({
           }
         }
 
-        // 2. Acquire generation lock to prevent concurrent generations for the same user
+        // 2. Acquire generation lock BEFORE first yield to prevent double-start from reconnects
         const { acquireGenerationLock } = await import('@/lib/rate-limit');
         lockAcquired = await acquireGenerationLock(lockKey, 300);
 
         if (!lockAcquired) {
-          yield { type: 'error', message: 'A profile generation is already in progress for this user. Please wait for it to complete.' };
+          yield { type: 'already_in_progress', message: 'A profile generation is already in progress for this user.' };
           return;
         }
+
+        yield { type: 'progress', progress: 0, message: 'Starting profile generation...' };
 
         // Check for active subscription
         const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);

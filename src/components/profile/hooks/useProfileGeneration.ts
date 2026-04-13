@@ -112,6 +112,14 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
           setSubscriptionInput(null);
           utils.profile.publicGetProfile.invalidate({ username });
           utils.profile.getProfileVersions.invalidate({ username });
+        } else if (event.type === 'already_in_progress') {
+          // Another generation is running — poll for its completion instead of erroring
+          setShouldGenerate(false);
+          setSubscriptionInput(null);
+          setSseStatus('processing');
+          setCurrentStep('Generation in progress, waiting for results...');
+          addLog('Generation already running, waiting for it to finish...', 'info');
+          pollForRecovery('Generation timed out. Please try again.');
         } else if (event.type === 'error') {
           let message = sanitizeText(event.message || 'Failed to generate profile');
           if (message.includes('No original (non-forked) public repositories')) {

@@ -122,7 +122,7 @@ export function renderGraph(opts: RenderOptions) {
 
     // Arrowheads (skip when edges are tiny on screen)
     if (dist * scale > 20) {
-      const arrowColor = hovered ? PALETTE.edgeActive : isMutualEdge ? PALETTE.edgeMutual : '#bbb';
+      const arrowColor = hovered ? PALETTE.edgeActive : isMutualEdge ? PALETTE.edgeMutual : PALETTE.ring;
       if (edge.direction === 'following' || edge.direction === 'mutual' || edge.type === 'social') {
         const t = 1;
         const tx = 2 * (1 - t) * (cpx - startX) + 2 * t * (endX - cpx);

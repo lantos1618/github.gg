@@ -349,7 +349,7 @@ function NetworkTable({ users, semanticUsers }: { users: NetworkUser[]; semantic
             <td className="py-2 text-[#888] text-base line-clamp-1 max-w-xs hidden sm:table-cell">{u.bio || '\u2014'}</td>
             <td className="py-2 text-center">
               {u.isMutual ? (
-                <span className="text-[#e8a838] font-semibold text-[13px]">Mutual</span>
+                <span className="text-[#3b82f6] font-semibold text-[13px]">Mutual</span>
               ) : u.isFollowing ? (
                 <span className="text-[#888] text-[13px]">Following</span>
               ) : (

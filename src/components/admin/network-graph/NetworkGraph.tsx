@@ -132,7 +132,13 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
     nodesRef.current = nodes;
     edgesRef.current = edges;
     iterationRef.current = 0;
-    viewBoxRef.current = { x: 0, y: 0, w: dimensions.width, h: dimensions.height };
+    // Only reset viewBox on first build — subsequent rebuilds (e.g. semanticUsers arriving)
+    // keep the current view to avoid avatar flash from zoom reset
+    const isFirstBuild = viewBoxRef.current.w === dimensions.width && viewBoxRef.current.x === 0;
+    if (isFirstBuild) {
+      viewBoxRef.current = { x: 0, y: 0, w: dimensions.width, h: dimensions.height };
+    }
+    autoFitEnabledRef.current = true;
     setStructureVersion(v => v + 1);
   }, [users, seed, semanticUsers, dimensions]);
 
@@ -292,26 +298,28 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
     );
     if (expandable.length === 0) { expandAllRef.current = false; return; }
 
+    let completed = 0;
     setExpandAllProgress({ current: 0, total: expandable.length });
 
-    for (let i = 0; i < expandable.length; i++) {
+    const BATCH = 5;
+    for (let i = 0; i < expandable.length; i += BATCH) {
       if (!expandAllRef.current) break;
-      const node = expandable[i];
-      if (node.isExpanded || node.isLoading) {
-        setExpandAllProgress({ current: i + 1, total: expandable.length });
-        continue;
-      }
-      node.isLoading = true;
+      const batch = expandable.slice(i, i + BATCH).filter(n => !n.isExpanded && !n.isLoading);
+      for (const node of batch) { node.isLoading = true; }
       setStructureVersion(v => v + 1);
-      try {
-        const newUsers = await onExpandNode(node.id);
-        if (newUsers) addNodes(node.id, newUsers);
-        else { node.isLoading = false; node.isExpanded = true; setStructureVersion(v => v + 1); }
-      } catch {
-        node.isLoading = false;
-        setStructureVersion(v => v + 1);
-      }
-      setExpandAllProgress({ current: i + 1, total: expandable.length });
+
+      await Promise.all(batch.map(async (node) => {
+        try {
+          const newUsers = await onExpandNode(node.id);
+          if (newUsers) addNodes(node.id, newUsers);
+          else { node.isLoading = false; node.isExpanded = true; setStructureVersion(v => v + 1); }
+        } catch {
+          node.isLoading = false;
+          setStructureVersion(v => v + 1);
+        }
+        completed++;
+        setExpandAllProgress({ current: completed, total: expandable.length });
+      }));
     }
 
     setExpandAllProgress(null);
@@ -513,7 +521,7 @@ export function NetworkGraph({ users, seed, semanticUsers, edgeFilter, onExpandN
         <div className="flex items-center gap-4 pointer-events-auto">
           <div className="flex gap-3 text-[11px] text-[#888] font-medium">
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#111]" /> Seed</span>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full border-[1.5px] border-[#e8a838] bg-white" /> Router</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full border-[1.5px] border-[#3b82f6] bg-white" /> Router</span>
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#22863a]" /> GG</span>
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#c8c8c8]" /> New</span>
             {semanticUsers && semanticUsers.length > 0 && (

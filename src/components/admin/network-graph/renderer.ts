@@ -32,20 +32,42 @@ interface RenderOptions {
   isNodeFilteredOut: (node: GraphNode) => boolean;
 }
 
+// Cache the context to avoid repeated getContext calls + avoid resizing every frame
+let _cachedCtx: CanvasRenderingContext2D | null = null;
+let _cachedCanvas: HTMLCanvasElement | null = null;
+let _lastW = 0;
+let _lastH = 0;
+
 /**
- * Full Canvas2D render pass. Called every frame via requestAnimationFrame.
+ * Full Canvas2D render pass — optimized for 3k+ nodes / 20k+ edges.
  */
 export function renderGraph(opts: RenderOptions) {
   const { canvas, nodes, edges, viewBox: vb, dimensions, hoveredNode, selectedNodes, searchMatches, edgeFilter, isNodeFilteredOut } = opts;
-  const ctx = canvas.getContext('2d');
+
+  // Cache context — alpha:false skips compositing with page background
+  if (_cachedCanvas !== canvas) {
+    _cachedCtx = canvas.getContext('2d', { alpha: false }) as CanvasRenderingContext2D;
+    _cachedCanvas = canvas;
+  }
+  const ctx = _cachedCtx;
   if (!ctx) return;
 
   const dpr = window.devicePixelRatio || 1;
   const { width, height } = dimensions;
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, width, height);
+
+  // Only resize canvas when dimensions actually change (resizing clears + is expensive)
+  const targetW = width * dpr;
+  const targetH = height * dpr;
+  if (canvas.width !== targetW || canvas.height !== targetH) {
+    canvas.width = targetW;
+    canvas.height = targetH;
+    _lastW = 0; // force redraw
+  }
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // White background (since alpha:false)
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, width, height);
 
   const scaleX = width / vb.w;
   const scaleY = height / vb.h;
@@ -55,14 +77,38 @@ export function renderGraph(opts: RenderOptions) {
   ctx.scale(scale, scale);
   ctx.translate(-vb.x, -vb.y);
 
-  // Per-node LOD uses screen-space radius instead of global zoom thresholds
+  // Viewport bounds in world coordinates (for culling)
+  const vpLeft = vb.x;
+  const vpTop = vb.y;
+  const vpRight = vb.x + vb.w;
+  const vpBottom = vb.y + vb.h;
+  const vpPad = 100; // padding so edges near viewport boundary aren't clipped
 
   const degrees = getDegreeCounts(edges);
   const nMap = new Map(nodes.map(n => [n.id, n]));
+  const totalEdges = edges.length;
 
-  // --- Draw Edges ---
+  // --- Draw Edges (batched by style) ---
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
+
+  // At very high edge counts, skip non-hovered basic edges to maintain fps
+  const edgeBudget = 8000;
+  const skipBasicEdges = totalEdges > edgeBudget && !hoveredNode;
+  // Sampling rate: draw roughly edgeBudget out of totalEdges
+  const sampleRate = skipBasicEdges ? edgeBudget / totalEdges : 1;
+  let edgeSampleCounter = 0;
+
+  // Collect hovered edges to draw on top
+  interface EdgePath { startX: number; startY: number; cpx: number; cpy: number; endX: number; endY: number }
+  const hoveredEdges: { edge: GraphEdge; path: EdgePath; isMutual: boolean; isSemantic: boolean }[] = [];
+
+  // Batch: basic edges (one beginPath + stroke)
+  ctx.beginPath();
+  ctx.strokeStyle = PALETTE.edge;
+  ctx.lineWidth = 0.8;
+  ctx.globalAlpha = 0.25;
+  let basicCount = 0;
 
   for (const edge of edges) {
     const src = nMap.get(edge.source);
@@ -79,19 +125,17 @@ export function renderGraph(opts: RenderOptions) {
       }
     }
 
+    // Viewport culling — skip if both endpoints are off-screen
+    if (src.x < vpLeft - vpPad && tgt.x < vpLeft - vpPad) continue;
+    if (src.x > vpRight + vpPad && tgt.x > vpRight + vpPad) continue;
+    if (src.y < vpTop - vpPad && tgt.y < vpTop - vpPad) continue;
+    if (src.y > vpBottom + vpPad && tgt.y > vpBottom + vpPad) continue;
+
     const hovered = hoveredNode === edge.source || hoveredNode === edge.target;
     const isMutualEdge = edge.direction === 'mutual' || ((degrees.get(edge.source) || 0) >= 2 && (degrees.get(edge.target) || 0) >= 2);
     const isSemantic = edge.type === 'semantic';
-    const dist = Math.sqrt((tgt.x - src.x) ** 2 + (tgt.y - src.y) ** 2);
-    const opacity = hovered ? 0.7 : isSemantic ? 0.35 : isMutualEdge ? 0.4 : clamp(1 - dist / 1200, 0.15, 0.6);
 
-    const strokeColor = hovered
-      ? (isSemantic ? PALETTE.edgeSemanticActive : PALETTE.edgeActive)
-      : isSemantic ? PALETTE.edgeSemantic
-      : isMutualEdge ? PALETTE.edgeMutual
-      : PALETTE.edge;
-
-    // Compute shortened curved path (stops at node radius so arrows are visible)
+    // Compute path
     const curvature = isSemantic ? 0.15 : isMutualEdge ? 0.12 : 0.06;
     const pad = 6;
     const dx = tgt.x - src.x;
@@ -110,30 +154,87 @@ export function renderGraph(opts: RenderOptions) {
     const cpx = mx - edy * curvature;
     const cpy = my + edx * curvature;
 
-    ctx.beginPath();
+    // Hovered/mutual/semantic edges drawn separately with unique styles
+    if (hovered || isMutualEdge || isSemantic) {
+      hoveredEdges.push({ edge, path: { startX, startY, cpx, cpy, endX, endY }, isMutual: isMutualEdge, isSemantic });
+      continue;
+    }
+
+    // Sampling: skip some basic edges at high counts
+    if (skipBasicEdges) {
+      edgeSampleCounter += sampleRate;
+      if (edgeSampleCounter < 1) continue;
+      edgeSampleCounter -= 1;
+    }
+
+    // Add to batched basic path
     ctx.moveTo(startX, startY);
     ctx.quadraticCurveTo(cpx, cpy, endX, endY);
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = hovered ? 1.5 : isSemantic ? 1 : isMutualEdge ? 1.2 : 0.8;
-    ctx.globalAlpha = opacity;
+    basicCount++;
+  }
+  if (basicCount > 0) ctx.stroke();
+
+  // Draw mutual edges batched
+  ctx.beginPath();
+  ctx.strokeStyle = PALETTE.edgeMutual;
+  ctx.lineWidth = 1.2;
+  ctx.globalAlpha = 0.4;
+  let mutualCount = 0;
+  for (const { isMutual, isSemantic, path } of hoveredEdges) {
+    if (isMutual && !isSemantic) {
+      ctx.moveTo(path.startX, path.startY);
+      ctx.quadraticCurveTo(path.cpx, path.cpy, path.endX, path.endY);
+      mutualCount++;
+    }
+  }
+  if (mutualCount > 0) ctx.stroke();
+
+  // Draw semantic edges batched (dashed)
+  ctx.beginPath();
+  ctx.strokeStyle = PALETTE.edgeSemantic;
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.35;
+  ctx.setLineDash([4, 3]);
+  let semanticCount = 0;
+  for (const { isSemantic, path } of hoveredEdges) {
+    if (isSemantic) {
+      ctx.moveTo(path.startX, path.startY);
+      ctx.quadraticCurveTo(path.cpx, path.cpy, path.endX, path.endY);
+      semanticCount++;
+    }
+  }
+  if (semanticCount > 0) ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Draw hovered edges individually (need unique highlight style)
+  for (const { edge, path, isSemantic } of hoveredEdges) {
+    const hovered = hoveredNode === edge.source || hoveredNode === edge.target;
+    if (!hovered) continue;
+    ctx.beginPath();
+    ctx.moveTo(path.startX, path.startY);
+    ctx.quadraticCurveTo(path.cpx, path.cpy, path.endX, path.endY);
+    ctx.strokeStyle = isSemantic ? PALETTE.edgeSemanticActive : PALETTE.edgeActive;
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 0.7;
     if (isSemantic) ctx.setLineDash([4, 3]);
     else ctx.setLineDash([]);
     ctx.stroke();
 
-    // Arrowheads (skip when edges are tiny on screen)
+    // Arrowheads for hovered edges
+    const dist = Math.sqrt((path.endX - path.startX) ** 2 + (path.endY - path.startY) ** 2);
     if (dist * scale > 20) {
-      const arrowColor = hovered ? PALETTE.edgeActive : isMutualEdge ? PALETTE.edgeMutual : PALETTE.ring;
+      const isMutualEdge = edge.direction === 'mutual';
+      const arrowColor = PALETTE.edgeActive;
+      ctx.globalAlpha = 1;
       if (edge.direction === 'following' || edge.direction === 'mutual' || edge.type === 'social') {
-        const t = 1;
-        const tx = 2 * (1 - t) * (cpx - startX) + 2 * t * (endX - cpx);
-        const ty = 2 * (1 - t) * (cpy - startY) + 2 * t * (endY - cpy);
-        drawArrow(ctx, endX, endY, Math.atan2(ty, tx), arrowColor);
+        const tx = 2 * (path.endX - path.cpx);
+        const ty = 2 * (path.endY - path.cpy);
+        drawArrow(ctx, path.endX, path.endY, Math.atan2(ty, tx), arrowColor);
       }
-      if (edge.direction === 'follower' || edge.direction === 'mutual') {
-        const t = 0;
-        const tx = 2 * (1 - t) * (cpx - startX) + 2 * t * (endX - cpx);
-        const ty = 2 * (1 - t) * (cpy - startY) + 2 * t * (endY - cpy);
-        drawArrow(ctx, startX, startY, Math.atan2(ty, tx) + Math.PI, arrowColor);
+      if (edge.direction === 'follower' || isMutualEdge) {
+        const tx = 2 * (path.cpx - path.startX);
+        const ty = 2 * (path.cpy - path.startY);
+        drawArrow(ctx, path.startX, path.startY, Math.atan2(ty, tx) + Math.PI, arrowColor);
       }
     }
   }
@@ -141,8 +242,15 @@ export function renderGraph(opts: RenderOptions) {
   ctx.globalAlpha = 1;
 
   // --- Draw Nodes ---
+  ctx.imageSmoothingEnabled = scale > 0.5;
+
   for (const node of nodes) {
     if (node.hidden || isNodeFilteredOut(node)) continue;
+
+    // Viewport culling for nodes
+    if (node.x + node.radius < vpLeft - vpPad || node.x - node.radius > vpRight + vpPad ||
+        node.y + node.radius < vpTop - vpPad || node.y - node.radius > vpBottom + vpPad) continue;
+
     const hovered = hoveredNode === node.id;
     const selected = selectedNodes.has(node.id);
     const deg = degrees.get(node.id) || 0;
@@ -197,7 +305,6 @@ export function renderGraph(opts: RenderOptions) {
       // Avatar
       if (showAvatar) {
         if (node.isSeed && node.id.includes('.')) {
-          // GG label for non-GitHub seeds
           ctx.fillStyle = '#111';
           ctx.fill();
           ctx.fillStyle = 'white';
@@ -352,7 +459,7 @@ export function renderGraph(opts: RenderOptions) {
       if (!node.isExpanded && !node.isLoading) {
         ctx.fillStyle = '#bbb';
         ctx.font = 'italic 7.5px sans-serif';
-        ctx.fillText('click to explore network', 0, cardHeight - 4);
+        ctx.fillText('double-click to explore network', 0, cardHeight - 4);
       }
 
       ctx.restore();

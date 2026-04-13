@@ -4,18 +4,50 @@ import { db } from '@/db';
 import { developerProfileCache, networkCache } from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
-import { formatEmbeddingForPg } from '@/lib/ai/embeddings';
 import type { DeveloperProfile } from '@/lib/types/profile';
+
+import { Octokit } from '@octokit/rest';
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-/** Run promises in batches of `size` for controlled parallelism */
-async function batchAll<T, R>(items: T[], size: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const results: R[] = [];
-  for (let i = 0; i < items.length; i += size) {
-    const batch = items.slice(i, i + size);
-    const batchResults = await Promise.all(batch.map(fn));
-    results.push(...batchResults);
+interface GraphQLUserResult {
+  login: string;
+  name: string | null;
+  bio: string | null;
+  followers: { totalCount: number };
+  following: { totalCount: number };
+  repositories: { totalCount: number };
+}
+
+/**
+ * Batch-fetch user details via GitHub GraphQL API.
+ * One request for up to ~100 users instead of N individual REST calls.
+ * Falls back to empty data on failure (never throws).
+ */
+async function batchGetUserDetails(
+  octokit: Octokit,
+  logins: string[],
+): Promise<Map<string, GraphQLUserResult>> {
+  const results = new Map<string, GraphQLUserResult>();
+  if (logins.length === 0) return results;
+
+  // GraphQL can handle ~100 aliases per query; chunk if needed
+  const CHUNK = 100;
+  for (let i = 0; i < logins.length; i += CHUNK) {
+    const chunk = logins.slice(i, i + CHUNK);
+    // Build aliased query: u0: user(login:"x") { ... }, u1: user(...) ...
+    const fragments = chunk.map((login, idx) =>
+      `u${idx}: user(login: ${JSON.stringify(login)}) { login name bio followers { totalCount } following { totalCount } repositories(privacy: PUBLIC) { totalCount } }`
+    ).join('\n');
+
+    try {
+      const data: Record<string, GraphQLUserResult | null> = await (octokit as any).graphql(`{ ${fragments} }`);
+      for (const val of Object.values(data)) {
+        if (val?.login) results.set(val.login.toLowerCase(), val);
+      }
+    } catch (err) {
+      console.error('GraphQL batch user fetch failed, falling back to basic data:', err);
+    }
   }
   return results;
 }
@@ -129,41 +161,31 @@ export const discoverRouter = router({
         }
       }
 
-      // Enrich with profile info — 10 concurrent requests
-      const enriched = await batchAll(Array.from(userMap.values()), 10, async (u) => {
-        try {
-          const { data: profile } = await octokit.users.getByUsername({ username: u.login });
-          const existingProfile = await db.query.developerProfileCache.findFirst({
-            where: eq(developerProfileCache.username, u.login.toLowerCase()),
-          });
-          return {
-            username: u.login,
-            avatar: u.avatar_url,
-            name: profile.name,
-            bio: profile.bio,
-            publicRepos: profile.public_repos,
-            followers: profile.followers,
-            following: profile.following,
-            isFollower: u.isFollower,
-            isFollowing: u.isFollowing,
-            isMutual: u.isFollower && u.isFollowing,
-            hasGGProfile: !!existingProfile,
-          };
-        } catch {
-          return {
-            username: u.login,
-            avatar: u.avatar_url,
-            name: null,
-            bio: null,
-            publicRepos: 0,
-            followers: 0,
-            following: 0,
-            isFollower: u.isFollower,
-            isFollowing: u.isFollowing,
-            isMutual: u.isFollower && u.isFollowing,
-            hasGGProfile: false,
-          };
-        }
+      // Enrich via single GraphQL batch instead of N REST calls
+      const allLogins = Array.from(userMap.values()).map(u => u.login);
+      const [userDetails, ggProfiles] = await Promise.all([
+        batchGetUserDetails(octokit, allLogins),
+        db.execute(sql`
+          SELECT DISTINCT username FROM developer_profile_cache
+          WHERE username = ANY(${allLogins.map(l => l.toLowerCase())})
+        `).then(rows => new Set((rows as unknown as Array<{ username: string }>).map(r => r.username))),
+      ]);
+
+      const enriched = Array.from(userMap.values()).map(u => {
+        const details = userDetails.get(u.login.toLowerCase());
+        return {
+          username: u.login,
+          avatar: u.avatar_url,
+          name: details?.name || null,
+          bio: details?.bio || null,
+          publicRepos: details?.repositories?.totalCount || 0,
+          followers: details?.followers?.totalCount || 0,
+          following: details?.following?.totalCount || 0,
+          isFollower: u.isFollower,
+          isFollowing: u.isFollowing,
+          isMutual: u.isFollower && u.isFollowing,
+          hasGGProfile: ggProfiles.has(u.login.toLowerCase()),
+        };
       });
 
       enriched.sort((a, b) => b.followers - a.followers);
@@ -327,41 +349,31 @@ export const discoverRouter = router({
         per_page: input.limit,
       });
 
-      // Enrich — 10 concurrent requests
-      const enriched = await batchAll(data, 10, async (u: { login: string; avatar_url: string; html_url: string }) => {
-        try {
-          const { data: profile } = await octokit.users.getByUsername({ username: u.login });
-          const existingProfile = await db.query.developerProfileCache.findFirst({
-            where: eq(developerProfileCache.username, u.login.toLowerCase()),
-          });
-          return {
-            username: u.login,
-            avatar: u.avatar_url,
-            name: profile.name,
-            bio: profile.bio,
-            publicRepos: profile.public_repos,
-            followers: profile.followers,
-            following: profile.following,
-            isFollower: false,
-            isFollowing: true,
-            isMutual: false,
-            hasGGProfile: !!existingProfile,
-          };
-        } catch {
-          return {
-            username: u.login,
-            avatar: u.avatar_url,
-            name: null,
-            bio: null,
-            publicRepos: 0,
-            followers: 0,
-            following: 0,
-            isFollower: false,
-            isFollowing: true,
-            isMutual: false,
-            hasGGProfile: false,
-          };
-        }
+      // Enrich via single GraphQL batch
+      const logins = data.map((u: { login: string }) => u.login);
+      const [userDetails, ggProfiles] = await Promise.all([
+        batchGetUserDetails(octokit, logins),
+        db.execute(sql`
+          SELECT DISTINCT username FROM developer_profile_cache
+          WHERE username = ANY(${logins.map((l: string) => l.toLowerCase())})
+        `).then(rows => new Set((rows as unknown as Array<{ username: string }>).map(r => r.username))),
+      ]);
+
+      const enriched = data.map((u: { login: string; avatar_url: string }) => {
+        const details = userDetails.get(u.login.toLowerCase());
+        return {
+          username: u.login,
+          avatar: u.avatar_url,
+          name: details?.name || null,
+          bio: details?.bio || null,
+          publicRepos: details?.repositories?.totalCount || 0,
+          followers: details?.followers?.totalCount || 0,
+          following: details?.following?.totalCount || 0,
+          isFollower: false,
+          isFollowing: true,
+          isMutual: false,
+          hasGGProfile: ggProfiles.has(u.login.toLowerCase()),
+        };
       });
 
       enriched.sort((a, b) => b.followers - a.followers);

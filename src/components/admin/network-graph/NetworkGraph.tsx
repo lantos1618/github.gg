@@ -330,7 +330,7 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     // Start small, ramp up if fast, cut back if slow/erroring
     let batchSize = 3;
     const MIN_BATCH = 1;
-    const MAX_BATCH = 20;
+    const MAX_BATCH = 50;
     const FAST_THRESHOLD_MS = 2000;
     const SLOW_THRESHOLD_MS = 5000;
 
@@ -357,6 +357,7 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
       }));
 
       const elapsed = performance.now() - t0;
+      const prevSize = batchSize;
 
       // Adapt: fast + no errors → grow, slow or errors → shrink
       if (batchErrors > 0 || elapsed > SLOW_THRESHOLD_MS) {
@@ -364,6 +365,8 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
       } else if (elapsed < FAST_THRESHOLD_MS) {
         batchSize = Math.min(MAX_BATCH, batchSize + 2);
       }
+
+      console.log(`[expand] batch ${batch.length} nodes in ${Math.round(elapsed)}ms | errors: ${batchErrors} | batch size: ${prevSize} → ${batchSize} | progress: ${completed}/${expandable.length}`);
     }
 
     setExpandAllProgress(null);

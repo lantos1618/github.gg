@@ -123,7 +123,11 @@ export const discoverRouter = router({
     .query(async ({ input, ctx }) => {
       // Cache hit returns full enriched data
       const cached = await getCachedNetwork(input.username);
-      if (cached) return cached;
+      if (cached) {
+        console.log(`[discover] cache HIT for ${input.username} (${cached.users.length} users)`);
+        return cached;
+      }
+      console.log(`[discover] cache MISS for ${input.username} — fetching from GitHub`);
 
       const githubService = await createGitHubServiceForUserOperations(ctx.session);
       const octokit = githubService['octokit'];
@@ -331,8 +335,10 @@ export const discoverRouter = router({
       // Check cache
       const cached = await getCachedNetwork(input.username);
       if (cached) {
+        console.log(`[discover:expand] cache HIT for ${input.username} (${cached.users.length} users)`);
         return { users: cached.users, seed: input.username, type: input.type };
       }
+      console.log(`[discover:expand] cache MISS for ${input.username} — fetching from GitHub`);
 
       const githubService = await createGitHubServiceForUserOperations(ctx.session);
       const octokit = githubService['octokit'];

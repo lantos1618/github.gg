@@ -20,44 +20,53 @@ export default function DiscoverPage() {
 }
 
 type DiscoverMode = 'network' | 'explore';
+type ViewMode = 'table' | 'graph';
+
+function ViewToggle({ viewMode, setViewMode }: { viewMode: ViewMode; setViewMode: (v: ViewMode) => void }) {
+  return (
+    <div className="flex gap-4">
+      <TextButton onClick={() => setViewMode('table')} active={viewMode === 'table'} className="pb-1 text-xs font-semibold tracking-[1px] uppercase">
+        Table
+      </TextButton>
+      <TextButton onClick={() => setViewMode('graph')} active={viewMode === 'graph'} className="pb-1 text-xs font-semibold tracking-[1px] uppercase">
+        Graph
+      </TextButton>
+    </div>
+  );
+}
 
 function NetworkExplorer() {
   const hint = useSessionHint();
   const [seedUsername, setSeedUsername] = useState(hint?.githubUsername || '');
   const [activeUsername, setActiveUsername] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<'table' | 'graph'>('graph');
+  const [viewMode, setViewMode] = useState<ViewMode>('graph');
   const [discoverMode, setDiscoverMode] = useState<DiscoverMode>('network');
   const [edgeFilter, setEdgeFilter] = useState<EdgeFilter>({ following: true, followers: true, semantic: true });
   const trpcUtils = trpc.useUtils();
 
   const toggleFilter = (key: keyof EdgeFilter) => setEdgeFilter(prev => ({ ...prev, [key]: !prev[key] }));
 
-  // Unified network — fetches both followers + following merged
+  // --- Data queries ---
   const { data: network, isLoading: networkLoading } = trpc.discover.getUnifiedNetwork.useQuery(
     { username: activeUsername, limit: 50 },
     { enabled: !!activeUsername && discoverMode === 'network' }
   );
 
-  // Semantic similar developers — from pgvector
   const { data: similarData } = trpc.discover.getSimilarDevelopers.useQuery(
     { username: activeUsername, limit: 15 },
     { enabled: !!activeUsername && discoverMode === 'network' }
   );
 
-  // All GG profiles for "Explore All" mode
   const { data: allProfiles, isLoading: allProfilesLoading } = trpc.discover.getAllGGProfileNodes.useQuery(
     { limit: 200 },
     { enabled: discoverMode === 'explore', staleTime: 5 * 60 * 1000 }
   );
 
+  // --- Callbacks ---
   const handleExpandNode = useCallback(async (username: string) => {
     try {
-      const result = await trpcUtils.discover.getNetworkUsers.fetch({
-        username,
-        type: 'following',
-        limit: 30,
-      });
+      const result = await trpcUtils.discover.getNetworkUsers.fetch({ username, type: 'following', limit: 30 });
       return result.users;
     } catch {
       return null;
@@ -72,71 +81,48 @@ function NetworkExplorer() {
     }
   }, [seedUsername]);
 
-  // Auto-trigger search on mount if username is pre-filled from session
   useEffect(() => {
-    if (seedUsername && !activeUsername) {
-      handleSearch();
-    }
+    if (seedUsername && !activeUsername) handleSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Convert semantic users to NetworkUser shape
-  const semanticUsers: NetworkUser[] = (similarData?.users || []).map(u => ({
-    username: u.username,
-    avatar: u.avatar,
-    name: null,
-    bio: u.summary,
-    followers: 0,
-    publicRepos: 0,
-    hasGGProfile: true,
-    similarity: u.similarity,
-    archetype: u.archetype,
-    score: u.score,
-    topSkills: u.topSkills,
-  }));
+  // --- Derived data ---
+  const semanticUsers: NetworkUser[] = useMemo(() =>
+    (similarData?.users || []).map(u => ({
+      username: u.username, avatar: u.avatar, name: null, bio: u.summary,
+      followers: 0, publicRepos: 0, hasGGProfile: true,
+      similarity: u.similarity, archetype: u.archetype, score: u.score, topSkills: u.topSkills,
+    })),
+    [similarData]
+  );
 
-  // Convert all GG profiles to NetworkUser shape for "Explore All"
   const allProfileUsers: NetworkUser[] = useMemo(() =>
     (allProfiles || []).map(u => ({
-      username: u.username,
-      avatar: u.avatar,
-      name: null,
-      bio: u.summary,
-      followers: 0,
-      publicRepos: 0,
-      hasGGProfile: true,
-      archetype: u.archetype,
-      score: u.score,
-      topSkills: u.topSkills,
+      username: u.username, avatar: u.avatar, name: null, bio: u.summary,
+      followers: 0, publicRepos: 0, hasGGProfile: true,
+      archetype: u.archetype, score: u.score, topSkills: u.topSkills,
     })),
     [allProfiles]
   );
 
-  // Show loading skeleton when fetching a new/different user
   const isStaleData = network && network.seed.toLowerCase() !== activeUsername.toLowerCase();
-  const isNetworkLoading = networkLoading && (!network || isStaleData);
   const currentNetwork = isStaleData ? null : network;
-  const totalUsers = currentNetwork ? currentNetwork.users.length : 0;
-  const mutualCount = currentNetwork ? currentNetwork.users.filter(u => u.isMutual).length : 0;
+  const isLoading = discoverMode === 'network'
+    ? (networkLoading && (!network || isStaleData))
+    : (allProfilesLoading && !allProfiles);
 
-  const isLoading = discoverMode === 'network' ? isNetworkLoading : (allProfilesLoading && !allProfiles);
-
-  // Archetype counts for explore mode
   const archetypeCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const u of allProfileUsers) {
-      const arch = u.archetype || 'Unknown';
-      counts.set(arch, (counts.get(arch) || 0) + 1);
-    }
+    for (const u of allProfileUsers) counts.set(u.archetype || 'Unknown', (counts.get(u.archetype || 'Unknown') || 0) + 1);
     return counts;
   }, [allProfileUsers]);
 
+  // --- Render ---
   return (
     <div>
+      {/* Header */}
       <div className="flex items-end justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-[31px] font-semibold text-[#111] tracking-tight leading-none">Discover</h1>
-        </div>
+        <h1 className="text-[31px] font-semibold text-[#111] tracking-tight leading-none">Discover</h1>
         <div className="flex items-end gap-6 flex-shrink-0">
           {discoverMode === 'network' && (
             <input
@@ -147,20 +133,10 @@ function NetworkExplorer() {
               className="w-48 border-0 border-b-2 border-[#ddd] bg-transparent text-base text-[#111] placeholder:text-[#ccc] hover:border-[#888] focus:border-[#111] focus:text-[#000] focus:placeholder:text-[#999] focus:outline-none focus:ring-0 transition-colors pb-1"
             />
           )}
-          <TextButton
-            onClick={() => setDiscoverMode('network')}
-            active={discoverMode === 'network'}
-            size="base"
-            className="pb-1 font-medium"
-          >
+          <TextButton onClick={() => setDiscoverMode('network')} active={discoverMode === 'network'} size="base" className="pb-1 font-medium">
             My Network
           </TextButton>
-          <TextButton
-            onClick={() => setDiscoverMode('explore')}
-            active={discoverMode === 'explore'}
-            size="base"
-            className="pb-1 font-medium"
-          >
+          <TextButton onClick={() => setDiscoverMode('explore')} active={discoverMode === 'explore'} size="base" className="pb-1 font-medium">
             Explore All
           </TextButton>
         </div>
@@ -173,10 +149,7 @@ function NetworkExplorer() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <div className="animate-pulse rounded-md bg-gray-200 h-4 w-48" />
-              <div className="flex gap-4">
-                <span className="pb-1 text-xs font-semibold tracking-[1px] uppercase text-[#888]">Table</span>
-                <span className="pb-1 text-xs font-semibold tracking-[1px] uppercase text-[#111]">Graph</span>
-              </div>
+              <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
             </div>
             <div className="animate-pulse rounded-lg bg-gray-100 w-full" style={{ height: 500 }} />
           </div>
@@ -185,10 +158,7 @@ function NetworkExplorer() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <div className="h-4 w-48 bg-gray-200 rounded" />
-              <div className="flex gap-4">
-                <span className="pb-1 text-xs font-semibold tracking-[1px] uppercase text-[#888]">Table</span>
-                <span className="pb-1 text-xs font-semibold tracking-[1px] uppercase text-[#111]">Graph</span>
-              </div>
+              <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
             </div>
             <div className="rounded-lg bg-gray-100 w-full flex items-center justify-center" style={{ height: 500 }}>
               <div className="space-y-4 text-center">
@@ -208,47 +178,24 @@ function NetworkExplorer() {
           <>
             <div className="flex items-center justify-between mb-3">
               <span className="text-base text-[#888]">
-                {totalUsers} connections of <strong className="text-[#111]">@{currentNetwork.seed}</strong>
+                {currentNetwork.users.length} connections of <strong className="text-[#111]">@{currentNetwork.seed}</strong>
               </span>
               <div className="flex gap-4 items-center">
-                {/* Edge filter toggles */}
                 <div className="flex gap-1.5">
-                  <button
-                    onClick={() => toggleFilter('following')}
-                    className={`px-2 py-0.5 text-[11px] font-semibold rounded transition-colors ${edgeFilter.following ? 'bg-[#111] text-white' : 'bg-[#f0f0f0] text-[#999]'}`}
-                  >
+                  <button onClick={() => toggleFilter('following')} className={`px-2 py-0.5 text-[11px] font-semibold rounded transition-colors ${edgeFilter.following ? 'bg-[#111] text-white' : 'bg-[#f0f0f0] text-[#999]'}`}>
                     Following
                   </button>
-                  <button
-                    onClick={() => toggleFilter('followers')}
-                    className={`px-2 py-0.5 text-[11px] font-semibold rounded transition-colors ${edgeFilter.followers ? 'bg-[#111] text-white' : 'bg-[#f0f0f0] text-[#999]'}`}
-                  >
+                  <button onClick={() => toggleFilter('followers')} className={`px-2 py-0.5 text-[11px] font-semibold rounded transition-colors ${edgeFilter.followers ? 'bg-[#111] text-white' : 'bg-[#f0f0f0] text-[#999]'}`}>
                     Followers
                   </button>
                   {semanticUsers.length > 0 && (
-                    <button
-                      onClick={() => toggleFilter('semantic')}
-                      className={`px-2 py-0.5 text-[11px] font-semibold rounded transition-colors ${edgeFilter.semantic ? 'bg-[#8b5cf6] text-white' : 'bg-[#f0f0f0] text-[#999]'}`}
-                    >
+                    <button onClick={() => toggleFilter('semantic')} className={`px-2 py-0.5 text-[11px] font-semibold rounded transition-colors ${edgeFilter.semantic ? 'bg-[#8b5cf6] text-white' : 'bg-[#f0f0f0] text-[#999]'}`}>
                       Similar
                     </button>
                   )}
                 </div>
                 <span className="w-px h-4 bg-[#e0e0e0]" />
-                <TextButton
-                  onClick={() => setViewMode('table')}
-                  active={viewMode === 'table'}
-                  className="pb-1 text-xs font-semibold tracking-[1px] uppercase"
-                >
-                  Table
-                </TextButton>
-                <TextButton
-                  onClick={() => setViewMode('graph')}
-                  active={viewMode === 'graph'}
-                  className="pb-1 text-xs font-semibold tracking-[1px] uppercase"
-                >
-                  Graph
-                </TextButton>
+                <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
               </div>
             </div>
 
@@ -290,22 +237,7 @@ function NetworkExplorer() {
                   </span>
                 )}
               </span>
-              <div className="flex gap-4">
-                <TextButton
-                  onClick={() => setViewMode('table')}
-                  active={viewMode === 'table'}
-                  className="pb-1 text-xs font-semibold tracking-[1px] uppercase"
-                >
-                  Table
-                </TextButton>
-                <TextButton
-                  onClick={() => setViewMode('graph')}
-                  active={viewMode === 'graph'}
-                  className="pb-1 text-xs font-semibold tracking-[1px] uppercase"
-                >
-                  Graph
-                </TextButton>
-              </div>
+              <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
             </div>
 
             {viewMode === 'graph' ? (
@@ -324,7 +256,7 @@ function NetworkExplorer() {
   );
 }
 
-/** Table for "My Network" mode — social connections + semantic similar */
+/** Table for "My Network" mode */
 function NetworkTable({ users, semanticUsers }: { users: NetworkUser[]; semanticUsers: NetworkUser[] }) {
   return (
     <table className="w-full text-base border-collapse">
@@ -393,7 +325,7 @@ function NetworkTable({ users, semanticUsers }: { users: NetworkUser[]; semantic
   );
 }
 
-/** Table for "Explore All" mode — all GG profiles */
+/** Table for "Explore All" mode */
 function ExploreAllTable({ profiles }: { profiles: Array<{
   username: string;
   avatar: string;

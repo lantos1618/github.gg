@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import type { NetworkUser, GraphNode, GraphEdge, EdgeFilter, EdgeDirection, ViewBox } from './types';
 import { PALETTE, clamp, getNodeRadius, getDegreeCounts } from './types';
 import { QuadTree, hitTestQuadTree } from './quadtree';
@@ -19,7 +18,6 @@ export interface NetworkGraphProps {
 }
 
 export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilter, onExpandNode, onSelectionChange }: NetworkGraphProps) {
-  const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const nodesRef = useRef<GraphNode[]>([]);

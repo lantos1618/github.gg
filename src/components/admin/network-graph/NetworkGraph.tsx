@@ -457,14 +457,20 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
       if (Math.sqrt(dx * dx + dy * dy) < 5) {
         const nodeId = dragNode;
         if (e.metaKey || e.ctrlKey) { window.open(`/${nodeId}`, '_blank'); setDragNode(null); setIsPanning(false); isPanningRef.current = false; return; }
-        if (e.shiftKey) { toggleSelection(nodeId); setDragNode(null); setIsPanning(false); isPanningRef.current = false; return; }
+        // Double-click detection
         if (clickTimerRef.current && lastClickNodeRef.current === nodeId) {
           clearTimeout(clickTimerRef.current); clickTimerRef.current = null; lastClickNodeRef.current = null;
-          router.push(`/${nodeId}`);
+          handleExpand(nodeId);
         } else {
+          // Single click — select (shift to multi-select)
+          if (e.shiftKey) {
+            toggleSelection(nodeId);
+          } else {
+            setSelectedNodes(new Set([nodeId]));
+          }
           if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
           lastClickNodeRef.current = nodeId;
-          clickTimerRef.current = setTimeout(() => { clickTimerRef.current = null; lastClickNodeRef.current = null; handleExpand(nodeId); }, 250);
+          clickTimerRef.current = setTimeout(() => { clickTimerRef.current = null; lastClickNodeRef.current = null; }, 300);
         }
       }
     }
@@ -584,7 +590,7 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
 
       {/* Bottom hints */}
       <div className="absolute bottom-2 right-3 text-[10px] text-[#c0c0c0] z-10 select-none">
-        click expand · double-click profile · cmd+click new tab · shift select · scroll zoom{isFullscreen ? ' · esc exit' : ''}
+        click select · double-click expand · shift multi-select · cmd+click new tab · scroll zoom{isFullscreen ? ' · esc exit' : ''}
       </div>
 
       <canvas

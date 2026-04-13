@@ -127,6 +127,7 @@ export function renderGraph(opts: RenderOptions) {
     if (src.y > vpBottom + vpPad && tgt.y > vpBottom + vpPad) continue;
 
     const hovered = hoveredNode === edge.source || hoveredNode === edge.target;
+    const selected = selectedNodes.has(edge.source) || selectedNodes.has(edge.target);
     const isMutualEdge = edge.direction === 'mutual' || ((degrees.get(edge.source) || 0) >= 2 && (degrees.get(edge.target) || 0) >= 2);
     const isSemantic = edge.type === 'semantic';
 
@@ -149,8 +150,8 @@ export function renderGraph(opts: RenderOptions) {
     const cpx = mx - edy * curvature;
     const cpy = my + edx * curvature;
 
-    // Hovered/mutual/semantic edges drawn separately with unique styles
-    if (hovered || isMutualEdge || isSemantic) {
+    // Hovered/selected/mutual/semantic edges drawn separately with unique styles
+    if (hovered || selected || isMutualEdge || isSemantic) {
       hoveredEdges.push({ edge, path: { startX, startY, cpx, cpy, endX, endY }, isMutual: isMutualEdge, isSemantic });
       continue;
     }
@@ -197,16 +198,19 @@ export function renderGraph(opts: RenderOptions) {
   if (semanticCount > 0) ctx.stroke();
   ctx.setLineDash([]);
 
-  // Draw hovered edges individually (need unique highlight style)
+  // Draw hovered/selected edges individually (need unique highlight style)
   for (const { edge, path, isSemantic } of hoveredEdges) {
     const hovered = hoveredNode === edge.source || hoveredNode === edge.target;
-    if (!hovered) continue;
+    const selected = selectedNodes.has(edge.source) || selectedNodes.has(edge.target);
+    if (!hovered && !selected) continue;
     ctx.beginPath();
     ctx.moveTo(path.startX, path.startY);
     ctx.quadraticCurveTo(path.cpx, path.cpy, path.endX, path.endY);
-    ctx.strokeStyle = isSemantic ? PALETTE.edgeSemanticActive : PALETTE.edgeActive;
-    ctx.lineWidth = 1.5;
-    ctx.globalAlpha = 0.7;
+    ctx.strokeStyle = hovered
+      ? (isSemantic ? PALETTE.edgeSemanticActive : PALETTE.edgeActive)
+      : PALETTE.ringSelected;
+    ctx.lineWidth = hovered ? 1.5 : 1.2;
+    ctx.globalAlpha = hovered ? 0.7 : 0.5;
     if (isSemantic) ctx.setLineDash([4, 3]);
     else ctx.setLineDash([]);
     ctx.stroke();
@@ -215,7 +219,7 @@ export function renderGraph(opts: RenderOptions) {
     const dist = Math.sqrt((path.endX - path.startX) ** 2 + (path.endY - path.startY) ** 2);
     if (dist * scale > 20) {
       const isMutualEdge = edge.direction === 'mutual';
-      const arrowColor = PALETTE.edgeActive;
+      const arrowColor = hovered ? PALETTE.edgeActive : PALETTE.ringSelected;
       ctx.globalAlpha = 1;
       if (edge.direction === 'following' || edge.direction === 'mutual' || edge.type === 'social') {
         const tx = 2 * (path.endX - path.cpx);

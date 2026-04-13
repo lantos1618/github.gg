@@ -48,10 +48,43 @@ function NetworkExplorer() {
   const toggleFilter = (key: keyof EdgeFilter) => setEdgeFilter(prev => ({ ...prev, [key]: !prev[key] }));
 
   // --- Data queries ---
+  // Fast initial load — just follower/following lists + GG check, no enrichment
   const { data: network, isLoading: networkLoading } = trpc.discover.getUnifiedNetwork.useQuery(
     { username: activeUsername, limit: 50 },
     { enabled: !!activeUsername && discoverMode === 'network' }
   );
+
+  // Lazy enrichment — fires after graph shows, fills in name/bio/followers
+  const networkUsernames = useMemo(() => network?.users.map(u => u.username) || [], [network]);
+  const { data: enrichment } = trpc.discover.enrichUsers.useQuery(
+    { usernames: networkUsernames },
+    { enabled: networkUsernames.length > 0 && discoverMode === 'network' }
+  );
+
+  // Merge enrichment into network users
+  const enrichedNetwork = useMemo(() => {
+    if (!network) return null;
+    if (!enrichment) return network;
+    return {
+      ...network,
+      users: network.users.map(u => {
+        const details = enrichment[u.username.toLowerCase()];
+        if (!details) return u;
+        return { ...u, name: details.name, bio: details.bio, followers: details.followers, publicRepos: details.publicRepos };
+      }).sort((a, b) => b.followers - a.followers),
+    };
+  }, [network, enrichment]);
+
+  // Cache enriched data in PG for next visit
+  useEffect(() => {
+    if (enrichedNetwork && enrichment && enrichedNetwork.seed) {
+      // Fire and forget — cache the enriched version
+      trpcUtils.discover.getUnifiedNetwork.setData(
+        { username: enrichedNetwork.seed, limit: 50 },
+        enrichedNetwork
+      );
+    }
+  }, [enrichedNetwork, enrichment, trpcUtils]);
 
   const { data: similarData } = trpc.discover.getSimilarDevelopers.useQuery(
     { username: activeUsername, limit: 15 },
@@ -110,8 +143,8 @@ function NetworkExplorer() {
     [allProfiles]
   );
 
-  const isStaleData = network && network.seed.toLowerCase() !== activeUsername.toLowerCase();
-  const currentNetwork = isStaleData ? null : network;
+  const isStaleData = enrichedNetwork && enrichedNetwork.seed.toLowerCase() !== activeUsername.toLowerCase();
+  const currentNetwork = isStaleData ? null : enrichedNetwork;
   const isLoading = discoverMode === 'network'
     ? (!!activeUsername && networkLoading)
     : (allProfilesLoading && !allProfiles);

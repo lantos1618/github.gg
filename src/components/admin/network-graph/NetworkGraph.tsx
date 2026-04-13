@@ -348,9 +348,9 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
     let idx = 0;
     setExpandAllProgress({ current: 0, total: expandable.length });
 
-    // AIMD (additive increase / multiplicative decrease) adaptive batching
-    // Start small, ramp up if fast, cut back if slow/erroring
-    let batchSize = 3;
+    // AIMD adaptive batching — persisted across sessions via localStorage
+    const storedBatch = typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('gg:expand-batch') || '') : NaN;
+    let batchSize = isNaN(storedBatch) ? 3 : storedBatch;
     const MIN_BATCH = 1;
     const MAX_BATCH = 50;
     const FAST_THRESHOLD_MS = 2000;
@@ -390,6 +390,10 @@ export function NetworkGraph({ users, seed, seedAvatar, semanticUsers, edgeFilte
 
       console.log(`[expand] batch ${batch.length} nodes in ${Math.round(elapsed)}ms | errors: ${batchErrors} | batch size: ${prevSize} → ${batchSize} | progress: ${completed}/${expandable.length}`);
     }
+
+    // Persist learned batch size for next session
+    try { localStorage.setItem('gg:expand-batch', String(batchSize)); } catch {}
+    console.log(`[expand] done — final batch size: ${batchSize}`);
 
     setExpandAllProgress(null);
     expandAllRef.current = false;

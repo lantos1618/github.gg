@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import Link from 'next/link';
 import { TextButton } from '@/components/ui/text-button';
@@ -76,15 +76,14 @@ function NetworkExplorer() {
   }, [network, enrichment]);
 
   // Cache enriched data in PG for next visit
+  const cacheNetwork = trpc.discover.cacheEnrichedNetwork.useMutation();
+  const cachedSeedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (enrichedNetwork && enrichment && enrichedNetwork.seed) {
-      // Fire and forget — cache the enriched version
-      trpcUtils.discover.getUnifiedNetwork.setData(
-        { username: enrichedNetwork.seed, limit: 50 },
-        enrichedNetwork
-      );
+    if (enrichedNetwork && enrichment && enrichedNetwork.seed && cachedSeedRef.current !== enrichedNetwork.seed) {
+      cachedSeedRef.current = enrichedNetwork.seed;
+      cacheNetwork.mutate({ username: enrichedNetwork.seed, data: enrichedNetwork });
     }
-  }, [enrichedNetwork, enrichment, trpcUtils]);
+  }, [enrichedNetwork, enrichment, cacheNetwork]);
 
   const { data: similarData } = trpc.discover.getSimilarDevelopers.useQuery(
     { username: activeUsername, limit: 15 },

@@ -207,6 +207,20 @@ export const discoverRouter = router({
     }),
 
   /**
+   * Cache enriched network data in PG. Called by client after enrichment completes.
+   */
+  cacheEnrichedNetwork: protectedProcedure
+    .input(z.object({
+      username: z.string().min(1),
+      data: z.any(),
+    }))
+    .mutation(async ({ input }) => {
+      await setCachedNetwork(input.username, input.data as CachedNetworkData);
+      console.log(`[discover] cached enriched network for ${input.username}`);
+      return { ok: true };
+    }),
+
+  /**
    * Find developers semantically similar to a given username using pgvector.
    */
   getSimilarDevelopers: publicProcedure

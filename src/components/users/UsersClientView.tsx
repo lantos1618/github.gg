@@ -103,9 +103,10 @@ export function UsersClientView({ initialProfiles, totalProfileCount }: UsersCli
             <table className="w-full text-base border-collapse table-fixed">
               <thead>
                 <tr className="border-b border-[#ddd]">
-                  <td className="w-[40%] py-2 text-xs text-[#999] font-semibold cursor-pointer hover:text-[#111] transition-colors" onClick={() => toggleSort('username')}>
+                  <td className="w-[30%] py-2 text-xs text-[#999] font-semibold cursor-pointer hover:text-[#111] transition-colors" onClick={() => toggleSort('username')}>
                     <span className="inline-flex items-center gap-1">Developer <ArrowUpDown className={`h-3 w-3 ${sortField !== 'username' ? 'invisible' : ''}`} /></span>
                   </td>
+                  <td className="w-[10%] py-2 text-xs text-[#999] font-semibold text-center">Badge</td>
                   <td className="w-[35%] py-2 text-xs text-[#999] font-semibold hidden lg:table-cell">Summary</td>
                   <td className="w-[12%] py-2 text-xs text-[#999] font-semibold text-center cursor-pointer hover:text-[#111] transition-colors" onClick={() => toggleSort('score')}>
                     <span className="inline-flex items-center gap-1">Score <ArrowUpDown className={`h-3 w-3 ${sortField !== 'score' ? 'invisible' : ''}`} /></span>
@@ -132,18 +133,18 @@ export function UsersClientView({ initialProfiles, totalProfileCount }: UsersCli
                             <AvatarImage src={`https://avatars.githubusercontent.com/${profile.username}`} alt={profile.username} />
                             <AvatarFallback className="bg-[#f8f9fa] text-[#aaa] text-[13px]">{profile.username[0]?.toUpperCase()}</AvatarFallback>
                           </Avatar>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-medium text-[#111] group-hover:text-[#666] transition-colors truncate">{profile.username}</span>
-                              {crackedInfo.isCracked && (
-                                <Badge className={`${crackedInfo.colors.bg} text-white border-none px-1.5 py-0 text-[10px] font-semibold uppercase tracking-[0.5px] flex items-center gap-0.5`}>
-                                  {isSpecial ? <Heart className="h-2.5 w-2.5 fill-current" /> : <Flame className="h-2.5 w-2.5 fill-current" />}
-                                  <span className="hidden sm:inline">cracked</span>
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
+                          <span className="font-medium text-[#111] group-hover:text-[#666] transition-colors truncate">{profile.username}</span>
                         </Link>
+                      </td>
+                      <td className="py-3 text-center">
+                        {crackedInfo.isCracked && (
+                          <Link href={`/${profile.username}`}>
+                            <Badge className={`${crackedInfo.colors.bg} text-white border-none px-1.5 py-0 text-[10px] font-semibold uppercase tracking-[0.5px] inline-flex items-center gap-0.5`}>
+                              {isSpecial ? <Heart className="h-2.5 w-2.5 fill-current" /> : <Flame className="h-2.5 w-2.5 fill-current" />}
+                              cracked
+                            </Badge>
+                          </Link>
+                        )}
                       </td>
                       <td className="py-3 hidden lg:table-cell">
                         <Link href={`/${profile.username}`}>

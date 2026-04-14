@@ -1,5 +1,5 @@
-import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
+import { GEMINI_PRO } from './models';
 import { z } from 'zod';
 
 const commitAnalysisSchema = z.object({
@@ -107,7 +107,7 @@ ${file.patch ? file.patch.slice(0, 2000) : 'Binary file or no patch available'}
 Your response must be a valid JSON object following the schema provided.`;
 
     const { object, usage } = await generateObject({
-      model: google('models/gemini-3-pro-preview'),
+      model: GEMINI_PRO,
       schema: commitAnalysisSchema,
       messages: [
         { role: 'user', content: prompt },

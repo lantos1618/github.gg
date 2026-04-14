@@ -1,5 +1,5 @@
-import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
+import { GEMINI_FLASH } from './models';
 import { z } from 'zod';
 import type { DeveloperProfile } from '@/lib/types/profile';
 
@@ -76,7 +76,7 @@ ${profile.topRepos?.slice(0, 3).map(r => `- ${r.name}: ${r.reason} (significance
 Be objective and evidence-based. A 100 score means perfect match, 80+ is strong, 60-79 is moderate, below 60 is weak fit.`;
 
   const result = await generateObject({
-    model: google('models/gemini-2.0-flash'),
+    model: GEMINI_FLASH,
     schema: candidateFitSchema,
     prompt,
   });

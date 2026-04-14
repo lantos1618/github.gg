@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user is admin
-    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim());
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
     if (!adminEmails.includes(session.user.email.toLowerCase())) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }

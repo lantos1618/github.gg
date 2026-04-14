@@ -3,6 +3,13 @@ import { useEffect, useRef } from 'react';
 import mermaid from 'mermaid';
 import { parseError } from '@/lib/types/errors';
 
+// Initialize once at module level — calling inside useEffect resets global state
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'default',
+  securityLevel: 'strict',
+});
+
 interface MermaidRendererProps {
   code: string;
   onRenderError?: (error: string) => void;
@@ -15,41 +22,25 @@ export function MermaidRenderer({ code, onRenderError, className = "" }: Mermaid
   useEffect(() => {
     if (!ref.current) return;
 
-    // Debug logging
-    console.log('MermaidRenderer: Rendering diagram with code:', code?.substring(0, 100) + '...');
-
-    // Generate a unique ID for this diagram
     const uniqueId = `mermaid-diagram-${Math.random().toString(36).substr(2, 9)}`;
 
-    try {
-      mermaid.initialize({
-        startOnLoad: false,
-        theme: 'default',
-        securityLevel: 'loose',
-      });
-
-      mermaid.render(uniqueId, code).then(({ svg }) => {
-        console.log('MermaidRenderer: Successfully rendered diagram');
-        if (ref.current) {
-          ref.current.innerHTML = svg;
-          if (onRenderError) onRenderError(''); // clear error
-        }
-      }).catch((err: unknown) => {
-        console.error('MermaidRenderer: Error rendering diagram:', err);
-        const errorMessage = parseError(err);
-        if (ref.current) {
-          ref.current.innerHTML = `<div class='text-red-600'>Invalid Mermaid diagram: ${errorMessage}</div>`;
-        }
-        if (onRenderError) onRenderError(errorMessage);
-      });
-    } catch (err: unknown) {
-      console.error('MermaidRenderer: Error initializing mermaid:', err);
+    mermaid.render(uniqueId, code).then(({ svg }) => {
+      if (ref.current) {
+        ref.current.innerHTML = svg;
+        if (onRenderError) onRenderError('');
+      }
+    }).catch((err: unknown) => {
       const errorMessage = parseError(err);
       if (ref.current) {
-        ref.current.innerHTML = `<div class='text-red-600'>Invalid Mermaid diagram: ${errorMessage}</div>`;
+        // Use textContent to avoid XSS via error messages containing user input
+        ref.current.textContent = '';
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'text-red-600';
+        errorDiv.textContent = `Invalid Mermaid diagram: ${errorMessage}`;
+        ref.current.appendChild(errorDiv);
       }
       if (onRenderError) onRenderError(errorMessage);
-    }
+    });
   }, [code, onRenderError]);
 
   return <div ref={ref} className={className} />;

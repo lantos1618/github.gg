@@ -39,31 +39,33 @@ export function ProfileHeader({ username, profile, totalScore, profileStyles, ch
 
       {/* Info */}
       <div className="min-w-0">
-        {/* Name + Score */}
-        <div className="flex items-baseline gap-3 flex-wrap">
-          <a
-            data-testid="profile-header-github-link"
-            href={`https://github.com/${username}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[31px] font-semibold text-[#111] hover:text-[#666] transition-colors leading-tight"
-            style={profileStyles?.textColor ? { color: profileStyles.textColor } : undefined}
-          >
-            {username}
-          </a>
+        {/* Name */}
+        <a
+          data-testid="profile-header-github-link"
+          href={`https://github.com/${username}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[31px] font-semibold text-[#111] hover:text-[#666] transition-colors leading-tight"
+          style={profileStyles?.textColor ? { color: profileStyles.textColor } : undefined}
+        >
+          {username}
+        </a>
+
+        {/* Badge + Score */}
+        <div className="flex items-center gap-2 mt-1">
           {crackedInfo.isCracked && (
             <span
-              className={`text-base font-semibold uppercase tracking-[1px] ${crackedInfo.colors.text} flex items-center gap-1`}
+              className={`text-sm font-semibold uppercase tracking-[1px] ${crackedInfo.colors.text} flex items-center gap-1`}
               style={profileStyles?.primaryColor ? { color: profileStyles.primaryColor } : undefined}
             >
               {isSpecial ? <Heart className="h-4 w-4 fill-current" /> : <Flame className="h-4 w-4 fill-current" />}
-              <span className="hidden sm:inline">cracked</span>
+              cracked
             </span>
           )}
-          {crackedInfo.isCracked && <span className="text-[#ddd] text-base select-none">|</span>}
+          {crackedInfo.isCracked && <span className="text-[#ddd] text-sm select-none">|</span>}
           <span
             data-testid="profile-header-score-badge"
-            className={`text-base font-medium ${crackedInfo.isCracked ? crackedInfo.colors.text : 'text-[#888]'}`}
+            className={`text-sm font-medium ${crackedInfo.isCracked ? crackedInfo.colors.text : 'text-[#888]'}`}
             style={profileStyles?.primaryColor ? { color: profileStyles.primaryColor } : undefined}
           >
             {totalScore}

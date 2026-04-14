@@ -4,7 +4,7 @@ import { db } from '@/db';
 import { Resend } from 'resend';
 import { developerEmails, repositoryScorecards } from '@/db/schema';
 import type { Octokit } from '@octokit/rest';
-import { google } from '@ai-sdk/google';
+import { GEMINI_PRO } from './models';
 import { generateObject } from 'ai';
 import { developerProfileSchema } from '@/lib/types/profile';
 import { generateScorecardAnalysis, type ScorecardAnalysisResult } from './scorecard';
@@ -333,13 +333,6 @@ export async function* generateDeveloperProfileStreaming({
     const resultsMap = new Map<string, { repoName: string; scorecard: ScorecardAnalysisResult['scorecard']; usage: ScorecardAnalysisResult['usage'] }>();
     let completedCount = 0;
     
-    // Start heartbeat to send progress updates
-    const heartbeatInterval = setInterval(() => {
-      if (completedCount < total) {
-        // Progress updates are handled by the generator yield below
-      }
-    }, 3000);
-
     try {
       // Wait for all promises to settle (with individual timeouts already in place)
       const settledResults = await Promise.allSettled(scorecardPromises);
@@ -356,7 +349,7 @@ export async function* generateDeveloperProfileStreaming({
         }
       });
     } finally {
-      clearInterval(heartbeatInterval);
+      // settled
     }
     
     // Yield progress for each completed repo
@@ -466,7 +459,7 @@ export async function* generateDeveloperProfileStreaming({
     console.log(`🚀 Calling AI model...`);
     const { object, usage } = await Promise.race([
       generateObject({
-        model: google('models/gemini-3-pro-preview'),
+        model: GEMINI_PRO,
         schema: developerProfileSchema,
         messages: [{ role: 'user', content: prompt }],
       }),

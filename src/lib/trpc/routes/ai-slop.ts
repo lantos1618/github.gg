@@ -222,7 +222,7 @@ export const aiSlopRouter = router({
           feature: 'ai-slop',
           repoOwner: repoOwnerNormalized,
           repoName: repoNameNormalized,
-          model: 'gemini-2.5-flash', // Primary model used for chunks
+          model: 'gemini-3.1-flash', // Primary model used for chunks
           inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,
           totalTokens: result.usage.totalTokens,

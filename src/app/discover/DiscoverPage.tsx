@@ -55,7 +55,7 @@ function NetworkExplorer() {
 
   // Lazy enrichment — separate call so getUnifiedNetwork returns fast
   const networkUsernames = useMemo(() => network?.users.map(u => u.username) || [], [network]);
-  const isAlreadyEnriched = network?.users?.[0]?.followers != null && network.users[0].followers > 0;
+  const isAlreadyEnriched = network?.users?.some(u => u.followers > 0) ?? false;
   const { data: enrichment } = trpc.discover.enrichUsers.useQuery(
     { seed: activeUsername, usernames: networkUsernames },
     { enabled: networkUsernames.length > 0 && !isAlreadyEnriched && discoverMode === 'network' }
@@ -69,7 +69,7 @@ function NetworkExplorer() {
       ...network,
       users: network.users.map(u => {
         const d = enrichment[u.username.toLowerCase()];
-        return d ? { ...u, name: d.name, bio: d.bio, followers: d.followers, publicRepos: d.publicRepos } : u;
+        return d ? { ...u, name: d.name, bio: d.bio, followers: d.followers, following: d.following, publicRepos: d.publicRepos } : u;
       }).sort((a, b) => b.followers - a.followers),
     };
   }, [network, enrichment]);

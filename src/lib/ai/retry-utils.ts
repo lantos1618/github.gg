@@ -104,14 +104,12 @@ export async function* awaitWithHeartbeat<T>(
   heartbeatInterval = 2000,
   message?: string
 ): AsyncGenerator<{ type: 'ping'; message?: string }, T, unknown> {
-  let done = false;
-
   // Wrap promise to catch errors and track completion
   const wrappedPromise = promise
     .then(v => ({ status: 'resolved' as const, value: v }))
     .catch(e => ({ status: 'rejected' as const, error: e }));
 
-  while (!done) {
+  while (true) {
     const raceResult = await Promise.race([
       wrappedPromise,
       new Promise<{ status: 'timeout' }>(resolve =>

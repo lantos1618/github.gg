@@ -142,7 +142,7 @@ export const wikiRouter = router({
             feature: 'wiki_generation',
             repoOwner: owner,
             repoName: repo,
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3.1-flash',
             inputTokens: wikiResult.usage.inputTokens,
             outputTokens: wikiResult.usage.outputTokens,
             totalTokens: wikiResult.usage.totalTokens,
@@ -236,11 +236,12 @@ export const wikiRouter = router({
       repo: z.string(),
       slug: z.string(),
       version: z.number().optional(),
-      userId: z.string().optional(),
-      username: z.string().optional(),
     }))
-    .mutation(async ({ input }) => {
-      const { owner, repo, slug, version, userId, username } = input;
+    .mutation(async ({ input, ctx }) => {
+      const { owner, repo, slug, version } = input;
+      // Derive identity from session — never trust caller-supplied userId
+      const userId = ctx.session?.user?.id ?? undefined;
+      const username = ctx.session?.user?.name ?? undefined;
 
       try {
         const success = await incrementViewCount(owner, repo, slug, version, userId, username);

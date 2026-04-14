@@ -39,7 +39,7 @@ export const profileRouter = router({
       }
     }),
 
-  getDeveloperEmail: publicProcedure
+  getDeveloperEmail: protectedProcedure
     .input(z.object({ username: z.string() }))
     .query(async ({ input }) => {
       const { username } = input;
@@ -472,7 +472,7 @@ export const profileRouter = router({
             feature: 'profile',
             repoOwner: normalizedUsername,
             repoName: null,
-            model: 'gemini-3-pro-preview',
+            model: 'gemini-3.1-pro-preview',
             inputTokens: result.usage.inputTokens,
             outputTokens: result.usage.outputTokens,
             totalTokens: result.usage.totalTokens,

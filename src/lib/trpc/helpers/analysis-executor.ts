@@ -148,7 +148,7 @@ export async function executeAnalysisWithVersioning<
     feature,
     repoOwner: repoOwner || null,
     repoName: repoName || null,
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-3.1-pro-preview',
     inputTokens: result.usage.inputTokens,
     outputTokens: result.usage.outputTokens,
     totalTokens: result.usage.totalTokens,

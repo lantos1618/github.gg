@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import remarkRehype from 'remark-rehype';
 import rehypeRaw from 'rehype-raw';
 import rehypeStringify from 'rehype-stringify';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeShiki from '@shikijs/rehype';
 
 export interface Heading {
@@ -55,6 +56,23 @@ export async function renderMarkdownToHtml(markdown: string): Promise<{
     })
     .use(remarkRehype, { allowDangerousHtml: true }) // Convert to HTML AST
     .use(rehypeRaw) // Parse raw HTML in markdown
+    .use(rehypeSanitize, {
+      ...defaultSchema,
+      // Allow class names for syntax highlighting and GFM
+      attributes: {
+        ...defaultSchema.attributes,
+        code: [['className']],
+        span: [['className', 'style']],
+        pre: [['className']],
+        div: [['className']],
+        th: [['align']],
+        td: [['align']],
+      },
+      tagNames: [
+        ...(defaultSchema.tagNames || []),
+        'details', 'summary', 'kbd', 'sup', 'sub', 'mark',
+      ],
+    })
     .use(rehypeShiki, {
       // Use Shiki for syntax highlighting
       themes: {

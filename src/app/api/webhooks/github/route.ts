@@ -5,6 +5,7 @@ import { eq, and, inArray } from 'drizzle-orm';
 import { postPRReviewComment, isPRReviewEnabled } from '@/lib/github/pr-comment-service';
 import { postCommitAnalysisComment, postIssueAnalysisComment, isAnalysisEnabled } from '@/lib/github/commit-issue-comment-service';
 import { createLogger } from '@/lib/logging';
+import { checkGitHubWebhookRateLimit } from '@/lib/webhooks/rate-limiter';
 
 const logger = createLogger('GitHubWebhook');
 
@@ -430,7 +431,8 @@ export async function POST(request: Request) {
     logger.error('No signature found in webhook request', {
       event,
       delivery,
-      headers: Object.fromEntries(request.headers.entries()),
+      contentType: request.headers.get('content-type'),
+      userAgent: request.headers.get('user-agent'),
     });
     return new Response('No signature found', { status: 401 });
   }
@@ -458,6 +460,21 @@ export async function POST(request: Request) {
       } : String(error),
     });
     return new Response('Signature verification failed', { status: 401 });
+  }
+
+  // Rate limit by installation ID after signature is verified
+  try {
+    const parsed = JSON.parse(payload);
+    const installationId = parsed?.installation?.id;
+    if (installationId) {
+      const { allowed } = checkGitHubWebhookRateLimit(installationId);
+      if (!allowed) {
+        logger.warn('Webhook rate limit exceeded', { event, delivery, installationId });
+        return new Response('Rate limit exceeded', { status: 429 });
+      }
+    }
+  } catch {
+    // If payload parsing fails here, webhooks.receive will handle it below
   }
 
   try {

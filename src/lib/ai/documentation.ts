@@ -1,5 +1,5 @@
-import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
+import { GEMINI_PRO } from './models';
 import { z } from 'zod';
 
 // Partial documentation schema for chunks
@@ -175,7 +175,7 @@ Extract and document:
 Your response must be a valid JSON object following the schema provided.`;
 
   const { object, usage } = await generateObject({
-    model: google('models/gemini-3-pro-preview'),
+    model: GEMINI_PRO,
     schema: partialDocumentationSchema,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -243,7 +243,7 @@ Generate complete structured documentation that covers:
 Your response must be a valid JSON object following the schema provided.`;
 
   const { object, usage } = await generateObject({
-    model: google('models/gemini-3-pro-preview'),
+    model: GEMINI_PRO,
     schema: documentationSchema,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -395,7 +395,7 @@ Generate structured documentation that covers:
 Your response must be a valid JSON object following the schema provided.`;
 
     const { object, usage } = await generateObject({
-      model: google('models/gemini-3-pro-preview'),
+      model: GEMINI_PRO,
       schema: documentationSchema,
       messages: [
         { role: 'user', content: prompt },

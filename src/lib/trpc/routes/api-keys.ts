@@ -139,7 +139,7 @@ export const apiKeysRouter = router({
       const [updated] = await db
         .update(publicApiKeys)
         .set(updates)
-        .where(eq(publicApiKeys.id, input.id))
+        .where(and(eq(publicApiKeys.id, input.id), eq(publicApiKeys.userId, ctx.user.id)))
         .returning({
           id: publicApiKeys.id,
           name: publicApiKeys.name,
@@ -174,7 +174,7 @@ export const apiKeysRouter = router({
         });
       }
 
-      await db.delete(publicApiKeys).where(eq(publicApiKeys.id, input.id));
+      await db.delete(publicApiKeys).where(and(eq(publicApiKeys.id, input.id), eq(publicApiKeys.userId, ctx.user.id)));
 
       return { success: true };
     }),

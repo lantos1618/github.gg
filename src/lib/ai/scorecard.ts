@@ -1,6 +1,5 @@
-import { GoogleGenAI } from '@google/genai';
-import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
+import { GEMINI_PRO } from './models';
 import { scorecardSchema, type ScorecardData } from '@/lib/types/scorecard';
 import { chunkFiles, needsChunking, getChunkingSummary, type Chunk } from './chunker';
 
@@ -100,7 +99,7 @@ OUTPUT FORMAT:
 ${files.map(file => `--- ${file.path} ---\n${file.content}`).join('\n\n')}`;
 
   const { object, usage } = await generateObject({
-    model: google('models/gemini-3-pro-preview'),
+    model: GEMINI_PRO,
     schema: scorecardSchema,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -154,7 +153,7 @@ OUTPUT FORMAT:
 ${chunk.files.map(f => `--- ${f.path} ---\n${f.content}`).join('\n\n')}`;
 
   const { object, usage } = await generateObject({
-    model: google('models/gemini-3-pro-preview'),
+    model: GEMINI_PRO,
     schema: scorecardSchema,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -225,7 +224,7 @@ PARTIAL RESULTS:
 ${partialsText}`;
 
   const { object, usage } = await generateObject({
-    model: google('models/gemini-3-pro-preview'),
+    model: GEMINI_PRO,
     schema: scorecardSchema,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -304,21 +303,6 @@ export async function generateScorecardAnalysis({
     };
   } catch (error) {
     console.error('Gemini API error:', error);
-    throw error;
-  }
-}
-
-/**
- * Get available Gemini models (for debugging/development)
- */
-export async function getAvailableModels() {
-  try {
-    const ai = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY,
-    });
-    return await ai.models.list();
-  } catch (error) {
-    console.error('Error fetching models:', error);
     throw error;
   }
 }

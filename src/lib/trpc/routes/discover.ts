@@ -97,7 +97,9 @@ async function setCachedNetwork(username: string, data: CachedNetworkData): Prom
         target: networkCache.username,
         set: { networkData: data as any, updatedAt: new Date() },
       });
-  } catch {}
+  } catch (err) {
+    console.error('[discover] setCachedNetwork failed:', err);
+  }
 }
 
 export const discoverRouter = router({
@@ -159,14 +161,16 @@ export const discoverRouter = router({
 
       const seedAvatar = seedProfile?.avatar_url || `https://avatars.githubusercontent.com/${input.username}`;
 
-      // Don't cache un-enriched data — enrichUsers will cache the full version
-      return {
+      // Cache the skeleton so enrichUsers can merge into it on first visit
+      const skeleton: CachedNetworkData = {
         users,
         seed: input.username,
         seedAvatar,
         followerCount: followersRaw.length,
         followingCount: followingRaw.length,
-      } satisfies CachedNetworkData;
+      };
+      await setCachedNetwork(input.username, skeleton);
+      return skeleton;
     }),
 
   /**
@@ -184,12 +188,13 @@ export const discoverRouter = router({
 
       const details = await batchGetUserDetails(octokit, input.usernames);
 
-      const enriched: Record<string, { name: string | null; bio: string | null; followers: number; publicRepos: number }> = {};
+      const enriched: Record<string, { name: string | null; bio: string | null; followers: number; following: number; publicRepos: number }> = {};
       for (const [key, val] of details) {
         enriched[key] = {
           name: val.name,
           bio: val.bio,
           followers: val.followers.totalCount,
+          following: val.following.totalCount,
           publicRepos: val.repositories.totalCount,
         };
       }
@@ -199,10 +204,12 @@ export const discoverRouter = router({
       if (cached) {
         const updatedUsers = cached.users.map(u => {
           const d = enriched[u.username.toLowerCase()];
-          return d ? { ...u, name: d.name, bio: d.bio, followers: d.followers, publicRepos: d.publicRepos } : u;
+          return d ? { ...u, name: d.name, bio: d.bio, followers: d.followers, following: d.following, publicRepos: d.publicRepos } : u;
         }).sort((a, b) => b.followers - a.followers);
         await setCachedNetwork(input.seed, { ...cached, users: updatedUsers });
         console.log(`[discover] cached enriched data for ${input.seed}`);
+      } else {
+        console.warn(`[discover] no cache entry for ${input.seed} during enrichment — data returned but not persisted`);
       }
 
       return enriched;
@@ -339,8 +346,8 @@ export const discoverRouter = router({
         publicRepos: 0,
         followers: 0,
         following: 0,
-        isFollower: false,
-        isFollowing: true,
+        isFollower: input.type === 'followers',
+        isFollowing: input.type === 'following',
         isMutual: false,
         hasGGProfile: ggProfiles.has(u.login.toLowerCase()),
       }));

@@ -50,6 +50,18 @@ export const scorecardRouter = router({
       try {
         yield { type: 'progress', progress: 0, message: 'Starting scorecard analysis...' };
 
+        // Check subscription before doing any work
+        const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
+        if (!subscription || subscription.status !== 'active') {
+          yield { type: 'error', message: 'Active subscription required for AI features' };
+          return;
+        }
+        const keyInfo = await getApiKeyForUser(ctx.user.id, plan);
+        if (!keyInfo) {
+          yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
+          return;
+        }
+
         yield { type: 'progress', progress: 3, message: 'Authenticating with GitHub...' };
 
         const githubService = await createGitHubServiceForRepo(job.user, job.repo, ctx.session);
@@ -150,15 +162,12 @@ export const scorecardRouter = router({
             };
 
             // Still log token usage even though we didn't create a new version
-            const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
-            const keyInfo = await getApiKeyForUser(ctx.user.id, plan);
-
             await db.insert(tokenUsage).values({
               userId: ctx.user.id,
               feature: 'scorecard',
               repoOwner: repoOwnerNormalized,
               repoName: repoNameNormalized,
-              model: 'gemini-3-pro-preview',
+              model: 'gemini-3.1-pro-preview',
               inputTokens: result.usage.inputTokens,
               outputTokens: result.usage.outputTokens,
               totalTokens: result.usage.totalTokens,
@@ -237,32 +246,21 @@ export const scorecardRouter = router({
 
       const normalizedUser = user.toLowerCase();
 
-      // Resolve actual default branch if no ref provided
+      // Single GitHub API call for access check + default branch resolution
       let ref = input.ref;
-      if (!ref) {
-        try {
-          const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
-          const repoInfo = await githubService.getRepositoryInfo(user, repo);
+      try {
+        const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
+        const repoInfo = await githubService.getRepositoryInfo(user, repo);
 
-          if (repoInfo.private === true && !ctx.session?.user) {
-            return { scorecard: null, cached: false, stale: false, lastUpdated: null, error: 'This repository is private' };
-          }
+        if (repoInfo.private === true && !ctx.session?.user) {
+          return { scorecard: null, cached: false, stale: false, lastUpdated: null, error: 'This repository is private' };
+        }
 
+        if (!ref) {
           ref = repoInfo.defaultBranch || 'main';
-        } catch {
-          return { scorecard: null, cached: false, stale: false, lastUpdated: null, error: 'Unable to access repository' };
         }
-      } else {
-        // Still check access for provided ref
-        try {
-          const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
-          const repoInfo = await githubService.getRepositoryInfo(user, repo);
-          if (repoInfo.private === true && !ctx.session?.user) {
-            return { scorecard: null, cached: false, stale: false, lastUpdated: null, error: 'This repository is private' };
-          }
-        } catch {
-          return { scorecard: null, cached: false, stale: false, lastUpdated: null, error: 'Unable to access repository' };
-        }
+      } catch {
+        return { scorecard: null, cached: false, stale: false, lastUpdated: null, error: 'Unable to access repository' };
       }
 
       const normalizedRepo = repo.toLowerCase();

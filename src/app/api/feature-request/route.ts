@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendFeatureRequestEmail } from '@/lib/email/resend';
+import { checkIPRateLimit } from '@/lib/webhooks/rate-limiter';
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit by IP to prevent abuse
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const { allowed } = checkIPRateLimit(ip);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { email, feature } = body;
 
@@ -22,9 +33,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Cap feature request length to prevent abuse
+    const sanitizedFeature = feature.slice(0, 5000);
+
     await sendFeatureRequestEmail({
       userEmail: email,
-      featureRequest: feature,
+      featureRequest: sanitizedFeature,
     });
 
     return NextResponse.json(

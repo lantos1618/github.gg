@@ -311,7 +311,7 @@ export const diagramRouter = router({
           feature: 'diagram',
           repoOwner: ownerNormalized,
           repoName: repoNormalized,
-          model: 'gemini-3-pro-preview', // Default model used
+          model: 'gemini-3.1-pro-preview', // Default model used
           inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,
           totalTokens: result.usage.totalTokens,

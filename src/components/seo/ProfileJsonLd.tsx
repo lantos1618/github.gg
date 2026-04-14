@@ -20,7 +20,7 @@ export function ProfileJsonLd({ name, username, avatarUrl, bio, url }: ProfileJs
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
     />
   );
 }

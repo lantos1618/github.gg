@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
+import { GEMINI_PRO } from './models';
 import { DiagramType } from '@/lib/types/diagram';
 
 export const diagramSchema = z.object({
@@ -98,7 +98,7 @@ ANALYZE THESE FILES:
 ${files.map((file: { path: string; content: string }) => `--- ${file.path} ---\n${file.content}`).join('\n')}`;
 
     const result = await generateObject({
-      model: google('models/gemini-3-pro-preview'),
+      model: GEMINI_PRO,
       schema: diagramSchema,
       messages: [
         { role: 'user', content: prompt },
@@ -139,7 +139,7 @@ ANALYZE THESE FILES:
 ${files.map((file: { path: string; content: string }) => `--- ${file.path} ---\n${file.content}`).join('\n')}`;
 
   const result = await generateObject({
-    model: google('models/gemini-3-pro-preview'),
+    model: GEMINI_PRO,
     schema: diagramSchema,
     messages: [
       { role: 'user', content: prompt },

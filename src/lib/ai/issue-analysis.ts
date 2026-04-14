@@ -1,5 +1,5 @@
-import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
+import { GEMINI_PRO } from './models';
 import { z } from 'zod';
 
 const issueAnalysisSchema = z.object({
@@ -119,7 +119,7 @@ BE HONEST: If it's a poorly written issue, call it out. If it's excellent, prais
 Your response must be a valid JSON object following the schema provided.`;
 
     const { object, usage } = await generateObject({
-      model: google('models/gemini-3-pro-preview'),
+      model: GEMINI_PRO,
       schema: issueAnalysisSchema,
       messages: [
         { role: 'user', content: prompt },

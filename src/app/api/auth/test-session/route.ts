@@ -22,8 +22,9 @@ function signCookie(value: string, secret: string): string {
  * Body: { username?: string, email?: string }
  */
 export async function POST(request: Request) {
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  // Use explicit opt-in flag — NODE_ENV=production on Vercel preview deployments
+  if (process.env.ENABLE_TEST_SESSION !== 'true') {
+    return NextResponse.json({ error: 'Not available' }, { status: 403 });
   }
 
   const body = await request.json().catch(() => ({}));
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
     // Set the better-auth session cookie with proper signature
     response.cookies.set('better-auth.session_token', signedValue, {
       httpOnly: true,
-      secure: false,
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
       expires: expiresAt,
@@ -99,8 +100,8 @@ export async function POST(request: Request) {
  * DELETE /api/auth/test-session - Clean up test sessions and users
  */
 export async function DELETE() {
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+  if (process.env.ENABLE_TEST_SESSION !== 'true') {
+    return NextResponse.json({ error: 'Not available' }, { status: 403 });
   }
 
   try {

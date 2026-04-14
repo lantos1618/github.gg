@@ -1,7 +1,7 @@
-import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { retryWithBackoff } from './retry-utils';
+import { GEMINI_PRO, GEMINI_FLASH } from './models';
 
 // Schema for AI slop detection
 export const aiSlopSchema = z.object({
@@ -87,7 +87,7 @@ Return JSON with: issues (file, issue, severity), detectedPatterns, aiGeneratedP
 
   return retryWithBackoff(async () => {
     const { object, usage } = await generateObject({
-      model: google('models/gemini-2.5-flash'), // Fast model for chunks
+      model: GEMINI_FLASH, // Fast model for chunks
       schema: partialSlopSchema,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -119,7 +119,7 @@ Generate comprehensive markdown report with metrics (Simplicity, DRY, Clarity, M
 
   return retryWithBackoff(async () => {
     const { object, usage } = await generateObject({
-      model: google('models/gemini-3-pro-preview'), // Quality model for final report
+      model: GEMINI_PRO, // Quality model for final report
       schema: aiSlopSchema,
       messages: [{ role: 'user', content: prompt }],
     });

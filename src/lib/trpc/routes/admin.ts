@@ -9,8 +9,8 @@ import { generateDeveloperProfileStreaming, findAndStoreDeveloperEmail } from '@
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import { TRPCError } from '@trpc/server';
 import { enqueue, dequeue, updateQueueItem, getQueueLength, getUserQueueItems } from '@/lib/analysis/job-store';
-import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
+import { GEMINI_FLASH } from '@/lib/ai/models';
 
 export const adminRouter = router({
   // Admin check
@@ -169,7 +169,7 @@ export const adminRouter = router({
           userId: ctx.user.id, // Admin ID
           feature: 'admin_mass_analysis',
           repoOwner: username,
-          model: 'gemini-3-pro-preview',
+          model: 'gemini-3.1-pro-preview',
           inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,
           totalTokens: result.usage.totalTokens,
@@ -190,7 +190,7 @@ export const adminRouter = router({
     .input(z.object({ text: z.string().min(1).max(10000) }))
     .mutation(async ({ input }) => {
       const { object } = await generateObject({
-        model: google('models/gemini-2.0-flash'),
+        model: GEMINI_FLASH,
         schema: z.object({
           usernames: z.array(z.string()).describe('GitHub usernames extracted from the text'),
         }),
@@ -386,7 +386,7 @@ ${input.text}`,
         inputTokens: u.inputTokens,
         outputTokens: u.outputTokens,
         totalTokens: u.totalTokens,
-        model: u.model || 'gemini-3-pro-preview', // Default model
+        model: u.model || 'gemini-3.1-pro-preview', // Default model
       })));
 
       // Aggregate statistics
@@ -451,7 +451,7 @@ ${input.text}`,
         inputTokens: u.inputTokens,
         outputTokens: u.outputTokens,
         totalTokens: u.totalTokens,
-        model: u.model || 'gemini-3-pro-preview',
+        model: u.model || 'gemini-3.1-pro-preview',
       })));
 
       return {
@@ -517,7 +517,7 @@ ${input.text}`,
           inputTokens: u.inputTokens,
           outputTokens: u.outputTokens,
           totalTokens: u.totalTokens,
-          model: u.model || 'gemini-3-pro-preview',
+          model: u.model || 'gemini-3.1-pro-preview',
         })));
 
         return {
@@ -582,7 +582,7 @@ ${input.text}`,
           inputTokens: u.inputTokens,
           outputTokens: u.outputTokens,
           totalTokens: u.totalTokens,
-          model: u.model || 'gemini-3-pro-preview',
+          model: u.model || 'gemini-3.1-pro-preview',
         });
 
         acc[u.feature].totalTokens += u.totalTokens;

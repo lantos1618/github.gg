@@ -1,154 +1,238 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Suspense, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Shield, Zap, GitBranch } from 'lucide-react';
+import { useAuth } from '@/lib/auth/client';
+import { trpc } from '@/lib/trpc/client';
+import { ChevronDown, Eye, GitPullRequest, Lock, Github, Check, Settings } from 'lucide-react';
 
-export default function InstallPage() {
-  const handleInstall = () => {
-    const appName = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || 'gh-gg-dev';
-    const installUrl = `https://github.com/apps/${appName}/installations/new`;
-    window.open(installUrl, '_blank');
-  };
+const APP_NAME = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || 'gh-gg';
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="container mx-auto px-4 max-w-4xl">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Install GitHub.gg App
-          </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Get enhanced repository analysis with access to private repositories, 
-            real-time webhooks, and automated insights.
-          </p>
-        </div>
+function buildInstallUrl(returnPath?: string | null) {
+  const base = `https://github.com/apps/${APP_NAME}/installations/new`;
+  return returnPath ? `${base}?state=${encodeURIComponent(returnPath)}` : base;
+}
 
-        <div className="grid md:grid-cols-2 gap-8 mb-12">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-blue-500" />
-                Secure & Private
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  Access to private repositories
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  No code or secrets exposed
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  GitHub App permissions only
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
+function InstallContent() {
+  const searchParams = useSearchParams();
+  const { isSignedIn, isLoading: authLoading, signIn } = useAuth();
+  const [showPermissions, setShowPermissions] = useState(false);
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-yellow-500" />
-                Enhanced Features
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  Real-time analysis on pushes
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  Automated PR comments
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  Higher rate limits (5,000 req/hr)
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
+  const returnTo = useMemo(() => {
+    const raw = searchParams.get('state') || searchParams.get('returnTo');
+    if (raw && raw.startsWith('/') && !raw.startsWith('//')) return raw;
+    return null;
+  }, [searchParams]);
 
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Permissions Required</CardTitle>
-            <CardDescription>
-              The GitHub App needs these permissions to provide enhanced analysis:
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <h4 className="font-semibold mb-2">Repository Permissions</h4>
-                <div className="space-y-1">
-                  <Badge variant="secondary">Contents: Read-only</Badge>
-                  <Badge variant="secondary">Metadata: Read-only</Badge>
-                  <Badge variant="secondary">Pull requests: Read & write</Badge>
-                  <Badge variant="secondary">Issues: Read & write</Badge>
-                  <Badge variant="secondary">Commit statuses: Read & write</Badge>
-                </div>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-2">Events</h4>
-                <div className="space-y-1">
-                  <Badge variant="outline">Push</Badge>
-                  <Badge variant="outline">Pull request</Badge>
-                  <Badge variant="outline">Installation</Badge>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+  const installUrl = buildInstallUrl(returnTo);
 
-        <div className="text-center">
-          <Button 
-            onClick={handleInstall} 
-            size="lg" 
-            className="text-lg px-8 py-4"
-          >
-            <GitBranch className="mr-2 h-5 w-5" />
-            Install GitHub.gg App
+  const installationQuery = trpc.webhooks.getInstallationInfo.useQuery(undefined, {
+    enabled: isSignedIn,
+  });
+
+  if (authLoading) {
+    return <Skeleton />;
+  }
+
+  if (!isSignedIn) {
+    return (
+      <Layout>
+        <Hero
+          title="Sign in to connect GitHub"
+          subtitle={
+            returnTo
+              ? `Sign in to unlock ${returnTo} and analyze your private repositories.`
+              : 'Sign in with GitHub to connect your account and analyze private repositories.'
+          }
+        />
+        <div className="mt-8 flex justify-center">
+          <Button size="lg" onClick={() => signIn(returnTo || '/install')} className="text-base px-6 py-6">
+            <Github className="mr-2 h-5 w-5" />
+            Sign in with GitHub
           </Button>
-          <p className="text-sm text-gray-500 mt-4">
-            You&apos;ll be redirected to GitHub to complete the installation
-          </p>
+        </div>
+      </Layout>
+    );
+  }
+
+  const installed = !!installationQuery.data;
+  const manageUrl = installed && installationQuery.data
+    ? `https://github.com/settings/installations/${installationQuery.data.installationId}`
+    : null;
+
+  if (installed && installationQuery.data) {
+    return (
+      <Layout>
+        <Hero
+          title="GitHub is connected"
+          subtitle={`github.gg has access to repos on ${installationQuery.data.accountLogin || 'your account'}.`}
+        />
+
+        <div className="mt-8 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
+          <Check className="h-5 w-5 text-green-600 shrink-0" />
+          <div className="text-sm text-green-900">
+            Connection active. You can access your private repos now.
+          </div>
         </div>
 
-        <div className="mt-12 text-center">
-          <h3 className="text-lg font-semibold mb-4">What happens after installation?</h3>
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="bg-blue-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
-                <span className="text-blue-600 font-bold">1</span>
+        <div className="mt-6 flex flex-wrap gap-3 justify-center">
+          {returnTo ? (
+            <Link href={returnTo}>
+              <Button size="lg">Continue to {returnTo}</Button>
+            </Link>
+          ) : (
+            <Link href="/">
+              <Button size="lg">Go to dashboard</Button>
+            </Link>
+          )}
+          {manageUrl && (
+            <a href={manageUrl} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="lg">
+                <Settings className="mr-2 h-4 w-4" />
+                Manage repositories on GitHub
+              </Button>
+            </a>
+          )}
+        </div>
+      </Layout>
+    );
+  }
+
+  // Signed in, not installed
+  return (
+    <Layout>
+      <Hero
+        title="Connect your GitHub account"
+        subtitle={
+          returnTo
+            ? `Connect GitHub to unlock ${returnTo} and any other private repos you want analyzed.`
+            : 'Connect GitHub to analyze your private repos, generate developer insights, and enable automated PR reviews.'
+        }
+      />
+
+      <div className="mt-8 space-y-3">
+        <ValueProp
+          icon={<Lock className="h-5 w-5 text-blue-600" />}
+          title="Read-only code access"
+          body="We read your code to generate analysis. We never store source code."
+        />
+        <ValueProp
+          icon={<Eye className="h-5 w-5 text-purple-600" />}
+          title="Private repo insights"
+          body="Scorecards, AI wikis, Developer Arena rankings — unlocked for your private repos."
+        />
+        <ValueProp
+          icon={<GitPullRequest className="h-5 w-5 text-green-600" />}
+          title="Automated PR reviews"
+          body="Optional: post AI code reviews as comments on your pull requests."
+        />
+      </div>
+
+      <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="text-sm text-blue-900 leading-relaxed">
+          <span className="font-semibold">Tip:</span> On the next screen, GitHub will default to <em>All repositories</em>. You can choose <span className="font-semibold">Only select repositories</span> and pick just the repos you want analyzed.
+        </div>
+      </div>
+
+      <div className="mt-8 flex flex-col items-center gap-2">
+        <a href={installUrl} className="w-full max-w-sm">
+          <Button size="lg" className="w-full text-base py-6">
+            <Github className="mr-2 h-5 w-5" />
+            Connect GitHub Account
+          </Button>
+        </a>
+        <p className="text-xs text-gray-500">You&apos;ll be taken to GitHub to finish connecting.</p>
+      </div>
+
+      <Collapsible open={showPermissions} onOpenChange={setShowPermissions} className="mt-8">
+        <CollapsibleTrigger className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors mx-auto">
+          <ChevronDown
+            className="h-3 w-3 transition-transform"
+            style={{ transform: showPermissions ? 'rotate(180deg)' : undefined }}
+          />
+          {showPermissions ? 'Hide' : 'View'} technical permissions
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-3">
+          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600 space-y-3">
+            <div>
+              <div className="font-semibold text-gray-700 mb-2">Repository permissions</div>
+              <div className="flex flex-wrap gap-1.5">
+                <Badge variant="secondary">Contents: Read-only</Badge>
+                <Badge variant="secondary">Metadata: Read-only</Badge>
+                <Badge variant="secondary">Pull requests: Read &amp; write</Badge>
+                <Badge variant="secondary">Issues: Read &amp; write</Badge>
+                <Badge variant="secondary">Commit statuses: Read &amp; write</Badge>
               </div>
-              <h4 className="font-medium">Install App</h4>
-              <p className="text-sm text-gray-600">Choose repositories to grant access</p>
             </div>
-            <div className="text-center">
-              <div className="bg-blue-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
-                <span className="text-blue-600 font-bold">2</span>
+            <div>
+              <div className="font-semibold text-gray-700 mb-2">Subscribed events</div>
+              <div className="flex flex-wrap gap-1.5">
+                <Badge variant="outline">Push</Badge>
+                <Badge variant="outline">Pull request</Badge>
+                <Badge variant="outline">Installation</Badge>
               </div>
-              <h4 className="font-medium">Webhook Setup</h4>
-              <p className="text-sm text-gray-600">Receive real-time repository events</p>
             </div>
-            <div className="text-center">
-              <div className="bg-blue-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
-                <span className="text-blue-600 font-bold">3</span>
-              </div>
-              <h4 className="font-medium">Enhanced Analysis</h4>
-              <p className="text-sm text-gray-600">Get insights on pushes and PRs</p>
+            <div className="text-[11px] text-gray-500 pt-1">
+              Read &amp; write on PRs and issues is required to post AI review comments. You can disable PR reviews later in Settings.
             </div>
           </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </Layout>
+  );
+}
+
+function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-gray-50 py-16">
+      <div className="container mx-auto px-4 max-w-xl">{children}</div>
+    </div>
+  );
+}
+
+function Hero({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="text-center">
+      <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">{title}</h1>
+      <p className="text-base text-gray-600 max-w-lg mx-auto leading-relaxed">{subtitle}</p>
+    </div>
+  );
+}
+
+function ValueProp({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
+  return (
+    <div className="flex gap-3 p-3">
+      <div className="shrink-0 mt-0.5">{icon}</div>
+      <div>
+        <div className="font-medium text-gray-900 text-sm">{title}</div>
+        <div className="text-sm text-gray-600 leading-relaxed">{body}</div>
+      </div>
+    </div>
+  );
+}
+
+function Skeleton() {
+  return (
+    <div className="min-h-screen bg-gray-50 py-16">
+      <div className="container mx-auto px-4 max-w-xl">
+        <div className="animate-pulse space-y-4">
+          <div className="h-10 bg-gray-200 rounded w-3/4 mx-auto" />
+          <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto" />
+          <div className="h-12 bg-gray-200 rounded mt-8" />
         </div>
       </div>
     </div>
   );
-} 
+}
+
+export default function InstallPage() {
+  return (
+    <Suspense fallback={<Skeleton />}>
+      <InstallContent />
+    </Suspense>
+  );
+}

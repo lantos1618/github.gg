@@ -27,7 +27,10 @@ function InstallCallbackContent() {
 
     if (setupAction === 'update') {
       setStatus('success');
-      setMessage('GitHub App updated successfully!');
+      const state = searchParams.get('state');
+      const target = state && state.startsWith('/') && !state.startsWith('//') ? state : null;
+      setMessage(target ? `Updated. Taking you back to ${target}...` : 'GitHub App updated successfully!');
+      if (target) setTimeout(() => router.push(target), 1500);
       return;
     }
 
@@ -69,7 +72,14 @@ function InstallCallbackContent() {
 
       if (response.ok) {
         setStatus('success');
-        setMessage('GitHub App installed and linked successfully! You can now access private repositories.');
+        const state = searchParams.get('state');
+        const target = state && state.startsWith('/') && !state.startsWith('//') ? state : null;
+        setMessage(target
+          ? `Installed. Taking you back to ${target}...`
+          : 'GitHub App installed. You can now access private repositories.');
+        if (target) {
+          setTimeout(() => router.push(target), 1500);
+        }
       } else {
         setStatus('error');
         setMessage(data.error || 'Failed to link installation. Please try again.');
@@ -92,7 +102,9 @@ function InstallCallbackContent() {
   };
 
   const handleContinue = () => {
-    router.push('/');
+    const state = searchParams.get('state');
+    const target = state && state.startsWith('/') && !state.startsWith('//') ? state : '/';
+    router.push(target);
   };
 
   const handleRetry = () => {
@@ -127,7 +139,11 @@ function InstallCallbackContent() {
         <CardContent className="text-center">
           {status === 'success' && (
             <Button onClick={handleContinue} className="w-full">
-              Continue to GG
+              {(() => {
+                const state = searchParams.get('state');
+                const target = state && state.startsWith('/') && !state.startsWith('//') ? state : null;
+                return target ? `Continue to ${target}` : 'Continue to github.gg';
+              })()}
             </Button>
           )}
           {status === 'needs-auth' && (

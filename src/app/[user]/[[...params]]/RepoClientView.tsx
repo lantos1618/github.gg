@@ -43,6 +43,14 @@ function RepoClientViewInner({ user, repo, refName, path, files, isLoading, erro
     );
   }
 
+  if (error) {
+    return (
+      <div className="max-w-screen-xl w-full mx-auto px-2 sm:px-4 pt-2 sm:pt-4">
+        <RepoStatus error={{ message: String(error) }} owner={user} repo={repo} />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-screen-xl w-full mx-auto px-2 sm:px-4 pt-2 sm:pt-4">
       {/* File Explorer Tab Button */}
@@ -76,7 +84,6 @@ function RepoClientViewInner({ user, repo, refName, path, files, isLoading, erro
         onClose={() => setIsFileExplorerOpen(false)}
       />
 
-      <RepoStatus error={error ? { message: String(error) } : null} />
     </div>
   );
 }

@@ -147,52 +147,125 @@ export async function createGitHubServiceForRepo(
   repo: string,
   session: BetterAuthSession | null
 ): Promise<GitHubService> {
-  if (!session?.user?.id) {
-    // Even without a session, try repo-owner's installation
+  const { getInstallationIdForRepo, getInstallationToken } = await import('./app');
+
+  const tag = `[gh-auth ${owner}/${repo}]`;
+  const logStep = (step: string, extra?: Record<string, unknown>) => {
+    if (extra) console.log(`${tag} ${step}`, extra);
+    else console.log(`${tag} ${step}`);
+  };
+
+  const getGitHubUsername = (): string | null => {
+    if (!session?.user) return null;
+    const user = session.user as typeof session.user & { githubUsername?: string };
+    return user.githubUsername?.toLowerCase() ?? null;
+  };
+
+  const verifyCollaborator = async (appOctokit: Octokit, username: string): Promise<boolean> => {
     try {
-      const { getInstallationIdForRepo, getInstallationToken } = await import('./app');
-      const installationId = await getInstallationIdForRepo(owner, repo);
-      if (installationId) {
-        const token = await getInstallationToken(installationId);
-        return new GitHubService(new Octokit({ auth: token }));
+      await appOctokit.request('GET /repos/{owner}/{repo}/collaborators/{username}', {
+        owner, repo, username,
+      });
+      return true;
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      logStep('collaborator check failed', { username, status });
+      return false;
+    }
+  };
+
+  // Org-admin fallback: org owners have admin on every repo in the org but may
+  // not appear in the explicit collaborators list. Use the user's OAuth token
+  // (read:org scope) to confirm they're an active admin of the owning org.
+  const verifyOrgAdmin = async (orgLogin: string): Promise<boolean> => {
+    if (!session?.user?.id) return false;
+    try {
+      const oauthOctokit = await GitHubAuthFactory.createWithOAuth(session);
+      if (!oauthOctokit) return false;
+      const { data } = await oauthOctokit.request('GET /user/memberships/orgs/{org}', {
+        org: orgLogin,
+      });
+      return data?.state === 'active' && data?.role === 'admin';
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      logStep('org admin check failed', { org: orgLogin, status });
+      return false;
+    }
+  };
+
+  const username = getGitHubUsername();
+  if (session?.user?.id && !username) {
+    logStep('signed-in user has no githubUsername — collaborator checks will be skipped');
+  }
+
+  // 1. Try the user's own linked GitHub App installation.
+  if (session?.user?.id) {
+    const appService = await GitHubService.createWithApp(session);
+    if (appService) {
+      try {
+        await appService.getRepositoryInfo(owner, repo);
+        logStep('using user-linked installation');
+        return appService;
+      } catch {
+        logStep('user-linked installation cannot access repo');
       }
-    } catch {
-      // Fall through
     }
-    return GitHubService.createPublic();
   }
 
-  // 1. Try logged-in user's own GitHub App installation
-  const appService = await GitHubService.createWithApp(session);
-  if (appService) {
-    // Verify the user's installation can actually access this repo
+  // 2. Try the repo-owner's GitHub App installation.
+  const installationId = await getInstallationIdForRepo(owner, repo);
+  if (installationId) {
+    logStep('found repo-owner installation', { installationId });
+    const token = await getInstallationToken(installationId);
+    const appOctokit = new Octokit({ auth: token });
+
     try {
-      await appService.getRepositoryInfo(owner, repo);
-      return appService;
-    } catch {
-      // User's installation can't access this repo, continue
+      const { data: repoData } = await appOctokit.request('GET /repos/{owner}/{repo}', { owner, repo });
+
+      if (!repoData.private) {
+        logStep('public repo, serving via app token');
+        return new GitHubService(appOctokit);
+      }
+
+      // Private repo: verify the signed-in user is authorized.
+      //   a) They own the repo (user-owned).
+      //   b) They're a collaborator (covers explicit + team-based access).
+      //   c) They're an admin of the owning org (org owners with implicit access).
+      if (username) {
+        if (username === owner.toLowerCase()) {
+          logStep('user owns the repo');
+          return new GitHubService(appOctokit);
+        }
+        if (await verifyCollaborator(appOctokit, username)) {
+          logStep('user verified as collaborator');
+          return new GitHubService(appOctokit);
+        }
+        if (await verifyOrgAdmin(owner)) {
+          logStep('user verified as org admin');
+          return new GitHubService(appOctokit);
+        }
+      }
+
+      logStep('private repo — user not authorized via app installation');
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      logStep('app token cannot read repo metadata', { status });
+    }
+  } else {
+    logStep('no app installation found for repo owner');
+  }
+
+  // 3. OAuth fallback (public repos only — we don't request 'repo' scope).
+  if (session?.user?.id) {
+    const oauthService = await GitHubService.createWithOAuth(session);
+    if (oauthService) {
+      logStep('falling back to OAuth');
+      return oauthService;
     }
   }
 
-  // 2. Try the repo-owner's GitHub App installation (covers collaborator access)
-  try {
-    const { getInstallationIdForRepo, getInstallationToken } = await import('./app');
-    const installationId = await getInstallationIdForRepo(owner, repo);
-    if (installationId) {
-      const token = await getInstallationToken(installationId);
-      return new GitHubService(new Octokit({ auth: token }));
-    }
-  } catch {
-    // Fall through
-  }
-
-  // 3. Try OAuth token (works for private repos user has access to IF scope includes 'repo')
-  const oauthService = await GitHubService.createWithOAuth(session);
-  if (oauthService) {
-    return oauthService;
-  }
-
-  // 4. Fallback to public service
+  // 4. Public.
+  logStep('falling back to public service');
   return GitHubService.createPublic();
 }
 

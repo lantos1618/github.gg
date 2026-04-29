@@ -213,13 +213,15 @@ export async function createGitHubServiceForRepo(
   }
 
   // 2. Try the repo-owner's GitHub App installation.
-  const installationId = await getInstallationIdForRepo(owner, repo);
-  if (installationId) {
-    logStep('found repo-owner installation', { installationId });
-    const token = await getInstallationToken(installationId);
-    const appOctokit = new Octokit({ auth: token });
-
-    try {
+  // Wrap the whole step in try/catch so a flaky GitHub API or revoked install
+  // can never cause this function to throw — callers downstream (publicGetScorecard,
+  // github.files) treat any throw here as "Unable to access repository".
+  try {
+    const installationId = await getInstallationIdForRepo(owner, repo);
+    if (installationId) {
+      logStep('found repo-owner installation', { installationId });
+      const token = await getInstallationToken(installationId);
+      const appOctokit = new Octokit({ auth: token });
       const { data: repoData } = await appOctokit.request('GET /repos/{owner}/{repo}', { owner, repo });
 
       if (!repoData.private) {
@@ -247,12 +249,13 @@ export async function createGitHubServiceForRepo(
       }
 
       logStep('private repo — user not authorized via app installation');
-    } catch (err) {
-      const status = (err as { status?: number })?.status;
-      logStep('app token cannot read repo metadata', { status });
+    } else {
+      logStep('no app installation found for repo owner');
     }
-  } else {
-    logStep('no app installation found for repo owner');
+  } catch (err) {
+    const status = (err as { status?: number })?.status;
+    const message = (err as { message?: string })?.message;
+    logStep('repo-owner installation path failed', { status, message });
   }
 
   // 3. OAuth fallback (public repos only — we don't request 'repo' scope).

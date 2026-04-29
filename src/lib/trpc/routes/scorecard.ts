@@ -245,7 +245,13 @@ export const scorecardRouter = router({
       }
     }),
 
-  // Unified public endpoint: fetch latest or specific version of a scorecard for a repo/ref
+  // Unified public endpoint: fetch latest or specific version of a scorecard for a repo/ref.
+  //
+  // Cached scorecards are the source of truth — never block returning them on a
+  // live GitHub API call. The previous implementation called getRepositoryInfo
+  // first to resolve the default branch and check privacy, and a flake there
+  // (rate limit, revoked install, etc.) caused the whole query to return
+  // "Unable to access repository" while the cached scorecard sat in the DB.
   publicGetScorecard: publicProcedure
     .input(z.object({
       user: z.string(),
@@ -255,49 +261,61 @@ export const scorecardRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       const { user, repo, version } = input;
-
       const normalizedUser = user.toLowerCase();
+      const normalizedRepo = repo.toLowerCase();
 
-      // Single GitHub API call for access check + default branch resolution
+      // Resolve ref + privacy from GitHub, but treat failures as soft —
+      // we can still serve the cached scorecard.
       let ref = input.ref;
+      let repoIsPrivate: boolean | null = null;
       try {
         const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
         const repoInfo = await githubService.getRepositoryInfo(user, repo);
-
-        if (repoInfo.private === true && !ctx.session?.user) {
-          return { scorecard: null, cached: false, stale: false, lastUpdated: null, error: 'This repository is private' };
-        }
-
-        if (!ref) {
-          ref = repoInfo.defaultBranch || 'main';
-        }
-      } catch {
-        return { scorecard: null, cached: false, stale: false, lastUpdated: null, error: 'Unable to access repository' };
+        repoIsPrivate = repoInfo.private === true;
+        if (!ref) ref = repoInfo.defaultBranch || 'main';
+      } catch (err) {
+        const message = (err as { message?: string })?.message;
+        console.warn(`[publicGetScorecard ${normalizedUser}/${normalizedRepo}] repo info fetch failed (will still try cache):`, message);
       }
 
-      const normalizedRepo = repo.toLowerCase();
+      // Block content for verified-private repos when caller isn't signed in.
+      // If we couldn't determine privacy, err on the side of trusting the cache —
+      // the only way a scorecard ends up there is if a signed-in user generated it.
+      if (repoIsPrivate === true && !ctx.session?.user) {
+        return { scorecard: null, cached: false, stale: false, lastUpdated: null, error: 'This repository is private' };
+      }
+
+      // Look up cache. Try the resolved ref first; if nothing, fall back to ANY
+      // ref for the same repo — guards against historical main↔master mismatches.
       const baseConditions = [
         sql`LOWER(${repositoryScorecards.repoOwner}) = LOWER(${normalizedUser})`,
         sql`LOWER(${repositoryScorecards.repoName}) = ${normalizedRepo}`,
-        eq(repositoryScorecards.ref, ref),
       ];
       if (version !== undefined) {
         baseConditions.push(eq(repositoryScorecards.version, version));
       }
-      
-      console.log(`🔍 Querying scorecards for ${normalizedUser}/${repo}@${ref}${version !== undefined ? ` version ${version}` : ' (latest)'}`);
-      
-      const cached = await db
-        .select()
-        .from(repositoryScorecards)
-        .where(and(...baseConditions))
-        .orderBy(desc(repositoryScorecards.updatedAt))
-        .limit(1);
-      
+
+      const refSpecific = ref
+        ? await db
+            .select()
+            .from(repositoryScorecards)
+            .where(and(...baseConditions, eq(repositoryScorecards.ref, ref)))
+            .orderBy(desc(repositoryScorecards.updatedAt))
+            .limit(1)
+        : [];
+
+      const cached = refSpecific.length > 0
+        ? refSpecific
+        : await db
+            .select()
+            .from(repositoryScorecards)
+            .where(and(...baseConditions))
+            .orderBy(desc(repositoryScorecards.updatedAt))
+            .limit(1);
+
       if (cached.length > 0) {
         const scorecard = cached[0];
-        console.log(`✅ Found scorecard for ${normalizedUser}/${repo}@${ref}, version ${scorecard.version}, userId: ${scorecard.userId}, updatedAt: ${scorecard.updatedAt}`);
-        const isStale = new Date().getTime() - scorecard.updatedAt.getTime() > 24 * 60 * 60 * 1000; // 24 hours
+        const isStale = new Date().getTime() - scorecard.updatedAt.getTime() > 24 * 60 * 60 * 1000;
         return {
           scorecard: {
             metrics: scorecard.metrics,
@@ -309,30 +327,8 @@ export const scorecardRouter = router({
           lastUpdated: scorecard.updatedAt,
         };
       }
-      
-      // Log when no scorecard is found for debugging
-      console.warn(`⚠️ No scorecard found for ${normalizedUser}/${repo}@${ref}. Checking if any scorecards exist for this repo...`);
-      const anyScorecard = await db
-        .select()
-        .from(repositoryScorecards)
-        .where(and(
-          sql`LOWER(${repositoryScorecards.repoOwner}) = LOWER(${normalizedUser})`,
-          sql`LOWER(${repositoryScorecards.repoName}) = ${normalizedRepo}`
-        ))
-        .limit(5);
-      if (anyScorecard.length > 0) {
-        console.warn(`⚠️ Found ${anyScorecard.length} scorecard(s) for ${normalizedUser}/${repo} but with different refs/versions:`, 
-          anyScorecard.map(s => ({ ref: s.ref, version: s.version, userId: s.userId, updatedAt: s.updatedAt })));
-      } else {
-        console.warn(`⚠️ No scorecards found at all for ${normalizedUser}/${repo}`);
-      }
-      
-      return {
-        scorecard: null,
-        cached: false,
-        stale: false,
-        lastUpdated: null,
-      };
+
+      return { scorecard: null, cached: false, stale: false, lastUpdated: null };
     }),
 
   getScorecardVersions: publicProcedure

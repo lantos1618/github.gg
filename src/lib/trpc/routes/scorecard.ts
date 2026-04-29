@@ -37,8 +37,17 @@ export const scorecardRouter = router({
       jobId: z.string(),
     }))
     .subscription(async function* ({ input, ctx }) {
-      // Retrieve job params from the store
+      const t0 = Date.now();
+      const tag = `[scorecard ${ctx.user.id} ${input.jobId.slice(0, 8)}]`;
+      const elapsed = () => `${Date.now() - t0}ms`;
+
+      // Yield connection-established event immediately so the client knows the
+      // SSE stream is live before any DB/Redis lookup happens. Otherwise a slow
+      // consumeJob/Redis call leaves the client stuck on its initial state.
+      yield { type: 'progress', progress: 0, message: 'Connected. Loading job...' };
+
       const job = await consumeJob(input.jobId, ctx.user.id);
+      console.log(`${tag} consumeJob ${elapsed()} found=${!!job}`);
       if (!job) {
         yield { type: 'error', message: 'Analysis job not found or expired. Please try again.' };
         return;
@@ -48,15 +57,16 @@ export const scorecardRouter = router({
       const repoNameNormalized = job.repo.toLowerCase();
 
       try {
-        yield { type: 'progress', progress: 0, message: 'Starting scorecard analysis...' };
+        yield { type: 'progress', progress: 1, message: 'Checking plan...' };
 
-        // Check subscription before doing any work
         const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
+        console.log(`${tag} getUserPlanAndKey ${elapsed()} plan=${plan} active=${subscription?.status}`);
         if (!subscription || subscription.status !== 'active') {
           yield { type: 'error', message: 'Active subscription required for AI features' };
           return;
         }
         const keyInfo = await getApiKeyForUser(ctx.user.id, plan);
+        console.log(`${tag} getApiKeyForUser ${elapsed()} hasKey=${!!keyInfo}`);
         if (!keyInfo) {
           yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
           return;
@@ -65,9 +75,11 @@ export const scorecardRouter = router({
         yield { type: 'progress', progress: 3, message: 'Authenticating with GitHub...' };
 
         const githubService = await createGitHubServiceForRepo(job.user, job.repo, ctx.session);
+        console.log(`${tag} createGitHubServiceForRepo ${elapsed()}`);
 
         yield { type: 'progress', progress: 4, message: 'Fetching repository info...' };
         const repoInfo = await githubService.getRepositoryInfo(job.user, job.repo);
+        console.log(`${tag} getRepositoryInfo ${elapsed()} private=${repoInfo.private} defaultBranch=${repoInfo.defaultBranch}`);
         const ref = (!job.ref || job.ref === 'main') ? (repoInfo.defaultBranch || 'main') : job.ref;
         const isPrivate = repoInfo.private === true;
 

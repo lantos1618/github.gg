@@ -209,11 +209,31 @@ function AnalysisPageViewInner<TResponse>({
   const createJobMutation = config.useCreateJob();
 
   // Step 2: Subscribe to SSE with just the jobId (tiny URL)
+  // Without onError, a failed SSE handshake (auth, server crash before first yield)
+  // leaves the UI stuck on the client's "Initializing..." state with no signal.
+  const handleSubscriptionError = useCallback((err: unknown) => {
+    const messageRaw = err instanceof Error ? err.message
+      : typeof err === 'string' ? err
+      : (err as { message?: string })?.message || 'Subscription failed before any data was received';
+    const message = sanitizeText(messageRaw);
+    if (isGitHubAuthError({ message })) {
+      setIsSubscriptionAuthError(true);
+    }
+    setError(message);
+    setShouldAnalyze(false);
+    setIsLoading(false);
+    setSseStatus('error');
+    setCurrentStep(message);
+    setLogs((prev) => [...prev, { message, timestamp: new Date(), type: 'error' }]);
+    console.error('[scorecard] SSE subscription error:', err);
+  }, []);
+
   config.useGenerateSubscription(
     { jobId: jobId || '' },
     {
       enabled: shouldAnalyze && !!jobId,
       onData: handleSubscriptionData,
+      onError: handleSubscriptionError,
     }
   );
 

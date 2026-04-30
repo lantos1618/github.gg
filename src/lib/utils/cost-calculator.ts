@@ -46,7 +46,7 @@ export function calculateTokenCost(usage: TokenUsage): CostBreakdown {
   let outputCost = 0;
 
   // Determine pricing based on model
-  if (model.includes('gemini-3.1-flash') || model.includes('gemini-2.5-flash')) {
+  if (model.includes('gemini-3-flash') || model.includes('gemini-3.1-flash') || model.includes('gemini-2.5-flash')) {
     inputCost = (inputTokens / 1_000_000) * GEMINI_2_5_FLASH_PRICING.input;
     outputCost = (outputTokens / 1_000_000) * GEMINI_2_5_FLASH_PRICING.output;
   } else if (model.includes('gemini-3.1-pro') || model.includes('gemini-2.5-pro')) {

@@ -255,69 +255,76 @@ export const aiSlopRouter = router({
       }
     }),
 
-  // Unified public endpoint: fetch latest or specific version of an AI slop analysis
+  // Unified public endpoint: fetch latest or specific version of an AI slop analysis.
+  // Same resilience as publicGetScorecard: cached analyses are the source of truth,
+  // never block returning them on a live GitHub API call (which can flake).
   publicGetAISlop: publicProcedure
     .input(z.object({
       user: z.string(),
       repo: z.string(),
-      ref: z.string().optional().default('main'),
+      ref: z.string().optional(),
       version: z.number().optional(),
     }))
     .query(async ({ input, ctx }) => {
-      const { user, repo, ref, version } = input;
+      const { user, repo, version } = input;
       const normalizedUser = user.toLowerCase();
       const normalizedRepo = repo.toLowerCase();
 
-      // Check repository access and privacy
+      // Try to resolve ref + privacy from GitHub. Failures are soft —
+      // we can still serve the cached analysis if the repo info call hiccups.
+      let ref = input.ref;
+      let repoIsPrivate: boolean | null = null;
       try {
         const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
         const repoInfo = await githubService.getRepositoryInfo(user, repo);
+        repoIsPrivate = repoInfo.private === true;
+        if (!ref) ref = repoInfo.defaultBranch || 'main';
+      } catch (err) {
+        const message = (err as { message?: string })?.message;
+        console.warn(`[publicGetAISlop ${normalizedUser}/${normalizedRepo}] repo info fetch failed (will still try cache):`, message);
+      }
 
-        // If the repository is private, check if user has access
-        if (repoInfo.private === true) {
-          // If user is not authenticated, block access
-          if (!ctx.session?.user) {
-            return {
-              analysis: null,
-              cached: false,
-              stale: false,
-              lastUpdated: null,
-              error: 'This repository is private'
-            };
-          }
-
-          // User is authenticated, so they should have access (since we successfully fetched repo info)
-          // Continue to show the analysis
-        }
-      } catch {
-        // If we can't access the repo (404 or no auth), it might be private or user doesn't have access
+      if (repoIsPrivate === true && !ctx.session?.user) {
         return {
           analysis: null,
           cached: false,
           stale: false,
           lastUpdated: null,
-          error: 'Unable to access repository'
+          error: 'This repository is private',
         };
       }
 
-      // Use case-insensitive comparison for repoOwner/repoName
       const baseConditions = [
         sql`LOWER(${aiSlopAnalyses.repoOwner}) = ${normalizedUser}`,
         sql`LOWER(${aiSlopAnalyses.repoName}) = ${normalizedRepo}`,
-        eq(aiSlopAnalyses.ref, ref),
       ];
       if (version !== undefined) {
         baseConditions.push(eq(aiSlopAnalyses.version, version));
       }
-      const cached = await db
-        .select()
-        .from(aiSlopAnalyses)
-        .where(and(...baseConditions))
-        .orderBy(desc(aiSlopAnalyses.updatedAt))
-        .limit(1);
+
+      const refSpecific = ref
+        ? await db
+            .select()
+            .from(aiSlopAnalyses)
+            .where(and(...baseConditions, eq(aiSlopAnalyses.ref, ref)))
+            .orderBy(desc(aiSlopAnalyses.updatedAt))
+            .limit(1)
+        : [];
+
+      // Fall back to ANY ref if requested ref has no rows — guards historical
+      // main↔master mismatch in cached records.
+      const cached = refSpecific.length > 0
+        ? refSpecific
+        : await db
+            .select()
+            .from(aiSlopAnalyses)
+            .where(and(...baseConditions))
+            .orderBy(desc(aiSlopAnalyses.updatedAt))
+            .limit(1);
+
       if (cached.length > 0) {
         const analysis = cached[0];
-        const isStale = new Date().getTime() - analysis.updatedAt.getTime() > 24 * 60 * 60 * 1000; // 24 hours
+        const isStale = new Date().getTime() - analysis.updatedAt.getTime() > 24 * 60 * 60 * 1000;
         return {
           analysis: {
             metrics: analysis.metrics,

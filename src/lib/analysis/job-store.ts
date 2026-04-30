@@ -53,28 +53,29 @@ if (isRedisConfigured) {
 // In-memory fallback for local dev (not production-safe)
 const memoryFallback = new Map<string, string>();
 
-async function redisSet(key: string, value: string, ttlSeconds: number): Promise<void> {
+// Store an object. We always JSON.stringify going in. Upstash will store the
+// string as-is; on read it auto-deserializes JSON-looking strings, so the
+// reader gets back the parsed object. We normalize that in redisGetJson.
+async function redisSetJson<T>(key: string, value: T, ttlSeconds: number): Promise<void> {
+  const str = JSON.stringify(value);
   if (redis) {
-    await redis.set(key, value, { ex: ttlSeconds });
+    await redis.set(key, str, { ex: ttlSeconds });
   } else {
-    memoryFallback.set(key, value);
+    memoryFallback.set(key, str);
     setTimeout(() => memoryFallback.delete(key), ttlSeconds * 1000);
   }
 }
 
-async function redisGet(key: string): Promise<string | null> {
+// Returns the stored object or null. Handles both Upstash auto-parsed
+// objects and the local memoryFallback (which stores raw strings).
+async function redisGetJson<T>(key: string): Promise<T | null> {
   if (redis) {
-    return await redis.get<string>(key);
+    const v = await redis.get<unknown>(key);
+    if (v === null || v === undefined) return null;
+    return (typeof v === 'string' ? JSON.parse(v) : v) as T;
   }
-  return memoryFallback.get(key) || null;
-}
-
-async function redisDel(key: string): Promise<void> {
-  if (redis) {
-    await redis.del(key);
-  } else {
-    memoryFallback.delete(key);
-  }
+  const raw = memoryFallback.get(key);
+  return raw ? (JSON.parse(raw) as T) : null;
 }
 
 // ─── Job Store (for POST+SSE two-step analysis) ────────────────────
@@ -88,7 +89,7 @@ const JOB_PREFIX = 'analysis:job:';
 export async function createJob(params: Omit<AnalysisJob, 'createdAt'>): Promise<string> {
   const jobId = crypto.randomBytes(16).toString('hex');
   const job: AnalysisJob = { ...params, createdAt: Date.now() };
-  await redisSet(`${JOB_PREFIX}${jobId}`, JSON.stringify(job), JOB_TTL);
+  await redisSetJson(`${JOB_PREFIX}${jobId}`, job, JOB_TTL);
   return jobId;
 }
 
@@ -102,12 +103,9 @@ export async function createJob(params: Omit<AnalysisJob, 'createdAt'>): Promise
  */
 export async function consumeJob(jobId: string, userId: string): Promise<AnalysisJob | null> {
   const key = `${JOB_PREFIX}${jobId}`;
-  const raw = await redisGet(key);
-  if (!raw) return null;
-
-  const job: AnalysisJob = JSON.parse(raw);
+  const job = await redisGetJson<AnalysisJob>(key);
+  if (!job) return null;
   if (job.userId !== userId) return null;
-
   return job;
 }
 
@@ -136,7 +134,7 @@ export async function enqueue(
   };
 
   // Store the item data
-  await redisSet(`${QUEUE_ITEM_PREFIX}${id}`, JSON.stringify(item), QUEUE_ITEM_TTL);
+  await redisSetJson(`${QUEUE_ITEM_PREFIX}${id}`, item, QUEUE_ITEM_TTL);
 
   // Push to the queue list (FIFO: push left, pop right)
   if (redis) {
@@ -156,13 +154,12 @@ export async function dequeue(type: QueueItem['type']): Promise<QueueItem | null
   const id = await redis.rpop<string>(`${QUEUE_PREFIX}${type}`);
   if (!id) return null;
 
-  const raw = await redisGet(`${QUEUE_ITEM_PREFIX}${id}`);
-  if (!raw) return null;
+  const item = await redisGetJson<QueueItem>(`${QUEUE_ITEM_PREFIX}${id}`);
+  if (!item) return null;
 
-  const item: QueueItem = JSON.parse(raw);
   item.status = 'processing';
   item.startedAt = Date.now();
-  await redisSet(`${QUEUE_ITEM_PREFIX}${id}`, JSON.stringify(item), QUEUE_ITEM_TTL);
+  await redisSetJson(`${QUEUE_ITEM_PREFIX}${id}`, item, QUEUE_ITEM_TTL);
 
   return item;
 }
@@ -174,21 +171,18 @@ export async function updateQueueItem(
   id: string,
   update: Partial<Pick<QueueItem, 'status' | 'error' | 'completedAt'>>,
 ): Promise<void> {
-  const raw = await redisGet(`${QUEUE_ITEM_PREFIX}${id}`);
-  if (!raw) return;
+  const item = await redisGetJson<QueueItem>(`${QUEUE_ITEM_PREFIX}${id}`);
+  if (!item) return;
 
-  const item: QueueItem = JSON.parse(raw);
   Object.assign(item, update);
-  await redisSet(`${QUEUE_ITEM_PREFIX}${id}`, JSON.stringify(item), QUEUE_ITEM_TTL);
+  await redisSetJson(`${QUEUE_ITEM_PREFIX}${id}`, item, QUEUE_ITEM_TTL);
 }
 
 /**
  * Get the status of a queue item.
  */
 export async function getQueueItem(id: string): Promise<QueueItem | null> {
-  const raw = await redisGet(`${QUEUE_ITEM_PREFIX}${id}`);
-  if (!raw) return null;
-  return JSON.parse(raw);
+  return await redisGetJson<QueueItem>(`${QUEUE_ITEM_PREFIX}${id}`);
 }
 
 /**
@@ -215,10 +209,9 @@ export async function getUserQueueItems(
   // Fetch items and filter by userId
   const items: QueueItem[] = [];
   for (const id of ids) {
-    const raw = await redisGet(`${QUEUE_ITEM_PREFIX}${id}`);
-    if (raw) {
-      const item: QueueItem = JSON.parse(raw);
-      if (item.userId === userId) items.push(item);
+    const item = await redisGetJson<QueueItem>(`${QUEUE_ITEM_PREFIX}${id}`);
+    if (item && item.userId === userId) {
+      items.push(item);
     }
   }
 

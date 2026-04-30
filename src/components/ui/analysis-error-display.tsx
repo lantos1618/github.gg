@@ -54,6 +54,12 @@ export function AnalysisErrorDisplay({
         <div className="bg-[#f8f9fa] py-[14px] px-[16px] text-left mb-6" style={{ borderLeft: `3px solid ${color}` }}>
           <div className="text-[13px] font-semibold uppercase tracking-[1px] mb-1" style={{ color }}>What happened</div>
           <div className="text-base text-[#333] leading-[1.6]">{config.explanation}</div>
+          {error && error !== config.explanation && (
+            <div className="mt-3 pt-3 border-t border-[#e5e5e5]">
+              <div className="text-[11px] font-semibold uppercase tracking-[1px] text-[#888] mb-1">Server message</div>
+              <div className="text-[13px] text-[#555] font-mono break-all whitespace-pre-wrap">{error}</div>
+            </div>
+          )}
         </div>
 
         {(onRetry || onRetryWithContext) && (

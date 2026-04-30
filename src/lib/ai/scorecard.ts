@@ -16,6 +16,7 @@ export interface ScorecardAnalysisParams {
   repoName: string;
   metadata?: RepoMetadata;
   onProgress?: (message: string, progress: number) => void;
+  abortSignal?: AbortSignal;
 }
 
 export interface ScorecardAnalysisResult {
@@ -61,6 +62,7 @@ async function generateSingleChunkScorecard(
   files: Array<{ path: string; content: string }>,
   repoName: string,
   metadata?: RepoMetadata,
+  abortSignal?: AbortSignal,
 ): Promise<ScorecardAnalysisResult> {
   const metadataSection = buildMetadataSection(metadata);
 
@@ -102,6 +104,7 @@ ${files.map(file => `--- ${file.path} ---\n${file.content}`).join('\n\n')}`;
     model: GEMINI_PRO,
     schema: scorecardSchema,
     messages: [{ role: 'user', content: prompt }],
+    abortSignal,
   });
 
   return {
@@ -122,6 +125,7 @@ async function analyzeChunk(
   repoName: string,
   totalChunks: number,
   metadata?: RepoMetadata,
+  abortSignal?: AbortSignal,
 ): Promise<{ scorecard: ScorecardData; usage: { inputTokens: number; outputTokens: number; totalTokens: number } }> {
   const metadataSection = buildMetadataSection(metadata);
 
@@ -156,6 +160,7 @@ ${chunk.files.map(f => `--- ${f.path} ---\n${f.content}`).join('\n\n')}`;
     model: GEMINI_PRO,
     schema: scorecardSchema,
     messages: [{ role: 'user', content: prompt }],
+    abortSignal,
   });
 
   return {
@@ -176,6 +181,7 @@ async function synthesizeResults(
   repoName: string,
   totalFiles: number,
   metadata?: RepoMetadata,
+  abortSignal?: AbortSignal,
 ): Promise<{ scorecard: ScorecardData; usage: { inputTokens: number; outputTokens: number; totalTokens: number } }> {
   const metadataSection = buildMetadataSection(metadata);
 
@@ -227,6 +233,7 @@ ${partialsText}`;
     model: GEMINI_PRO,
     schema: scorecardSchema,
     messages: [{ role: 'user', content: prompt }],
+    abortSignal,
   });
 
   return {
@@ -250,6 +257,7 @@ export async function generateScorecardAnalysis({
   repoName,
   metadata,
   onProgress,
+  abortSignal,
 }: ScorecardAnalysisParams): Promise<ScorecardAnalysisResult> {
   try {
     // Always run through chunker — it filters binary, empty, oversized files
@@ -266,7 +274,7 @@ export async function generateScorecardAnalysis({
     // Single chunk: direct analysis (no synthesis overhead)
     if (chunks.length === 1) {
       onProgress?.(`Analyzing ${summary.totalFiles} files...`, 15);
-      return await generateSingleChunkScorecard(chunks[0].files, repoName, metadata);
+      return await generateSingleChunkScorecard(chunks[0].files, repoName, metadata, abortSignal);
     }
 
     // Multiple chunks: map-reduce
@@ -276,7 +284,7 @@ export async function generateScorecardAnalysis({
     const chunkResults = await Promise.all(
       chunks.map(async (chunk, i) => {
         onProgress?.(`Batch ${i + 1}/${chunks.length} (${chunk.files.length} files)...`, 10 + (i / chunks.length) * 55);
-        return analyzeChunk(chunk, repoName, chunks.length, metadata);
+        return analyzeChunk(chunk, repoName, chunks.length, metadata, abortSignal);
       })
     );
 
@@ -288,6 +296,7 @@ export async function generateScorecardAnalysis({
       repoName,
       summary.totalFiles,
       metadata,
+      abortSignal,
     );
 
     // Sum token usage across all calls

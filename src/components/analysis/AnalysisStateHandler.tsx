@@ -7,6 +7,7 @@ import { RefreshCw, LogIn } from 'lucide-react';
 import { useAuth } from '@/lib/auth/client';
 import { ReusableSSEFeedback, type SSEStatus, type SSELogItem } from '@/components/analysis/ReusableSSEFeedback';
 import { PageWidthContainer } from '@/components/PageWidthContainer';
+import { formatFileSize } from '@/components/file-browser/shared-utils';
 
 function AnalysisLoadingSkeleton() {
   return (
@@ -32,13 +33,23 @@ interface AnalysisStateHandlerProps {
   message?: string;
   title?: string;
   description?: string;
-  filesSelected?: { selected: number; total: number };
+  contextBudget?: {
+    selectedBytes: number;
+    totalBytes: number;
+    selectedCount: number;
+    totalCount: number;
+  };
   children?: ReactNode;
   sseStatus?: SSEStatus;
   sseProgress?: number;
   sseCurrentStep?: string;
   sseLogs?: SSELogItem[];
   sseTitle?: string;
+}
+
+function formatTokenCount(tokens: number): string {
+  if (tokens < 1000) return `~${tokens} tok`;
+  return `~${(tokens / 1000).toFixed(1)}k tok`;
 }
 
 export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
@@ -49,7 +60,7 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
   message,
   title,
   description,
-  filesSelected,
+  contextBudget,
   children,
   sseStatus,
   sseProgress,
@@ -110,10 +121,20 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Generate Analysis
               </Button>
-              {filesSelected && (
-                <p className="text-[13px] text-[#aaa] mt-4">
-                  Files selected: {filesSelected.selected} of {filesSelected.total}
-                </p>
+              {contextBudget && (
+                <div className="mt-4 text-center">
+                  <p className="text-[13px] text-[#666]">
+                    Context: <span className="font-mono">{formatFileSize(contextBudget.selectedBytes)}</span>
+                    {' · '}
+                    <span className="font-mono">{formatTokenCount(Math.round(contextBudget.selectedBytes / 4))}</span>
+                  </p>
+                  <p className="text-[12px] text-[#aaa] mt-1">
+                    {contextBudget.selectedCount} of {contextBudget.totalCount} files
+                    {contextBudget.totalBytes > 0 && contextBudget.selectedBytes < contextBudget.totalBytes && (
+                      <> · repo total {formatFileSize(contextBudget.totalBytes)}</>
+                    )}
+                  </p>
+                </div>
               )}
             </>
           )}

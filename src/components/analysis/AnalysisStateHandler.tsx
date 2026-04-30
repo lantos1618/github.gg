@@ -68,11 +68,22 @@ export const AnalysisStateHandler: React.FC<AnalysisStateHandlerProps> = ({
 
     case 'error':
       return (
-        <AnalysisErrorDisplay
-          error={error || 'An error occurred'}
-          isPending={isRegenerating}
-          onRetry={onRegenerate}
-        />
+        <div className="space-y-6">
+          <AnalysisErrorDisplay
+            error={error || 'An error occurred'}
+            isPending={isRegenerating}
+            onRetry={onRegenerate}
+          />
+          {sseLogs && sseLogs.length > 0 && (
+            <PageWidthContainer>
+              <ReusableSSEFeedback
+                status={sseStatus || 'error'}
+                progress={sseProgress || 0}
+                logs={sseLogs}
+              />
+            </PageWidthContainer>
+          )}
+        </div>
       );
 
     case 'no-data': {

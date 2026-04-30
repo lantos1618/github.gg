@@ -391,9 +391,14 @@ function AnalysisPageViewInner<TResponse>({
           ? config.noDataDescription
           : undefined
       }
-      filesSelected={
+      contextBudget={
         currentState === 'no-data'
-          ? { selected: selectedFiles.length, total: files.length }
+          ? {
+              selectedBytes: selectedFiles.reduce((s, f) => s + (f.size || 0), 0),
+              totalBytes: files.reduce((s, f) => s + (f.size || 0), 0),
+              selectedCount: selectedFiles.length,
+              totalCount: files.length,
+            }
           : undefined
       }
       sseStatus={sseStatus}

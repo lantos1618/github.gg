@@ -36,7 +36,7 @@ export const scorecardRouter = router({
     .input(z.object({
       jobId: z.string(),
     }))
-    .subscription(async function* ({ input, ctx }) {
+    .subscription(async function* ({ input, ctx, signal }) {
       const t0 = Date.now();
       const tag = `[scorecard ${ctx.user.id} ${input.jobId.slice(0, 8)}]`;
       const elapsed = () => `${Date.now() - t0}ms`;
@@ -116,9 +116,17 @@ export const scorecardRouter = router({
           .orderBy(desc(repositoryScorecards.version))
           .limit(1);
 
-        // Generate scorecard (auto-chunks large repos with map-reduce)
+        // Generate scorecard (auto-chunks large repos with map-reduce).
+        // Run in the background and poll the progress queue so we can yield
+        // events as they happen. Without this, the client sees a 30s+ silent
+        // gap during AI calls, hits its inactivity-reconnect threshold, and
+        // restarts the generator from the top in a loop.
         const progressQueue: Array<{ message: string; progress: number }> = [];
-        const result = await generateScorecardAnalysis({
+        let analysisDone = false;
+        let analysisError: unknown = null;
+        let analysisResult: Awaited<ReturnType<typeof generateScorecardAnalysis>> | null = null;
+
+        const analysisPromise = generateScorecardAnalysis({
           files,
           repoName: job.repo,
           metadata: {
@@ -128,15 +136,64 @@ export const scorecardRouter = router({
             language: repoInfo.language,
             topics: repoInfo.topics,
           },
+          abortSignal: signal,
           onProgress: (message, progress) => {
             progressQueue.push({ message, progress });
           },
+        }).then(res => {
+          analysisResult = res;
+          analysisDone = true;
+        }).catch(err => {
+          analysisError = err;
+          analysisDone = true;
         });
 
-        // Flush any buffered progress updates
+        let lastYieldAt = Date.now();
+        let lastProgress = 10;
+        let lastMessage = `Analyzing ${files.length} files...`;
+        const HEARTBEAT_MS = 12_000; // < client reconnectAfterInactivityMs (30_000)
+
+        while (!analysisDone) {
+          if (signal?.aborted) {
+            // Caller went away; let the background promise settle on its own.
+            console.log(`${tag} client aborted at ${elapsed()}`);
+            return;
+          }
+
+          let yielded = false;
+          while (progressQueue.length > 0) {
+            const p = progressQueue.shift()!;
+            lastProgress = p.progress;
+            lastMessage = p.message;
+            yield { type: 'progress', progress: lastProgress, message: lastMessage };
+            yielded = true;
+          }
+
+          if (yielded) {
+            lastYieldAt = Date.now();
+          } else if (Date.now() - lastYieldAt > HEARTBEAT_MS) {
+            yield { type: 'progress', progress: lastProgress, message: lastMessage };
+            lastYieldAt = Date.now();
+          }
+
+          await new Promise(r => setTimeout(r, 500));
+        }
+        await analysisPromise;
+        // If the client aborted while the AI was running, the background promise
+        // rejects with AbortError. Don't surface it as a real error — exit cleanly.
+        if (signal?.aborted) {
+          console.log(`${tag} client aborted (post-loop) at ${elapsed()}`);
+          return;
+        }
+        if (analysisError) throw analysisError;
+        if (!analysisResult) throw new Error('Analysis returned no result');
+        const result = analysisResult as Awaited<ReturnType<typeof generateScorecardAnalysis>>;
+
+        // Drain any final progress updates that landed during the await.
         for (const p of progressQueue) {
           yield { type: 'progress', progress: p.progress, message: p.message };
         }
+        console.log(`${tag} generation done ${elapsed()}`);
 
         // Stream token usage to the client as soon as it's known
         if (result?.usage) {

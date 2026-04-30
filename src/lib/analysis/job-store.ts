@@ -93,7 +93,12 @@ export async function createJob(params: Omit<AnalysisJob, 'createdAt'>): Promise
 }
 
 /**
- * Retrieve and consume a job (one-time use). Returns null if not found/expired/wrong user.
+ * Retrieve a job. Returns null if not found / expired / wrong user.
+ *
+ * Idempotent within the TTL: the job is NOT deleted on read. If the SSE
+ * subscription drops and the client auto-reconnects, the new server
+ * generator can re-fetch the same job and continue, instead of yielding
+ * "Analysis job not found" on every reconnect. Redis TTL (5min) cleans up.
  */
 export async function consumeJob(jobId: string, userId: string): Promise<AnalysisJob | null> {
   const key = `${JOB_PREFIX}${jobId}`;
@@ -103,8 +108,6 @@ export async function consumeJob(jobId: string, userId: string): Promise<Analysi
   const job: AnalysisJob = JSON.parse(raw);
   if (job.userId !== userId) return null;
 
-  // Delete after consuming (one-time use)
-  await redisDel(key);
   return job;
 }
 

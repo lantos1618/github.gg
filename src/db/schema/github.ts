@@ -26,6 +26,18 @@ export const installationRepositories = pgTable('installation_repositories', {
   installationRepoIdx: uniqueIndex('installation_repo_idx').on(table.installationId, table.repositoryId),
 }));
 
+// Free-tier counter for installations without an active Pro subscription.
+// Each installation gets N free PR/commit/issue reviews using the platform key,
+// so users experience real value before being asked to pay.
+export const installationFreeReviews = pgTable('installation_free_reviews', {
+  installationId: integer('installation_id')
+    .references(() => githubAppInstallations.installationId, { onDelete: 'cascade' })
+    .primaryKey(),
+  used: integer('used').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // Webhook Preferences - per-installation PR review settings
 export const webhookPreferences = pgTable('webhook_preferences', {
   id: uuid('id').primaryKey().defaultRandom(),

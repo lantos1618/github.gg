@@ -1,90 +1,68 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ArrowRight, Github } from 'lucide-react';
-import { toast } from 'sonner';
+import { ArrowRight, Github, GitPullRequest } from 'lucide-react';
 import Link from 'next/link';
 import { PageWidthContainer } from '@/components/PageWidthContainer';
+import { safePostHog } from '@/lib/analytics/posthog';
 
 export function CallToAction() {
-  const router = useRouter();
-  const [repoUrl, setRepoUrl] = useState('');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-
-  const handleAnalyze = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!repoUrl.trim()) return;
-
-    setIsAnalyzing(true);
-
-    let target = repoUrl.trim();
-    target = target.replace(/^https?:\/\/github\.com\//, '');
-    target = target.replace(/\/$/, '');
-
-    const parts = target.split('/');
-    if (parts.length < 2) {
-      toast.error('Please enter a valid repository (e.g., facebook/react)');
-      setIsAnalyzing(false);
-      return;
-    }
-
-    const cleanPath = `${parts[0]}/${parts[1]}`;
-    router.push(`/${cleanPath}`);
-  };
-
   return (
     <section className="bg-[#111] text-white" data-testid="home-cta-section">
       <PageWidthContainer className="py-20">
 
-        {/* Section label */}
         <div className="text-[13px] text-[#666] font-semibold tracking-[1.5px] uppercase mb-4">
-          Get Started
+          Your repos, automatic
         </div>
 
         <h2 className="text-[25px] font-semibold text-white mb-2">
-          Try it now
+          AI reviews on every pull request
         </h2>
 
-        <p className="text-base text-[#666] mb-8">
-          Paste any public repo and see what you get
+        <p className="text-base text-[#888] mb-8 max-w-lg">
+          Install once. Open a PR. Get a real AI code review posted as a comment within a minute.
+          Three free reviews per installation, no credit card.
         </p>
 
-        <div className="max-w-md mb-6">
-          <form onSubmit={handleAnalyze} className="group relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#555] group-focus-within:text-white transition-colors">
-              <Github className="h-5 w-5" />
-            </div>
-            <Input
-              type="text"
-              placeholder="owner/repo"
-              data-testid="home-cta-repo-input"
-              className="pl-12 pr-24 h-12 text-base bg-transparent text-white placeholder:text-[#555] border-[#444] hover:border-[#888] focus:border-white"
-              value={repoUrl}
-              onChange={(e) => setRepoUrl(e.target.value)}
-            />
-            <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
-              <Button
-                size="default"
-                type="submit"
-                disabled={isAnalyzing}
-                data-testid="home-cta-submit-btn"
-                className="h-9 px-4 bg-white text-[#111] hover:bg-[#eee] rounded font-medium text-base"
-              >
-                {isAnalyzing ? '...' : 'Go'}
-                {!isAnalyzing && <ArrowRight className="h-3.5 w-3.5 ml-1" />}
-              </Button>
-            </div>
-          </form>
+        <div className="flex flex-wrap gap-3 mb-10">
+          <Link
+            href="/install"
+            onClick={() => safePostHog.capture('install_clicked', { source: 'cta_section' })}
+            data-testid="home-cta-install-btn"
+          >
+            <Button
+              size="default"
+              className="h-11 px-5 bg-white text-[#111] hover:bg-[#eee] rounded font-medium text-base"
+            >
+              <Github className="h-4 w-4 mr-2" />
+              Install on GitHub
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </Link>
+          <Link
+            href="/onboarding"
+            onClick={() => safePostHog.capture('onboarding_clicked', { source: 'cta_section' })}
+            className="inline-flex"
+          >
+            <Button
+              size="default"
+              variant="outline"
+              className="h-11 px-5 border-[#444] bg-transparent text-white hover:bg-[#1a1a1a] hover:border-[#888] rounded font-medium text-base"
+            >
+              <GitPullRequest className="h-4 w-4 mr-2" />
+              Walk through setup
+            </Button>
+          </Link>
         </div>
 
-        <p className="text-base text-[#555] mb-16">
-          Free for public repos. <Link href="/pricing" className="text-[#888] hover:text-white transition-colors" data-testid="home-cta-pricing-link">Pricing</Link> for private.
+        <p className="text-[13px] text-[#555] mb-16">
+          Public repos are free, forever.{' '}
+          <Link href="/pricing" className="text-[#888] hover:text-white transition-colors" data-testid="home-cta-pricing-link">
+            Upgrade to Pro
+          </Link>{' '}
+          for unlimited reviews and private-repo access.
         </p>
 
-        {/* Footer */}
         <div className="pt-4 border-t border-[#222]">
           <table className="w-full text-base">
             <tbody>

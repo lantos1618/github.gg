@@ -109,19 +109,6 @@ export default function PricingPage() {
         </div>
       </PageWidthContainer>
 
-      {/* Quote */}
-      <PageWidthContainer className="pb-16">
-        <div className="bg-[#f8f9fa] rounded p-8 text-center" style={{ borderLeft: '3px solid #111' }}>
-          <p className="text-base text-[#333] leading-[1.7] mb-3">
-            "I used to spend <span className="line-through text-[#aaa]">3 hours</span> understanding a new codebase.
-            Now it takes <strong className="text-[#111]">15 minutes</strong>."
-          </p>
-          <p className="text-[13px] text-[#aaa]">
-            — Every developer who's ever joined a new project
-          </p>
-        </div>
-      </PageWidthContainer>
-
       {/* Feature Comparison */}
       <PageWidthContainer className="pb-16">
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">

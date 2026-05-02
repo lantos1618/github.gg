@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { trpc } from '@/lib/trpc/client';
 import { usePlan } from '@/lib/hooks/usePlan';
@@ -7,6 +8,7 @@ import { useAuth } from '@/lib/auth/client';
 import { useSessionHint } from '@/lib/session-context';
 import { toast } from 'sonner';
 import { ArrowRight } from 'lucide-react';
+import { safePostHog } from '@/lib/analytics/posthog';
 interface PricingCardActionsProps {
   planType: 'free' | 'pro' | null;
   isPro: boolean;
@@ -31,11 +33,30 @@ export function PricingCardActions({ planType, isPro }: PricingCardActionsProps)
     }
   });
 
+  // Fire pricing_view once per page load. Pricing page renders multiple
+  // cards; gate on the 'pro' card so we don't double-count.
+  useEffect(() => {
+    if (planType === 'pro') {
+      safePostHog.capture('pricing_view', {
+        signedIn: isSignedIn,
+        currentPlan: plan ?? null,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const isCurrent = plan === planType;
   // Only show loading if signed in and plan hasn't resolved yet
   const isLoading = (isSignedIn && planLoading && !plan) || createCheckout.isPending;
 
   const handleAction = () => {
+    safePostHog.capture('upgrade_clicked', {
+      plan: planType,
+      signedIn: isSignedIn,
+      currentPlan: plan ?? null,
+      source: 'pricing_card',
+    });
+
     if (!isSignedIn) {
       signIn('/pricing');
       return;

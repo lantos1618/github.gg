@@ -282,9 +282,11 @@ function AnalysisPageViewInner<TResponse>({
   const determineState = (): AnalysisState => {
     if (hasAuthError) return 'auth-error';
     if (isPrivateRepo) return 'private';
-    if (!canAccess && !planLoading) return 'upgrade';
-    if (error && !isRegeneratingWithFeedback) return 'error';
+    // Cached output is the demo. Anyone who can see the repo can read it.
+    // The paywall only blocks regeneration (handled in AnalysisHeader via canAccess).
     if (hasData || isRegeneratingWithFeedback) return 'ready';
+    if (error && !isRegeneratingWithFeedback) return 'error';
+    if (!canAccess && !planLoading) return 'upgrade';
     if (planLoading || publicLoading) return 'loading';
     if (!overallLoading) return 'no-data';
     return 'loading';

@@ -1,17 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowRight, Github } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageWidthContainer } from '@/components/PageWidthContainer';
+import { safePostHog } from '@/lib/analytics/posthog';
 
 export function HeroSection() {
   const router = useRouter();
   const [repoUrl, setRepoUrl] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    safePostHog.capture('landing_view', {
+      utm_source: params.get('utm_source') ?? undefined,
+      utm_medium: params.get('utm_medium') ?? undefined,
+      utm_campaign: params.get('utm_campaign') ?? undefined,
+      ref: params.get('ref') ?? undefined,
+    });
+  }, []);
 
   const handleAnalyze = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -31,6 +43,10 @@ export function HeroSection() {
     }
 
     const cleanPath = `${parts[0]}/${parts[1]}`;
+    safePostHog.capture('analyze_clicked', {
+      target: cleanPath,
+      source: 'hero',
+    });
     router.push(`/${cleanPath}`);
   };
 
@@ -115,6 +131,21 @@ export function HeroSection() {
               {repo.label}
             </button>
           ))}
+        </div>
+
+        {/* Secondary CTA — install on your own repo for AI PR reviews */}
+        <div className="mt-8 pt-6 border-t border-[#eee] flex flex-wrap items-center gap-3 text-base">
+          <span className="text-[#aaa]">Want AI reviews on your own PRs?</span>
+          <Link
+            href="/install"
+            data-testid="home-hero-install-cta"
+            onClick={() => safePostHog.capture('install_clicked', { source: 'hero' })}
+            className="inline-flex items-center gap-1.5 text-[#111] hover:text-[#333] font-medium underline-offset-4 hover:underline"
+          >
+            <Github className="h-4 w-4" />
+            Install on your repo — 3 free reviews
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </PageWidthContainer>
     </div>

@@ -57,6 +57,7 @@ export const VALID_TABS = [
   "scorecard",
   "diagram",
   "ai-slop",
+  "security",
   "refactor",
   "automations",
   "issues",

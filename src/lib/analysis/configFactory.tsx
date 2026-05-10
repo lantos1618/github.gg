@@ -4,7 +4,7 @@ import { isPaidPlan, type Plan } from '@/lib/utils/permissions';
 import { usePlan } from '@/lib/hooks/usePlan';
 import type { AnalysisViewConfig, AnalysisData } from '@/components/analysis/AnalysisPageView';
 
-export type AnalysisType = 'scorecard' | 'ai-slop';
+export type AnalysisType = 'scorecard' | 'ai-slop' | 'security';
 
 // Type for TRPC utils
 type TRPCUtils = ReturnType<typeof trpc.useUtils>;
@@ -20,7 +20,12 @@ type AISlopResponse = {
   error?: string;
 };
 
-type AnalysisResponse = ScorecardResponse | AISlopResponse;
+type SecurityReviewResponse = {
+  review?: AnalysisData;
+  error?: string;
+};
+
+type AnalysisResponse = ScorecardResponse | AISlopResponse | SecurityReviewResponse;
 
 interface AnalysisTypeConfig {
   title: string;
@@ -36,13 +41,14 @@ interface AnalysisTypeConfig {
   showMetricsBar: boolean;
   useEffectiveRef: boolean;
   // Feature type for contextual upgrade prompts
-  upgradeFeature: 'scorecard' | 'ai-slop' | 'wiki' | 'diagram' | 'review' | 'general';
+  upgradeFeature: 'scorecard' | 'ai-slop' | 'security' | 'wiki' | 'diagram' | 'review' | 'general';
   // Custom metrics renderer for types that need it
   renderCustomMetrics?: (data: AnalysisData) => React.ReactNode;
   getMetricColor?: (score: number) => string;
 }
 
 import { SlopMetrics } from "@/components/ai-slop/SlopMetrics";
+import { SecurityMetrics } from "@/components/security-review/SecurityMetrics";
 
 const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisTypeConfig> = {
   'scorecard': {
@@ -78,6 +84,23 @@ const ANALYSIS_CONFIGS: Record<AnalysisType, AnalysisTypeConfig> = {
     getMetricColor: (score) => score < 60 ? 'bg-red-500' : score < 80 ? 'bg-orange-500' : 'bg-green-500',
     renderCustomMetrics: (data) => <SlopMetrics data={data} />,
   },
+  'security': {
+    title: 'Security Review',
+    noDataTitle: 'No Security Review',
+    noDataDescription: 'Profile this repo for vulnerabilities, exposed secrets, and supply-chain risk.',
+    privateRepoMessage: 'Security reviews are not available for private repositories.',
+    generateButtonText: 'Run Security Review',
+    generatingButtonText: 'Run Security Review',
+    loadingMessage: 'Loading security review...',
+    generatingMessage: 'Scanning for vulnerabilities...',
+    errorMessage: 'Failed to generate security review',
+    showCopyButton: true,
+    showMetricsBar: true,
+    useEffectiveRef: true,
+    upgradeFeature: 'security',
+    getMetricColor: (score) => score < 40 ? 'bg-red-600' : score < 60 ? 'bg-orange-500' : score < 80 ? 'bg-yellow-500' : 'bg-green-500',
+    renderCustomMetrics: (data) => <SecurityMetrics data={data} />,
+  },
 };
 
 /**
@@ -111,6 +134,17 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<Ana
       extractDataField: 'analysis' as const,
       invalidateKeys: ['aiSlop', 'publicGetAISlop', 'getAISlopVersions'] as const,
     },
+    'security': {
+      useVersions: (params: { user: string; repo: string; ref: string }) =>
+        trpc.securityReview.getSecurityReviewVersions.useQuery(params),
+      usePublicData: (params: { user: string; repo: string; ref: string; version?: number }) =>
+        trpc.securityReview.publicGetSecurityReview.useQuery(params, { enabled: !!params.user && !!params.repo }),
+      useCreateJob: () => trpc.securityReview.createAnalysisJob.useMutation(),
+      useGenerateSubscription: (input: any, options: any) =>
+        trpc.securityReview.generateSecurityReview.useSubscription(input, options),
+      extractDataField: 'review' as const,
+      invalidateKeys: ['securityReview', 'publicGetSecurityReview', 'getSecurityReviewVersions'] as const,
+    },
   };
 
   const router = routerMap[type];
@@ -135,6 +169,8 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<Ana
       if (!response) return null;
       const data = type === 'scorecard'
         ? (response as ScorecardResponse).scorecard
+        : type === 'security'
+        ? (response as SecurityReviewResponse).review
         : (response as AISlopResponse).analysis;
       if (!data) return null;
 
@@ -144,6 +180,9 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<Ana
         overallScore: data.overallScore,
         aiGeneratedPercentage: data.aiGeneratedPercentage,
         detectedPatterns: data.detectedPatterns,
+        riskLevel: data.riskLevel,
+        vulnerabilities: data.vulnerabilities,
+        attackSurface: data.attackSurface,
       };
     },
     extractError: (response: AnalysisResponse | undefined) => {
@@ -154,6 +193,8 @@ export function createAnalysisConfig(type: AnalysisType): AnalysisViewConfig<Ana
     onMutationSuccess: (data: unknown, setData: (data: string) => void, utils: TRPCUtils) => {
       const analysisData = type === 'scorecard'
         ? (data as { scorecard: AnalysisData }).scorecard
+        : type === 'security'
+        ? (data as { review: AnalysisData }).review
         : (data as { analysis: AnalysisData }).analysis;
       setData(analysisData.markdown);
       // Invalidate based on type

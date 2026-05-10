@@ -34,6 +34,16 @@ export interface AnalysisData {
   // AI Slop specific fields
   aiGeneratedPercentage?: number;
   detectedPatterns?: string[];
+  // Security review specific fields
+  riskLevel?: 'critical' | 'high' | 'medium' | 'low';
+  vulnerabilities?: Array<{
+    severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+    category: string;
+    title: string;
+    file: string;
+    recommendation: string;
+  }>;
+  attackSurface?: string[];
 }
 
 // Config for customizing the view
@@ -70,7 +80,7 @@ export interface AnalysisViewConfig<TResponse> {
   renderCustomMetrics?: (data: AnalysisData) => ReactNode;
   getMetricColor?: (score: number) => string;
   useEffectiveRef?: boolean; // If true, uses actualRef from useRepoData
-  upgradeFeature?: 'scorecard' | 'ai-slop' | 'wiki' | 'diagram' | 'review' | 'general'; // For contextual upgrade prompts
+  upgradeFeature?: 'scorecard' | 'ai-slop' | 'security' | 'wiki' | 'diagram' | 'review' | 'general'; // For contextual upgrade prompts
 }
 
 interface AnalysisPageViewProps<TResponse> {

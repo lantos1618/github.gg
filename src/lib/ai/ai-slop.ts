@@ -115,7 +115,11 @@ DATA:
 - Patterns: ${allPatterns.join(', ')}
 - Issues (${allIssues.length} total): ${JSON.stringify(allIssues.slice(0, 30))}
 
-Generate comprehensive markdown report with metrics (Simplicity, DRY, Clarity, Maintainability, Value-to-Complexity).`;
+Generate comprehensive markdown report with metrics (Simplicity, DRY, Clarity, Maintainability, Value-to-Complexity).
+
+CRITICAL FORMATTING RULES:
+- The "markdown" field MUST use standard Markdown syntax (# for h1, ## for h2, **bold**, - for lists, etc.)
+- Do NOT use HTML tags (<h1>, <p>, <ul>, <li>, <strong>, etc.). Use only pure Markdown.`;
 
   return retryWithBackoff(async () => {
     const { object, usage } = await generateObject({

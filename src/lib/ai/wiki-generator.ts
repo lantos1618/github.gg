@@ -126,7 +126,7 @@ ${f.content}
   // Create cached content using Gemini API with retry logic
   const cacheResponse = await retryWithBackoff(() =>
     genAI.caches.create({
-      model: 'gemini-3.1-flash-lite-preview',
+      model: 'gemini-3.1-flash-lite',
       config: {
         systemInstruction: 'You are a documentation generator. This cached content contains a complete codebase for wiki generation.',
         contents: [{
@@ -185,7 +185,7 @@ Return ONLY valid JSON matching this structure:
 
   const result = await retryWithBackoff(() =>
     genAI.models.generateContent({
-      model: 'gemini-3.1-flash-lite-preview',
+      model: 'gemini-3.1-flash-lite',
       contents: prompt,
       config: {
         cachedContent: cacheId,
@@ -338,7 +338,7 @@ Start directly with the content.`;
 
   const result = await retryWithBackoff(() =>
     genAI.models.generateContent({
-      model: 'gemini-3.1-flash-lite-preview',
+      model: 'gemini-3.1-flash-lite',
       contents: prompt,
       config: {
         cachedContent: cacheId,

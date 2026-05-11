@@ -211,7 +211,7 @@ export const securityReviewRouter = router({
           feature: 'security-review',
           repoOwner: repoOwnerNormalized,
           repoName: repoNameNormalized,
-          model: 'gemini-3.1-flash-lite-preview',
+          model: 'gemini-3.1-flash-lite',
           inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,
           totalTokens: result.usage.totalTokens,

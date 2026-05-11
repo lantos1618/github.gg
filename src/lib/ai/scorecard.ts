@@ -57,6 +57,58 @@ const FORMAT_RULES = `CRITICAL FORMATTING RULES:
 - Do NOT use HTML tags. Use only pure Markdown.`;
 
 /**
+ * Render per-batch findings as collapsed <details> blocks. The markdown
+ * renderer's sanitize schema allows <details>/<summary>, and rehype-raw lets
+ * inner content stay parsed as markdown (blank lines around the HTML let the
+ * GFM table + headings render properly).
+ *
+ * Why: synthesis collapses N detailed analyses into one summary, smoothing
+ * away findings that lived in a single chunk (e.g. a memory-safety bug only
+ * one batch caught). Preserving the raw per-batch results gives users a way
+ * to dig in without nuking the executive summary at the top of the page.
+ */
+function renderPerBatchDetails(partials: ScorecardData[]): string {
+  if (partials.length === 0) return '';
+
+  const escapeCell = (s: string) =>
+    s.replace(/\|/g, '\\|').replace(/\n+/g, ' ').trim();
+
+  const blocks = partials.map((p, i) => {
+    const tableRows = p.metrics
+      .map(m => `| ${escapeCell(m.metric)} | ${m.score} | ${escapeCell(m.reason)} |`)
+      .join('\n');
+    const table = [
+      '| Metric | Score | Notes |',
+      '| --- | ---: | --- |',
+      tableRows,
+    ].join('\n');
+
+    return [
+      `<details>`,
+      `<summary>Batch ${i + 1} — overall ${p.overallScore}/100</summary>`,
+      ``,
+      table,
+      ``,
+      `---`,
+      ``,
+      p.markdown,
+      ``,
+      `</details>`,
+    ].join('\n');
+  }).join('\n\n');
+
+  return [
+    `---`,
+    ``,
+    `## Per-batch findings`,
+    ``,
+    `_Synthesis collapses ${partials.length} detailed batch analyses into the executive summary above. Expand any batch to see what that pass actually found — including details that may have been smoothed away._`,
+    ``,
+    blocks,
+  ].join('\n');
+}
+
+/**
  * Generate a single-chunk scorecard (no map-reduce needed).
  */
 async function generateSingleChunkScorecard(
@@ -366,8 +418,15 @@ export async function generateScorecardAnalysis({
       totalTokens: successfulChunks.reduce((sum, r) => sum + r.usage.totalTokens, 0) + synthesized.usage.totalTokens,
     };
 
+    // Synthesis collapses N detailed analyses into one executive summary.
+    // Preserve the per-batch findings as collapsed <details> sections so the
+    // user can dig in (critical bugs sometimes live in a single chunk and
+    // get smoothed away by the synthesizer).
+    const perBatchSection = renderPerBatchDetails(successfulChunks.map(r => r.scorecard));
+    const enrichedMarkdown = `${synthesized.scorecard.markdown}\n\n${perBatchSection}`;
+
     return {
-      scorecard: synthesized.scorecard,
+      scorecard: { ...synthesized.scorecard, markdown: enrichedMarkdown },
       usage: totalUsage,
     };
   } catch (error) {

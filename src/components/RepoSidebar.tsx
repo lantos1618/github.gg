@@ -208,7 +208,7 @@ export function RepoSidebar({ owner, repo, wikiPages = [], branches = [], defaul
     items: [
       { key: 'scorecard', label: 'Scorecard', path: `${baseUrl}/scorecard`, icon: BarChart3 },
       { key: 'ai-slop', label: 'AI Slop', path: `${baseUrl}/ai-slop`, icon: Bot },
-      { key: 'security', label: 'Security Review', path: `${baseUrl}/security`, icon: ShieldAlert },
+      { key: 'security', label: 'Vulnerabilities', path: `${baseUrl}/security`, icon: ShieldAlert },
       { key: 'issues', label: 'Issues', path: `${baseUrl}/issues`, icon: CircleDot },
       { key: 'pulls', label: 'Pulls', path: `${baseUrl}/pulls`, icon: GitPullRequest },
     ],

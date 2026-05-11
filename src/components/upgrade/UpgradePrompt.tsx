@@ -32,10 +32,10 @@ const FEATURE_CONTEXTS = {
     cta: 'Unlock AI Analysis',
   },
   security: {
-    headline: 'Profile any repo for security risk',
-    subtext: 'Spot vulnerabilities, exposed secrets, and supply-chain risk before they ship.',
+    headline: 'Find vulnerabilities before they ship',
+    subtext: 'Spot vulnerabilities, exposed secrets, and supply-chain risk in any repo.',
     benefit: 'Ship with confidence',
-    cta: 'Unlock Security Review',
+    cta: 'Unlock Vulnerability Scans',
   },
   review: {
     headline: 'Get AI-powered code reviews',

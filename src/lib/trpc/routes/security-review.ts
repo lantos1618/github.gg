@@ -10,6 +10,7 @@ import { createGitHubServiceForRepo } from '@/lib/github';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { createJob, consumeJob } from '@/lib/analysis/job-store';
 import { isPgErrorWithCode } from '@/lib/db/utils';
+import { checkRepositoryWriteAccess } from '@/lib/wiki/permissions';
 
 async function* streamProgressWithHeartbeat(
   promise: Promise<unknown>,
@@ -72,7 +73,17 @@ export const securityReviewRouter = router({
       const repoNameNormalized = job.repo.toLowerCase();
 
       try {
-        yield { type: 'progress', progress: 0, message: 'Starting security review...' };
+        yield { type: 'progress', progress: 0, message: 'Starting vulnerability scan...' };
+
+        // Only repo owner/contributors can run a vulnerability scan.
+        const hasAccess = await checkRepositoryWriteAccess(ctx.session, job.user, job.repo);
+        if (!hasAccess) {
+          yield {
+            type: 'error',
+            message: 'Only the repository owner or contributors can run vulnerability scans',
+          };
+          return;
+        }
 
         yield { type: 'progress', progress: 2, message: 'Verifying subscription...' };
         const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
@@ -246,26 +257,37 @@ export const securityReviewRouter = router({
       const normalizedUser = user.toLowerCase();
       const normalizedRepo = repo.toLowerCase();
 
-      let ref = input.ref;
-      let repoIsPrivate: boolean | null = null;
-      try {
-        const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
-        const repoInfo = await githubService.getRepositoryInfo(user, repo);
-        repoIsPrivate = repoInfo.private === true;
-        if (!ref) ref = repoInfo.defaultBranch || 'main';
-      } catch (err) {
-        const message = (err as { message?: string })?.message;
-        console.warn(`[publicGetSecurityReview ${normalizedUser}/${normalizedRepo}] repo info fetch failed (will still try cache):`, message);
-      }
-
-      if (repoIsPrivate === true && !ctx.session?.user) {
+      // Vulnerability data is sensitive — only the repo owner/contributors
+      // (anyone with push/admin) can see findings, even on public repos.
+      if (!ctx.session?.user) {
         return {
           review: null,
           cached: false,
           stale: false,
           lastUpdated: null,
-          error: 'This repository is private',
+          error: 'Sign in as a repository contributor to view vulnerabilities',
         };
+      }
+
+      const hasAccess = await checkRepositoryWriteAccess(ctx.session, user, repo);
+      if (!hasAccess) {
+        return {
+          review: null,
+          cached: false,
+          stale: false,
+          lastUpdated: null,
+          error: 'Only the repository owner or contributors can view vulnerability scans',
+        };
+      }
+
+      let ref = input.ref;
+      try {
+        const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
+        const repoInfo = await githubService.getRepositoryInfo(user, repo);
+        if (!ref) ref = repoInfo.defaultBranch || 'main';
+      } catch (err) {
+        const message = (err as { message?: string })?.message;
+        console.warn(`[publicGetSecurityReview ${normalizedUser}/${normalizedRepo}] repo info fetch failed (will still try cache):`, message);
       }
 
       const baseConditions = [
@@ -321,9 +343,16 @@ export const securityReviewRouter = router({
 
   getSecurityReviewVersions: publicProcedure
     .input(z.object({ user: z.string(), repo: z.string(), ref: z.string().optional().default('main') }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const normalizedUser = input.user.toLowerCase();
       const normalizedRepo = input.repo.toLowerCase();
+
+      // Same ACL as publicGetSecurityReview — versions list leaks the
+      // existence/freshness of scans, so it must follow the same rule.
+      if (!ctx.session?.user) return [];
+      const hasAccess = await checkRepositoryWriteAccess(ctx.session, input.user, input.repo);
+      if (!hasAccess) return [];
+
       return await db
         .select({ version: securityReviews.version, updatedAt: securityReviews.updatedAt })
         .from(securityReviews)

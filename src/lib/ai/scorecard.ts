@@ -280,12 +280,34 @@ export async function generateScorecardAnalysis({
     // Multiple chunks: map-reduce
     onProgress?.(`Analyzing ${summary.totalFiles} files in ${summary.totalChunks} batches...`, 10);
 
-    // Map: analyze chunks in parallel
-    const chunkResults = await Promise.all(
-      chunks.map(async (chunk, i) => {
-        onProgress?.(`Batch ${i + 1}/${chunks.length} (${chunk.files.length} files)...`, 10 + (i / chunks.length) * 55);
-        return analyzeChunk(chunk, repoName, chunks.length, metadata, abortSignal);
-      })
+    // Map: analyze chunks with bounded concurrency. An unbounded Promise.all
+    // on N chunks fires N concurrent Gemini Pro calls — on big repos (20+
+    // chunks) that saturates the provider, blows past the serverless function
+    // timeout, and the client reconnects in a loop, re-firing all chunks.
+    const MAX_CONCURRENCY = 3;
+    const chunkResults: Array<Awaited<ReturnType<typeof analyzeChunk>>> =
+      new Array(chunks.length);
+    let nextChunk = 0;
+    let completedChunks = 0;
+    async function worker(): Promise<void> {
+      while (true) {
+        const i = nextChunk++;
+        if (i >= chunks.length) return;
+        if (abortSignal?.aborted) return;
+        onProgress?.(
+          `Batch ${i + 1}/${chunks.length} (${chunks[i].files.length} files)...`,
+          10 + (i / chunks.length) * 55,
+        );
+        chunkResults[i] = await analyzeChunk(chunks[i], repoName, chunks.length, metadata, abortSignal);
+        completedChunks++;
+        onProgress?.(
+          `Analyzed ${completedChunks}/${chunks.length} batches...`,
+          10 + (completedChunks / chunks.length) * 55,
+        );
+      }
+    }
+    await Promise.all(
+      Array(Math.min(MAX_CONCURRENCY, chunks.length)).fill(null).map(() => worker()),
     );
 
     onProgress?.('Synthesizing results across all batches...', 70);

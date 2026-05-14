@@ -306,8 +306,11 @@ export const profileRouter = router({
 
           const fileFetchPromises = topRepos.map(async (repo) => {
             try {
-              // Fetch key files from the repository
-              const files = await githubService.getRepositoryFiles(username, repo.name, 'main');
+              // Use the repo's actual default branch — hardcoding 'main' 404'd
+              // for repos still on 'master' (or 'develop'/'trunk'), silently
+              // dropping them from the profile analysis.
+              const ref = repo.defaultBranch || 'main';
+              const files = await githubService.getRepositoryFiles(username, repo.name, ref);
 
               // Filter for important files (source code, configs, docs)
               const importantFiles = files.files.filter((file: { path: string; size: number }) =>
@@ -402,6 +405,17 @@ export const profileRouter = router({
         for await (const update of generator) {
           if (update.type === 'progress') {
             yield { type: 'progress', progress: update.progress, message: update.message };
+          } else if (update.type === 'repo_failed') {
+            // Surface per-repo scorecard failures to the client without
+            // touching the progress bar. The previous code path swallowed
+            // these silently so e.g. a failed lantos1618/github.gg scorecard
+            // looked like a successful profile generation.
+            yield {
+              type: 'repo_failed',
+              repo: update.failedRepo,
+              reason: update.failedReason,
+              message: update.message,
+            };
           } else if (update.type === 'complete') {
             result = update.result;
           }
@@ -1002,4 +1016,4 @@ export const profileRouter = router({
         hasMore: offset + limit < scored.length,
       };
     }),
-}); 
+});

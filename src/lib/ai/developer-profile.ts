@@ -187,11 +187,13 @@ export async function* generateDeveloperProfileStreaming({
   userId,
   forceRefreshScorecards = false,
 }: Omit<DeveloperProfileParams, 'onProgress'>): AsyncGenerator<{
-  type: 'progress' | 'complete';
+  type: 'progress' | 'complete' | 'repo_failed';
   progress?: number;
   message?: string;
   metadata?: { current: number; total: number; repoName: string };
   result?: DeveloperProfileResult;
+  failedRepo?: string;
+  failedReason?: string;
 }> {
   // Filter out forked repositories - we only want to score based on user's original work
   const nonForkedRepos = repos.filter(repo => !repo.fork);
@@ -279,9 +281,12 @@ export async function* generateDeveloperProfileStreaming({
         try {
           console.log(`🔍 Analyzing ${repoData.repoName}...`);
           
-          // Add timeout wrapper (60 seconds max per repo)
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error(`Timeout: Scorecard generation for ${repoData.repoName} exceeded 60s`)), 60000)
+          // 180s — generateScorecardAnalysis auto-chunks large repos and the
+          // synthesis pass alone can take 60–90s. 60s was making large repos
+          // (e.g. github.gg) fail silently inside profile generation while
+          // the direct /<o>/<r>/scorecard route succeeded.
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`Timeout: Scorecard generation for ${repoData.repoName} exceeded 180s`)), 180000)
           );
           
           const scorecardResult = await Promise.race([
@@ -331,25 +336,41 @@ export async function* generateDeveloperProfileStreaming({
 
     // Use Promise.allSettled with progress updates via a heartbeat
     const resultsMap = new Map<string, { repoName: string; scorecard: ScorecardAnalysisResult['scorecard']; usage: ScorecardAnalysisResult['usage'] }>();
+    const failures: Array<{ repo: string; reason: string }> = [];
     let completedCount = 0;
-    
+
     try {
       // Wait for all promises to settle (with individual timeouts already in place)
       const settledResults = await Promise.allSettled(scorecardPromises);
-      
+
       settledResults.forEach((settled, index) => {
         const repoName = topReposToAnalyze[index].repoName;
         completedCount++;
-        
+
         if (settled.status === 'fulfilled' && settled.value.result) {
           resultsMap.set(repoName, settled.value.result);
         } else {
-          const error = settled.status === 'rejected' ? settled.reason : 'Unknown error';
-          console.warn(`❌ Scorecard generation failed for ${repoName}:`, error);
+          const errorRaw = settled.status === 'rejected' ? settled.reason : 'Unknown error';
+          const reason = errorRaw instanceof Error ? errorRaw.message : String(errorRaw);
+          console.warn(`❌ Scorecard generation failed for ${repoName}:`, errorRaw);
+          failures.push({ repo: repoName, reason });
         }
       });
     } finally {
       // settled
+    }
+
+    // Surface per-repo failures so the client UI doesn't silently report success
+    // when specific scorecards never got written. Previously caught at line 323
+    // and only console.warn'd, leaving e.g. lantos1618/github.gg silently absent
+    // from /<o>/<r>/scorecard after a "successful" profile generation.
+    for (const f of failures) {
+      yield {
+        type: 'repo_failed',
+        failedRepo: f.repo,
+        failedReason: f.reason,
+        message: `Scorecard for ${f.repo} failed: ${f.reason}`,
+      };
     }
     
     // Yield progress for each completed repo

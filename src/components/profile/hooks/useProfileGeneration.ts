@@ -101,6 +101,13 @@ export function useProfileGeneration({ username }: UseProfileGenerationOptions) 
             setCurrentStep(message);
             addLog(message, 'info');
           }
+        } else if (event.type === 'repo_failed') {
+          // Per-repo scorecard failures during profile generation — emitted by
+          // the server so the user can see which repos didn't get analyzed
+          // (previously silently swallowed).
+          const repo = sanitizeText(event.repo ?? 'unknown repo');
+          const reason = sanitizeText(event.reason ?? 'Unknown error');
+          addLog(`⚠️ Scorecard for ${repo} failed: ${reason}`, 'error');
         } else if (event.type === 'complete') {
           generationInFlightRef.current = false;
           setIsGenerating(false);

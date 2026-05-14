@@ -4,6 +4,7 @@ import { useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import { useSelectedFiles } from '@/contexts/SelectedFilesContext';
 import { UpgradePrompt } from '@/components/upgrade';
+import { ScorecardSamplePreview } from '@/components/upgrade/ScorecardSamplePreview';
 import { FolderTree } from 'lucide-react';
 import { FileExplorerDrawer } from '@/components/FileExplorerDrawer';
 import { ReusableSSEFeedback, type SSELogItem, type SSEStatus } from '@/components/analysis/ReusableSSEFeedback';
@@ -419,7 +420,17 @@ function AnalysisPageViewInner<TResponse>({
       sseLogs={logs}
       sseTitle={config.generatingMessage}
     >
-      {currentState === 'upgrade' ? <UpgradePrompt feature={config.upgradeFeature || 'general'} /> : renderContent()}
+      {currentState === 'upgrade' ? (
+        // Value-first: scorecard upgrade state shows a real sample scorecard
+        // (with CTA pointing back at the user's repo) instead of an empty
+        // "Pro Feature" card. Other features keep the stock prompt until
+        // their sample-preview components ship.
+        config.upgradeFeature === 'scorecard' ? (
+          <ScorecardSamplePreview currentUser={user} currentRepo={repo} />
+        ) : (
+          <UpgradePrompt feature={config.upgradeFeature || 'general'} />
+        )
+      ) : renderContent()}
     </AnalysisStateHandler>
   );
 }

@@ -5,6 +5,8 @@ import { trpc } from '@/lib/trpc/client';
 import Link from 'next/link';
 import { TextButton } from '@/components/ui/text-button';
 import { NetworkGraph, type NetworkUser, type EdgeFilter } from '@/components/admin/NetworkGraph';
+import { SemanticMap, type SemanticMapPoint } from '@/components/discover/SemanticMap';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSessionHint } from '@/lib/session-context';
 import { PageWidthContainer } from '@/components/PageWidthContainer';
 import { Skeleton } from 'boneyard-js/react';
@@ -20,7 +22,7 @@ export default function DiscoverPage() {
 }
 
 type DiscoverMode = 'network' | 'explore';
-type ViewMode = 'table' | 'graph';
+type ViewMode = 'table' | 'graph' | 'map';
 
 function ViewToggle({ viewMode, setViewMode }: { viewMode: ViewMode; setViewMode: (v: ViewMode) => void }) {
   return (
@@ -31,14 +33,23 @@ function ViewToggle({ viewMode, setViewMode }: { viewMode: ViewMode; setViewMode
       <TextButton onClick={() => setViewMode('graph')} active={viewMode === 'graph'} className="pb-1 text-xs font-semibold tracking-[1px] uppercase">
         Graph
       </TextButton>
+      <TextButton onClick={() => setViewMode('map')} active={viewMode === 'map'} className="pb-1 text-xs font-semibold tracking-[1px] uppercase">
+        Map
+      </TextButton>
     </div>
   );
 }
 
 function NetworkExplorer() {
   const hint = useSessionHint();
-  const [seedUsername, setSeedUsername] = useState('');
-  const [activeUsername, setActiveUsername] = useState('');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // Pre-fill from ?seed=<username> so the "Find similar" CTA on /hire/<u>
+  // (which routes here through OAuth) lands the user on a populated graph
+  // instead of an empty input.
+  const initialSeed = (searchParams.get('seed') || '').replace(/^@/, '');
+  const [seedUsername, setSeedUsername] = useState(initialSeed);
+  const [activeUsername, setActiveUsername] = useState(initialSeed);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('graph');
   const [discoverMode, setDiscoverMode] = useState<DiscoverMode>('network');
@@ -264,6 +275,22 @@ function NetworkExplorer() {
                 users={allProfileUsers}
                 seed="github.gg"
                 onSelectionChange={setSelectedUsers}
+              />
+            ) : viewMode === 'map' ? (
+              <SemanticMap
+                points={allProfiles
+                  .filter(p => p.x != null && p.y != null)
+                  .map((p): SemanticMapPoint => ({
+                    username: p.username,
+                    x: p.x as number,
+                    y: p.y as number,
+                    archetype: p.archetype,
+                    confidence: p.confidence,
+                    topSkills: p.topSkills,
+                    avatar: p.avatar,
+                  }))}
+                height={600}
+                onClickNode={(username) => router.push(`/hire/${username}`)}
               />
             ) : (
               <ExploreAllTable profiles={allProfiles} />

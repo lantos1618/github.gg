@@ -8,14 +8,22 @@ import { NetworkGraph, type NetworkUser, type EdgeFilter } from '@/components/ad
 import { SemanticMap, type SemanticMapPoint } from '@/components/discover/SemanticMap';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSessionHint } from '@/lib/session-context';
+import { useAuth } from '@/lib/auth/client';
 import { PageWidthContainer } from '@/components/PageWidthContainer';
 import { Skeleton } from 'boneyard-js/react';
+import { Github, Lock } from 'lucide-react';
 
-export default function DiscoverPage() {
+interface DiscoverAppProps {
+  /** Wrap with PageWidthContainer + min-h-screen padding. Off when embedded inside another page (e.g. /hire). */
+  standalone?: boolean;
+}
+
+export default function DiscoverApp({ standalone = false }: DiscoverAppProps = {}) {
+  if (!standalone) return <NetworkExplorer showHeading={false} />;
   return (
     <div className="min-h-screen bg-white pt-12 pb-20">
       <PageWidthContainer>
-        <NetworkExplorer />
+        <NetworkExplorer showHeading={true} />
       </PageWidthContainer>
     </div>
   );
@@ -40,8 +48,9 @@ function ViewToggle({ viewMode, setViewMode }: { viewMode: ViewMode; setViewMode
   );
 }
 
-function NetworkExplorer() {
+function NetworkExplorer({ showHeading = true }: { showHeading?: boolean }) {
   const hint = useSessionHint();
+  const { isSignedIn, signIn } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   // Pre-fill from ?seed=<username> so the "Find similar" CTA on /hire/<u>
@@ -52,7 +61,11 @@ function NetworkExplorer() {
   const [activeUsername, setActiveUsername] = useState(initialSeed);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('graph');
-  const [discoverMode, setDiscoverMode] = useState<DiscoverMode>('network');
+  // Default to 'explore' so signed-out visitors land on the public map of all
+  // analyzed devs instead of an empty network prompt. Signed-in users with a
+  // GitHub username get auto-switched to 'network' by the effect below, and
+  // ?seed=<u> in the URL also forces network mode.
+  const [discoverMode, setDiscoverMode] = useState<DiscoverMode>(initialSeed ? 'network' : 'explore');
   const [edgeFilter, setEdgeFilter] = useState<EdgeFilter>({ following: true, followers: true, semantic: true });
   const trpcUtils = trpc.useUtils();
 
@@ -154,7 +167,11 @@ function NetworkExplorer() {
   return (
     <div>
       <div className="flex items-end justify-between gap-4 mb-6">
-        <h1 className="text-[31px] font-semibold text-[#111] tracking-tight leading-none">Discover</h1>
+        {showHeading ? (
+          <h1 className="text-[31px] font-semibold text-[#111] tracking-tight leading-none">Discover</h1>
+        ) : (
+          <span /> /* keep flex spacing — controls stay right-aligned */
+        )}
         <div className="flex items-end gap-6 flex-shrink-0">
           {discoverMode === 'network' && (
             <input
@@ -246,7 +263,38 @@ function NetworkExplorer() {
           </>
         )}
 
-        {discoverMode === 'network' && !currentNetwork && !isLoading && !activeUsername && (
+        {discoverMode === 'network' && !currentNetwork && !isLoading && !isSignedIn && (
+          // Signed-out: network queries are protected, so either no seed or a
+          // seed query that silently 401s lands here. Show the sign-in gate.
+          <div className="py-16 text-center">
+            <div className="max-w-sm mx-auto">
+              <div className="mx-auto w-10 h-10 rounded-full bg-[#111] flex items-center justify-center mb-3">
+                <Lock className="w-5 h-5 text-white" />
+              </div>
+              <h3 className="font-semibold text-[#111] mb-1">
+                {activeUsername ? `Sign in to see @${activeUsername}'s network` : 'Sign in to explore networks'}
+              </h3>
+              <p className="text-sm text-[#888] mb-4">
+                Network mode reads GitHub follow graphs. Browse the public semantic map without signing in.
+              </p>
+              <button
+                onClick={() => signIn(`/hire${activeUsername ? `?seed=${encodeURIComponent(activeUsername)}` : ''}`)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#111] hover:bg-[#333] text-white rounded font-medium text-sm"
+              >
+                <Github className="w-4 h-4" />
+                Sign in with GitHub
+              </button>
+              <button
+                onClick={() => setDiscoverMode('explore')}
+                className="block mx-auto mt-3 text-xs text-[#666] hover:text-[#111] underline-offset-4 hover:underline"
+              >
+                Browse the map instead
+              </button>
+            </div>
+          </div>
+        )}
+
+        {discoverMode === 'network' && !currentNetwork && !isLoading && isSignedIn && !activeUsername && (
           <div className="py-16 text-center">
             <p className="text-base text-[#aaa]">Enter a GitHub username above to explore their network.</p>
           </div>

@@ -168,7 +168,7 @@ function HireConversionBar({ username }: { username: string }) {
 
   const onFindSimilar = () => {
     safePostHog.capture('hire_find_similar_click', { username, signed_in: isSignedIn });
-    const target = `/discover?seed=${encodeURIComponent(username)}`;
+    const target = `/hire?seed=${encodeURIComponent(username)}`;
     if (!isSignedIn) {
       signIn(target);
       return;

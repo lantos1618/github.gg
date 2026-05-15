@@ -32,7 +32,13 @@ const nextConfig = {
       },
       {
         source: '/hire/search',
-        destination: '/discover',
+        destination: '/hire',
+        permanent: false,
+      },
+      // /discover is merged into /hire. Query (e.g. ?seed=) forwards automatically.
+      {
+        source: '/discover',
+        destination: '/hire',
         permanent: false,
       },
       // /install is dead — installation lives on github.com.

@@ -27,7 +27,7 @@ const nextConfig = {
       },
       {
         source: '/hire/map',
-        destination: '/discover',
+        destination: '/hire',
         permanent: false,
       },
       {

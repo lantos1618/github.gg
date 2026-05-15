@@ -18,11 +18,29 @@ const nextConfig = {
   allowedDevOrigins: ["https://dev.github.gg", "dev.github.gg"],
 
   async redirects() {
+    const appName = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || 'gh-gg';
     return [
       {
         source: '/developers',
         destination: '/api',
         permanent: true,
+      },
+      {
+        source: '/hire/map',
+        destination: '/discover',
+        permanent: false,
+      },
+      {
+        source: '/hire/search',
+        destination: '/discover',
+        permanent: false,
+      },
+      // /install is dead — installation lives on github.com.
+      // /install/callback is exempt (matched first below via more-specific source).
+      {
+        source: '/install',
+        destination: `https://github.com/apps/${appName}/installations/new`,
+        permanent: false,
       },
     ];
   },

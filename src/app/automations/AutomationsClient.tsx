@@ -12,6 +12,7 @@ import { Webhook, Activity, Search, RefreshCw, ExternalLink, Check, X } from 'lu
 import { formatDistanceToNow } from 'date-fns';
 import { SortableTable, Column } from '@/components/ui/sortable-table';
 import { CardWithHeader } from '@/components/common';
+import { buildGitHubAppInstallUrl } from '@/lib/github/install-url';
 
 type RepoWithActivity = {
   id: string;
@@ -206,7 +207,7 @@ export default function AutomationsClient() {
                 GitHub App not installed. Install the gh.gg app to enable automations.
               </p>
               <Button variant="outline" asChild>
-                <a href="/install" target="_blank" rel="noopener noreferrer">
+                <a href={buildGitHubAppInstallUrl('/automations')} target="_blank" rel="noopener noreferrer">
                   Install GitHub App
                 </a>
               </Button>

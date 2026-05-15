@@ -5,6 +5,7 @@ import { ArrowRight, Github, GitPullRequest } from 'lucide-react';
 import Link from 'next/link';
 import { PageWidthContainer } from '@/components/PageWidthContainer';
 import { safePostHog } from '@/lib/analytics/posthog';
+import { buildGitHubAppInstallUrl } from '@/lib/github/install-url';
 
 export function CallToAction() {
   return (
@@ -25,8 +26,8 @@ export function CallToAction() {
         </p>
 
         <div className="flex flex-wrap gap-3 mb-10">
-          <Link
-            href="/install"
+          <a
+            href={buildGitHubAppInstallUrl()}
             onClick={() => safePostHog.capture('install_clicked', { source: 'cta_section' })}
             data-testid="home-cta-install-btn"
           >
@@ -38,7 +39,7 @@ export function CallToAction() {
               Install on GitHub
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
-          </Link>
+          </a>
           <Link
             href="/onboarding"
             onClick={() => safePostHog.capture('onboarding_clicked', { source: 'cta_section' })}

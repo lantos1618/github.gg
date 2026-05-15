@@ -3,18 +3,12 @@
 import { useSessionHint } from '@/lib/session-context';
 import { useAuth } from '@/lib/auth/client';
 import { Github } from 'lucide-react';
+import { buildGitHubAppInstallUrl } from '@/lib/github/install-url';
 
 interface RepoStatusProps {
   error?: { message: string } | null;
   owner?: string;
   repo?: string;
-}
-
-const APP_NAME = process.env.NEXT_PUBLIC_GITHUB_APP_NAME || 'gh-gg';
-
-function buildInstallUrl(returnPath?: string) {
-  const base = `https://github.com/apps/${APP_NAME}/installations/new`;
-  return returnPath ? `${base}?state=${encodeURIComponent(returnPath)}` : base;
 }
 
 export function RepoStatus({ error, owner, repo }: RepoStatusProps) {
@@ -34,7 +28,7 @@ export function RepoStatus({ error, owner, repo }: RepoStatusProps) {
   const isProbablyPrivate = isNotFound;
 
   const returnPath = typeof window !== 'undefined' ? window.location.pathname + window.location.search : undefined;
-  const installUrl = buildInstallUrl(returnPath);
+  const installUrl = buildGitHubAppInstallUrl(returnPath);
 
   const repoLabel = owner && repo ? `${owner}/${repo}` : owner ? owner : 'this repository';
 

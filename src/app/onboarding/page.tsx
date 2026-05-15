@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth/client';
 import { trpc } from '@/lib/trpc/client';
 import { Github, Check, GitPullRequest, Sparkles, ExternalLink } from 'lucide-react';
 import { safePostHog } from '@/lib/analytics/posthog';
+import { buildGitHubAppInstallUrl } from '@/lib/github/install-url';
 
 export default function OnboardingPage() {
   const { isSignedIn, isLoading: authLoading, signIn } = useAuth();
@@ -78,15 +79,15 @@ export default function OnboardingPage() {
             installed ? (
               <Done label={`Connected to ${installationQuery.data?.accountLogin ?? 'your account'}`} />
             ) : (
-              <Link
-                href="/install?state=/onboarding"
+              <a
+                href={buildGitHubAppInstallUrl('/onboarding')}
                 onClick={() => safePostHog.capture('install_clicked', { source: 'onboarding' })}
               >
                 <Button size="lg">
                   <Github className="mr-2 h-4 w-4" />
                   Install on GitHub
                 </Button>
-              </Link>
+              </a>
             )
           }
         />

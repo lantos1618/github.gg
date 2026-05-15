@@ -11,7 +11,7 @@ import {
   DiagramPreview,
   DiagramErrorHandler,
 } from '@/components/diagram';
-import { UpgradePrompt } from '@/components/upgrade';
+import { DiagramSamplePreview } from '@/components/upgrade/DiagramSamplePreview';
 import { trpc } from '@/lib/trpc/client';
 import { usePlan } from '@/lib/hooks/usePlan';
 import { VersionDropdown } from '@/components/VersionDropdown';
@@ -303,10 +303,10 @@ function DiagramClientView({
               </div>
             )}
 
-            {/* Show upgrade prompt if user doesn't have access */}
+            {/* Show sample diagram with CTA if user doesn't have access */}
             {!hasAccess && (
               <div className="mt-8">
-                <UpgradePrompt feature="diagram" />
+                <DiagramSamplePreview currentUser={user} currentRepo={repo} />
               </div>
             )}
           </>

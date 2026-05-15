@@ -594,11 +594,11 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
                 </div>
                 <div className="text-sm text-green-800">BYOK Tokens</div>
               </div>
-              <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <div className="text-2xl font-bold text-[#111]">
                   {usageStats?.managedTokens?.toLocaleString() || 0}
                 </div>
-                <div className="text-sm text-purple-800">Managed Tokens</div>
+                <div className="text-sm text-gray-700">Managed Tokens</div>
               </div>
             </div>
             

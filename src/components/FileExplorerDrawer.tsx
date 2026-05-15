@@ -226,7 +226,7 @@ export function FileExplorerDrawer({
               <button
                 onClick={copyAllContent}
                 disabled={isCopying || selectedFiles.size === 0}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-300 rounded-md hover:bg-purple-100 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-[#111] text-[#111] hover:bg-[#111] hover:text-white rounded transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Copy all file contents for AI/LLM"
               >
                 {copiedAll ? (

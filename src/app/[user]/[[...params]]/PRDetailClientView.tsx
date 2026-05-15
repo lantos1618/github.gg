@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { GitPullRequest, Clock, FileCode } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer';
+import { CopyForAIButton } from '@/components/ui/copy-for-ai-button';
 import { ResourceDetailView } from '@/components/analysis/ResourceDetailView';
 
 interface PRDetailClientViewProps {
@@ -140,8 +141,13 @@ export default function PRDetailClientView({ user, repo, number }: PRDetailClien
 
           {pr.body && (
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between gap-3">
                 <CardTitle>Description</CardTitle>
+                <CopyForAIButton
+                  content={pr.body}
+                  title={pr.title}
+                  context={`Pull request: ${user}/${repo}#${pr.number}`}
+                />
               </CardHeader>
               <CardContent>
                 <div className="rounded-md border border-input bg-background p-6 overflow-y-auto max-h-[400px]">

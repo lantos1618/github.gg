@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { CircleDot, Clock, MessageSquare } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer';
+import { CopyForAIButton } from '@/components/ui/copy-for-ai-button';
 import { ResourceDetailView } from '@/components/analysis/ResourceDetailView';
 
 interface IssueDetailClientViewProps {
@@ -121,8 +122,13 @@ export default function IssueDetailClientView({ user, repo, number }: IssueDetai
 
           {issue.body && (
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between gap-3">
                 <CardTitle>Description</CardTitle>
+                <CopyForAIButton
+                  content={issue.body}
+                  title={issue.title}
+                  context={`Issue: ${user}/${repo}#${issue.number}`}
+                />
               </CardHeader>
               <CardContent>
                 <div className="rounded-md border border-input bg-background p-6 overflow-y-auto max-h-[400px]">

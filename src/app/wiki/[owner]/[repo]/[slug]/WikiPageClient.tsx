@@ -6,6 +6,7 @@ import { WikiPageMenu } from '@/components/wiki/WikiPageMenu';
 import { WikiPageViewers } from '@/components/wiki/WikiPageViewers';
 import { RepoSidebarLayout } from '@/components/layouts/RepoSidebarLayout';
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer';
+import { CopyForAIButton } from '@/components/ui/copy-for-ai-button';
 import { TableOfContents } from '@/components/ui/table-of-contents';
 
 interface WikiPageClientProps {
@@ -66,8 +67,15 @@ export function WikiPageClient({
 
             {/* Title & Meta */}
             <div className="mb-8">
-              <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-2">
-                Wiki
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase">
+                  Wiki
+                </div>
+                <CopyForAIButton
+                  content={page.content}
+                  title={page.title}
+                  context={`Wiki page: ${owner}/${repo} · ${slug}`}
+                />
               </div>
               <h1 className="text-[31px] sm:text-[31px] font-semibold text-[#111] tracking-tight mb-3">
                 {page.title}

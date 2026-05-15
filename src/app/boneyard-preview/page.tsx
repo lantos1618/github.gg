@@ -110,7 +110,7 @@ export default function BoneyardPreview() {
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="p-4 rounded-xl bg-card border border-border/50">
                   <div className="flex items-start gap-3">
-                    <div className="w-4 h-4 mt-0.5 rounded-full bg-purple-200 shrink-0" />
+                    <div className="w-4 h-4 mt-0.5 rounded-full bg-gray-300 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="h-4 w-3/4 bg-gray-200 rounded mb-2" />
                       <div className="flex items-center gap-2">

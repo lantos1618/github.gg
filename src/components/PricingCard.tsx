@@ -58,10 +58,10 @@ export function PricingCard({
     if (variant === 'compact') {
       return (
         <div className="text-center p-4">
-          <Icon className="h-6 w-6 mx-auto mb-2 text-purple-600" />
+          <Icon className="h-6 w-6 mx-auto mb-2 text-[#111]" />
           <h3 className="font-semibold mb-1">{plan.name}</h3>
           <div className="flex items-baseline justify-center gap-1 mb-3">
-            <span className="text-2xl font-bold text-purple-600">{plan.price}</span>
+            <span className="text-2xl font-bold text-[#111]">{plan.price}</span>
             <span className="text-sm text-muted-foreground">{plan.period}</span>
           </div>
           <ul className="text-sm text-left space-y-1 mb-4">
@@ -73,7 +73,7 @@ export function PricingCard({
             data-testid={`pricing-card-${plan.name.toLowerCase().replace(/\s+/g, '-')}-btn`}
             onClick={() => !isSignedIn ? onSignIn?.() : (isPro ? onUpgrade?.('pro') : onUpgrade?.('byok'))}
             disabled={isLoading || isCurrent}
-            className={!isSignedIn ? "w-full bg-blue-600 hover:bg-blue-700" : "w-full bg-purple-600 hover:bg-purple-700"}
+            className={!isSignedIn ? "w-full bg-blue-600 hover:bg-blue-700" : "w-full bg-[#111] hover:bg-[#333]"}
           >
             {isLoading ? 'Loading...' : getButtonText()}
           </Button>
@@ -86,9 +86,9 @@ export function PricingCard({
       <>
         <CardHeader className="text-center relative">
           {isPro && variant === 'default' && (
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-400 via-purple-500 to-purple-400"></div>
+            <div className="absolute top-0 left-0 right-0 h-1 bg-[#111]"></div>
           )}
-          <Icon className="h-8 w-8 mx-auto mb-4 text-purple-600" />
+          <Icon className="h-8 w-8 mx-auto mb-4 text-[#111]" />
           <CardTitle>{plan.name}</CardTitle>
           <div className="flex items-baseline justify-center gap-1">
             <span className="text-4xl font-bold">{plan.price}</span>
@@ -120,7 +120,7 @@ export function PricingCard({
           ) : canUpgrade ? (
             <Button
               data-testid={`pricing-card-${plan.name.toLowerCase().replace(/\s+/g, '-')}-btn`}
-              className={isPro ? 'w-full bg-purple-600 hover:bg-purple-700 text-white font-bold' : 'w-full'}
+              className={isPro ? 'w-full bg-[#111] hover:bg-[#333] text-white font-bold' : 'w-full'}
               variant={isPro ? 'default' : 'outline'}
               onClick={() => onUpgrade?.(plan.planType as 'byok' | 'pro')}
               disabled={isLoading}

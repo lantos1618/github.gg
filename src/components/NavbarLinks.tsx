@@ -26,11 +26,11 @@ export function NavbarLinks() {
         Repos
       </Link>
       <Link
-        href="/discover"
+        href="/hire"
         className="text-base font-medium text-[#888] hover:text-[#111] transition-colors"
         data-testid="nav-discover-link"
       >
-        Discover
+        Hire
       </Link>
       <Link
         href="/api"

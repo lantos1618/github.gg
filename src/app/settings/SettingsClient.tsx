@@ -14,6 +14,7 @@ import { TextButton } from '@/components/ui/text-button';
 import { TextLink } from '@/components/ui/text-link';
 import { HexColorPicker } from 'react-colorful';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { buildGitHubAppInstallUrl } from '@/lib/github/install-url';
 
 // Add this simple debounce hook if not already available
 function useDebounce<T>(value: T, delay: number): T {
@@ -639,7 +640,7 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
                 <p className="text-sm text-[#999] mb-3">
                   GitHub App not installed.
                 </p>
-                <TextLink href="/install" external active>
+                <TextLink href={buildGitHubAppInstallUrl('/settings')} external active>
                   Install GitHub App
                 </TextLink>
               </div>

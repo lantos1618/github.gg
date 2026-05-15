@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -9,8 +9,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { CandidateMatchCard } from '@/components/hire/CandidateMatchCard';
 import { trpc } from '@/lib/trpc/client';
 import { toast } from 'sonner';
-import { Search, Sparkles, Users, Filter, ArrowLeft } from 'lucide-react';
+import { Search, Sparkles, Users, Filter, ArrowLeft, Github } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/lib/auth/client';
+
+const DRAFT_KEY = 'hire-match-draft-v1';
 
 const ARCHETYPES = [
   'Production Builder',
@@ -38,29 +41,70 @@ Nice to have:
 - Remote work experience`;
 
 export default function HireMatchPage() {
+  const { isSignedIn, isLoading: authLoading, signIn } = useAuth();
   const [jobDescription, setJobDescription] = useState('');
   const [minConfidence, setMinConfidence] = useState(50);
   const [selectedArchetypes, setSelectedArchetypes] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as {
+        jobDescription?: string;
+        minConfidence?: number;
+        selectedArchetypes?: string[];
+      };
+      if (draft.jobDescription) setJobDescription(draft.jobDescription);
+      if (typeof draft.minConfidence === 'number') setMinConfidence(draft.minConfidence);
+      if (Array.isArray(draft.selectedArchetypes)) setSelectedArchetypes(draft.selectedArchetypes);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (!jobDescription && selectedArchetypes.length === 0 && minConfidence === 50) {
+        sessionStorage.removeItem(DRAFT_KEY);
+        return;
+      }
+      sessionStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ jobDescription, minConfidence, selectedArchetypes })
+      );
+    } catch {}
+  }, [jobDescription, minConfidence, selectedArchetypes]);
+
   const matchMutation = trpc.hire.matchCandidates.useMutation({
+    onSuccess: () => {
+      try { sessionStorage.removeItem(DRAFT_KEY); } catch {}
+    },
     onError: (error) => {
       toast.error(error.message || 'Failed to find matches');
     },
   });
 
-  const handleSearch = () => {
+  const validate = () => {
     if (jobDescription.trim().length < 50) {
       toast.error('Please enter a more detailed job description (at least 50 characters)');
-      return;
+      return false;
     }
+    return true;
+  };
 
+  const handleSearch = () => {
+    if (!validate()) return;
     matchMutation.mutate({
       jobDescription: jobDescription.trim(),
       limit: 20,
       minConfidence: minConfidence > 0 ? minConfidence : undefined,
       archetypes: selectedArchetypes.length > 0 ? selectedArchetypes : undefined,
     });
+  };
+
+  const handleSignInToMatch = () => {
+    if (!validate()) return;
+    signIn('/hire/match');
   };
 
   const toggleArchetype = (archetype: string) => {
@@ -183,14 +227,32 @@ Include:
                 </div>
               )}
 
-              <Button
-                onClick={handleSearch}
-                disabled={matchMutation.isPending || jobDescription.trim().length < 50}
-                className={`w-full ${matchMutation.isPending ? 'animate-pulse' : ''}`}
-              >
-                <Search className="h-4 w-4 mr-2" />
-                Find Candidates
-              </Button>
+              {!authLoading && !isSignedIn ? (
+                <>
+                  <Button
+                    onClick={handleSignInToMatch}
+                    disabled={jobDescription.trim().length < 50}
+                    className="w-full"
+                    data-testid="hire-match-signin"
+                  >
+                    <Github className="h-4 w-4 mr-2" />
+                    Sign in with GitHub to match
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    Your draft is saved — you&apos;ll land back here.
+                  </p>
+                </>
+              ) : (
+                <Button
+                  onClick={handleSearch}
+                  disabled={matchMutation.isPending || jobDescription.trim().length < 50 || authLoading}
+                  className={`w-full ${matchMutation.isPending ? 'animate-pulse' : ''}`}
+                  data-testid="hire-match-submit"
+                >
+                  <Search className="h-4 w-4 mr-2" />
+                  Find Candidates
+                </Button>
+              )}
 
               {matchMutation.isPending && (
                 <p className="text-xs text-muted-foreground mt-2 text-center">

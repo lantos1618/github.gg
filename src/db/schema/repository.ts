@@ -1,5 +1,10 @@
 import { pgTable, text, timestamp, uuid, uniqueIndex, index, integer, jsonb, varchar, boolean, customType } from 'drizzle-orm/pg-core';
 import type { ScorecardMetric, DiagramOptions } from '@/lib/types/scorecard';
+import type {
+  SecurityMetric,
+  SecurityVulnerability,
+  SecurityRiskLevel,
+} from '@/lib/types/security-review';
 import { user } from './auth';
 
 // Custom type for pgvector
@@ -144,6 +149,32 @@ export const aiSlopAnalyses = pgTable('ai_slop_analyses', {
 }, (table) => ({
   // Ensure unique AI slop analysis per user, repo, ref, and version
   aiSlopUniqueIdx: uniqueIndex('ai_slop_unique_idx').on(
+    table.userId,
+    table.repoOwner,
+    table.repoName,
+    table.ref,
+    table.version
+  ),
+}));
+
+export const securityReviews = pgTable('security_reviews', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('userId').references(() => user.id, { onDelete: 'cascade' }).notNull(),
+  repoOwner: text('repo_owner').notNull(),
+  repoName: text('repo_name').notNull(),
+  ref: text('ref').default('main'),
+  version: integer('version').notNull(),
+  overallScore: integer('overall_score').notNull(),
+  riskLevel: text('risk_level').$type<SecurityRiskLevel>().notNull(),
+  vulnerabilities: jsonb('vulnerabilities').$type<SecurityVulnerability[]>().notNull(),
+  attackSurface: jsonb('attack_surface').$type<string[]>().notNull(),
+  metrics: jsonb('metrics').$type<SecurityMetric[]>().notNull(),
+  markdown: text('markdown').notNull(),
+  fileHashes: jsonb('file_hashes').$type<Record<string, string>>(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  securityReviewUniqueIdx: uniqueIndex('security_review_unique_idx').on(
     table.userId,
     table.repoOwner,
     table.repoName,

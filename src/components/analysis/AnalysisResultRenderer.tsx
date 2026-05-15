@@ -13,9 +13,18 @@ interface Metric {
 interface AnalysisData {
   markdown: string;
   metrics?: Metric[];
-  detectedPatterns?: string[]; // Add this to support SlopMetrics
-  overallScore?: number;       // Add this to support SlopMetrics
-  aiGeneratedPercentage?: number; // Add this to support SlopMetrics
+  detectedPatterns?: string[];
+  overallScore?: number;
+  aiGeneratedPercentage?: number;
+  riskLevel?: 'critical' | 'high' | 'medium' | 'low';
+  vulnerabilities?: Array<{
+    severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+    category: string;
+    title: string;
+    file: string;
+    recommendation: string;
+  }>;
+  attackSurface?: string[];
 }
 
 interface AnalysisResultRendererProps {

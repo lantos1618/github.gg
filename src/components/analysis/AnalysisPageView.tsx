@@ -4,6 +4,8 @@ import { useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
 import { useRepoData } from '@/lib/hooks/useRepoData';
 import { useSelectedFiles } from '@/contexts/SelectedFilesContext';
 import { UpgradePrompt } from '@/components/upgrade';
+import { ScorecardSamplePreview } from '@/components/upgrade/ScorecardSamplePreview';
+import { AISlopSamplePreview } from '@/components/upgrade/AISlopSamplePreview';
 import { FolderTree } from 'lucide-react';
 import { FileExplorerDrawer } from '@/components/FileExplorerDrawer';
 import { ReusableSSEFeedback, type SSELogItem, type SSEStatus } from '@/components/analysis/ReusableSSEFeedback';
@@ -34,6 +36,16 @@ export interface AnalysisData {
   // AI Slop specific fields
   aiGeneratedPercentage?: number;
   detectedPatterns?: string[];
+  // Security review specific fields
+  riskLevel?: 'critical' | 'high' | 'medium' | 'low';
+  vulnerabilities?: Array<{
+    severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+    category: string;
+    title: string;
+    file: string;
+    recommendation: string;
+  }>;
+  attackSurface?: string[];
 }
 
 // Config for customizing the view
@@ -70,7 +82,7 @@ export interface AnalysisViewConfig<TResponse> {
   renderCustomMetrics?: (data: AnalysisData) => ReactNode;
   getMetricColor?: (score: number) => string;
   useEffectiveRef?: boolean; // If true, uses actualRef from useRepoData
-  upgradeFeature?: 'scorecard' | 'ai-slop' | 'wiki' | 'diagram' | 'review' | 'general'; // For contextual upgrade prompts
+  upgradeFeature?: 'scorecard' | 'ai-slop' | 'security' | 'wiki' | 'diagram' | 'review' | 'general'; // For contextual upgrade prompts
 }
 
 interface AnalysisPageViewProps<TResponse> {
@@ -282,9 +294,11 @@ function AnalysisPageViewInner<TResponse>({
   const determineState = (): AnalysisState => {
     if (hasAuthError) return 'auth-error';
     if (isPrivateRepo) return 'private';
-    if (!canAccess && !planLoading) return 'upgrade';
-    if (error && !isRegeneratingWithFeedback) return 'error';
+    // Cached output is the demo. Anyone who can see the repo can read it.
+    // The paywall only blocks regeneration (handled in AnalysisHeader via canAccess).
     if (hasData || isRegeneratingWithFeedback) return 'ready';
+    if (error && !isRegeneratingWithFeedback) return 'error';
+    if (!canAccess && !planLoading) return 'upgrade';
     if (planLoading || publicLoading) return 'loading';
     if (!overallLoading) return 'no-data';
     return 'loading';
@@ -407,7 +421,18 @@ function AnalysisPageViewInner<TResponse>({
       sseLogs={logs}
       sseTitle={config.generatingMessage}
     >
-      {currentState === 'upgrade' ? <UpgradePrompt feature={config.upgradeFeature || 'general'} /> : renderContent()}
+      {currentState === 'upgrade' ? (
+        // Value-first: render a real sample preview (with CTA pointing back at
+        // the user's repo) instead of an empty "Pro Feature" card whenever a
+        // sample-preview component exists for the feature.
+        config.upgradeFeature === 'scorecard' ? (
+          <ScorecardSamplePreview currentUser={user} currentRepo={repo} />
+        ) : config.upgradeFeature === 'ai-slop' ? (
+          <AISlopSamplePreview currentUser={user} currentRepo={repo} />
+        ) : (
+          <UpgradePrompt feature={config.upgradeFeature || 'general'} />
+        )
+      ) : renderContent()}
     </AnalysisStateHandler>
   );
 }

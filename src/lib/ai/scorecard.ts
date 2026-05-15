@@ -1,7 +1,8 @@
 import { generateObject } from 'ai';
-import { GEMINI_PRO } from './models';
+import { GEMINI_PRO, GEMINI_FLASH } from './models';
 import { scorecardSchema, type ScorecardData } from '@/lib/types/scorecard';
 import { chunkFiles, needsChunking, getChunkingSummary, type Chunk } from './chunker';
+import { retryWithBackoff } from './retry-utils';
 
 export interface RepoMetadata {
   description?: string | null;
@@ -56,6 +57,58 @@ const FORMAT_RULES = `CRITICAL FORMATTING RULES:
 - Do NOT use HTML tags. Use only pure Markdown.`;
 
 /**
+ * Render per-batch findings as collapsed <details> blocks. The markdown
+ * renderer's sanitize schema allows <details>/<summary>, and rehype-raw lets
+ * inner content stay parsed as markdown (blank lines around the HTML let the
+ * GFM table + headings render properly).
+ *
+ * Why: synthesis collapses N detailed analyses into one summary, smoothing
+ * away findings that lived in a single chunk (e.g. a memory-safety bug only
+ * one batch caught). Preserving the raw per-batch results gives users a way
+ * to dig in without nuking the executive summary at the top of the page.
+ */
+function renderPerBatchDetails(partials: ScorecardData[]): string {
+  if (partials.length === 0) return '';
+
+  const escapeCell = (s: string) =>
+    s.replace(/\|/g, '\\|').replace(/\n+/g, ' ').trim();
+
+  const blocks = partials.map((p, i) => {
+    const tableRows = p.metrics
+      .map(m => `| ${escapeCell(m.metric)} | ${m.score} | ${escapeCell(m.reason)} |`)
+      .join('\n');
+    const table = [
+      '| Metric | Score | Notes |',
+      '| --- | ---: | --- |',
+      tableRows,
+    ].join('\n');
+
+    return [
+      `<details>`,
+      `<summary>Batch ${i + 1} — overall ${p.overallScore}/100</summary>`,
+      ``,
+      table,
+      ``,
+      `---`,
+      ``,
+      p.markdown,
+      ``,
+      `</details>`,
+    ].join('\n');
+  }).join('\n\n');
+
+  return [
+    `---`,
+    ``,
+    `## Per-batch findings`,
+    ``,
+    `_Synthesis collapses ${partials.length} detailed batch analyses into the executive summary above. Expand any batch to see what that pass actually found — including details that may have been smoothed away._`,
+    ``,
+    blocks,
+  ].join('\n');
+}
+
+/**
  * Generate a single-chunk scorecard (no map-reduce needed).
  */
 async function generateSingleChunkScorecard(
@@ -100,12 +153,14 @@ OUTPUT FORMAT:
 
 ${files.map(file => `--- ${file.path} ---\n${file.content}`).join('\n\n')}`;
 
-  const { object, usage } = await generateObject({
-    model: GEMINI_PRO,
-    schema: scorecardSchema,
-    messages: [{ role: 'user', content: prompt }],
-    abortSignal,
-  });
+  const { object, usage } = await retryWithBackoff(() =>
+    generateObject({
+      model: GEMINI_PRO,
+      schema: scorecardSchema,
+      messages: [{ role: 'user', content: prompt }],
+      abortSignal,
+    }),
+  );
 
   return {
     scorecard: object,
@@ -156,12 +211,17 @@ OUTPUT FORMAT:
 
 ${chunk.files.map(f => `--- ${f.path} ---\n${f.content}`).join('\n\n')}`;
 
-  const { object, usage } = await generateObject({
-    model: GEMINI_PRO,
-    schema: scorecardSchema,
-    messages: [{ role: 'user', content: prompt }],
-    abortSignal,
-  });
+  // Map step uses FLASH (5–10× faster than PRO) so big repos with many
+  // chunks finish well inside the 5min serverless function timeout. PRO
+  // is reserved for the synthesis step where reasoning quality matters most.
+  const { object, usage } = await retryWithBackoff(() =>
+    generateObject({
+      model: GEMINI_FLASH,
+      schema: scorecardSchema,
+      messages: [{ role: 'user', content: prompt }],
+      abortSignal,
+    }),
+  );
 
   return {
     scorecard: object,
@@ -229,12 +289,14 @@ PARTIAL RESULTS:
 
 ${partialsText}`;
 
-  const { object, usage } = await generateObject({
-    model: GEMINI_PRO,
-    schema: scorecardSchema,
-    messages: [{ role: 'user', content: prompt }],
-    abortSignal,
-  });
+  const { object, usage } = await retryWithBackoff(() =>
+    generateObject({
+      model: GEMINI_PRO,
+      schema: scorecardSchema,
+      messages: [{ role: 'user', content: prompt }],
+      abortSignal,
+    }),
+  );
 
   return {
     scorecard: object,
@@ -261,8 +323,17 @@ export async function generateScorecardAnalysis({
 }: ScorecardAnalysisParams): Promise<ScorecardAnalysisResult> {
   try {
     // Always run through chunker — it filters binary, empty, oversized files
-    // and sorts by importance, even if everything fits in one chunk
-    const chunks = chunkFiles(files);
+    // and sorts by importance, even if everything fits in one chunk.
+    //
+    // For scorecard we use larger chunks (400k tokens, ~half what Flash can
+    // hold) and cap total files at 800. On a 1870-file repo this collapses
+    // ~24 chunks down to ~4–6, which finishes inside the function timeout
+    // even when one chunk gets unlucky with backoff. The chunker sorts by
+    // importance, so capped repos still score on the files that matter.
+    const chunks = chunkFiles(files, {
+      maxTokensPerChunk: 400_000,
+      maxTotalFiles: 800,
+    });
     const summary = getChunkingSummary(chunks);
 
     if (chunks.length === 0) {
@@ -280,19 +351,60 @@ export async function generateScorecardAnalysis({
     // Multiple chunks: map-reduce
     onProgress?.(`Analyzing ${summary.totalFiles} files in ${summary.totalChunks} batches...`, 10);
 
-    // Map: analyze chunks in parallel
-    const chunkResults = await Promise.all(
-      chunks.map(async (chunk, i) => {
-        onProgress?.(`Batch ${i + 1}/${chunks.length} (${chunk.files.length} files)...`, 10 + (i / chunks.length) * 55);
-        return analyzeChunk(chunk, repoName, chunks.length, metadata, abortSignal);
-      })
+    // Map: analyze chunks with bounded concurrency. An unbounded Promise.all
+    // on N chunks fires N concurrent Gemini calls — on big repos that
+    // saturates the provider, blows past the serverless function timeout,
+    // and the client reconnects in a loop, re-firing all chunks.
+    const MAX_CONCURRENCY = 3;
+    const chunkResults: Array<Awaited<ReturnType<typeof analyzeChunk>> | null> =
+      new Array(chunks.length).fill(null);
+    let nextChunk = 0;
+    let completedChunks = 0;
+    let failedChunks = 0;
+    async function worker(): Promise<void> {
+      while (true) {
+        const i = nextChunk++;
+        if (i >= chunks.length) return;
+        if (abortSignal?.aborted) return;
+        onProgress?.(
+          `Batch ${i + 1}/${chunks.length} (${chunks[i].files.length} files)...`,
+          10 + (i / chunks.length) * 55,
+        );
+        try {
+          chunkResults[i] = await analyzeChunk(chunks[i], repoName, chunks.length, metadata, abortSignal);
+        } catch (err) {
+          // A single chunk failing (rate limit exhaustion, schema validation
+          // hiccup, etc.) shouldn't nuke the whole scorecard. Log it and let
+          // synthesis run on the remaining N-1 chunks.
+          failedChunks++;
+          console.warn(`[scorecard] chunk ${i + 1}/${chunks.length} failed:`, err instanceof Error ? err.message : err);
+        }
+        completedChunks++;
+        onProgress?.(
+          `Analyzed ${completedChunks}/${chunks.length} batches...`,
+          10 + (completedChunks / chunks.length) * 55,
+        );
+      }
+    }
+    await Promise.all(
+      Array(Math.min(MAX_CONCURRENCY, chunks.length)).fill(null).map(() => worker()),
     );
+
+    const successfulChunks = chunkResults.filter(
+      (r): r is Awaited<ReturnType<typeof analyzeChunk>> => r !== null,
+    );
+    if (successfulChunks.length === 0) {
+      throw new Error(`All ${chunks.length} analysis batches failed`);
+    }
+    if (failedChunks > 0) {
+      console.warn(`[scorecard] proceeding with ${successfulChunks.length}/${chunks.length} successful chunks (${failedChunks} failed)`);
+    }
 
     onProgress?.('Synthesizing results across all batches...', 70);
 
     // Reduce: synthesize partial results into final scorecard
     const synthesized = await synthesizeResults(
-      chunkResults.map(r => r.scorecard),
+      successfulChunks.map(r => r.scorecard),
       repoName,
       summary.totalFiles,
       metadata,
@@ -301,13 +413,20 @@ export async function generateScorecardAnalysis({
 
     // Sum token usage across all calls
     const totalUsage = {
-      inputTokens: chunkResults.reduce((sum, r) => sum + r.usage.inputTokens, 0) + synthesized.usage.inputTokens,
-      outputTokens: chunkResults.reduce((sum, r) => sum + r.usage.outputTokens, 0) + synthesized.usage.outputTokens,
-      totalTokens: chunkResults.reduce((sum, r) => sum + r.usage.totalTokens, 0) + synthesized.usage.totalTokens,
+      inputTokens: successfulChunks.reduce((sum, r) => sum + r.usage.inputTokens, 0) + synthesized.usage.inputTokens,
+      outputTokens: successfulChunks.reduce((sum, r) => sum + r.usage.outputTokens, 0) + synthesized.usage.outputTokens,
+      totalTokens: successfulChunks.reduce((sum, r) => sum + r.usage.totalTokens, 0) + synthesized.usage.totalTokens,
     };
 
+    // Synthesis collapses N detailed analyses into one executive summary.
+    // Preserve the per-batch findings as collapsed <details> sections so the
+    // user can dig in (critical bugs sometimes live in a single chunk and
+    // get smoothed away by the synthesizer).
+    const perBatchSection = renderPerBatchDetails(successfulChunks.map(r => r.scorecard));
+    const enrichedMarkdown = `${synthesized.scorecard.markdown}\n\n${perBatchSection}`;
+
     return {
-      scorecard: synthesized.scorecard,
+      scorecard: { ...synthesized.scorecard, markdown: enrichedMarkdown },
       usage: totalUsage,
     };
   } catch (error) {

@@ -259,7 +259,7 @@ export default async function Page({ params }: PageProps) {
     return <IssueListClientView user={user} repo={repo} />;
   }
 
-  if (tab === 'scorecard' || tab === 'ai-slop') {
+  if (tab === 'scorecard' || tab === 'ai-slop' || tab === 'security') {
     return <AnalysisClientView user={user} repo={repo} refName={ref} path={path} analysisType={tab} />;
   }
 

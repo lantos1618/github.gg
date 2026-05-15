@@ -50,7 +50,7 @@ export const billingRouter = router({
             quantity: 1
           }],
           mode: 'subscription',
-          success_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings?success=true`,
+          success_url: `${process.env.NEXT_PUBLIC_APP_URL}/onboarding?upgraded=1`,
           cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?canceled=true`,
           metadata: {
             userId: ctx.user.id,

@@ -24,7 +24,7 @@ export interface AnalysisJob {
 
 export interface QueueItem {
   id: string;
-  type: 'profile' | 'scorecard' | 'wiki' | 'diagram' | 'ai-slop';
+  type: 'profile' | 'scorecard' | 'wiki' | 'diagram' | 'ai-slop' | 'security';
   params: Record<string, unknown>;
   userId: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';

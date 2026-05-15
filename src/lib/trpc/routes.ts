@@ -2,6 +2,7 @@ import { protectedProcedure } from '@/lib/trpc/trpc';
 import { githubRouter } from '@/lib/trpc/routes/github/index';
 import { scorecardRouter } from '@/lib/trpc/routes/scorecard';
 import { aiSlopRouter } from '@/lib/trpc/routes/ai-slop';
+import { securityReviewRouter } from '@/lib/trpc/routes/security-review';
 import { diagramRouter } from '@/lib/trpc/routes/diagram';
 import { profileRouter } from '@/lib/trpc/routes/profile';
 import { scoreHistoryRouter } from '@/lib/trpc/routes/score-history';
@@ -100,6 +101,9 @@ export const appRouter = router({
 
   // AI Slop detection routes
   aiSlop: aiSlopRouter,
+
+  // Security review routes
+  securityReview: securityReviewRouter,
 
   // Diagram routes
   diagram: diagramRouter,

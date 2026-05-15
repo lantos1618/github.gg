@@ -5,6 +5,11 @@ import { Button } from '@/components/ui/button';
 import { SkillAssessment } from '@/components/profile/SkillAssessment';
 import { TopRepos } from '@/components/profile/TopRepos';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
+import { useAuth } from '@/lib/auth/client';
+import { safePostHog } from '@/lib/analytics/posthog';
 import {
   AlertTriangle,
   CheckCircle,
@@ -17,7 +22,34 @@ import {
   Shield,
   User,
   GitBranch,
+  Bookmark,
+  BookmarkCheck,
+  Users,
 } from 'lucide-react';
+
+const SHORTLIST_KEY = 'gg.hire.shortlist';
+
+function readShortlist(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(SHORTLIST_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((s) => typeof s === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveToShortlist(username: string): boolean {
+  if (typeof window === 'undefined') return false;
+  const current = readShortlist();
+  const lower = username.toLowerCase();
+  if (current.some((u) => u.toLowerCase() === lower)) return false;
+  current.push(username);
+  window.localStorage.setItem(SHORTLIST_KEY, JSON.stringify(current));
+  return true;
+}
 
 type HiringReportClientProps = {
   username: string;
@@ -91,6 +123,97 @@ function generateInterviewQuestions(profile: {
   }
 
   return questions.slice(0, 5);
+}
+
+function HireConversionBar({ username }: { username: string }) {
+  const { isSignedIn, signIn } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [isSaved, setIsSaved] = useState(false);
+
+  // Reflect localStorage state on mount; update if the user navigates between profiles.
+  useEffect(() => {
+    setIsSaved(readShortlist().some((u) => u.toLowerCase() === username.toLowerCase()));
+  }, [username]);
+
+  // Handle ?action=saved redirect coming back from OAuth: complete the save the
+  // user was promised when they clicked the CTA pre-auth.
+  useEffect(() => {
+    if (searchParams.get('action') !== 'saved') return;
+    if (!isSignedIn) return;
+    const added = saveToShortlist(username);
+    if (added) {
+      setIsSaved(true);
+      toast.success(`@${username} added to your shortlist`);
+      safePostHog.capture('hire_candidate_saved', { username, source: 'oauth_return' });
+    }
+    // Strip the action param so a refresh doesn't re-trigger.
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('action');
+    const qs = params.toString();
+    router.replace(qs ? `?${qs}` : '?', { scroll: false });
+  }, [searchParams, isSignedIn, username, router]);
+
+  const onSave = () => {
+    safePostHog.capture('hire_save_click', { username, signed_in: isSignedIn });
+    if (!isSignedIn) {
+      signIn(`/hire/${username}?action=saved`);
+      return;
+    }
+    const added = saveToShortlist(username);
+    setIsSaved(true);
+    toast.success(added ? `@${username} added to your shortlist` : `@${username} is already on your shortlist`);
+    safePostHog.capture('hire_candidate_saved', { username, source: 'direct' });
+  };
+
+  const onFindSimilar = () => {
+    safePostHog.capture('hire_find_similar_click', { username, signed_in: isSignedIn });
+    const target = `/hire?seed=${encodeURIComponent(username)}`;
+    if (!isSignedIn) {
+      signIn(target);
+      return;
+    }
+    router.push(target);
+  };
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 print:hidden">
+      <div className="max-w-4xl mx-auto px-4 py-3 flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center">
+        <div className="text-sm text-gray-600 hidden sm:block flex-1">
+          Like @{username}? Save them or find similar developers.
+        </div>
+        <div className="flex gap-2 sm:gap-3">
+          <Button
+            variant="outline"
+            onClick={onSave}
+            disabled={isSaved}
+            data-testid="hire-save-candidate-btn"
+            className="flex-1 sm:flex-none"
+          >
+            {isSaved ? (
+              <>
+                <BookmarkCheck className="h-4 w-4 mr-2" />
+                Saved
+              </>
+            ) : (
+              <>
+                <Bookmark className="h-4 w-4 mr-2" />
+                {isSignedIn ? 'Save candidate' : 'Sign in to save'}
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={onFindSimilar}
+            data-testid="hire-find-similar-btn"
+            className="flex-1 sm:flex-none"
+          >
+            <Users className="h-4 w-4 mr-2" />
+            Find similar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function HiringReportClient({ username, initialData }: HiringReportClientProps) {
@@ -358,8 +481,8 @@ export function HiringReportClient({ username, initialData }: HiringReportClient
           </div>
         )}
 
-        {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        {/* Secondary actions */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-24 sm:mb-20">
           <Link href={`/${username}`} className="flex-1">
             <Button variant="outline" className="w-full">
               View full profile on GG
@@ -375,6 +498,10 @@ export function HiringReportClient({ username, initialData }: HiringReportClient
           </Button>
         </div>
       </div>
+
+      {/* Conversion bar — sticks to the viewport bottom so it stays in view
+          after the user has read the report (the highest-intent moment). */}
+      <HireConversionBar username={username} />
     </div>
   );
 }

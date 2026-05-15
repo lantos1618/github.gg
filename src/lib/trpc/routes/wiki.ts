@@ -142,7 +142,7 @@ export const wikiRouter = router({
             feature: 'wiki_generation',
             repoOwner: owner,
             repoName: repo,
-            model: 'gemini-3.1-flash-lite-preview',
+            model: 'gemini-3.1-flash-lite',
             inputTokens: wikiResult.usage.inputTokens,
             outputTokens: wikiResult.usage.outputTokens,
             totalTokens: wikiResult.usage.totalTokens,

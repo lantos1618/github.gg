@@ -285,6 +285,10 @@ export const discoverRouter = router({
     .input(z.object({ limit: z.number().min(1).max(500).default(200) }).optional())
     .query(async ({ input }) => {
       const limit = input?.limit ?? 200;
+      // NOTE: projection_x / projection_y columns are added by a separate
+      // migration that hasn't shipped yet. Until then we return x/y as null
+      // and SemanticMap renders its "No projections yet" empty state. Once
+      // the migration lands, swap the SELECT to read those columns.
       const profiles = await db.execute(sql`
         SELECT p.username, p.profile_data as "profileData", p.updated_at as "updatedAt"
         FROM developer_profile_cache p
@@ -306,7 +310,10 @@ export const discoverRouter = router({
           summary: profile.summary || null,
           archetype: profile.developerArchetype || null,
           score: avgScore,
+          confidence: typeof profile.profileConfidence === 'number' ? profile.profileConfidence : null,
           topSkills: (profile.skillAssessment || []).slice(0, 5).map(s => s.metric),
+          x: null as number | null,
+          y: null as number | null,
           updatedAt: row.updatedAt,
         };
       });

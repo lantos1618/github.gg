@@ -1,8 +1,21 @@
 'use client';
 
-import { type ReactNode } from 'react';
+import { type ReactNode, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthWithHint } from '@/lib/hooks/useAuthWithHint';
+
+const FRESH_SIGNUP_WINDOW_MS = 60_000;
+const ONBOARDING_SEEN_KEY = 'gg-seen-onboarding';
+
+function hasSeenOnboarding(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return sessionStorage.getItem(ONBOARDING_SEEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 // Dashboard skeleton for signed-in users while dashboard loads
 function DashboardSkeleton() {
   return (
@@ -32,18 +45,36 @@ const GitHubDashboard = dynamic(
 );
 
 export function HomeDashboard({ children }: { children: ReactNode }) {
-  const { isSignedIn, isLoading } = useAuthWithHint();
+  const { isSignedIn, isLoading, session } = useAuthWithHint();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // While auth is loading, show the server-rendered landing content
+  const skipOnboarding = searchParams?.get('home') === '1';
+  const userCreatedAt = (session?.user as { createdAt?: string | Date } | undefined)?.createdAt;
+
+  const isFreshSignup = useMemo(() => {
+    if (!isSignedIn || skipOnboarding || !userCreatedAt) return false;
+    if (hasSeenOnboarding()) return false;
+    const createdMs = new Date(userCreatedAt).getTime();
+    if (!Number.isFinite(createdMs)) return false;
+    return Date.now() - createdMs < FRESH_SIGNUP_WINDOW_MS;
+  }, [isSignedIn, skipOnboarding, userCreatedAt]);
+
+  useEffect(() => {
+    if (isFreshSignup) router.replace('/onboarding');
+  }, [isFreshSignup, router]);
+
   if (isLoading) {
     return <div data-testid="home-dashboard">{children}</div>;
   }
 
-  // Show dashboard for signed-in users (lazy loaded)
+  if (isFreshSignup) {
+    return <div data-testid="home-dashboard"><DashboardSkeleton /></div>;
+  }
+
   if (isSignedIn) {
     return <div data-testid="home-dashboard"><GitHubDashboard /></div>;
   }
 
-  // Show server-rendered landing content for anonymous users
   return <div data-testid="home-dashboard">{children}</div>;
 }

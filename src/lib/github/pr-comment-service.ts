@@ -6,6 +6,12 @@ import { eq } from 'drizzle-orm';
 import { PR_REVIEW_CONFIG } from '@/lib/config/pr-review';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { escapeHtmlEntities } from '@/lib/utils/sanitize';
+import {
+  getFreeTierStatus,
+  incrementFreeReviewsUsed,
+  getPlatformApiKey,
+  freeTierFooter,
+} from './free-tier';
 
 interface GitHubPRFile {
   filename: string;
@@ -75,7 +81,6 @@ export async function postPRReviewComment({
   headBranch,
 }: PRCommentParams) {
   try {
-    // Check if user has active subscription before processing
     const user = await getUserFromInstallation(installationId);
     if (!user) {
       console.log(`Skipping PR review for PR #${prNumber}: no user associated with installation`);
@@ -83,15 +88,26 @@ export async function postPRReviewComment({
     }
 
     const { subscription, plan } = await getUserPlanAndKey(user.id);
-    if (!subscription || subscription.status !== 'active') {
-      console.log(`Skipping PR review for PR #${prNumber}: user ${user.id} has no active subscription`);
-      return { success: false, skipped: true, reason: 'no_subscription' };
-    }
+    const isPaid = !!subscription && subscription.status === 'active';
 
-    const keyInfo = await getApiKeyForUser(user.id, plan);
-    if (!keyInfo) {
-      console.log(`Skipping PR review for PR #${prNumber}: no API key available`);
-      return { success: false, skipped: true, reason: 'no_api_key' };
+    let keyInfo = isPaid ? await getApiKeyForUser(user.id, plan) : null;
+    let freeTier: { used: number; remaining: number; total: number } | null = null;
+
+    if (!isPaid || !keyInfo) {
+      // Free-tier path: use platform key for the first N reviews per installation,
+      // then return a stub upgrade comment.
+      const platformKey = getPlatformApiKey();
+      if (!platformKey) {
+        console.log(`Skipping PR review for PR #${prNumber}: no platform key configured`);
+        return { success: false, skipped: true, reason: 'no_api_key' };
+      }
+      const status = await getFreeTierStatus(installationId);
+      if (status.remaining <= 0) {
+        await postUpgradeStubComment({ installationId, owner, repo, prNumber });
+        return { success: false, skipped: true, reason: 'free_tier_exhausted' };
+      }
+      keyInfo = { apiKey: platformKey, isByok: false };
+      freeTier = status;
     }
 
     const octokit = await getInstallationOctokit(installationId);
@@ -167,7 +183,10 @@ export async function postPRReviewComment({
       comment.body?.includes(PR_REVIEW_CONFIG.commentMarker)
     );
 
-    const commentBody = `${PR_REVIEW_CONFIG.commentMarker}\n${analysisResult.markdown}`;
+    const footer = freeTier
+      ? freeTierFooter(freeTier.remaining - 1, 'pr_review')
+      : '';
+    const commentBody = `${PR_REVIEW_CONFIG.commentMarker}\n${analysisResult.markdown}${footer}`;
 
     if (existingComment) {
       // Update existing comment
@@ -207,6 +226,14 @@ export async function postPRReviewComment({
       console.error('Failed to log token usage:', error);
     }
 
+    if (freeTier) {
+      try {
+        await incrementFreeReviewsUsed(installationId);
+      } catch (e) {
+        console.error('Failed to increment free-tier counter:', e);
+      }
+    }
+
     return {
       success: true,
       analysis: analysisResult.analysis,
@@ -218,6 +245,39 @@ export async function postPRReviewComment({
 
     // Re-throw with more context
     throw new Error(`Failed to post PR review: ${errorMessage}`);
+  }
+}
+
+async function postUpgradeStubComment({
+  installationId,
+  owner,
+  repo,
+  prNumber,
+}: {
+  installationId: number;
+  owner: string;
+  repo: string;
+  prNumber: number;
+}) {
+  try {
+    const octokit = await getInstallationOctokit(installationId);
+    const { data: comments } = await octokit.request('GET /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+      owner,
+      repo,
+      issue_number: prNumber,
+    });
+    const existing = comments.find(c => c.body?.includes(PR_REVIEW_CONFIG.commentMarker));
+    if (existing) return; // don't overwrite a real review with a stub
+
+    const body = `${PR_REVIEW_CONFIG.commentMarker}\n${freeTierFooter(0, 'pr_review_exhausted')}`;
+    await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+      owner,
+      repo,
+      issue_number: prNumber,
+      body,
+    });
+  } catch (e) {
+    console.error('Failed to post upgrade stub:', e);
   }
 }
 

@@ -1,0 +1,218 @@
+USER FLOW MAP — post install-kill + /hire+/discover merge
+==========================================================
+date: 2026-05-15
+branch: feat/conversion-fixes
+prior:  recon/04-user-flow-map.txt
+
+LEGEND
+  ▣ public (no auth)     ◐ auth-gated soft (inline gate)     ● auth-gated hard (full wall)
+  ↦ navigation           ⤴ external (github.com / stripe)    ⟲ Next.js redirect (307/308)
+  ★ value moment         ⚑ install/upgrade CTA              ✦ analytics event
+
+
+ROUTES (current)
+================
+  src/app/
+    page.tsx                ▣  /                landing
+    hire/page.tsx           ▣  /hire            sourcing app (was /discover)
+    hire/[username]/        ◐  /hire/<u>        hiring report
+    hire/match/             ◐  /hire/match      JD match
+    [user]/page.tsx         ▣  /<u>             profile
+    [user]/[repo]/...       ▣  /<u>/<r>/*       repo analyses (scorecard,diagram,wiki,...)
+    users/                  ▣  /users           profile directory
+    repos/                  ▣  /repos           repo directory
+    pricing/                ▣  /pricing
+    api-docs/               ▣  /api
+    onboarding/             ◐  /onboarding      4-step welcome (signed-out shows sign-in)
+    settings/               ●  /settings
+    automations/            ●  /automations
+    install/                ⟲  /install         → github.com/apps/<APP>/installations/new
+    install/callback/       ▣  /install/callback  post-install protocol handler
+    auth/                   ▣  /auth/*          better-auth pages
+
+  killed this branch
+    src/app/discover/                      ⟲ /discover → /hire (next.config redirect)
+    src/app/hire/search/                   ⟲ /hire/search → /hire
+    src/app/install/page.tsx               (deleted, route now external redirect)
+    src/app/hire/HireTeaserMap.tsx         (deleted)
+
+
+PRIMARY USER FLOW TREE
+======================
+The tree below traces every realistic entry × auth-state. ★ marks where real value
+is delivered before any ask. ⚑ marks every install/upgrade prompt.
+
+/  landing  ▣
+├── HeroSection — split-screen: pitch (left) + live diagram (right) ★
+│   form: GitHub repo URL → push to /<u>/<r> (no auth gate)
+│   secondary CTA:
+│     ⚑ "Install GitHub App" → github.com/apps/<APP>/installations/new
+│        (NOT a sign-in. Skips /install wrapper. Memory: value-first-funnel.)
+│
+├── CTA section bottom
+│   ⚑ "Install GitHub App" → github.com directly
+│
+└── Navbar (everywhere): Profiles · Repos · Hire · API
+    No "Sign in" button on landing for signed-out — sign-in only surfaces
+    where it's needed (settings, automations, network mode, etc.)
+
+
+/<u>/<r>  repo analysis (scorecard / diagram / wiki / ai-slop / code / aireview)  ▣
+├── public repo, signed-out:
+│   ★ scorecard renders real data on free tier
+│   ★ diagram, wiki render
+│   ScorecardSamplePreview shown for premium-only depth → ⚑ "Sign in → upgrade"
+│     signIn(`/<u>/<r>/scorecard`) preserves return target
+│
+├── private repo, signed-out:
+│   RepoStatus "Sign in to view" → signIn(`/<u>/<r>`)
+│     after OAuth, lands back on the repo. If repo is private and not installed,
+│     shows ⚑ "Install GitHub App on this org" → github.com with state=/<u>/<r>
+│
+└── signed-in, no install, private repo:
+    RepoStatus shows: "Install the GitHub App to access this private repo"
+    ⚑ → github.com/apps/<APP>/installations/new?state=/<u>/<r>
+
+
+/hire  sourcing app  ▣ (new — was hard-walled /discover)
+├── HireHeader: h1 "Hire", JD-match link top-right, username search form
+│   submit → router.push(/hire/<u>)
+│
+├── DiscoverApp (signed-out, no seed):
+│   mode = 'explore'  (was always 'network'; now defaults to explore when no seed)
+│   ★ Public semantic map renders all GG profile nodes (getAllGGProfileNodes — public proc)
+│   ★ Click any node → /hire/<that-user>
+│   Tab "My Network" → ◐ inline gate (not a wall):
+│     "Sign in to explore networks"  +  "Browse the map instead" (back to explore)
+│
+├── DiscoverApp (signed-out, ?seed=<u>):
+│   mode = 'network' (because seed present), but currentNetwork null (protected proc 401s)
+│   ◐ inline gate: "Sign in to see @<u>'s network"
+│     signIn(`/hire?seed=<u>`) — seed survives OAuth round-trip
+│     fallback: "Browse the map instead" (drops seed, shows public map)
+│
+└── DiscoverApp (signed-in):
+    auto-seeds to user's own GH username
+    fetches getUnifiedNetwork → renders Table / Graph / Map views ★
+
+
+/hire/<username>  hiring report  ◐
+├── signed-out:
+│   shows partial report; ScorecardSamplePreview-style gates on full details
+│   ⚑ "Sign in to see full report" → signIn(`/hire/<u>`)
+│
+└── signed-in:
+    ★ full hiring report; "Find similar" → /hire?seed=<u>
+
+
+/hire/match  JD-match  ◐
+├── signed-out: TODO — re-check; likely sign-in-required currently
+└── signed-in: paste JD → ranked list of GG profiles
+
+
+/pricing  ▣
+├── signed-out: ⚑ "Sign in to upgrade" → signIn('/pricing')
+└── signed-in: ⤴ Stripe checkout → return to /pricing (TODO: /welcome screen)
+
+
+/onboarding  ◐
+├── signed-out:
+│   shows hero copy + "Sign in with GitHub" button → signIn('/onboarding')
+│
+└── signed-in: 4 steps
+    1) ⚑ Install GitHub App → github.com directly with state=/onboarding
+    2) Pick a repo → analyze
+    3) Try a feature (scorecard/diagram/wiki)
+    4) Upgrade for full features → /pricing
+    No /install wrapper page anymore.
+
+
+/install            ⟲ 307 → github.com/apps/<APP>/installations/new   (no UI)
+/install/callback   ▣ protocol handler
+├── ?installation_id=X&setup_action=install&state=<returnTo>
+├── signed-in: associates installation, redirects to <returnTo> or /onboarding
+└── signed-out: shows sign-in CTA that preserves the callback URL itself,
+                so installation_id survives the OAuth round-trip.
+
+
+/settings · /automations  ●
+└── full sign-in wall (these are user-config pages, not value pages)
+    install/PR-review CTAs link to github.com directly with state=/settings or /automations
+
+
+AUTH-STATE × ENTRY MATRIX
+=========================
+                       A: signed-out      B: signed-in          C: +install         D: paying
+                       no install         no install
+─────────────────────────────────────────────────────────────────────────────────────────────────
+/                     ★ value, ⚑ optional ★ value, ⚑ install   ★ + dashboard link   ★ + dashboard
+/<u>/<r> public       ★ free tier         ★ free + upgrade ⚑   ★ free + upgrade ⚑   ★ paid
+/<u>/<r> private      sign-in wall →      install wall ⚑       ★ value              ★ paid
+                      then install wall   (signed-in + need
+                                          install)
+/hire                 ★ public map        ★ map + ◐ My Network ★ My Network + map   ★ + saved lists?
+/hire?seed=X          ◐ gate for X        ★ X's network         ★                    ★
+/hire/<u>             partial + ⚑         ★ full report         ★                    ★
+/hire/match           ◐ sign-in? (check)  ★                     ★                    ★
+/pricing              ▣ + ⚑              ⚑ → Stripe            ⚑ → Stripe          ▣
+/settings             ●                   ★                     ★                    ★
+/onboarding           ◐ → sign-in         step 1 ⚑ install     skip to step 2       skip to step 4
+
+
+
+WHAT CHANGED VS recon/04
+========================
+1. /install dead-end killed
+   - /install page deleted; route 307s straight to github.com.
+   - All install CTAs (Hero, CTA, Onboarding step 1, Settings PR-reviews,
+     Automations, RepoStatus) bypass our domain entirely.
+   - install/callback retained + hardened: signed-out users' installation_id
+     survives OAuth by sending them back to the callback URL itself.
+
+2. /hire + /discover merged
+   - /hire is the only sourcing app. /discover 307s to /hire.
+   - DiscoverApp.standalone removed; component lives at
+     src/components/discover/DiscoverApp.tsx.
+   - Default mode: 'explore' when no seed; 'network' only when seed present
+     or signed-in user's own username applied.
+   - Public semantic map browses without auth.
+   - "My Network" tab shows an inline gate (not a wall) for signed-out users,
+     with a "Browse the map instead" fallback so they keep the value path.
+   - Navbar "Discover" relabeled to "Hire" (testid retained for analytics).
+
+3. Funnel ordering enforced (memory: feedback_value_first_funnel)
+   - Landing: pitch + live diagram BEFORE any install/sign-in ask.
+   - Repo pages: free tier renders for everyone; gate only the premium depth.
+   - Hire: map browses BEFORE any "sign in to see networks" prompt.
+
+
+REMAINING FRICTION POINTS (next candidates)
+===========================================
+F1. /hire/match for signed-out users
+    Check whether it's a hard wall today; if so, give it a public preview
+    (like ScorecardSamplePreview) so JD-match becomes the second value entry on /hire.
+
+F2. /hire JD-match link is a tiny top-right text link
+    First-class parallel input would let both "search by username" and "match by JD"
+    be primary entries on /hire. Currently username search dominates visually.
+
+F3. Post-Stripe /welcome screen
+    After Stripe success, users are dumped back on /pricing. No "you're in,
+    here's the next thing" moment. Should land on /welcome with the install CTA
+    if not already installed, otherwise /onboarding step 2.
+
+F4. First-time OAuth with no explicit return target
+    Currently the default callback is "/" — for fresh users this should go to
+    /onboarding instead, so they get the staged flow. Gate this on session.isFirstSignIn.
+
+F5. /discover → /hire is a single 307; /hire/map → /discover → /hire is now
+    a double-hop. Trivial cleanup: change /hire/map source to /hire directly
+    in next.config.mjs.
+
+F6. RepoStatus install message clarity
+    "Install GitHub App to access this private repo" is good; "Install on this org"
+    would be even clearer when the repo's org is known. Low priority.
+
+F7. Sample previews still missing for diagram/ai-slop/security
+    ScorecardSamplePreview is the only feature with a real public preview.
+    Diagram, ai-slop, security still show empty paywalls. Replicate the pattern.

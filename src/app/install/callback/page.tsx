@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth/client';
 import { TextButton } from '@/components/ui/text-button';
+import { buildGitHubAppInstallUrl } from '@/lib/github/install-url';
 
 function InstallCallbackContent() {
   const searchParams = useSearchParams();
@@ -93,7 +94,12 @@ function InstallCallbackContent() {
 
   const handleSignIn = async () => {
     try {
-      await signIn();
+      // Preserve installation_id, setup_action, and state across OAuth so the
+      // callback can complete the link once the user lands back here signed in.
+      const here = typeof window !== 'undefined'
+        ? window.location.pathname + window.location.search
+        : '/install/callback';
+      await signIn(here);
     } catch (error) {
       console.error('Sign in failed:', error);
       setStatus('error');
@@ -108,7 +114,9 @@ function InstallCallbackContent() {
   };
 
   const handleRetry = () => {
-    router.push('/install');
+    const state = searchParams.get('state');
+    const target = state && state.startsWith('/') && !state.startsWith('//') ? state : null;
+    window.location.href = buildGitHubAppInstallUrl(target);
   };
 
   const handleRetryLinking = () => {

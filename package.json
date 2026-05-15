@@ -14,6 +14,8 @@
     "test:payment:node": "node scripts/test-payment.js",
     "test:all": "bun --env-file=.env.local test tests/",
     "worker:vm": "bun --env-file=.env.local src/workers/vm-worker.ts",
+    "umap:compute": "bun --env-file=.env.local scripts/compute-umap-projection.ts",
+    "umap:seed": "bun --env-file=.env.local scripts/seed-synthetic-profiles.ts",
     "db:generate": "bun --env-file=.env.local drizzle-kit generate",
     "db:push": "bun --env-file=.env.local drizzle-kit push",
     "db:studio": "bun --env-file=.env.local drizzle-kit studio",
@@ -27,6 +29,9 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^2.0.20",
+    "@deck.gl/core": "^9.3.1",
+    "@deck.gl/layers": "^9.3.1",
+    "@deck.gl/react": "^9.3.1",
     "@google/genai": "^1.24.0",
     "@milkdown/core": "^7.17.1",
     "@milkdown/ctx": "^7.17.1",
@@ -120,6 +125,7 @@
     "tailwind-merge": "^3.3.1",
     "tar-stream": "^3.1.7",
     "thingy": "^0.0.1",
+    "umap-js": "^1.4.0",
     "unified": "^11.0.5",
     "zod": "^4.1.12",
     "zustand": "^5.0.8"

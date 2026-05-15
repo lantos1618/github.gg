@@ -62,6 +62,7 @@ const TAB_PATHS = [
   "scorecard",
   "diagram",
   "ai-slop",
+  "security",
   "automations",
   "issues",
   "pulls",

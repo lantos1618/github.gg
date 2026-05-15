@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/client';
 import { Github } from 'lucide-react';
+import { safePostHog } from '@/lib/analytics/posthog';
 
 export function SignInButton() {
   const { signIn, isLoading } = useAuth();
@@ -14,9 +15,14 @@ export function SignInButton() {
 
   const showLoading = hasMounted && isLoading;
 
+  const handleClick = () => {
+    safePostHog.capture('signin_clicked', { source: 'nav' });
+    signIn();
+  };
+
   return (
     <button
-      onClick={() => signIn()}
+      onClick={handleClick}
       disabled={showLoading}
       data-testid="nav-signin-btn"
       className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#111] text-white text-base font-medium rounded-md hover:bg-[#333] transition-colors disabled:opacity-50 cursor-pointer"

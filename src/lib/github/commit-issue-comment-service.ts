@@ -6,6 +6,31 @@ import { tokenUsage, webhookPreferences } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { escapeHtmlEntities } from '@/lib/utils/sanitize';
+import {
+  getFreeTierStatus,
+  incrementFreeReviewsUsed,
+  getPlatformApiKey,
+  freeTierFooter,
+} from './free-tier';
+
+type FreeTierState = { used: number; remaining: number; total: number } | null;
+type KeyInfo = { apiKey: string; isByok: boolean };
+
+async function resolveKeyAndTier(
+  userId: string,
+  installationId: number,
+): Promise<{ keyInfo: KeyInfo; freeTier: FreeTierState } | { skip: 'no_api_key' | 'free_tier_exhausted' }> {
+  const { subscription, plan } = await getUserPlanAndKey(userId);
+  const isPaid = !!subscription && subscription.status === 'active';
+  const paidKey = isPaid ? await getApiKeyForUser(userId, plan) : null;
+  if (paidKey) return { keyInfo: paidKey, freeTier: null };
+
+  const platformKey = getPlatformApiKey();
+  if (!platformKey) return { skip: 'no_api_key' };
+  const status = await getFreeTierStatus(installationId);
+  if (status.remaining <= 0) return { skip: 'free_tier_exhausted' };
+  return { keyInfo: { apiKey: platformKey, isByok: false }, freeTier: status };
+}
 
 const COMMIT_COMMENT_MARKER = '<!-- gh.gg commit analysis -->';
 const ISSUE_COMMENT_MARKER = '<!-- gh.gg issue analysis -->';
@@ -34,24 +59,18 @@ export async function postCommitAnalysisComment({
   commitSha,
 }: CommitCommentParams) {
   try {
-    // Check if user has active subscription before processing
     const user = await getUserFromInstallation(installationId);
     if (!user) {
       console.log(`Skipping commit analysis for ${commitSha}: no user associated with installation`);
       return { success: false, skipped: true, reason: 'no_user' };
     }
 
-    const { subscription, plan } = await getUserPlanAndKey(user.id);
-    if (!subscription || subscription.status !== 'active') {
-      console.log(`Skipping commit analysis for ${commitSha}: user ${user.id} has no active subscription`);
-      return { success: false, skipped: true, reason: 'no_subscription' };
+    const resolved = await resolveKeyAndTier(user.id, installationId);
+    if ('skip' in resolved) {
+      console.log(`Skipping commit analysis for ${commitSha}: ${resolved.skip}`);
+      return { success: false, skipped: true, reason: resolved.skip };
     }
-
-    const keyInfo = await getApiKeyForUser(user.id, plan);
-    if (!keyInfo) {
-      console.log(`Skipping commit analysis for ${commitSha}: no API key available`);
-      return { success: false, skipped: true, reason: 'no_api_key' };
-    }
+    const { keyInfo, freeTier } = resolved;
 
     const octokit = await getInstallationOctokit(installationId);
 
@@ -103,7 +122,8 @@ export async function postCommitAnalysisComment({
       comment.body?.includes(COMMIT_COMMENT_MARKER)
     );
 
-    const commentBody = `${COMMIT_COMMENT_MARKER}\n${analysisResult.markdown}`;
+    const commitFooter = freeTier ? freeTierFooter(freeTier.remaining - 1, 'commit_analysis') : '';
+    const commentBody = `${COMMIT_COMMENT_MARKER}\n${analysisResult.markdown}${commitFooter}`;
 
     if (existingComment) {
       // Update existing comment
@@ -143,6 +163,11 @@ export async function postCommitAnalysisComment({
       console.error('Failed to log token usage:', error);
     }
 
+    if (freeTier) {
+      try { await incrementFreeReviewsUsed(installationId); }
+      catch (e) { console.error('Failed to increment free-tier counter:', e); }
+    }
+
     return {
       success: true,
       analysis: analysisResult.analysis,
@@ -165,24 +190,18 @@ export async function postIssueAnalysisComment({
   issueNumber,
 }: IssueCommentParams) {
   try {
-    // Check if user has active subscription before processing
     const user = await getUserFromInstallation(installationId);
     if (!user) {
       console.log(`Skipping issue analysis for #${issueNumber}: no user associated with installation`);
       return { success: false, skipped: true, reason: 'no_user' };
     }
 
-    const { subscription, plan } = await getUserPlanAndKey(user.id);
-    if (!subscription || subscription.status !== 'active') {
-      console.log(`Skipping issue analysis for #${issueNumber}: user ${user.id} has no active subscription`);
-      return { success: false, skipped: true, reason: 'no_subscription' };
+    const resolved = await resolveKeyAndTier(user.id, installationId);
+    if ('skip' in resolved) {
+      console.log(`Skipping issue analysis for #${issueNumber}: ${resolved.skip}`);
+      return { success: false, skipped: true, reason: resolved.skip };
     }
-
-    const keyInfo = await getApiKeyForUser(user.id, plan);
-    if (!keyInfo) {
-      console.log(`Skipping issue analysis for #${issueNumber}: no API key available`);
-      return { success: false, skipped: true, reason: 'no_api_key' };
-    }
+    const { keyInfo, freeTier } = resolved;
 
     const octokit = await getInstallationOctokit(installationId);
 
@@ -233,7 +252,8 @@ export async function postIssueAnalysisComment({
       comment.body?.includes(ISSUE_COMMENT_MARKER)
     );
 
-    const commentBody = `${ISSUE_COMMENT_MARKER}\n${analysisResult.markdown}`;
+    const issueFooter = freeTier ? freeTierFooter(freeTier.remaining - 1, 'issue_analysis') : '';
+    const commentBody = `${ISSUE_COMMENT_MARKER}\n${analysisResult.markdown}${issueFooter}`;
 
     if (existingComment) {
       // Update existing comment
@@ -271,6 +291,11 @@ export async function postIssueAnalysisComment({
       });
     } catch (error) {
       console.error('Failed to log token usage:', error);
+    }
+
+    if (freeTier) {
+      try { await incrementFreeReviewsUsed(installationId); }
+      catch (e) { console.error('Failed to increment free-tier counter:', e); }
     }
 
     return {

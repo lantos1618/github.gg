@@ -1,14 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowRight, Github, Sparkles, CheckCircle, Users, FileSearch, MessageSquare, Search } from 'lucide-react';
+import { ArrowRight, Github, Sparkles } from 'lucide-react';
 import Link from 'next/link';
-import { TextLink } from '@/components/ui/text-link';
+import { PageWidthContainer } from '@/components/PageWidthContainer';
+import DiscoverApp from '@/components/discover/DiscoverApp';
 
 export default function HirePage() {
+  return (
+    <div className="min-h-screen bg-white pt-12 pb-20">
+      <PageWidthContainer>
+        <HireHeader />
+        <div className="mt-10">
+          <Suspense fallback={<div className="h-[500px] rounded-lg bg-gray-100 animate-pulse" />}>
+            <DiscoverApp />
+          </Suspense>
+        </div>
+      </PageWidthContainer>
+    </div>
+  );
+}
+
+function HireHeader() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -16,189 +32,65 @@ export default function HirePage() {
   const handleAnalyze = (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim()) return;
-
     setIsLoading(true);
-    // Clean the username (remove @ if present, handle URLs)
-    let cleanUsername = username.trim();
-    cleanUsername = cleanUsername.replace(/^@/, '');
-    cleanUsername = cleanUsername.replace(/^https?:\/\/github\.com\//, '');
-    cleanUsername = cleanUsername.split('/')[0]; // Just get the username part
-
-    router.push(`/hire/${cleanUsername}`);
+    let clean = username.trim().replace(/^@/, '').replace(/^https?:\/\/github\.com\//, '');
+    clean = clean.split('/')[0];
+    router.push(`/hire/${clean}`);
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Hero */}
-      <div className="pt-20 pb-16 px-4">
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-gray-200 text-sm text-gray-600 mb-6">
-            For recruiters, hiring managers, and accelerators
-          </div>
+    <div>
+      <h1 className="text-[31px] font-semibold text-[#111] tracking-tight leading-none mb-2">
+        Hire
+      </h1>
 
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4 tracking-tight">
-            Verify developer skills before you hire
-          </h1>
+      <p className="text-base text-[#888] mb-6 max-w-2xl">
+        Source developers by how they actually code. Browse the semantic map below,
+        explore a specific GitHub user&apos;s network, or analyze one candidate directly.
+      </p>
 
-          <p className="text-lg text-gray-500 mb-10 max-w-xl mx-auto">
-            Paste a GitHub username. Get a skills assessment, AI-code detection, and interview questions in 30 seconds.
-          </p>
-
-          {/* Search */}
-          <form onSubmit={handleAnalyze} className="max-w-md mx-auto mb-8">
-            <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                <Github className="h-5 w-5" />
-              </div>
-              <Input
-                type="text"
-                placeholder="GitHub username"
-                className="pl-12 pr-28 h-12 text-base border border-gray-200 bg-white rounded-md focus:border-gray-900 focus:ring-0"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                autoFocus
-              />
-              <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
-                <Button
-                  type="submit"
-                  disabled={isLoading || !username.trim()}
-                  className="h-9 px-4 bg-gray-900 hover:bg-gray-800 text-white rounded font-medium text-sm"
-                >
-                  {isLoading ? '...' : 'Analyze'}
-                  {!isLoading && <ArrowRight className="h-4 w-4 ml-1.5" />}
-                </Button>
-              </div>
+      <div className="flex flex-col sm:flex-row gap-3 max-w-2xl">
+        <form onSubmit={handleAnalyze} className="flex-1 min-w-0">
+          <div className="relative">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#aaa]">
+              <Github className="h-4 w-4" />
             </div>
-          </form>
-
-          <p className="text-sm text-gray-400 mb-6">
-            Free for public profiles. Works with any GitHub account.
-          </p>
-
-          <div className="flex items-center justify-center gap-4">
-            <Link href="/hire/match">
-              <Button className="text-sm bg-amber-600 hover:bg-amber-700">
-                <Sparkles className="h-4 w-4 mr-2" />
-                AI Job Matching
+            <Input
+              type="text"
+              placeholder="GitHub username — get a hiring report"
+              aria-label="GitHub username"
+              data-testid="hire-username-input"
+              className="pl-10 pr-28 h-10 text-sm"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+            <div className="absolute right-1 top-1/2 -translate-y-1/2">
+              <Button
+                type="submit"
+                disabled={isLoading || !username.trim()}
+                data-testid="hire-username-submit"
+                className="h-8 px-3 bg-[#111] hover:bg-[#333] text-white rounded font-medium text-xs"
+              >
+                {isLoading ? '...' : (
+                  <>
+                    Analyze
+                    <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+                  </>
+                )}
               </Button>
-            </Link>
-            <TextLink href="/hire/search" className="inline-flex items-center gap-2">
-              <Search className="h-4 w-4" />
-              Search all candidates
-            </TextLink>
-          </div>
-        </div>
-      </div>
-
-      {/* What you get */}
-      <div className="py-16 px-4 bg-gray-50">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="text-lg font-semibold text-gray-900 text-center mb-8">
-            What you get
-          </h2>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="bg-white border border-gray-200 p-5">
-              <div className="flex items-start gap-3 mb-2">
-                <Sparkles className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
-                <h3 className="font-medium text-gray-900">AI Workflow Analysis</h3>
-              </div>
-              <p className="text-sm text-gray-500 pl-8">
-                Understand how they work with AI tools. See coding patterns and collaboration style.
-              </p>
-            </div>
-
-            <div className="bg-white border border-gray-200 p-5">
-              <div className="flex items-start gap-3 mb-2">
-                <CheckCircle className="h-5 w-5 text-emerald-500 mt-0.5 flex-shrink-0" />
-                <h3 className="font-medium text-gray-900">Profile Confidence</h3>
-              </div>
-              <p className="text-sm text-gray-500 pl-8">
-                How well does their GitHub represent their true skills? Flags suspicious patterns.
-              </p>
-            </div>
-
-            <div className="bg-white border border-gray-200 p-5">
-              <div className="flex items-start gap-3 mb-2">
-                <FileSearch className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                <h3 className="font-medium text-gray-900">Skills Assessment</h3>
-              </div>
-              <p className="text-sm text-gray-500 pl-8">
-                Scored skills based on actual code analysis. Not just what they claim.
-              </p>
-            </div>
-
-            <div className="bg-white border border-gray-200 p-5">
-              <div className="flex items-start gap-3 mb-2">
-                <MessageSquare className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
-                <h3 className="font-medium text-gray-900">Interview Questions</h3>
-              </div>
-              <p className="text-sm text-gray-500 pl-8">
-                Targeted questions based on weak spots and AI-suspected code sections.
-              </p>
             </div>
           </div>
-        </div>
-      </div>
+        </form>
 
-      {/* Use cases */}
-      <div className="py-16 px-4">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="text-lg font-semibold text-gray-900 text-center mb-8">
-            Who uses this
-          </h2>
-
-          <div className="grid md:grid-cols-3 gap-6 text-center">
-            <div>
-              <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                <Users className="h-5 w-5 text-gray-600" />
-              </div>
-              <h3 className="font-medium text-gray-900 mb-1">Hiring Managers</h3>
-              <p className="text-sm text-gray-500">
-                Verify candidates before the interview
-              </p>
-            </div>
-
-            <div>
-              <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                <FileSearch className="h-5 w-5 text-gray-600" />
-              </div>
-              <h3 className="font-medium text-gray-900 mb-1">Accelerators</h3>
-              <p className="text-sm text-gray-500">
-                Evaluate technical founders at scale
-              </p>
-            </div>
-
-            <div>
-              <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                <Github className="h-5 w-5 text-gray-600" />
-              </div>
-              <h3 className="font-medium text-gray-900 mb-1">Recruiters</h3>
-              <p className="text-sm text-gray-500">
-                Screen candidates before presenting to clients
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* CTA */}
-      <div className="py-12 px-4 bg-gray-900 text-white">
-        <div className="max-w-xl mx-auto text-center">
-          <h2 className="text-xl font-semibold mb-3">
-            Need to analyze multiple candidates?
-          </h2>
-          <p className="text-gray-400 mb-6 text-sm">
-            Batch processing for cohorts and hiring pipelines. Contact us for team pricing.
-          </p>
-          <a
-            href="mailto:hello@github.gg?subject=Batch%20hiring%20analysis"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-900 rounded font-medium text-sm hover:bg-gray-100 transition-colors"
-          >
-            Contact for batch pricing
-            <ArrowRight className="h-4 w-4" />
-          </a>
-        </div>
+        <Link
+          href="/hire/match"
+          data-testid="hire-jd-match-link"
+          className="inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-md border border-[#111] text-sm font-medium text-[#111] hover:bg-[#111] hover:text-white transition-colors whitespace-nowrap"
+        >
+          <Sparkles className="h-4 w-4" />
+          Match by job description
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
       </div>
     </div>
   );

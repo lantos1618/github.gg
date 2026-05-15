@@ -39,6 +39,7 @@ export default function OnboardingPage() {
       installed,
       repoCount: repos.length,
     });
+    try { sessionStorage.setItem('gg-seen-onboarding', '1'); } catch {}
   }, [installed, repos.length]);
 
   if (authLoading) {

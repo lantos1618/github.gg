@@ -21,9 +21,19 @@ function signCookie(value: string, secret: string): string {
  * POST /api/auth/test-session
  * Body: { username?: string, email?: string }
  */
+// Defense in depth: hard-block this endpoint in production regardless of the
+// ENABLE_TEST_SESSION flag. A misconfigured env var in the prod project must
+// NEVER allow attacker-driven account takeover (POST {username:'lantos1618'}
+// would mint a signed better-auth session cookie for that user).
+function isTestSessionAllowed(): boolean {
+  if (process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV === 'production') {
+    return false;
+  }
+  return process.env.ENABLE_TEST_SESSION === 'true';
+}
+
 export async function POST(request: Request) {
-  // Use explicit opt-in flag — NODE_ENV=production on Vercel preview deployments
-  if (process.env.ENABLE_TEST_SESSION !== 'true') {
+  if (!isTestSessionAllowed()) {
     return NextResponse.json({ error: 'Not available' }, { status: 403 });
   }
 
@@ -100,7 +110,7 @@ export async function POST(request: Request) {
  * DELETE /api/auth/test-session - Clean up test sessions and users
  */
 export async function DELETE() {
-  if (process.env.ENABLE_TEST_SESSION !== 'true') {
+  if (!isTestSessionAllowed()) {
     return NextResponse.json({ error: 'Not available' }, { status: 403 });
   }
 

@@ -131,7 +131,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                         </span>
                       )}
                       {activity.status === 'mention' && (
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-purple-600 dark:text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-[#111] dark:text-[#eee] bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded">
                           Mention
                         </span>
                       )}

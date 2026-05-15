@@ -352,7 +352,13 @@ export const reposRouter = router({
     }),
 
   /**
-   * Check if user has starred a repo
+   * Check if user has starred a repo.
+   *
+   * This is decorative (powers the gold star in the navbar). A single transient
+   * failure — expired OAuth token, GitHub rate limit, network flake — should
+   * NOT remove the gold from a user who legitimately starred. We return
+   * { hasStarred: false } on errors rather than throwing, and the client
+   * caches positive results in localStorage to survive token churn.
    */
   hasStarredRepo: protectedProcedure
     .input(z.object({
@@ -365,7 +371,8 @@ export const reposRouter = router({
         const hasStarred = await githubService.hasStarredRepo(input.owner, input.repo);
         return { hasStarred };
       } catch (error) {
-        handleTRPCGitHubError(error);
+        console.warn('[hasStarredRepo] check failed, treating as unstarred:', error instanceof Error ? error.message : error);
+        return { hasStarred: false };
       }
     }),
 });

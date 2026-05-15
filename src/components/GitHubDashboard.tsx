@@ -125,8 +125,8 @@ function DashboardContent({
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-foreground flex items-center gap-3">
-            <div className="p-2 bg-purple-500/10 rounded-lg">
-              <CircleDot className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            <div className="p-2 bg-black/5 dark:bg-white/10 rounded-lg">
+              <CircleDot className="h-5 w-5 text-[#111] dark:text-[#eee]" />
             </div>
             Issues
           </h2>
@@ -151,7 +151,7 @@ function DashboardContent({
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="p-4 rounded-xl bg-card border border-border/50">
                   <div className="flex items-start gap-3">
-                    <div className="w-4 h-4 mt-0.5 rounded-full bg-purple-200 shrink-0" />
+                    <div className="w-4 h-4 mt-0.5 rounded-full bg-gray-300 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="h-4 w-3/4 bg-gray-200 rounded mb-2" />
                       <div className="flex items-center gap-2">

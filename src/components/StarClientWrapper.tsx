@@ -1,6 +1,7 @@
 'use client';
 
 import { Star } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import { useSessionHint } from '@/lib/session-context';
 import type { ReactNode } from 'react';
@@ -12,8 +13,25 @@ interface StarClientWrapperProps {
   children: ReactNode;
 }
 
+function cacheKey(userId: string, owner: string, repo: string) {
+  return `gg-starred:${userId}:${owner}/${repo}`;
+}
+
 export function StarClientWrapper({ owner, repo, className = '', children }: StarClientWrapperProps) {
   const hint = useSessionHint();
+  const [cachedStarred, setCachedStarred] = useState(false);
+
+  useEffect(() => {
+    if (!hint?.userId) {
+      setCachedStarred(false);
+      return;
+    }
+    try {
+      setCachedStarred(localStorage.getItem(cacheKey(hint.userId, owner, repo)) === '1');
+    } catch {
+      setCachedStarred(false);
+    }
+  }, [hint?.userId, owner, repo]);
 
   const { data: starredData } = trpc.github.hasStarredRepo.useQuery(
     { owner, repo },
@@ -21,11 +39,18 @@ export function StarClientWrapper({ owner, repo, className = '', children }: Sta
       enabled: !!hint,
       staleTime: 1000 * 60 * 30,
       refetchOnWindowFocus: false,
-      retry: false,
     }
   );
 
-  const hasStarred = starredData?.hasStarred || false;
+  useEffect(() => {
+    if (!hint?.userId || starredData?.hasStarred !== true) return;
+    try {
+      localStorage.setItem(cacheKey(hint.userId, owner, repo), '1');
+      setCachedStarred(true);
+    } catch { /* localStorage unavailable */ }
+  }, [hint?.userId, owner, repo, starredData?.hasStarred]);
+
+  const hasStarred = starredData?.hasStarred === true || cachedStarred;
 
   return (
     <a

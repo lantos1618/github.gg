@@ -410,7 +410,7 @@ export default function AutomationsClient() {
                     <div className="text-sm text-muted-foreground">Total Tokens</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-600">
+                    <div className="text-2xl font-bold text-[#111]">
                       {new Set(filteredActivities.map(a => a.feature)).size}
                     </div>
                     <div className="text-sm text-muted-foreground">Features Used</div>

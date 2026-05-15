@@ -32,9 +32,9 @@ export function PricingCardServer({
     <Card className={getPricingCardClassName(isPro, variant, className)} style={getPricingCardStyle(isPro)}>
       <CardHeader className="text-center relative">
         {isPro && variant === 'default' && (
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-400 via-purple-500 to-purple-400"></div>
+          <div className="absolute top-0 left-0 right-0 h-1 bg-[#111]"></div>
         )}
-        <Icon className="h-8 w-8 mx-auto mb-4 text-purple-600" />
+        <Icon className="h-8 w-8 mx-auto mb-4 text-[#111]" />
         <CardTitle>{plan.name}</CardTitle>
         <div className="flex items-baseline justify-center gap-1">
           <span className="text-4xl font-bold">{plan.price}</span>

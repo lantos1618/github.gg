@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
-import { Search, ArrowUpDown } from 'lucide-react';
+import { Search, ArrowUpDown, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { ScorecardMetric } from '@/lib/types/scorecard';
 import { PageWidthContainer } from '@/components/PageWidthContainer';
+import { trpc } from '@/lib/trpc/client';
 
 type SortField = 'date' | 'score' | 'name';
 type SortOrder = 'asc' | 'desc';
@@ -19,6 +20,7 @@ interface RepositoryScorecardEntry {
   metrics: ScorecardMetric[];
   ref: string | null;
   version: number;
+  similarityScore?: number;
 }
 
 interface ReposClientViewProps {
@@ -26,16 +28,52 @@ interface ReposClientViewProps {
   totalRepoCount: number;
 }
 
+const SEMANTIC_MIN_CHARS = 2;
+const DEBOUNCE_MS = 250;
+
 export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [page, setPage] = useState(0);
   const pageSize = 20;
 
-  const filteredRepos = initialRepos?.filter(repo =>
-    `${repo.repoOwner}/${repo.repoName}`.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery.trim()), DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  const semanticEnabled = debouncedQuery.length >= SEMANTIC_MIN_CHARS;
+  const { data: semantic, isFetching } = trpc.repoSearch.searchRepos.useQuery(
+    { query: debouncedQuery, limit: 100, offset: 0 },
+    {
+      enabled: semanticEnabled,
+      staleTime: 30_000,
+      placeholderData: (prev) => prev,
+    }
+  );
+
+  // When a semantic query is active, sort by relevance (similarity) instead of
+  // user-chosen sort — relevance is what they asked for. They can still
+  // re-sort by name/score/date after the fact via the column toggles.
+  const isSemanticMode = semanticEnabled;
+  const semanticHasResults = isSemanticMode && (semantic?.results.length ?? 0) > 0;
+
+  const sourceRepos: RepositoryScorecardEntry[] = useMemo(() => {
+    if (!isSemanticMode) return initialRepos ?? [];
+    if (!semantic) return [];
+    return semantic.results.map((r) => ({
+      repoOwner: r.repoOwner,
+      repoName: r.repoName,
+      overallScore: r.overallScore,
+      updatedAt: r.updatedAt,
+      metrics: [] as ScorecardMetric[],
+      ref: r.ref,
+      version: r.version,
+      similarityScore: r.similarityScore,
+    }));
+  }, [isSemanticMode, semantic, initialRepos]);
 
   const comparators: Record<SortField, (a: RepositoryScorecardEntry, b: RepositoryScorecardEntry) => number> = {
     date: (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
@@ -43,10 +81,20 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
     name: (a, b) => `${a.repoOwner}/${a.repoName}`.localeCompare(`${b.repoOwner}/${b.repoName}`),
   };
 
-  const sortedRepos = [...filteredRepos].sort((a, b) => {
-    const comparison = comparators[sortField](a, b);
-    return sortOrder === 'asc' ? -comparison : comparison;
-  });
+  // In semantic mode the server already returns by similarity. Only re-sort if
+  // the user explicitly clicked a column header (which we detect by tracking
+  // whether sort defaults are active).
+  const sortedRepos = useMemo(() => {
+    if (isSemanticMode && sortField === 'date' && sortOrder === 'desc') {
+      // Trust server-side similarity ordering.
+      return sourceRepos;
+    }
+    return [...sourceRepos].sort((a, b) => {
+      const comparison = comparators[sortField](a, b);
+      return sortOrder === 'asc' ? -comparison : comparison;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceRepos, sortField, sortOrder, isSemanticMode]);
 
   const totalPages = Math.ceil(sortedRepos.length / pageSize);
   const paginatedRepos = sortedRepos.slice(page * pageSize, (page + 1) * pageSize);
@@ -57,6 +105,9 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
     setPage(0);
   };
 
+  const showSemanticBadge = isSemanticMode && semanticHasResults;
+  const isSearching = isSemanticMode && isFetching && !semantic;
+
   return (
     <div className="min-h-screen bg-white pt-12 pb-20">
       <PageWidthContainer>
@@ -66,12 +117,17 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
               Repositories
               <span className="text-base font-normal text-[#888] ml-3">{totalRepoCount.toLocaleString()}</span>
             </h1>
+            {showSemanticBadge && (
+              <p className="text-xs text-[#888] mt-2 inline-flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3" /> Semantic match — ranked by similarity to your query
+              </p>
+            )}
           </div>
-          <div className="group relative w-64 flex-shrink-0">
+          <div className="group relative w-72 flex-shrink-0">
             <Search className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 text-[#ccc] group-focus-within:text-[#111] transition-colors" />
             <Input
               type="text"
-              placeholder="Search repositories..."
+              placeholder="Search by name or describe a project…"
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
               className="pl-6"
@@ -79,9 +135,15 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
           </div>
         </div>
 
-        {paginatedRepos.length === 0 ? (
+        {isSearching ? (
           <div className="py-16 text-center">
-            <p className="text-base text-[#aaa]">{searchQuery ? 'No repositories found.' : 'No analyzed repositories yet.'}</p>
+            <p className="text-base text-[#aaa]">Searching…</p>
+          </div>
+        ) : paginatedRepos.length === 0 ? (
+          <div className="py-16 text-center">
+            <p className="text-base text-[#aaa]">
+              {searchQuery ? 'No repositories found.' : 'No analyzed repositories yet.'}
+            </p>
           </div>
         ) : (
           <>
@@ -95,7 +157,7 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
                     <span className="inline-flex items-center gap-1">Score <ArrowUpDown className={`h-3 w-3 ${sortField !== 'score' ? 'invisible' : ''}`} /></span>
                   </td>
                   <td className="w-[25%] py-2 text-xs text-[#999] font-semibold text-right cursor-pointer hover:text-[#111] transition-colors hidden sm:table-cell" onClick={() => toggleSort('date')}>
-                    <span className="inline-flex items-center gap-1">Analyzed <ArrowUpDown className={`h-3 w-3 ${sortField !== 'date' ? 'invisible' : ''}`} /></span>
+                    <span className="inline-flex items-center gap-1">{isSemanticMode ? 'Match' : 'Analyzed'} <ArrowUpDown className={`h-3 w-3 ${sortField !== 'date' ? 'invisible' : ''}`} /></span>
                   </td>
                 </tr>
               </thead>
@@ -123,7 +185,11 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
                       </td>
                       <td className="py-3 text-right hidden sm:table-cell" suppressHydrationWarning>
                         <Link href={`/${fullName}/scorecard`} className="text-base text-[#888]">
-                          {formatDistanceToNow(new Date(repo.updatedAt), { addSuffix: true })}
+                          {isSemanticMode && repo.similarityScore !== undefined ? (
+                            <span className="font-mono text-[13px]">{Math.round(repo.similarityScore * 100)}%</span>
+                          ) : (
+                            formatDistanceToNow(new Date(repo.updatedAt), { addSuffix: true })
+                          )}
                         </Link>
                       </td>
                     </tr>

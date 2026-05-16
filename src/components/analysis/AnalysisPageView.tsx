@@ -13,6 +13,7 @@ import { ReusableSSEFeedback, type SSELogItem, type SSEStatus } from '@/componen
 import { AnalysisHeader } from './AnalysisHeader';
 import { AnalysisResultRenderer } from './AnalysisResultRenderer';
 import { AnalysisStateHandler } from './AnalysisStateHandler';
+import { SimilarReposRail } from '@/components/repos/SimilarReposRail';
 
 import { trpc } from '@/lib/trpc/client';
 import { isGitHubAuthError } from '@/lib/hooks/useGitHubAuthError';
@@ -361,6 +362,10 @@ function AnalysisPageViewInner<TResponse>({
               data={{ markdown: markdownContent }}
               title={config.title}
             />
+          )}
+
+          {config.upgradeFeature === 'scorecard' && (analysisDataObj || markdownContent) && (
+            <SimilarReposRail owner={user} repo={repo} />
           )}
         </div>
 

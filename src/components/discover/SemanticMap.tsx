@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import DeckGL from '@deck.gl/react';
 import { ScatterplotLayer } from '@deck.gl/layers';
 import { OrthographicView } from '@deck.gl/core';
@@ -59,6 +59,31 @@ export function SemanticMap({
   );
   const [hovered, setHovered] = useState<{ point: SemanticMapPoint; x: number; y: number } | null>(null);
   const [clicked, setClicked] = useState<Set<string>>(() => new Set());
+
+  // Pass explicit width/height to DeckGL based on the container's actual size,
+  // and recompute via ResizeObserver. Without this, DeckGL's internal viewport
+  // can latch onto a stale CSS pixel size — and picking projects screen ↔ world
+  // through that stale width, so the cursor↔picked offset grows linearly with X
+  // (zero on the left edge, large on the right). Reproduces reliably when the
+  // canvas resizes after first paint (responsive layout shifts, container
+  // measurement after a sidebar opens/closes, etc.).
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      setSize((prev) => {
+        if (prev && prev.width === rect.width && prev.height === rect.height) return prev;
+        return { width: rect.width, height: rect.height };
+      });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const visible = useMemo(
     () => points.filter(p => enabled.has(p.archetype ?? 'Unknown')),
@@ -136,7 +161,7 @@ export function SemanticMap({
 
   if (points.length === 0) {
     return (
-      <div style={containerStyle} className="flex items-center justify-center">
+      <div ref={containerRef} style={containerStyle} className="flex items-center justify-center">
         <div className="text-center px-6">
           <p className="text-sm text-slate-600 mb-1">No projections yet.</p>
           <p className="text-xs text-slate-500">
@@ -148,7 +173,7 @@ export function SemanticMap({
   }
 
   return (
-    <div style={containerStyle}>
+    <div ref={containerRef} style={containerStyle}>
       {showLegend && (
         <div className="absolute top-3 right-3 z-10 bg-white/90 backdrop-blur p-3 rounded-md shadow-sm border text-xs space-y-1.5 max-w-xs">
           <div className="font-medium text-slate-700 mb-1.5">Archetypes</div>
@@ -181,14 +206,26 @@ export function SemanticMap({
         {visible.length.toLocaleString()} / {points.length.toLocaleString()} developers · dot size = confidence
       </div>
 
-      <DeckGL
-        views={new OrthographicView({ id: 'ortho' })}
-        initialViewState={{ target: [bounds.cx, bounds.cy, 0], zoom: bounds.zoom }}
-        controller={true}
-        layers={[layer]}
-        onClick={handleClick}
-        style={{ position: 'absolute', inset: '0' }}
-      />
+      {size && (
+        <DeckGL
+          views={new OrthographicView({ id: 'ortho' })}
+          initialViewState={{ target: [bounds.cx, bounds.cy, 0], zoom: bounds.zoom }}
+          controller={true}
+          layers={[layer]}
+          onClick={handleClick}
+          width={size.width}
+          height={size.height}
+          // Clear the tooltip whenever the view changes (scroll-wheel zoom, drag
+          // pan). Otherwise the tooltip stays anchored to the pre-zoom info.x/y
+          // and shows the pre-zoom dot's data until the user moves the mouse 1px.
+          onViewStateChange={({ interactionState }) => {
+            if (interactionState.isZooming || interactionState.isPanning) {
+              setHovered(null);
+            }
+          }}
+          style={{ position: 'absolute', inset: '0' }}
+        />
+      )}
 
       {hovered && (
         <div

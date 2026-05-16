@@ -336,11 +336,13 @@ export const scorecardRouter = router({
 
   // Unified public endpoint: fetch latest or specific version of a scorecard for a repo/ref.
   //
-  // Cached scorecards are the source of truth — never block returning them on a
-  // live GitHub API call. The previous implementation called getRepositoryInfo
-  // first to resolve the default branch and check privacy, and a flake there
-  // (rate limit, revoked install, etc.) caused the whole query to return
-  // "Unable to access repository" while the cached scorecard sat in the DB.
+  // Cache-first. We trust the `is_private` column written when the scorecard was
+  // generated (the write path validates privacy via the GitHub App). Calling
+  // GitHub on every read was both slow and unreliable — a flake there used to
+  // wrongly mark a public repo as private and block signed-out users from a
+  // perfectly visible cached scorecard. Now we only ping GitHub if the cached
+  // row is flagged private *and* the caller is signed-out, to confirm whether
+  // the repo has gone public since (self-healing flip).
   publicGetScorecard: publicProcedure
     .input(z.object({
       user: z.string(),
@@ -352,27 +354,7 @@ export const scorecardRouter = router({
       const { user, repo, version } = input;
       const normalizedUser = user.toLowerCase();
       const normalizedRepo = repo.toLowerCase();
-
-      // Resolve ref + privacy from GitHub, but treat failures as soft —
-      // we can still serve the cached scorecard.
-      let ref = input.ref;
-      let repoIsPrivate: boolean | null = null;
-      try {
-        const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
-        const repoInfo = await githubService.getRepositoryInfo(user, repo);
-        repoIsPrivate = repoInfo.private === true;
-        if (!ref) ref = repoInfo.defaultBranch || 'main';
-      } catch (err) {
-        const message = (err as { message?: string })?.message;
-        console.warn(`[publicGetScorecard ${normalizedUser}/${normalizedRepo}] repo info fetch failed (will still try cache):`, message);
-      }
-
-      // Block content for verified-private repos when caller isn't signed in.
-      // If we couldn't determine privacy, err on the side of trusting the cache —
-      // the only way a scorecard ends up there is if a signed-in user generated it.
-      if (repoIsPrivate === true && !ctx.session?.user) {
-        return { scorecard: null, cached: false, stale: false, lastUpdated: null, error: 'This repository is private' };
-      }
+      const ref = input.ref;
 
       // Look up cache. Try the resolved ref first; if nothing, fall back to ANY
       // ref for the same repo — guards against historical main↔master mismatches.
@@ -404,6 +386,33 @@ export const scorecardRouter = router({
 
       if (cached.length > 0) {
         const scorecard = cached[0];
+
+        // Cached row was generated for a private repo. Signed-in caller sees it
+        // (matches prior behaviour: signed-in = trusted). Signed-out caller has
+        // to be gated — but the repo may have gone public since, so re-verify
+        // with GitHub and self-heal the flag on flip.
+        if (scorecard.isPrivate && !ctx.session?.user) {
+          let nowPublic = false;
+          try {
+            const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
+            const repoInfo = await githubService.getRepositoryInfo(user, repo);
+            nowPublic = repoInfo.private === false;
+          } catch (err) {
+            const message = (err as { message?: string })?.message;
+            console.warn(`[publicGetScorecard ${normalizedUser}/${normalizedRepo}] privacy re-check failed:`, message);
+          }
+          if (!nowPublic) {
+            return { scorecard: null, cached: false, stale: false, lastUpdated: null, error: 'This repository is private' };
+          }
+          // Repo is public now — flip the flag so future signed-out reads skip
+          // this check entirely. Fire-and-forget; failure here is harmless.
+          db
+            .update(repositoryScorecards)
+            .set({ isPrivate: false })
+            .where(eq(repositoryScorecards.id, scorecard.id))
+            .catch((err) => console.warn('[publicGetScorecard] flag flip failed:', err));
+        }
+
         const isStale = new Date().getTime() - scorecard.updatedAt.getTime() > 24 * 60 * 60 * 1000;
         return {
           scorecard: {

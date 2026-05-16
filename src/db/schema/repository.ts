@@ -91,6 +91,7 @@ export const repositoryScorecards = pgTable('repository_scorecards', {
   overallScore: integer('overall_score').notNull(), // 0-100 overall score
   metrics: jsonb('metrics').$type<ScorecardMetric[]>().notNull(), // Structured metrics breakdown
   markdown: text('markdown').notNull(), // Full markdown analysis
+  embedding: vector('embedding', { dimensions: 768 }), // Gemini text-embedding-004, populated on write
   fileHashes: jsonb('file_hashes').$type<Record<string, string>>(), // Hash of files to detect changes
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),

@@ -10,6 +10,7 @@ import { createGitHubServiceForRepo } from '@/lib/github';
 import { executeAnalysisWithVersioning } from '@/lib/trpc/helpers/analysis-executor';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { createJob, consumeJob } from '@/lib/analysis/job-store';
+import { generateScorecardEmbedding } from '@/lib/ai/embeddings';
 
 export const scorecardRouter = router({
   // Step 1: POST mutation to store file selection, returns a short jobId
@@ -278,6 +279,37 @@ export const scorecardRouter = router({
             updatedAt: new Date(),
           }),
         });
+
+        // Best-effort: compute + persist embedding for semantic search. Failures
+        // here must not break the analysis subscription — embedding is searchable
+        // by definition, not load-bearing for the scorecard view itself.
+        void (async () => {
+          try {
+            const embedding = await generateScorecardEmbedding({
+              repoOwner: repoOwnerNormalized,
+              repoName: repoNameNormalized,
+              overallScore: parsedData.overallScore,
+              markdown: parsedData.markdown,
+            });
+            await db
+              .update(repositoryScorecards)
+              .set({ embedding })
+              .where(
+                and(
+                  eq(repositoryScorecards.userId, ctx.user.id),
+                  eq(repositoryScorecards.repoOwner, repoOwnerNormalized),
+                  eq(repositoryScorecards.repoName, repoNameNormalized),
+                  eq(repositoryScorecards.ref, ref),
+                  eq(repositoryScorecards.version, (insertedRecord as { version: number }).version)
+                )
+              );
+          } catch (err) {
+            console.warn(
+              `[scorecard.embedding] failed for ${repoOwnerNormalized}/${repoNameNormalized}@${ref}:`,
+              err instanceof Error ? err.message : err
+            );
+          }
+        })();
 
         yield { type: 'progress', progress: 80, message: 'Analysis complete, saving results...' };
 

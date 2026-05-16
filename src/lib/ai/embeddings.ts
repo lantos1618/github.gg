@@ -98,6 +98,36 @@ export async function generateJobEmbedding(jobDescription: string): Promise<numb
   return generateEmbedding(prefixedText);
 }
 
+// text-embedding-004 has a token budget around ~2k. Markdown scorecards routinely
+// run longer than that, so trim before embedding. Character cap is conservative
+// (~1 token per 4 chars in English prose, less in code blocks).
+const SCORECARD_EMBED_CHAR_LIMIT = 6000;
+
+interface ScorecardEmbeddingInput {
+  repoOwner: string;
+  repoName: string;
+  overallScore: number;
+  markdown: string;
+}
+
+/**
+ * Build the text we embed for a repository scorecard. Front-loads the repo
+ * identifier so a query like "github.gg" still surfaces this repo even if
+ * the markdown body never mentions the name.
+ */
+export function scorecardToEmbeddingText(input: ScorecardEmbeddingInput): string {
+  const head = `Repository: ${input.repoOwner}/${input.repoName}\nOverall Score: ${input.overallScore}/100`;
+  const body = input.markdown.slice(0, SCORECARD_EMBED_CHAR_LIMIT);
+  return `${head}\n\n${body}`;
+}
+
+/**
+ * Generate embedding for a repository scorecard.
+ */
+export async function generateScorecardEmbedding(input: ScorecardEmbeddingInput): Promise<number[]> {
+  return generateEmbedding(scorecardToEmbeddingText(input));
+}
+
 /**
  * Calculate cosine similarity between two embeddings
  * Returns a value between -1 and 1, where 1 is most similar

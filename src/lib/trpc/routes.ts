@@ -17,6 +17,7 @@ import { wikiRouter } from '@/lib/trpc/routes/wiki';
 import { apiKeysRouter } from '@/lib/trpc/routes/api-keys';
 import { hireRouter } from '@/lib/trpc/routes/hire';
 import { discoverRouter } from '@/lib/trpc/routes/discover';
+import { repoSearchRouter } from '@/lib/trpc/routes/repo-search';
 import { z } from 'zod';
 import { router } from '@/lib/trpc/trpc';
 import { db } from '@/db';
@@ -142,6 +143,9 @@ export const appRouter = router({
 
   // Discover / network exploration
   discover: discoverRouter,
+
+  // Semantic repo search + similar-repos
+  repoSearch: repoSearchRouter,
 });
 
 export type AppRouter = typeof appRouter; 

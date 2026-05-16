@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
-import { Search, ArrowUpDown, Sparkles } from 'lucide-react';
+import { Search, ArrowUpDown } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { ScorecardMetric } from '@/lib/types/scorecard';
@@ -118,9 +118,9 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
               <span className="text-base font-normal text-[#888] ml-3">{totalRepoCount.toLocaleString()}</span>
             </h1>
             {showSemanticBadge && (
-              <p className="text-xs text-[#888] mt-2 inline-flex items-center gap-1.5">
-                <Sparkles className="h-3 w-3" /> Semantic match — ranked by similarity to your query
-              </p>
+              <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mt-2">
+                Semantic Match
+              </div>
             )}
           </div>
           <div className="group relative w-72 flex-shrink-0">

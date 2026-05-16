@@ -4,7 +4,7 @@ import { Suspense, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowRight, Github, Sparkles } from 'lucide-react';
+import { ArrowRight, Github } from 'lucide-react';
 import Link from 'next/link';
 import { PageWidthContainer } from '@/components/PageWidthContainer';
 import DiscoverApp from '@/components/discover/DiscoverApp';
@@ -87,7 +87,6 @@ function HireHeader() {
           data-testid="hire-jd-match-link"
           className="inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-md border border-[#111] text-sm font-medium text-[#111] hover:bg-[#111] hover:text-white transition-colors whitespace-nowrap"
         >
-          <Sparkles className="h-4 w-4" />
           Match by job description
           <ArrowRight className="h-3.5 w-3.5" />
         </Link>

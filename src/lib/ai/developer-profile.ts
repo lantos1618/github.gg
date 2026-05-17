@@ -59,12 +59,12 @@ export async function findAndStoreDeveloperEmail(octokit: Octokit, username: str
 
   // Only scan top 3 repos (sorted by stars if available, otherwise take first 3)
   const reposToScan = repos.slice(0, MAX_REPOS_TO_SCAN);
-  console.log(`📧 Scanning ${reposToScan.length} repos for email (max ${MAX_REPOS_TO_SCAN})`);
+  if (process.env.DEBUG_AI === 'true') console.log(`📧 Scanning ${reposToScan.length} repos for email (max ${MAX_REPOS_TO_SCAN})`);
 
   for (const repo of reposToScan) {
     // Early exit if we already found a good email
     if (bestEmail && emailCounts[bestEmail] >= 3) {
-      console.log(`📧 Found confident email (${emailCounts[bestEmail]} occurrences), stopping scan`);
+      if (process.env.DEBUG_AI === 'true') console.log(`📧 Found confident email (${emailCounts[bestEmail]} occurrences), stopping scan`);
       break;
     }
 
@@ -95,7 +95,7 @@ export async function findAndStoreDeveloperEmail(octokit: Octokit, username: str
               const patchEmail = extractEmailFromPatch(patchText);
               if (patchEmail) {
                 email = patchEmail;
-                console.log(`✉️  Found email from patch for ${username}: ${email}`);
+                if (process.env.DEBUG_AI === 'true') console.log(`✉️  Found email from patch for ${username}: ${email}`);
               }
             }
           } catch (patchError) {
@@ -121,7 +121,7 @@ export async function findAndStoreDeveloperEmail(octokit: Octokit, username: str
     } catch (error: unknown) {
       const err = error as { status?: number; message?: string };
       if (err.status === 409) {
-        console.log(`Skipping empty repository: ${repo.name}`);
+        if (process.env.DEBUG_AI === 'true') console.log(`Skipping empty repository: ${repo.name}`);
         continue;
       }
       console.warn(`Error fetching commits for ${repo.name}:`, err.message);
@@ -147,7 +147,7 @@ export async function findAndStoreDeveloperEmail(octokit: Octokit, username: str
  */
 export async function sendDeveloperProfileEmail(email: string, profileHtml: string) {
   if (!resend) {
-    console.log('Resend not configured - skipping email send');
+    if (process.env.DEBUG_AI === 'true') console.log('Resend not configured - skipping email send');
     return;
   }
 
@@ -164,6 +164,15 @@ export type DeveloperProfileParams = {
   repos: RepoSummary[];
   repoFiles?: Array<{
     repoName: string;
+    // ACTUAL repo owner from the GitHub metadata — required so we write the
+    // scorecard under the correct (owner, repo) instead of assuming
+    // owner === profile username. Org-owned repos in the user's accessible
+    // list, or any case-differing owner, would otherwise be hidden from
+    // /<owner>/<repo>/scorecard.
+    owner: string;
+    // ACTUAL default branch from the repo (not 'main' as a fallback) so the
+    // scorecard row's ref matches what the read path filters on.
+    defaultBranch: string;
     files: Array<{ path: string; content: string }>;
   }>;
   userId: string; // userId is now required to associate scorecards
@@ -198,7 +207,7 @@ export async function* generateDeveloperProfileStreaming({
   // Filter out forked repositories - we only want to score based on user's original work
   const nonForkedRepos = repos.filter(repo => !repo.fork);
 
-  console.log(`📊 Total repos: ${repos.length}, Non-forked: ${nonForkedRepos.length}, Filtered out: ${repos.length - nonForkedRepos.length} forks`);
+  if (process.env.DEBUG_AI === 'true') console.log(`📊 Total repos: ${repos.length}, Non-forked: ${nonForkedRepos.length}, Filtered out: ${repos.length - nonForkedRepos.length} forks`);
 
   const repoDataForPrompt = nonForkedRepos.slice(0, 20).map(repo => ({
     name: repo.name,
@@ -223,28 +232,29 @@ export async function* generateDeveloperProfileStreaming({
     const repoNames = topReposToAnalyze.map(r => r.repoName);
 
     if (forceRefreshScorecards) {
-      console.log(`🔄 Force refresh enabled - will regenerate all ${topReposToAnalyze.length} scorecards`);
+      if (process.env.DEBUG_AI === 'true') console.log(`🔄 Force refresh enabled - will regenerate all ${topReposToAnalyze.length} scorecards`);
     }
 
-    // Batch query: fetch existing scorecards for specific repos only
-    // Use lowercase for consistency (GitHub is case-insensitive)
-    const normalizedUsername = username.toLowerCase();
+    // Batch query: fetch existing scorecards. We key by the ACTUAL repo owner
+    // (not username) so org-owned repos in the user's accessible list match
+    // their real /<owner>/<repo>/scorecard URL.
     const normalizedRepoNames = repoNames.map(name => name.toLowerCase());
+    const repoOwners = Array.from(new Set(topReposToAnalyze.map(r => r.owner.toLowerCase())));
     const existingScorecards = await db
       .select()
       .from(repositoryScorecards)
       .where(and(
         eq(repositoryScorecards.userId, userId),
-        eq(repositoryScorecards.repoOwner, normalizedUsername),
+        inArray(repositoryScorecards.repoOwner, repoOwners),
         inArray(repositoryScorecards.repoName, normalizedRepoNames)
       ));
 
-    // Map uses lowercase keys for case-insensitive lookup
+    // Map uses (owner/name) lowercase keys for case-insensitive lookup.
     const existingScorecardMap = new Map(
       existingScorecards.map(sc => [`${sc.repoOwner.toLowerCase()}/${sc.repoName.toLowerCase()}`, sc])
     );
 
-    console.log(`🔍 Found ${existingScorecards.length} existing scorecards`);
+    if (process.env.DEBUG_AI === 'true') console.log(`🔍 Found ${existingScorecards.length} existing scorecards`);
 
     // Process scorecards in parallel for better performance
     const total = topReposToAnalyze.length;
@@ -252,18 +262,15 @@ export async function* generateDeveloperProfileStreaming({
 
     // Create promises for all repos
     const scorecardPromises = topReposToAnalyze.map(async (repoData) => {
-      // Use lowercase keys for case-insensitive lookup
-      const repoKey = `${username.toLowerCase()}/${repoData.repoName.toLowerCase()}`;
+      const normalizedRepoOwner = repoData.owner.toLowerCase();
+      const normalizedRepoName = repoData.repoName.toLowerCase();
+      const repoKey = `${normalizedRepoOwner}/${normalizedRepoName}`;
       let result;
 
       // Check if we already have a recent scorecard for this repo (skip if force refresh)
       if (!forceRefreshScorecards && existingScorecardMap.has(repoKey)) {
-        // ... existing cache logic ...
-        console.log(`✅ Using cached scorecard for ${repoData.repoName}`);
-        const existing = existingScorecards.find(sc =>
-          sc.repoOwner.toLowerCase() === username.toLowerCase() &&
-          sc.repoName.toLowerCase() === repoData.repoName.toLowerCase()
-        );
+        if (process.env.DEBUG_AI === 'true') console.log(`✅ Using cached scorecard for ${repoKey}`);
+        const existing = existingScorecardMap.get(repoKey);
         if (existing) {
           result = {
             repoName: repoData.repoName,
@@ -279,16 +286,16 @@ export async function* generateDeveloperProfileStreaming({
 
       if (!result) {
         try {
-          console.log(`🔍 Analyzing ${repoData.repoName}...`);
-          
+          if (process.env.DEBUG_AI === 'true') console.log(`🔍 Analyzing ${repoKey}...`);
+
           // 180s — generateScorecardAnalysis auto-chunks large repos and the
           // synthesis pass alone can take 60–90s. 60s was making large repos
           // (e.g. github.gg) fail silently inside profile generation while
           // the direct /<o>/<r>/scorecard route succeeded.
           const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error(`Timeout: Scorecard generation for ${repoData.repoName} exceeded 180s`)), 180000)
+            setTimeout(() => reject(new Error(`Timeout: Scorecard generation for ${repoKey} exceeded 180s`)), 180000)
           );
-          
+
           const scorecardResult = await Promise.race([
             generateScorecardAnalysis({
               files: repoData.files,
@@ -297,34 +304,43 @@ export async function* generateDeveloperProfileStreaming({
             timeoutPromise
           ]) as ScorecardAnalysisResult;
 
-          console.log(`✅ Scorecard generated for ${repoData.repoName}`);
+          if (process.env.DEBUG_AI === 'true') console.log(`✅ Scorecard generated for ${repoKey}`);
 
-          // Save the generated scorecard with atomic versioning (eliminates SELECT MAX + INSERT race)
-          const normalizedRepoName = repoData.repoName.toLowerCase();
-          console.log(`Saving scorecard for ${normalizedUsername}/${normalizedRepoName}, userId: ${userId}`);
-          const repoRef = repos.find(r => r.name.toLowerCase() === normalizedRepoName)?.defaultBranch || 'main';
+          // Write under the actual repo owner + actual default branch. Using
+          // the profile username + 'main' fallback previously meant org-owned
+          // repos or 'master'-default repos were stored under keys the read
+          // path never queried — the root cause of "profile said it scored
+          // this repo, but /<o>/<r>/scorecard shows nothing".
+          const repoRef = repoData.defaultBranch || 'main';
+          if (process.env.DEBUG_AI === 'true') console.log(`Saving scorecard for ${normalizedRepoOwner}/${normalizedRepoName}@${repoRef}, userId: ${userId}`);
           try {
             await db.execute(sql`
               INSERT INTO repository_scorecards (id, "userId", repo_owner, repo_name, ref, version, is_private, overall_score, metrics, markdown, created_at, updated_at)
-              SELECT gen_random_uuid(), ${userId}, ${normalizedUsername}, ${normalizedRepoName}, ${repoRef},
+              SELECT gen_random_uuid(), ${userId}, ${normalizedRepoOwner}, ${normalizedRepoName}, ${repoRef},
                      COALESCE(MAX(version), 0) + 1,
                      false, ${scorecardResult.scorecard.overallScore},
                      ${JSON.stringify(scorecardResult.scorecard.metrics)}::jsonb,
                      ${scorecardResult.scorecard.markdown},
                      NOW(), NOW()
               FROM repository_scorecards
-              WHERE "userId" = ${userId} AND repo_owner = ${normalizedUsername} AND repo_name = ${normalizedRepoName}
+              WHERE "userId" = ${userId} AND repo_owner = ${normalizedRepoOwner} AND repo_name = ${normalizedRepoName}
             `);
-            console.log(`Successfully saved scorecard for ${username}/${repoData.repoName}`);
-          } catch (e) {
-            console.error(`Failed to insert scorecard for ${username}/${repoData.repoName}:`, e);
-          }
+            if (process.env.DEBUG_AI === 'true') console.log(`Successfully saved scorecard for ${normalizedRepoOwner}/${normalizedRepoName}`);
 
-          result = {
-            repoName: repoData.repoName,
-            scorecard: scorecardResult.scorecard,
-            usage: scorecardResult.usage,
-          };
+            result = {
+              repoName: repoData.repoName,
+              scorecard: scorecardResult.scorecard,
+              usage: scorecardResult.usage,
+            };
+          } catch (e) {
+            // DB write failed but the AI work succeeded. Surface this as a
+            // per-repo failure rather than silently swallowing — previously
+            // the outer settle handler still saw a "success" because result
+            // was set from the in-memory scorecard, and the user was left
+            // wondering why /<o>/<r>/scorecard showed nothing.
+            console.error(`Failed to insert scorecard for ${normalizedRepoOwner}/${normalizedRepoName}:`, e);
+            throw e instanceof Error ? e : new Error(String(e));
+          }
         } catch (error) {
           console.warn(`Failed to generate or save scorecard for ${repoData.repoName}:`, error);
           result = null;
@@ -397,7 +413,7 @@ export async function* generateDeveloperProfileStreaming({
   }
 
   yield { type: 'progress', progress: 85, message: 'Generating final profile analysis...' };
-  console.log(`🤖 Generating developer profile with AI...`);
+  if (process.env.DEBUG_AI === 'true') console.log(`🤖 Generating developer profile with AI...`);
 
   // Validate that we have actual non-forked repos
   if (nonForkedRepos.length === 0) {
@@ -470,14 +486,14 @@ export async function* generateDeveloperProfileStreaming({
   `;
 
   try {
-    console.log(`📊 Prompt length: ${prompt.length} characters, Repos: ${nonForkedRepos.length}, Scorecards: ${scorecardResults.length}`);
+    if (process.env.DEBUG_AI === 'true') console.log(`📊 Prompt length: ${prompt.length} characters, Repos: ${nonForkedRepos.length}, Scorecards: ${scorecardResults.length}`);
     
     // Add timeout wrapper (120 seconds for AI generation)
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error(`AI profile generation timed out after 120 seconds`)), 120000)
     );
 
-    console.log(`🚀 Calling AI model...`);
+    if (process.env.DEBUG_AI === 'true') console.log(`🚀 Calling AI model...`);
     const { object, usage } = await Promise.race([
       generateObject({
         model: GEMINI_PRO,
@@ -487,7 +503,7 @@ export async function* generateDeveloperProfileStreaming({
       timeoutPromise,
     ]);
     
-    console.log(`✅ AI profile generation completed`);
+    if (process.env.DEBUG_AI === 'true') console.log(`✅ AI profile generation completed`);
 
     totalUsage.inputTokens += usage.inputTokens || 0;
     totalUsage.outputTokens += usage.outputTokens || 0;

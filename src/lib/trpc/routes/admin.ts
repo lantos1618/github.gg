@@ -82,6 +82,8 @@ export const adminRouter = router({
         // Fetch files for top 5 repos for deep analysis
         const repoFiles: Array<{
           repoName: string;
+          owner: string;
+          defaultBranch: string;
           files: Array<{ path: string; content: string }>;
         }> = [];
 
@@ -120,7 +122,12 @@ export const adminRouter = router({
               );
 
               const validFiles = fileContents.filter(Boolean) as Array<{ path: string; content: string }>;
-              if (validFiles.length > 0) return { repoName: repo.name, files: validFiles };
+              if (validFiles.length > 0) return {
+                repoName: repo.name,
+                owner: repo.owner,
+                defaultBranch: repo.defaultBranch || 'main',
+                files: validFiles,
+              };
               return null;
             } catch { return null; }
           });

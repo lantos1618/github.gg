@@ -182,6 +182,11 @@ export const hireRouter = router({
 
   /**
    * Generate and store embedding for a profile (for backfilling)
+   *
+   * @deprecated Profile embeddings are now auto-generated on profile creation
+   * (see src/lib/trpc/routes/profile/generate.ts). For bulk backfills of
+   * historical rows, use `bun embed:profiles` instead. This mutation is kept
+   * as a redundant manual path but should not be relied on by new code.
    */
   generateProfileEmbedding: protectedProcedure
     .input(z.object({ username: z.string() }))

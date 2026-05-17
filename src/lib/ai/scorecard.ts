@@ -340,7 +340,7 @@ export async function generateScorecardAnalysis({
       throw new Error('No analyzable files found after filtering');
     }
 
-    console.log(`📊 Scorecard: ${files.length} raw files → ${summary.totalFiles} filtered → ${summary.totalChunks} chunk(s)`);
+    if (process.env.DEBUG_AI === 'true') console.log(`📊 Scorecard: ${files.length} raw files → ${summary.totalFiles} filtered → ${summary.totalChunks} chunk(s)`);
 
     // Single chunk: direct analysis (no synthesis overhead)
     if (chunks.length === 1) {

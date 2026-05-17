@@ -54,6 +54,20 @@ export default function IntelPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Disclaimer banner — this page renders MOCK data, not real intel. */}
+      <div
+        role="alert"
+        data-testid="intel-mock-data-banner"
+        className="bg-yellow-50 border-b border-yellow-200 text-yellow-900"
+      >
+        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center gap-2 text-sm">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0 text-yellow-700" />
+          <span>
+            <strong>Demo data — not real customer intel.</strong> All numbers,
+            repos, users, and bot networks below are illustrative placeholders.
+          </span>
+        </div>
+      </div>
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex items-start justify-between gap-4 mb-6">

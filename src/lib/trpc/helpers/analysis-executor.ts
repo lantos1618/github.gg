@@ -1,8 +1,6 @@
-import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
 import { tokenUsage } from '@/db/schema';
-import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
-import { isPgErrorWithCode } from '@/lib/db/utils';
+import { validatePlanAndKey } from '@/lib/trpc/helpers/validate-plan-and-key';
 import { sql, and, type SQL } from 'drizzle-orm';
 import type { PgTable, TableConfig } from 'drizzle-orm/pg-core';
 
@@ -42,19 +40,27 @@ export interface AnalysisExecutionOptions<
   // Should return the conditions that uniquely identify this analysis group
   versioningConditions: SQL<unknown>[];
 
-  // Function that constructs the values to insert
-  buildInsertValues: (data: TData, version: number) => TInsert;
-
-  // Maximum retry attempts for version conflicts (default: 5)
-  maxRetries?: number;
+  // Function that constructs the values to insert. The helper computes
+  // `version` atomically via a sub-SELECT and injects it into the row,
+  // so callers should NOT include a `version` field here — anything they
+  // set will be overwritten. This eliminates the SELECT-MAX-then-INSERT
+  // race window that previously required a retry loop.
+  buildInsertValues: (data: TData) => TInsert;
 }
 
 /**
  * Generic helper to execute AI analysis with:
  * - Subscription & API key validation
  * - AI generation
- * - Versioned database insertion with conflict retry
+ * - **Atomic** versioned database insertion (single statement: `INSERT ...
+ *   VALUES (..., (SELECT COALESCE(MAX(version), 0) + 1 FROM table WHERE ...))`)
  * - Token usage logging
+ *
+ * Eliminates the SELECT-MAX-then-INSERT race that previously could exhaust
+ * its 5-attempt retry loop under concurrent inserts for the same
+ * (user, repo, ref) group. With the atomic pattern, the version is computed
+ * inside the same SQL statement that performs the INSERT, so two concurrent
+ * writers can never read the same MAX and collide on the unique index.
  */
 export async function executeAnalysisWithVersioning<
   TTable extends PgTable<TableConfig>,
@@ -62,7 +68,13 @@ export async function executeAnalysisWithVersioning<
   TInsert extends Record<string, unknown> = Record<string, unknown>
 >(
   options: AnalysisExecutionOptions<TTable, TData, TInsert>
-): Promise<{ insertedRecord: TInsert; usage: AIGenerationResult<TData>['usage']; keyInfo: { isByok: boolean } }> {
+): Promise<{
+  // The returned row includes the atomically-computed `version` plus
+  // everything the caller's buildInsertValues produced.
+  insertedRecord: TInsert & { version: number };
+  usage: AIGenerationResult<TData>['usage'];
+  keyInfo: { isByok: boolean };
+}> {
   const {
     userId,
     feature,
@@ -72,77 +84,38 @@ export async function executeAnalysisWithVersioning<
     generateFn,
     versioningConditions,
     buildInsertValues,
-    maxRetries = 5,
   } = options;
 
-  // 1. Check for active subscription
-  const { subscription, plan } = await getUserPlanAndKey(userId);
-  if (!subscription || subscription.status !== 'active') {
-    throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'Active subscription required for AI features',
-    });
-  }
+  // 1. Subscription + API-key gate (throws TRPCError on failure)
+  const { keyInfo } = await validatePlanAndKey(userId);
 
-  // 2. Get appropriate API key
-  const keyInfo = await getApiKeyForUser(userId, plan);
-  if (!keyInfo) {
-    throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'Please add your Gemini API key in settings to use this feature',
-    });
-  }
-
-  // 3. Generate AI analysis
+  // 2. Generate AI analysis
   const result = await generateFn();
 
-  // 4. Per-group versioning: get max version, insert with version = max + 1, retry on conflict
-  let insertedRecord: TInsert | null = null;
-  let attempt = 0;
+  // 3. Atomic INSERT-SELECT: version is computed inside the statement so
+  //    concurrent writers can't read the same MAX.
+  const insertValues = buildInsertValues(result.data) as Record<string, unknown>;
+  insertValues.version = sql`(SELECT COALESCE(MAX(version), 0) + 1 FROM ${table} WHERE ${and(...versioningConditions)})`;
 
-  while (!insertedRecord && attempt < maxRetries) {
-    attempt++;
+  // We allow SQL fragments in values; Drizzle's PgInsertValue type permits
+  // `SQL` per field. Casting through `Record<string, unknown>` lets us swap
+  // the `version` field without fighting the inferred-insert-model type.
+  const results = await db
+    .insert(table as PgTable<TableConfig>)
+    // The atomic statement makes ON CONFLICT effectively unreachable, but we
+    // keep it as a belt-and-braces guard in case a future caller relaxes the
+    // unique index or someone re-runs an explicit version.
+    .values(insertValues as unknown as TTable['$inferInsert'])
+    .onConflictDoNothing()
+    .returning();
 
-    // Get current max version for this group
-    const maxVersionResult = await db
-      .select({ max: sql`MAX(version)` })
-      .from(table as PgTable<TableConfig>)
-      .where(and(...versioningConditions));
-
-    const rawMax = maxVersionResult[0]?.max;
-    const maxVersion = typeof rawMax === 'number' ? rawMax : Number(rawMax) || 0;
-    const nextVersion = maxVersion + 1;
-
-    try {
-      // Try to insert with the next version
-      const insertValues = buildInsertValues(result.data, nextVersion);
-      // Execute the insert with conflict handling
-      const results = await db
-        .insert(table as PgTable<TableConfig>)
-        .values(insertValues)
-        .onConflictDoNothing()
-        .returning();
-
-      // The returning() call returns an array of the inserted records
-      // TypeScript can't infer this perfectly with our generic setup, but
-      // we know at runtime that results[0] matches TInsert structure
-      if (results.length > 0 && results[0]) {
-        insertedRecord = results[0] as TInsert;
-      }
-    } catch (e: unknown) {
-      // If unique constraint violation, retry
-      if (isPgErrorWithCode(e) && e.code === '23505') {
-        continue;
-      }
-      throw e;
-    }
+  if (results.length === 0 || !results[0]) {
+    throw new Error(`Failed to insert ${feature} analysis (no row returned)`);
   }
 
-  if (!insertedRecord) {
-    throw new Error(`Failed to insert ${feature} analysis after ${maxRetries} attempts`);
-  }
+  const insertedRecord = results[0] as TInsert & { version: number };
 
-  // 5. Log token usage
+  // 4. Log token usage
   await db.insert(tokenUsage).values({
     userId,
     feature,

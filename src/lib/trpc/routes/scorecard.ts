@@ -8,9 +8,11 @@ import { TRPCError } from '@trpc/server';
 import { scorecardSchema } from '@/lib/types/scorecard';
 import { createGitHubServiceForRepo } from '@/lib/github';
 import { executeAnalysisWithVersioning } from '@/lib/trpc/helpers/analysis-executor';
-import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { validatePlanAndKey } from '@/lib/trpc/helpers/validate-plan-and-key';
+import { repoRefInputSchema } from '@/lib/trpc/helpers/repo-input';
 import { createJob, consumeJob } from '@/lib/analysis/job-store';
 import { generateScorecardEmbedding } from '@/lib/ai/embeddings';
+import { normalizeRepoIdent } from '@/lib/normalize';
 
 export const scorecardRouter = router({
   // Step 1: POST mutation to store file selection, returns a short jobId
@@ -54,22 +56,22 @@ export const scorecardRouter = router({
         return;
       }
 
-      const repoOwnerNormalized = job.user.toLowerCase();
-      const repoNameNormalized = job.repo.toLowerCase();
+      const { owner: repoOwnerNormalized, repo: repoNameNormalized } = normalizeRepoIdent({
+        owner: job.user,
+        repo: job.repo,
+      });
 
       try {
         yield { type: 'progress', progress: 1, message: 'Checking plan...' };
 
-        const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
-        console.log(`${tag} getUserPlanAndKey ${elapsed()} plan=${plan} active=${subscription?.status}`);
-        if (!subscription || subscription.status !== 'active') {
-          yield { type: 'error', message: 'Active subscription required for AI features' };
-          return;
-        }
-        const keyInfo = await getApiKeyForUser(ctx.user.id, plan);
-        console.log(`${tag} getApiKeyForUser ${elapsed()} hasKey=${!!keyInfo}`);
-        if (!keyInfo) {
-          yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
+        let keyInfo: { isByok: boolean };
+        try {
+          ({ keyInfo } = await validatePlanAndKey(ctx.user.id));
+          console.log(`${tag} validatePlanAndKey ${elapsed()} hasKey=true`);
+        } catch (err) {
+          const message = err instanceof TRPCError ? err.message : 'Subscription/key check failed';
+          console.log(`${tag} validatePlanAndKey failed ${elapsed()} message=${message}`);
+          yield { type: 'error', message };
           return;
         }
 
@@ -241,7 +243,7 @@ export const scorecardRouter = router({
               inputTokens: result.usage.inputTokens,
               outputTokens: result.usage.outputTokens,
               totalTokens: result.usage.totalTokens,
-              isByok: keyInfo?.isByok || false,
+              isByok: keyInfo.isByok,
               createdAt: new Date(),
             });
 
@@ -266,12 +268,12 @@ export const scorecardRouter = router({
             eq(repositoryScorecards.repoName, repoNameNormalized),
             eq(repositoryScorecards.ref, ref),
           ],
-          buildInsertValues: (data, version) => ({
+          // `version` is injected atomically by the helper.
+          buildInsertValues: (data) => ({
             userId: ctx.user.id,
             repoOwner: repoOwnerNormalized,
             repoName: repoNameNormalized,
             ref: ref,
-            version,
             isPrivate,
             overallScore: data.overallScore,
             metrics: data.metrics,
@@ -300,7 +302,7 @@ export const scorecardRouter = router({
                   eq(repositoryScorecards.repoOwner, repoOwnerNormalized),
                   eq(repositoryScorecards.repoName, repoNameNormalized),
                   eq(repositoryScorecards.ref, ref),
-                  eq(repositoryScorecards.version, (insertedRecord as { version: number }).version)
+                  eq(repositoryScorecards.version, insertedRecord.version)
                 )
               );
           } catch (err) {
@@ -344,16 +346,10 @@ export const scorecardRouter = router({
   // row is flagged private *and* the caller is signed-out, to confirm whether
   // the repo has gone public since (self-healing flip).
   publicGetScorecard: publicProcedure
-    .input(z.object({
-      user: z.string(),
-      repo: z.string(),
-      ref: z.string().optional(),
-      version: z.number().optional(),
-    }))
+    .input(repoRefInputSchema)
     .query(async ({ input, ctx }) => {
       const { user, repo, version } = input;
-      const normalizedUser = user.toLowerCase();
-      const normalizedRepo = repo.toLowerCase();
+      const { owner: normalizedUser, repo: normalizedRepo } = normalizeRepoIdent({ owner: user, repo });
       const ref = input.ref;
 
       // Look up cache. Try the resolved ref first; if nothing, fall back to ANY
@@ -432,8 +428,10 @@ export const scorecardRouter = router({
   getScorecardVersions: publicProcedure
     .input(z.object({ user: z.string(), repo: z.string(), ref: z.string().optional().default('main') }))
     .query(async ({ input }) => {
-      const normalizedUser = input.user.toLowerCase();
-      const normalizedRepo = input.repo.toLowerCase();
+      const { owner: normalizedUser, repo: normalizedRepo } = normalizeRepoIdent({
+        owner: input.user,
+        repo: input.repo,
+      });
       return await db
         .select({ version: repositoryScorecards.version, updatedAt: repositoryScorecards.updatedAt })
         .from(repositoryScorecards)

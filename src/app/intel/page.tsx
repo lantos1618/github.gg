@@ -10,6 +10,7 @@ import {
   Plus,
   X,
   Network,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TextButton } from '@/components/ui/text-button';

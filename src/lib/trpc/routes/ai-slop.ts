@@ -6,44 +6,12 @@ import { eq, and, desc, sql } from 'drizzle-orm';
 import { generateAISlopAnalysis, aiSlopSchema } from '@/lib/ai/ai-slop';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForRepo } from '@/lib/github';
-import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { validatePlanAndKey } from '@/lib/trpc/helpers/validate-plan-and-key';
+import { streamProgressWithHeartbeat } from '@/lib/trpc/helpers/stream-progress';
+import { repoRefInputSchema } from '@/lib/trpc/helpers/repo-input';
 import { createJob, consumeJob } from '@/lib/analysis/job-store';
+import { normalizeRepoIdent } from '@/lib/normalize';
 import { isPgErrorWithCode } from '@/lib/db/utils';
-
-/**
- * Helper to stream progress events and heartbeats while waiting for a promise.
- * Yields progress events from the queue and heartbeat pings to keep SSE alive.
- */
-async function* streamProgressWithHeartbeat(
-  promise: Promise<unknown>,
-  progressQueue: Array<{ message: string; progress: number }>,
-  heartbeatInterval = 2000
-): AsyncGenerator<
-  { type: 'progress'; message: string; progress: number } | { type: 'ping' },
-  void,
-  unknown
-> {
-  let done = false;
-  promise.then(() => { done = true; }).catch(() => { done = true; });
-
-  while (!done) {
-    // Yield any queued progress events
-    while (progressQueue.length > 0) {
-      const event = progressQueue.shift()!;
-      yield { type: 'progress', message: event.message, progress: event.progress };
-    }
-    // Yield heartbeat to keep connection alive
-    yield { type: 'ping' };
-    // Wait before next check
-    await new Promise(r => setTimeout(r, heartbeatInterval));
-  }
-
-  // Yield any remaining progress events after completion
-  while (progressQueue.length > 0) {
-    const event = progressQueue.shift()!;
-    yield { type: 'progress', message: event.message, progress: event.progress };
-  }
-}
 
 /**
  * AI Slop Detection Router
@@ -83,22 +51,21 @@ export const aiSlopRouter = router({
         return;
       }
 
-      const repoOwnerNormalized = job.user.toLowerCase();
-      const repoNameNormalized = job.repo.toLowerCase();
+      const { owner: repoOwnerNormalized, repo: repoNameNormalized } = normalizeRepoIdent({
+        owner: job.user,
+        repo: job.repo,
+      });
 
       try {
         yield { type: 'progress', progress: 0, message: 'Starting AI slop analysis...' };
 
         yield { type: 'progress', progress: 2, message: 'Verifying subscription...' };
-        const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
-        if (!subscription || subscription.status !== 'active') {
-          yield { type: 'error', message: 'Active subscription required for AI features' };
-          return;
-        }
-
-        const keyInfo = await getApiKeyForUser(ctx.user.id, plan);
-        if (!keyInfo) {
-          yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
+        let keyInfo: { isByok: boolean };
+        try {
+          ({ keyInfo } = await validatePlanAndKey(ctx.user.id));
+        } catch (err) {
+          const message = err instanceof TRPCError ? err.message : 'Subscription/key check failed';
+          yield { type: 'error', message };
           return;
         }
 
@@ -259,16 +226,10 @@ export const aiSlopRouter = router({
   // Same resilience as publicGetScorecard: cached analyses are the source of truth,
   // never block returning them on a live GitHub API call (which can flake).
   publicGetAISlop: publicProcedure
-    .input(z.object({
-      user: z.string(),
-      repo: z.string(),
-      ref: z.string().optional(),
-      version: z.number().optional(),
-    }))
+    .input(repoRefInputSchema)
     .query(async ({ input, ctx }) => {
       const { user, repo, version } = input;
-      const normalizedUser = user.toLowerCase();
-      const normalizedRepo = repo.toLowerCase();
+      const { owner: normalizedUser, repo: normalizedRepo } = normalizeRepoIdent({ owner: user, repo });
 
       // Try to resolve ref + privacy from GitHub. Failures are soft —
       // we can still serve the cached analysis if the repo info call hiccups.
@@ -349,8 +310,10 @@ export const aiSlopRouter = router({
   getAISlopVersions: publicProcedure
     .input(z.object({ user: z.string(), repo: z.string(), ref: z.string().optional().default('main') }))
     .query(async ({ input }) => {
-      const normalizedUser = input.user.toLowerCase();
-      const normalizedRepo = input.repo.toLowerCase();
+      const { owner: normalizedUser, repo: normalizedRepo } = normalizeRepoIdent({
+        owner: input.user,
+        repo: input.repo,
+      });
       return await db
         .select({ version: aiSlopAnalyses.version, updatedAt: aiSlopAnalyses.updatedAt })
         .from(aiSlopAnalyses)

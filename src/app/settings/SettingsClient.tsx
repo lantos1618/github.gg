@@ -1,20 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { trpc } from '@/lib/trpc/client';
 import { usePlan } from '@/lib/hooks/usePlan';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Key, Trash2, BarChart3, Webhook, Palette, Plus, Copy, Check, Code2, ExternalLink } from 'lucide-react';
+import { Key, BarChart3 } from 'lucide-react';
 import { PageHeader, CardWithHeader } from '@/components/common';
 import { TextButton } from '@/components/ui/text-button';
 import { TextLink } from '@/components/ui/text-link';
-import { HexColorPicker } from 'react-colorful';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { buildGitHubAppInstallUrl } from '@/lib/github/install-url';
+import { APIKeyCard } from './components/APIKeyCard';
+import { PublicAPIKeysCard } from './components/PublicAPIKeysCard';
+import { ProfileCustomizationCard } from './components/ProfileCustomizationCard';
+import { WebhookPrefsCard } from './components/WebhookPrefsCard';
 
 // Add this simple debounce hook if not already available
 function useDebounce<T>(value: T, delay: number): T {
@@ -85,7 +82,7 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
   // Profile Customization State
   const { data: currentUser } = trpc.me.useQuery();
   const username = currentUser?.user?.githubUsername || initialData.username || '';
-  const { data: profileStyles, isLoading: stylesLoading } = trpc.user.getProfileStyles.useQuery(
+  const { data: profileStyles } = trpc.user.getProfileStyles.useQuery(
     { username },
     {
       enabled: !!username,
@@ -95,7 +92,7 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
   );
 
   const [localStyles, setLocalStyles] = useState<Record<string, string | boolean | undefined>>({});
-  
+
   useEffect(() => {
     if (profileStyles) {
       setLocalStyles(profileStyles);
@@ -123,6 +120,14 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
 
   const handleStyleChange = (key: string, value: string | boolean) => {
     setLocalStyles((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleResetStyles = () => {
+    const defaults = { primaryColor: undefined, textColor: undefined, backgroundColor: undefined, emoji: undefined, sparkles: false };
+    setLocalStyles(defaults);
+    updateStylesMutation.mutate({ styles: {} }, {
+      onSuccess: () => toast.success('Profile styles reset'),
+    });
   };
 
   const saveApiKey = trpc.user.saveApiKey.useMutation({
@@ -217,147 +222,12 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
 
       <div className="grid gap-8">
         {/* Profile Customization */}
-        <CardWithHeader
-          title="Profile"
-          description="Custom colors and effects."
-          icon={Palette}
-          action={isPaid ? (
-            <TextButton
-              type="button"
-              onClick={() => {
-                const defaults = { primaryColor: undefined, textColor: undefined, backgroundColor: undefined, emoji: undefined, sparkles: false };
-                setLocalStyles(defaults);
-                updateStylesMutation.mutate({ styles: {} }, {
-                  onSuccess: () => toast.success('Profile styles reset'),
-                });
-              }}
-            >
-              Reset
-            </TextButton>
-          ) : undefined}
-        >
-          {isPaid ? (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label>Primary Color</Label>
-                  <div className="flex gap-2 items-center">
-                    <div 
-                      className="w-10 h-10 rounded border cursor-pointer shadow-sm" 
-                      style={{ backgroundColor: (localStyles.primaryColor as string) || '#000000' }}
-                    >
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <div className="w-full h-full" />
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-3">
-                          <HexColorPicker 
-                            color={(localStyles.primaryColor as string) || '#000000'} 
-                            onChange={(color) => handleStyleChange('primaryColor', color)} 
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <Input 
-                      value={(localStyles.primaryColor as string) || ''} 
-                      placeholder="#000000" 
-                      onChange={(e) => handleStyleChange('primaryColor', e.target.value)}
-                      className="font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Text Color</Label>
-                   <div className="flex gap-2 items-center">
-                    <div 
-                      className="w-10 h-10 rounded border cursor-pointer shadow-sm" 
-                      style={{ backgroundColor: (localStyles.textColor as string) || '#000000' }}
-                    >
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <div className="w-full h-full" />
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-3">
-                          <HexColorPicker 
-                            color={(localStyles.textColor as string) || '#000000'} 
-                            onChange={(color) => handleStyleChange('textColor', color)} 
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <Input 
-                      value={(localStyles.textColor as string) || ''} 
-                      placeholder="#000000" 
-                      onChange={(e) => handleStyleChange('textColor', e.target.value)}
-                      className="font-mono"
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Background Color</Label>
-                   <div className="flex gap-2 items-center">
-                    <div 
-                      className="w-10 h-10 rounded border cursor-pointer shadow-sm" 
-                      style={{ backgroundColor: (localStyles.backgroundColor as string) || '#ffffff' }}
-                    >
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <div className="w-full h-full" />
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-3">
-                          <HexColorPicker 
-                            color={(localStyles.backgroundColor as string) || '#ffffff'} 
-                            onChange={(color) => handleStyleChange('backgroundColor', color)} 
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <Input 
-                      value={(localStyles.backgroundColor as string) || ''} 
-                      placeholder="#ffffff" 
-                      onChange={(e) => handleStyleChange('backgroundColor', e.target.value)}
-                      className="font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Sparkle Emoji</Label>
-                  <Input 
-                    value={(localStyles.emoji as string) || ''} 
-                    placeholder="✨" 
-                    maxLength={2}
-                    onChange={(e) => handleStyleChange('emoji', e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">Emoji to use for sparkle effects</p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-4 border-t">
-                <div className="space-y-0.5">
-                  <Label htmlFor="sparkles-enabled">Enable Sparkle Effects</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Show floating animations on your profile
-                  </p>
-                </div>
-                <Switch
-                  id="sparkles-enabled"
-                  checked={(localStyles.sparkles as boolean) ?? false}
-                  onCheckedChange={(checked) => handleStyleChange('sparkles', checked)}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="py-4 text-center">
-              <p className="text-sm text-[#999] mb-3">Pro feature</p>
-              <TextLink href="/pricing" active>
-                Upgrade
-              </TextLink>
-            </div>
-          )}
-        </CardWithHeader>
+        <ProfileCustomizationCard
+          isPaid={isPaid}
+          localStyles={localStyles}
+          onStyleChange={handleStyleChange}
+          onReset={handleResetStyles}
+        />
 
         {/* Current Plan */}
         <CardWithHeader
@@ -381,199 +251,32 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
         </CardWithHeader>
 
         {/* API Key Management */}
-        <CardWithHeader
-          title="BYOK"
-          description="Your own Gemini API key for unlimited usage."
-          icon={Key}
-        >
-          <div className="space-y-4">
-            {keyStatus?.hasKey ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <Key className="h-4 w-4 text-green-600" />
-                  <span className="text-sm text-green-800">API key is configured</span>
-                </div>
-                <TextButton
-                  onClick={handleDeleteKey}
-                  disabled={deleteApiKey.isPending}
-                  className="text-red-500 hover:text-red-700 hover:border-red-700"
-                >
-                  {deleteApiKey.isPending ? 'Deleting...' : 'Delete Key'}
-                </TextButton>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Input
-                      data-testid="settings-apikey-input"
-                      type={showKey ? 'text' : 'password'}
-                      placeholder="Your API key..."
-                      value={apiKey}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKey(e.target.value)}
-                      className="pr-10"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      onClick={() => setShowKey(!showKey)}
-                    >
-                      {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                  <Button
-                    data-testid="settings-apikey-save-btn"
-                    onClick={handleSaveKey}
-                    disabled={saveApiKey.isPending || !apiKey.trim()}
-                  >
-                    {saveApiKey.isPending ? 'Saving...' : 'Save Key'}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Your key is encrypted and stored securely. We never log or view your key.
-                </p>
-              </div>
-            )}
-          </div>
-        </CardWithHeader>
+        <APIKeyCard
+          hasKey={!!keyStatus?.hasKey}
+          apiKey={apiKey}
+          showKey={showKey}
+          isSaving={saveApiKey.isPending}
+          isDeleting={deleteApiKey.isPending}
+          onApiKeyChange={setApiKey}
+          onToggleVisibility={() => setShowKey(!showKey)}
+          onSave={handleSaveKey}
+          onDelete={handleDeleteKey}
+        />
 
         {/* Public API Keys */}
-        <CardWithHeader
-          title="API Keys"
-          description="Programmatic access to the GG REST API."
-          icon={Code2}
-        >
-          <div className="space-y-4">
-            {/* Newly created key reveal */}
-            {newKeyRevealed && (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg space-y-3">
-                <div className="flex items-start gap-2">
-                  <Key className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-amber-800">Your new API key</p>
-                    <p className="text-sm text-amber-700 mt-1">
-                      Copy this key now. You won&apos;t be able to see it again!
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <code className="flex-1 p-3 bg-white border border-amber-300 rounded text-sm font-mono break-all">
-                    {newKeyRevealed}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCopyKey(newKeyRevealed)}
-                    className="flex-shrink-0"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setNewKeyRevealed(null)}
-                  className="text-amber-700"
-                >
-                  I&apos;ve copied my key
-                </Button>
-              </div>
-            )}
-
-            {/* Create new key */}
-            <div className="flex gap-2">
-              <Input
-                placeholder="Key name (e.g., Production App)"
-                value={newKeyName}
-                onChange={(e) => setNewKeyName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreateApiKey()}
-                className="flex-1"
-              />
-              <Button
-                onClick={handleCreateApiKey}
-                disabled={createApiKey.isPending || !newKeyName.trim()}
-                className="flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                {createApiKey.isPending ? 'Creating...' : 'Create Key'}
-              </Button>
-            </div>
-
-            {/* Existing keys list */}
-            {publicApiKeys && publicApiKeys.length > 0 ? (
-              <div className="space-y-2 mt-4">
-                <h4 className="text-sm font-medium text-gray-700">Your API Keys</h4>
-                <div className="divide-y border rounded-lg">
-                  {publicApiKeys.map((key) => (
-                    <div key={key.id} className="p-3 flex items-center justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium truncate">{key.name}</span>
-                          {!key.isActive && (
-                            <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
-                              Inactive
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
-                          <code className="bg-gray-100 px-1.5 py-0.5 rounded">{key.keyPrefix}...</code>
-                          <span>
-                            Created {new Date(key.createdAt).toLocaleDateString()}
-                          </span>
-                          {key.lastUsedAt && (
-                            <span>
-                              &bull; Last used {new Date(key.lastUsedAt).toLocaleDateString()}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleCopyKey(key.keyPrefix + '...', key.id)}
-                          title="Copy key prefix"
-                        >
-                          {copiedKeyId === key.id ? (
-                            <Check className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <Copy className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeletePublicKey(key.id, key.name)}
-                          disabled={deleteApiKey_public.isPending}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No API keys yet. Create one to access the GG API programmatically.
-              </p>
-            )}
-
-            {/* Link to docs */}
-            <div className="pt-4 border-t">
-              <a
-                href="/api-docs"
-                className="text-sm text-blue-600 hover:underline flex items-center gap-1"
-              >
-                View API Documentation
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
-          </div>
-        </CardWithHeader>
+        <PublicAPIKeysCard
+          publicApiKeys={publicApiKeys}
+          newKeyName={newKeyName}
+          newKeyRevealed={newKeyRevealed}
+          copiedKeyId={copiedKeyId}
+          isCreating={createApiKey.isPending}
+          isDeleting={deleteApiKey_public.isPending}
+          onNewKeyNameChange={setNewKeyName}
+          onCreate={handleCreateApiKey}
+          onCopy={handleCopyKey}
+          onDelete={handleDeletePublicKey}
+          onDismissRevealed={() => setNewKeyRevealed(null)}
+        />
 
         {/* Usage Statistics */}
         <CardWithHeader
@@ -601,7 +304,7 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
                 <div className="text-sm text-gray-700">Managed Tokens</div>
               </div>
             </div>
-            
+
             {usageStats?.usage && usageStats.usage.length > 0 && (
               <div className="mt-6">
                 <h4 className="font-semibold mb-3">Recent Usage</h4>
@@ -614,8 +317,8 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
                           {entry.totalTokens.toLocaleString()} tokens
                         </span>
                         <span className={`text-xs px-2 py-1 rounded ${
-                          entry.isByok 
-                            ? 'bg-green-100 text-green-800' 
+                          entry.isByok
+                            ? 'bg-green-100 text-green-800'
                             : 'bg-blue-100 text-blue-800'
                         }`}>
                           {entry.isByok ? 'BYOK' : 'Managed'}
@@ -629,75 +332,13 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
         </CardWithHeader>
 
         {/* Webhook Settings */}
-        <CardWithHeader
-          title="PR Reviews"
-          description="Automated code reviews on pull requests."
-          icon={Webhook}
-        >
-          <div className="space-y-4">
-            {!installationInfo ? (
-              <div className="py-2">
-                <p className="text-sm text-[#999] mb-3">
-                  GitHub App not installed.
-                </p>
-                <TextLink href={buildGitHubAppInstallUrl('/settings')} external active>
-                  Install GitHub App
-                </TextLink>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <div className="text-sm text-green-800">
-                      ✓ GitHub App installed for <strong>{installationInfo.accountLogin}</strong>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="pr-review-enabled">Enable PR Reviews</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Automatically post AI-powered code reviews on pull requests
-                    </p>
-                  </div>
-                  <Switch
-                    id="pr-review-enabled"
-                    checked={webhookPrefs?.prReviewEnabled ?? true}
-                    onCheckedChange={(checked) => {
-                      updateWebhookPrefs.mutate({ prReviewEnabled: checked });
-                    }}
-                    disabled={updateWebhookPrefs.isPending}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="auto-update-enabled">Auto-update Comments</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Update review comment when PR is updated
-                    </p>
-                  </div>
-                  <Switch
-                    id="auto-update-enabled"
-                    checked={webhookPrefs?.autoUpdateEnabled ?? true}
-                    onCheckedChange={(checked) => {
-                      updateWebhookPrefs.mutate({ autoUpdateEnabled: checked });
-                    }}
-                    disabled={updateWebhookPrefs.isPending || !webhookPrefs?.prReviewEnabled}
-                  />
-                </div>
-
-                <div className="pt-4 border-t">
-                  <p className="text-sm text-muted-foreground">
-                    💡 <strong>Tip:</strong> PR reviews analyze code quality, security, performance, and maintainability. Comments include actionable recommendations for improvements.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </CardWithHeader>
+        <WebhookPrefsCard
+          installationInfo={installationInfo}
+          webhookPrefs={webhookPrefs}
+          isUpdating={updateWebhookPrefs.isPending}
+          onUpdate={(prefs) => updateWebhookPrefs.mutate(prefs)}
+        />
       </div>
     </div>
   );
-} 
+}

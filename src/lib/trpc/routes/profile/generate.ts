@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { developerProfileCache, tokenUsage, developerEmails } from '@/db/schema';
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { generateDeveloperProfileStreaming, findAndStoreDeveloperEmail, type CrossRepoCommit } from '@/lib/ai/developer-profile';
+import { generateProfileEmbedding } from '@/lib/ai/embeddings';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
 import { TRPCError } from '@trpc/server';
@@ -362,6 +363,7 @@ export const profileGenerateRouter = router({
         if (!result.profile) throw new Error('Generated profile is null or undefined');
 
         let profileInserted = false;
+        let insertedVersion: number | null = null;
         for (let retryCount = 0; retryCount < 3; retryCount++) {
           const maxVersionResult = await db
             .select({ max: sql<number | null>`COALESCE(MAX(version), 0)` })
@@ -383,6 +385,7 @@ export const profileGenerateRouter = router({
 
             if (insertResult) {
               profileInserted = true;
+              insertedVersion = insertResult.version;
               break;
             }
           } catch (e) {
@@ -392,6 +395,53 @@ export const profileGenerateRouter = router({
         }
         if (!profileInserted) {
           console.warn(`[generateProfile] failed to insert cache for ${normalizedUsername} after 3 retries`);
+        }
+
+        // Best-effort: compute + persist embedding for the semantic developer
+        // map. Failures here must not break profile generation — the map's
+        // backfill script (scripts/backfill-profile-embeddings.ts) re-picks
+        // missing embeddings on its next run.
+        //
+        // Bound the background work with a 15s timeout so a slow Gemini call
+        // or hung DB connection can't outlive the request and leak a Vercel
+        // pool slot. Mirrors the scorecard embedding pattern in scorecard.ts.
+        if (profileInserted && insertedVersion !== null && result.profile) {
+          const BACKGROUND_EMBED_TIMEOUT_MS = 15_000;
+          const profileForEmbedding = result.profile;
+          const targetVersion = insertedVersion;
+          const embeddingPromise = (async () => {
+            const embedding = await generateProfileEmbedding(profileForEmbedding);
+            await db
+              .update(developerProfileCache)
+              .set({ embedding })
+              .where(
+                and(
+                  eq(developerProfileCache.username, normalizedUsername),
+                  eq(developerProfileCache.version, targetVersion)
+                )
+              );
+          })();
+          let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+          const timeoutPromise = new Promise<'timeout'>((resolve) => {
+            timeoutHandle = setTimeout(() => resolve('timeout'), BACKGROUND_EMBED_TIMEOUT_MS);
+          });
+          void Promise.race([embeddingPromise.then(() => 'ok' as const), timeoutPromise])
+            .then((raceResult) => {
+              if (raceResult === 'timeout') {
+                console.warn(
+                  `[profile.embedding] timed out, abandoning for ${normalizedUsername}@v${targetVersion}`
+                );
+              }
+            })
+            .catch((err) => {
+              console.warn(
+                `[profile.embedding] failed for ${normalizedUsername}@v${targetVersion}:`,
+                err instanceof Error ? err.message : err
+              );
+            })
+            .finally(() => {
+              if (timeoutHandle) clearTimeout(timeoutHandle);
+            });
         }
 
         // Token usage log — non-critical, never fail the generation on this.

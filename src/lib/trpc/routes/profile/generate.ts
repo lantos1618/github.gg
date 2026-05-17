@@ -3,7 +3,7 @@ import { router, protectedProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { developerProfileCache, tokenUsage, developerEmails } from '@/db/schema';
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
-import { generateDeveloperProfileStreaming, findAndStoreDeveloperEmail } from '@/lib/ai/developer-profile';
+import { generateDeveloperProfileStreaming, findAndStoreDeveloperEmail, type CrossRepoCommit } from '@/lib/ai/developer-profile';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
 import { TRPCError } from '@trpc/server';
@@ -42,7 +42,11 @@ export const profileGenerateRouter = router({
   generateProfileMutation: protectedProcedure
     .input(z.object({
       username: z.string().min(1, 'Username is required'),
-      includeCodeAnalysis: z.boolean().optional().default(false),
+      // Default true so any caller that omits the field still writes per-repo
+      // scorecards. The UI always passes true; non-UI callers (admin, scripts)
+      // were the only path where this defaulted false and scorecards silently
+      // weren't written.
+      includeCodeAnalysis: z.boolean().optional().default(true),
       selectedRepos: z.array(z.string()).optional(),
       forceRefreshScorecards: z.boolean().optional().default(false),
     }))
@@ -164,8 +168,83 @@ export const profileGenerateRouter = router({
             .slice(0, 15);
         }
 
+        // Fetch the user's recent public commit activity on repos they DON'T own.
+        // GitHub's Events API only returns the last ~90 days of activity by design,
+        // which is fine for "what is this dev currently contributing to" signal.
+        // One page (per_page=100) — no pagination, to keep rate-limit cost minimal.
+        // Failure here must NOT block profile generation; we just continue empty.
+        const crossRepoCommits: CrossRepoCommit[] = [];
+        try {
+          const ownedRepoKeys = new Set(
+            smartSortedRepos.map(r => `${r.owner.toLowerCase()}/${r.name.toLowerCase()}`)
+          );
+
+          const { data: events } = await githubService.octokit.rest.activity.listPublicEventsForUser({
+            username,
+            per_page: 100,
+          });
+
+          // Cap total at ~20 commits, max 5 per non-owned repo, ~50 raw commits scanned.
+          const MAX_TOTAL = 20;
+          const MAX_PER_REPO = 5;
+          const MAX_SCANNED = 50;
+          const perRepoCount = new Map<string, number>();
+          let scanned = 0;
+
+          for (const ev of events) {
+            if (ev.type !== 'PushEvent') continue;
+            // event.repo.name is "owner/name"
+            const [evOwner, evRepoName] = (ev.repo?.name || '').split('/');
+            if (!evOwner || !evRepoName) continue;
+            const repoKey = `${evOwner.toLowerCase()}/${evRepoName.toLowerCase()}`;
+            // Skip repos we're already scoring — would be double signal.
+            if (ownedRepoKeys.has(repoKey)) continue;
+
+            // The PushEvent payload's `commits` array isn't in the typed schema,
+            // so narrow it explicitly here.
+            const payload = ev.payload as unknown as {
+              commits?: Array<{
+                sha?: string;
+                message?: string;
+                author?: { email?: string; name?: string };
+              }>;
+            };
+            const commits = payload?.commits ?? [];
+            const createdAt = ev.created_at || new Date().toISOString();
+
+            for (const commit of commits) {
+              if (scanned >= MAX_SCANNED) break;
+              scanned++;
+              if (crossRepoCommits.length >= MAX_TOTAL) break;
+              const used = perRepoCount.get(repoKey) ?? 0;
+              if (used >= MAX_PER_REPO) continue;
+              if (!commit.sha || !commit.message) continue;
+
+              crossRepoCommits.push({
+                repoOwner: evOwner,
+                repoName: evRepoName,
+                sha: commit.sha,
+                message: commit.message,
+                date: createdAt,
+              });
+              perRepoCount.set(repoKey, used + 1);
+            }
+
+            if (crossRepoCommits.length >= MAX_TOTAL || scanned >= MAX_SCANNED) break;
+          }
+
+          if (crossRepoCommits.length > 0) {
+            console.log(`📤 Cross-repo commits collected: ${crossRepoCommits.length} across ${perRepoCount.size} repo(s)`);
+          }
+        } catch (err) {
+          // Never block profile generation on this.
+          console.warn('[generateProfile] cross-repo commit fetch failed (non-critical):', err instanceof Error ? err.message : err);
+        }
+
         const repoFiles: Array<{
           repoName: string;
+          owner: string;
+          defaultBranch: string;
           files: Array<{ path: string; content: string }>;
         }> = [];
 
@@ -224,7 +303,14 @@ export const profileGenerateRouter = router({
 
               const validFiles = fileContents.filter(Boolean) as Array<{ path: string; content: string }>;
               if (validFiles.length > 0) {
-                return { repoName: repo.name, files: validFiles };
+                return {
+                  repoName: repo.name,
+                  // Thread the ACTUAL owner + branch through to the scorecard
+                  // write path — see developer-profile.ts for why this matters.
+                  owner: repo.owner,
+                  defaultBranch: repo.defaultBranch || 'main',
+                  files: validFiles,
+                };
               }
               return null;
             } catch (error) {
@@ -248,6 +334,7 @@ export const profileGenerateRouter = router({
           repoFiles: input.includeCodeAnalysis ? repoFiles : undefined,
           userId: ctx.user.id,
           forceRefreshScorecards: input.forceRefreshScorecards,
+          crossRepoCommits: crossRepoCommits.length > 0 ? crossRepoCommits : undefined,
         });
 
         for await (const update of generator) {

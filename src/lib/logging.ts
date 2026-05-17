@@ -74,15 +74,11 @@ export function logError(message: string, error?: Error | unknown, context?: Log
 
 /**
  * Send logs to monitoring service (PostHog, Sentry, etc.)
- * Currently a no-op, can be expanded to integrate with monitoring tools
+ * No-op. Wire to PostHog/Sentry when we have one.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function sendToMonitoring(level: LogLevel, message: string, context?: LogContext): void {
-  // TODO: Integrate with PostHog or Sentry for production logging
-  // For now, this is a placeholder for future monitoring integration
-  if (process.env.NEXT_PUBLIC_POSTHOG_KEY && level === 'error') {
-    // Could send to PostHog in the future
-    // posthog.capture('error_logged', { message, context });
-  }
+  // intentionally empty
 }
 
 /**

@@ -285,33 +285,54 @@ export const scorecardRouter = router({
         // Best-effort: compute + persist embedding for semantic search. Failures
         // here must not break the analysis subscription — embedding is searchable
         // by definition, not load-bearing for the scorecard view itself.
-        void (async () => {
-          try {
-            const embedding = await generateScorecardEmbedding({
-              repoOwner: repoOwnerNormalized,
-              repoName: repoNameNormalized,
-              overallScore: parsedData.overallScore,
-              markdown: parsedData.markdown,
-            });
-            await db
-              .update(repositoryScorecards)
-              .set({ embedding })
-              .where(
-                and(
-                  eq(repositoryScorecards.userId, ctx.user.id),
-                  eq(repositoryScorecards.repoOwner, repoOwnerNormalized),
-                  eq(repositoryScorecards.repoName, repoNameNormalized),
-                  eq(repositoryScorecards.ref, ref),
-                  eq(repositoryScorecards.version, insertedRecord.version)
-                )
+        //
+        // Audit R4: bound the background work with a 15s timeout so a slow AI
+        // call or hung DB connection can't outlive the request and leak a
+        // Vercel pool slot (the pool is only 10 connections). On timeout we
+        // log and abandon — backfill scripts re-pick missing embeddings on
+        // their next run.
+        const BACKGROUND_EMBED_TIMEOUT_MS = 15_000;
+        const embeddingPromise = (async () => {
+          const embedding = await generateScorecardEmbedding({
+            repoOwner: repoOwnerNormalized,
+            repoName: repoNameNormalized,
+            overallScore: parsedData.overallScore,
+            markdown: parsedData.markdown,
+          });
+          await db
+            .update(repositoryScorecards)
+            .set({ embedding })
+            .where(
+              and(
+                eq(repositoryScorecards.userId, ctx.user.id),
+                eq(repositoryScorecards.repoOwner, repoOwnerNormalized),
+                eq(repositoryScorecards.repoName, repoNameNormalized),
+                eq(repositoryScorecards.ref, ref),
+                eq(repositoryScorecards.version, insertedRecord.version)
+              )
+            );
+        })();
+        let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+        const timeoutPromise = new Promise<'timeout'>((resolve) => {
+          timeoutHandle = setTimeout(() => resolve('timeout'), BACKGROUND_EMBED_TIMEOUT_MS);
+        });
+        void Promise.race([embeddingPromise.then(() => 'ok' as const), timeoutPromise])
+          .then((result) => {
+            if (result === 'timeout') {
+              console.warn(
+                `[scorecard.embedding] timed out, abandoning for ${repoOwnerNormalized}/${repoNameNormalized}@${ref}`
               );
-          } catch (err) {
+            }
+          })
+          .catch((err) => {
             console.warn(
               `[scorecard.embedding] failed for ${repoOwnerNormalized}/${repoNameNormalized}@${ref}:`,
               err instanceof Error ? err.message : err
             );
-          }
-        })();
+          })
+          .finally(() => {
+            if (timeoutHandle) clearTimeout(timeoutHandle);
+          });
 
         yield { type: 'progress', progress: 80, message: 'Analysis complete, saving results...' };
 

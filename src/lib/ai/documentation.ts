@@ -278,7 +278,7 @@ export async function generateDocumentation({
     const shouldChunk = useChunking && totalEstimatedTokens > tokensPerChunk;
 
     if (shouldChunk) {
-      console.log(`🔄 Using token-based chunking: ${totalEstimatedTokens} estimated tokens, ~${Math.ceil(totalEstimatedTokens / tokensPerChunk)} chunks`);
+      if (process.env.DEBUG_AI === 'true') console.log(`🔄 Using token-based chunking: ${totalEstimatedTokens} estimated tokens, ~${Math.ceil(totalEstimatedTokens / tokensPerChunk)} chunks`);
 
       // Split files into token-based chunks
       const chunks: Array<Array<typeof files[0]>> = [];
@@ -308,7 +308,7 @@ export async function generateDocumentation({
       // Analyze each chunk
       const chunkResults: Array<z.infer<typeof partialDocumentationSchema>> = [];
       for (let i = 0; i < chunks.length; i++) {
-        console.log(`📝 Analyzing chunk ${i + 1}/${chunks.length} (${chunks[i].length} files)...`);
+        if (process.env.DEBUG_AI === 'true') console.log(`📝 Analyzing chunk ${i + 1}/${chunks.length} (${chunks[i].length} files)...`);
         const { result, usage } = await analyzeChunk(chunks[i], i, chunks.length, repoName);
         chunkResults.push(result);
         totalInputTokens += usage.inputTokens || 0;
@@ -316,7 +316,7 @@ export async function generateDocumentation({
       }
 
       // Stitch all chunks together
-      console.log(`🧵 Stitching ${chunks.length} chunks together into final documentation...`);
+      if (process.env.DEBUG_AI === 'true') console.log(`🧵 Stitching ${chunks.length} chunks together into final documentation...`);
       const { result, usage } = await stitchChunks(
         chunkResults,
         repoName,
@@ -330,7 +330,7 @@ export async function generateDocumentation({
 
       const markdown = formatDocumentationAsMarkdown(result, repoName);
 
-      console.log(`✅ Chunked documentation complete! Total tokens: ${totalInputTokens + totalOutputTokens}`);
+      if (process.env.DEBUG_AI === 'true') console.log(`✅ Chunked documentation complete! Total tokens: ${totalInputTokens + totalOutputTokens}`);
 
       return {
         documentation: result,
@@ -344,7 +344,7 @@ export async function generateDocumentation({
     }
 
     // Original non-chunked path
-    console.log(`📝 Generating documentation without chunking (${files.length} files)`);
+    if (process.env.DEBUG_AI === 'true') console.log(`📝 Generating documentation without chunking (${files.length} files)`);
     const fileContents = files
       .slice(0, 50) // Limit to 50 files to avoid token limits
       .map(f => `

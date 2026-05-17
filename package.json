@@ -17,6 +17,7 @@
     "worker:webhook": "bun --env-file=.env.local src/workers/webhook-worker.ts",
     "umap:compute": "bun --env-file=.env.local scripts/compute-umap-projection.ts",
     "umap:seed": "bun --env-file=.env.local scripts/seed-synthetic-profiles.ts",
+    "embed:profiles": "bun --env-file=.env.local scripts/backfill-profile-embeddings.ts",
     "db:generate": "bun --env-file=.env.local drizzle-kit generate",
     "db:push": "bun --env-file=.env.local drizzle-kit push",
     "db:studio": "bun --env-file=.env.local drizzle-kit studio",

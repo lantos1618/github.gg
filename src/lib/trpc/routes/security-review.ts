@@ -7,37 +7,13 @@ import { generateSecurityReview } from '@/lib/ai/security-review';
 import { securityReviewSchema } from '@/lib/types/security-review';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForRepo } from '@/lib/github';
-import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { validatePlanAndKey } from '@/lib/trpc/helpers/validate-plan-and-key';
+import { streamProgressWithHeartbeat } from '@/lib/trpc/helpers/stream-progress';
+import { repoRefInputSchema } from '@/lib/trpc/helpers/repo-input';
 import { createJob, consumeJob } from '@/lib/analysis/job-store';
 import { isPgErrorWithCode } from '@/lib/db/utils';
 import { checkRepositoryWriteAccess } from '@/lib/wiki/permissions';
-
-async function* streamProgressWithHeartbeat(
-  promise: Promise<unknown>,
-  progressQueue: Array<{ message: string; progress: number }>,
-  heartbeatInterval = 2000,
-): AsyncGenerator<
-  { type: 'progress'; message: string; progress: number } | { type: 'ping' },
-  void,
-  unknown
-> {
-  let done = false;
-  promise.then(() => { done = true; }).catch(() => { done = true; });
-
-  while (!done) {
-    while (progressQueue.length > 0) {
-      const event = progressQueue.shift()!;
-      yield { type: 'progress', message: event.message, progress: event.progress };
-    }
-    yield { type: 'ping' };
-    await new Promise(r => setTimeout(r, heartbeatInterval));
-  }
-
-  while (progressQueue.length > 0) {
-    const event = progressQueue.shift()!;
-    yield { type: 'progress', message: event.message, progress: event.progress };
-  }
-}
+import { normalizeRepoIdent } from '@/lib/normalize';
 
 export const securityReviewRouter = router({
   createAnalysisJob: protectedProcedure
@@ -69,8 +45,10 @@ export const securityReviewRouter = router({
         return;
       }
 
-      const repoOwnerNormalized = job.user.toLowerCase();
-      const repoNameNormalized = job.repo.toLowerCase();
+      const { owner: repoOwnerNormalized, repo: repoNameNormalized } = normalizeRepoIdent({
+        owner: job.user,
+        repo: job.repo,
+      });
 
       try {
         yield { type: 'progress', progress: 0, message: 'Starting vulnerability scan...' };
@@ -86,15 +64,12 @@ export const securityReviewRouter = router({
         }
 
         yield { type: 'progress', progress: 2, message: 'Verifying subscription...' };
-        const { subscription, plan } = await getUserPlanAndKey(ctx.user.id);
-        if (!subscription || subscription.status !== 'active') {
-          yield { type: 'error', message: 'Active subscription required for AI features' };
-          return;
-        }
-
-        const keyInfo = await getApiKeyForUser(ctx.user.id, plan);
-        if (!keyInfo) {
-          yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
+        let keyInfo: { isByok: boolean };
+        try {
+          ({ keyInfo } = await validatePlanAndKey(ctx.user.id));
+        } catch (err) {
+          const message = err instanceof TRPCError ? err.message : 'Subscription/key check failed';
+          yield { type: 'error', message };
           return;
         }
 
@@ -246,16 +221,10 @@ export const securityReviewRouter = router({
     }),
 
   publicGetSecurityReview: publicProcedure
-    .input(z.object({
-      user: z.string(),
-      repo: z.string(),
-      ref: z.string().optional(),
-      version: z.number().optional(),
-    }))
+    .input(repoRefInputSchema)
     .query(async ({ input, ctx }) => {
       const { user, repo, version } = input;
-      const normalizedUser = user.toLowerCase();
-      const normalizedRepo = repo.toLowerCase();
+      const { owner: normalizedUser, repo: normalizedRepo } = normalizeRepoIdent({ owner: user, repo });
 
       // Vulnerability data is sensitive — only the repo owner/contributors
       // (anyone with push/admin) can see findings, even on public repos.
@@ -344,8 +313,10 @@ export const securityReviewRouter = router({
   getSecurityReviewVersions: publicProcedure
     .input(z.object({ user: z.string(), repo: z.string(), ref: z.string().optional().default('main') }))
     .query(async ({ input, ctx }) => {
-      const normalizedUser = input.user.toLowerCase();
-      const normalizedRepo = input.repo.toLowerCase();
+      const { owner: normalizedUser, repo: normalizedRepo } = normalizeRepoIdent({
+        owner: input.user,
+        repo: input.repo,
+      });
 
       // Same ACL as publicGetSecurityReview — versions list leaks the
       // existence/freshness of scans, so it must follow the same rule.

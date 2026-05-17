@@ -16,6 +16,7 @@ import { db } from '@/db';
 import { userSubscriptions } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import '@/lib/boneyard-config';
+import { logWarn } from '@/lib/logging';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -98,7 +99,13 @@ export default async function RootLayout({
           columns: { plan: true, status: true },
         });
         if (sub?.status === 'active') plan = sub.plan;
-      } catch { /* no plan */ }
+      } catch (err) {
+        // Non-fatal: subscription lookup failure shouldn't break the page render.
+        logWarn('[layout] subscription plan lookup failed', {
+          userId: user.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
 
       sessionHint = {
         userId: user.id,
@@ -109,8 +116,12 @@ export default async function RootLayout({
         isAdmin,
       };
     }
-  } catch {
-    // No session — anonymous user
+  } catch (err) {
+    // No session — anonymous user. Log in case it's an actual auth error,
+    // not just a missing cookie.
+    logWarn('[layout] session lookup failed (treating as anonymous)', {
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   return (

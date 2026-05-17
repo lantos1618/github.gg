@@ -1,7 +1,7 @@
 'use client';
 
 import { Star } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { trpc } from '@/lib/trpc/client';
 import { useSessionHint } from '@/lib/session-context';
 import type { ReactNode } from 'react';
@@ -17,9 +17,38 @@ function cacheKey(userId: string, owner: string, repo: string) {
   return `gg-starred:${userId}:${owner}/${repo}`;
 }
 
+/**
+ * Clear all `gg-starred:*` localStorage entries.
+ * Used on sign-out / userId change so the previous user's cached star state
+ * doesn't leak across sessions (e.g. anonymous viewer seeing a gold star).
+ */
+function clearAllStarCache() {
+  try {
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('gg-starred:')) toRemove.push(key);
+    }
+    toRemove.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    /* localStorage unavailable */
+  }
+}
+
 export function StarClientWrapper({ owner, repo, className = '', children }: StarClientWrapperProps) {
   const hint = useSessionHint();
   const [cachedStarred, setCachedStarred] = useState(false);
+  const prevUserIdRef = useRef<string | null>(null);
+
+  // Invalidate cache when the active userId changes (sign-out, account switch).
+  useEffect(() => {
+    const currentUserId = hint?.userId ?? null;
+    const prevUserId = prevUserIdRef.current;
+    if (prevUserId !== null && prevUserId !== currentUserId) {
+      clearAllStarCache();
+    }
+    prevUserIdRef.current = currentUserId;
+  }, [hint?.userId]);
 
   useEffect(() => {
     if (!hint?.userId) {

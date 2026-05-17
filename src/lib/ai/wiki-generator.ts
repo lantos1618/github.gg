@@ -193,7 +193,7 @@ Return ONLY valid JSON matching this structure:
     })
   );
   const responseText = result.text || '';
-  console.log('🔍 Plan Wiki Response:', responseText.substring(0, 500) + '...');
+  if (process.env.DEBUG_AI === 'true') console.log('🔍 Plan Wiki Response:', responseText.substring(0, 500) + '...');
 
   // Extract JSON from response (handle markdown code blocks)
   const jsonMatch = responseText.match(/```json\n?([\s\S]*?)\n?```/) ||
@@ -376,24 +376,24 @@ export async function generateWikiWithCache(
 
   try {
     // Step 1: Cache the entire codebase
-    console.log('📦 Creating codebase cache...');
+    if (process.env.DEBUG_AI === 'true') console.log('📦 Creating codebase cache...');
     params.onProgress?.('Caching codebase context...', 0, 1);
     const cacheId = await createCodebaseCache(params);
 
     // Estimate cache size (rough)
     const codebaseSize = params.files.reduce((sum, f) => sum + f.content.length, 0);
     cacheTokens = Math.ceil(codebaseSize / 4); // Rough token estimate
-    console.log(`✅ Cache created: ${cacheId} (~${cacheTokens} tokens)`);
+    if (process.env.DEBUG_AI === 'true') console.log(`✅ Cache created: ${cacheId} (~${cacheTokens} tokens)`);
 
     // Step 2: Plan wiki pages
-    console.log('🎯 Planning wiki pages...');
+    if (process.env.DEBUG_AI === 'true') console.log('🎯 Planning wiki pages...');
     params.onProgress?.('Planning wiki structure...', 0, 1);
     const plan = await planWikiPages(cacheId, owner, repo);
-    console.log(`📋 Planned ${plan.pages.length} pages:`, plan.pages.map(p => p.title).join(', '));
+    if (process.env.DEBUG_AI === 'true') console.log(`📋 Planned ${plan.pages.length} pages:`, plan.pages.map(p => p.title).join(', '));
 
     // Step 3: Group pages by dependency level for parallel generation
     const pageLevels = groupPagesByLevel(plan.pages);
-    console.log(`📊 Generation levels: ${pageLevels.map((level, i) => `L${i}(${level.length})`).join(' → ')}`);
+    if (process.env.DEBUG_AI === 'true') console.log(`📊 Generation levels: ${pageLevels.map((level, i) => `L${i}(${level.length})`).join(' → ')}`);
 
     // Step 4: Generate pages in parallel by level
     const generatedPages = new Map<string, GeneratedPage>();
@@ -402,7 +402,7 @@ export async function generateWikiWithCache(
 
     for (let levelIndex = 0; levelIndex < pageLevels.length; levelIndex++) {
       const level = pageLevels[levelIndex];
-      console.log(`📝 Generating level ${levelIndex + 1}/${pageLevels.length} (${level.length} pages in parallel)...`);
+      if (process.env.DEBUG_AI === 'true') console.log(`📝 Generating level ${levelIndex + 1}/${pageLevels.length} (${level.length} pages in parallel)...`);
       params.onProgress?.(`Generating level ${levelIndex + 1}/${pageLevels.length}`, processedPages, totalPages);
 
       // Generate all pages in this level in parallel
@@ -420,7 +420,7 @@ export async function generateWikiWithCache(
         totalOutputTokens += Math.ceil(generated.content.length / 4);
       });
 
-      console.log(`✅ Level ${levelIndex + 1} complete: ${level.map(p => p.title).join(', ')}`);
+      if (process.env.DEBUG_AI === 'true') console.log(`✅ Level ${levelIndex + 1} complete: ${level.map(p => p.title).join(', ')}`);
 
       // Add a small delay between levels to help with rate limiting
       if (levelIndex < pageLevels.length - 1) {
@@ -428,7 +428,7 @@ export async function generateWikiWithCache(
       }
     }
 
-    console.log(`✅ Wiki generation complete! ${generatedPages.size} pages created.`);
+    if (process.env.DEBUG_AI === 'true') console.log(`✅ Wiki generation complete! ${generatedPages.size} pages created.`);
 
     return {
       pages: Array.from(generatedPages.values()),
@@ -476,7 +476,7 @@ export async function* generateWikiWithCacheStreaming(
     // Estimate cache size (rough)
     const codebaseSize = params.files.reduce((sum, f) => sum + f.content.length, 0);
     cacheTokens = Math.ceil(codebaseSize / 4); // Rough token estimate
-    console.log(`✅ Cache created: ${cacheId} (~${cacheTokens} tokens)`);
+    if (process.env.DEBUG_AI === 'true') console.log(`✅ Cache created: ${cacheId} (~${cacheTokens} tokens)`);
 
     // Step 2: Plan wiki pages
     yield { type: 'progress', progress: 50, message: 'Designing wiki structure & pages...' };
@@ -492,11 +492,11 @@ export async function* generateWikiWithCacheStreaming(
     }
     plan = await planPromise;
     
-    console.log(`📋 Planned ${plan.pages.length} pages:`, plan.pages.map(p => p.title).join(', '));
+    if (process.env.DEBUG_AI === 'true') console.log(`📋 Planned ${plan.pages.length} pages:`, plan.pages.map(p => p.title).join(', '));
 
     // Step 3: Group pages by dependency level for parallel generation
     const pageLevels = groupPagesByLevel(plan.pages);
-    console.log(`📊 Generation levels: ${pageLevels.map((level, i) => `L${i}(${level.length})`).join(' → ')}`);
+    if (process.env.DEBUG_AI === 'true') console.log(`📊 Generation levels: ${pageLevels.map((level, i) => `L${i}(${level.length})`).join(' → ')}`);
 
     // Step 4: Generate pages in parallel by level (progress from 55% to 85%)
     const generatedPages = new Map<string, GeneratedPage>();
@@ -541,7 +541,7 @@ export async function* generateWikiWithCacheStreaming(
         totalOutputTokens += Math.ceil(generated.content.length / 4);
       });
 
-      console.log(`✅ Level ${levelIndex + 1} complete: ${level.map(p => p.title).join(', ')}`);
+      if (process.env.DEBUG_AI === 'true') console.log(`✅ Level ${levelIndex + 1} complete: ${level.map(p => p.title).join(', ')}`);
 
       // Add a small delay between levels to help with rate limiting
       if (levelIndex < pageLevels.length - 1) {
@@ -549,7 +549,7 @@ export async function* generateWikiWithCacheStreaming(
       }
     }
 
-    console.log(`✅ Wiki generation complete! ${generatedPages.size} pages created.`);
+    if (process.env.DEBUG_AI === 'true') console.log(`✅ Wiki generation complete! ${generatedPages.size} pages created.`);
 
     yield {
       type: 'complete',

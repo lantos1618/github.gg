@@ -21,7 +21,7 @@ import {
 const SHORTLIST_KEY = 'gg.hire.shortlist';
 
 function readShortlist(): string[] {
-  if (typeof window === 'undefined') return [];
+  // 'use client' guarantees browser context — no SSR guard needed.
   try {
     const raw = window.localStorage.getItem(SHORTLIST_KEY);
     if (!raw) return [];
@@ -33,7 +33,6 @@ function readShortlist(): string[] {
 }
 
 function saveToShortlist(username: string): boolean {
-  if (typeof window === 'undefined') return false;
   const current = readShortlist();
   const lower = username.toLowerCase();
   if (current.some((u) => u.toLowerCase() === lower)) return false;

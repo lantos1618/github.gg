@@ -2,28 +2,38 @@ import { google } from '@ai-sdk/google';
 import { embed, embedMany } from 'ai';
 import type { DeveloperProfile } from '@/lib/types/profile';
 
-// Gemini text-embedding-004 outputs 768 dimensions
+// gemini-embedding-001 with outputDimensionality=768 — keeps the existing
+// vector(768) column shape. text-embedding-004 (the previous model) was
+// retired from the v1beta endpoint in 2026 and now 404s on embedContent calls.
 export const EMBEDDING_DIMENSIONS = 768;
-export const EMBEDDING_MODEL = 'text-embedding-004';
+export const EMBEDDING_MODEL = 'gemini-embedding-001';
+
+// Shared provider options pinning output dimensions so every call writes
+// a 768-dim vector even though the model's native dim is 3072.
+const PROVIDER_OPTIONS = {
+  google: { outputDimensionality: EMBEDDING_DIMENSIONS },
+};
 
 /**
- * Generate a text embedding using Gemini's text-embedding-004 model
+ * Generate a text embedding using the current Gemini embedding model.
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   const { embedding } = await embed({
     model: google.embedding(EMBEDDING_MODEL),
     value: text,
+    providerOptions: PROVIDER_OPTIONS,
   });
   return embedding;
 }
 
 /**
- * Generate embeddings for multiple texts in a batch
+ * Generate embeddings for multiple texts in a batch.
  */
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
   const { embeddings } = await embedMany({
     model: google.embedding(EMBEDDING_MODEL),
     values: texts,
+    providerOptions: PROVIDER_OPTIONS,
   });
   return embeddings;
 }

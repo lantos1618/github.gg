@@ -285,19 +285,29 @@ export const discoverRouter = router({
     .input(z.object({ limit: z.number().min(1).max(500).default(200) }).optional())
     .query(async ({ input }) => {
       const limit = input?.limit ?? 200;
-      // NOTE: projection_x / projection_y columns are added by a separate
-      // migration that hasn't shipped yet. Until then we return x/y as null
-      // and SemanticMap renders its "No projections yet" empty state. Once
-      // the migration lands, swap the SELECT to read those columns.
+      // Reads projection_x / projection_y populated by scripts/compute-umap-projection.ts.
+      // Rows without a projection (newly generated profiles since last UMAP run) are
+      // returned with x/y = null; SemanticMap filters them out client-side.
       const profiles = await db.execute(sql`
-        SELECT p.username, p.profile_data as "profileData", p.updated_at as "updatedAt"
+        SELECT
+          p.username,
+          p.profile_data as "profileData",
+          p.updated_at as "updatedAt",
+          p.projection_x as "projectionX",
+          p.projection_y as "projectionY"
         FROM developer_profile_cache p
         INNER JOIN (
           SELECT username, MAX(version) as max_version FROM developer_profile_cache GROUP BY username
         ) latest ON p.username = latest.username AND p.version = latest.max_version
         WHERE p.profile_data IS NOT NULL
         ORDER BY p.updated_at DESC LIMIT ${limit}
-      `) as unknown as Array<{ username: string; profileData: DeveloperProfile; updatedAt: string }>;
+      `) as unknown as Array<{
+        username: string;
+        profileData: DeveloperProfile;
+        updatedAt: string;
+        projectionX: number | null;
+        projectionY: number | null;
+      }>;
 
       return profiles.map(row => {
         const profile = row.profileData;
@@ -312,8 +322,8 @@ export const discoverRouter = router({
           score: avgScore,
           confidence: typeof profile.profileConfidence === 'number' ? profile.profileConfidence : null,
           topSkills: (profile.skillAssessment || []).slice(0, 5).map(s => s.metric),
-          x: null as number | null,
-          y: null as number | null,
+          x: row.projectionX,
+          y: row.projectionY,
           updatedAt: row.updatedAt,
         };
       });

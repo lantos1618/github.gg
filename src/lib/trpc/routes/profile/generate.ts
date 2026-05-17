@@ -42,7 +42,11 @@ export const profileGenerateRouter = router({
   generateProfileMutation: protectedProcedure
     .input(z.object({
       username: z.string().min(1, 'Username is required'),
-      includeCodeAnalysis: z.boolean().optional().default(false),
+      // Default true so any caller that omits the field still writes per-repo
+      // scorecards. The UI always passes true; non-UI callers (admin, scripts)
+      // were the only path where this defaulted false and scorecards silently
+      // weren't written.
+      includeCodeAnalysis: z.boolean().optional().default(true),
       selectedRepos: z.array(z.string()).optional(),
       forceRefreshScorecards: z.boolean().optional().default(false),
     }))
@@ -166,6 +170,8 @@ export const profileGenerateRouter = router({
 
         const repoFiles: Array<{
           repoName: string;
+          owner: string;
+          defaultBranch: string;
           files: Array<{ path: string; content: string }>;
         }> = [];
 
@@ -224,7 +230,14 @@ export const profileGenerateRouter = router({
 
               const validFiles = fileContents.filter(Boolean) as Array<{ path: string; content: string }>;
               if (validFiles.length > 0) {
-                return { repoName: repo.name, files: validFiles };
+                return {
+                  repoName: repo.name,
+                  // Thread the ACTUAL owner + branch through to the scorecard
+                  // write path — see developer-profile.ts for why this matters.
+                  owner: repo.owner,
+                  defaultBranch: repo.defaultBranch || 'main',
+                  files: validFiles,
+                };
               }
               return null;
             } catch (error) {

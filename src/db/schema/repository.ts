@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, uniqueIndex, index, integer, jsonb, varchar, boolean, customType } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, uniqueIndex, index, integer, jsonb, varchar, boolean, customType, real } from 'drizzle-orm/pg-core';
 import type { ScorecardMetric, DiagramOptions } from '@/lib/types/scorecard';
 import type {
   SecurityMetric,
@@ -234,6 +234,12 @@ export const developerProfileCache = pgTable('developer_profile_cache', {
   version: integer('version').notNull().default(1),
   profileData: jsonb('profile_data').notNull(),
   embedding: vector('embedding', { dimensions: 768 }),
+  // 2-D UMAP projection of `embedding`, populated by scripts/compute-umap-projection.ts.
+  // `projectionVersion` lets us invalidate stale coords if the embedding model or
+  // UMAP params change.
+  projectionX: real('projection_x'),
+  projectionY: real('projection_y'),
+  projectionVersion: integer('projection_version'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({

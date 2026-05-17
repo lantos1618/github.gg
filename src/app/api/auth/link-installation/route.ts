@@ -4,6 +4,7 @@ import { account } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { NextRequest, NextResponse } from 'next/server';
 import { Octokit } from '@octokit/rest';
+import { isPgErrorWithCode } from '@/lib/db/utils';
 
 /**
  * Verify the caller actually has access to the GitHub App installation they
@@ -80,7 +81,11 @@ export async function POST(request: NextRequest) {
       }, { status: 403 });
     }
 
-    // Check if this installation is already linked to another user
+    // Check if this installation is already linked to another user.
+    // This is an early-rejection optimization for UX (gives a clean 409 without
+    // attempting a write). The authoritative check is the partial unique index
+    // `account_installation_unique_idx` enforced at the DB level — see the
+    // catch block below for the race-safe path.
     const existingLink = await db.query.account.findFirst({
       where: eq(account.installationId, installationId),
     });
@@ -105,16 +110,30 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Update the user's GitHub account with the installation ID
-    await db.update(account)
-      .set({
-        installationId: installationId,
-        updatedAt: new Date()
-      })
-      .where(and(
-        eq(account.userId, session.user.id),
-        eq(account.providerId, 'github')
-      ));
+    // Update the user's GitHub account with the installation ID.
+    // The partial unique index on account.installation_id (WHERE installation_id
+    // IS NOT NULL) makes this race-safe: if a concurrent caller has already
+    // claimed this installation since our pre-check above, Postgres will reject
+    // the UPDATE with a 23505 unique_violation rather than silently
+    // double-binding.
+    try {
+      await db.update(account)
+        .set({
+          installationId: installationId,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(account.userId, session.user.id),
+          eq(account.providerId, 'github')
+        ));
+    } catch (err) {
+      if (isPgErrorWithCode(err) && err.code === '23505') {
+        return NextResponse.json({
+          error: 'This GitHub App installation is already linked to another account'
+        }, { status: 409 });
+      }
+      throw err;
+    }
 
     return NextResponse.json({
       success: true,

@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, boolean, uniqueIndex, integer, json } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
@@ -51,6 +52,12 @@ export const account = pgTable('account', {
 }, (table) => ({
   // Ensure a user can only link a specific provider account once
   providerUserIdx: uniqueIndex('provider_user_idx').on(table.providerId, table.userId),
+  // Audit R2: prevent the same GitHub App installation from being linked to
+  // multiple accounts. Partial unique index — multiple NULLs are fine. Backed
+  // by drizzle/0028_unique_account_installation.sql.
+  installationUniqueIdx: uniqueIndex('account_installation_unique_idx')
+    .on(table.installationId)
+    .where(sql`${table.installationId} IS NOT NULL`),
 }));
 
 export const verification = pgTable('verification', {

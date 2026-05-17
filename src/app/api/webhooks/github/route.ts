@@ -6,6 +6,7 @@ import { postPRReviewComment, isPRReviewEnabled } from '@/lib/github/pr-comment-
 import { postCommitAnalysisComment, postIssueAnalysisComment, isAnalysisEnabled } from '@/lib/github/commit-issue-comment-service';
 import { createLogger } from '@/lib/logging';
 import { checkGitHubWebhookRateLimit } from '@/lib/webhooks/rate-limiter';
+import { markWebhookProcessed } from '@/lib/webhook-dedup';
 
 const logger = createLogger('GitHubWebhook');
 
@@ -475,6 +476,19 @@ export async function POST(request: Request) {
     }
   } catch {
     // If payload parsing fails here, webhooks.receive will handle it below
+  }
+
+  // Delivery-ID dedup (audit R3). GitHub retries webhooks aggressively on any
+  // hiccup; without this, every retry kicks off another AI analysis pass and
+  // burns tokens. We mark + check atomically with SET NX EX so concurrent
+  // retries can't both win. Only enforce when we have a real delivery ID —
+  // synthetic 'unknown' deliveries (malformed requests) fall through.
+  if (delivery && delivery !== 'unknown') {
+    const acquired = await markWebhookProcessed(delivery);
+    if (!acquired) {
+      logger.info('Duplicate webhook delivery — already processed', { event, delivery });
+      return new Response('OK', { status: 200 });
+    }
   }
 
   try {

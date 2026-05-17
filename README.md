@@ -207,13 +207,18 @@ github.gg/
 ### Available Scripts
 
 ```bash
-bun dev                  # Start development server (Turbopack)
-bun run build           # Build for production
-bun run db:start        # Start PostgreSQL with Docker
-bun run db:studio       # Open Drizzle Studio
-bun run db:push         # Push schema changes
-bun test                # Run tests
+bun dev                    # Start development server (Turbopack)
+bun run build             # Build for production
+bun run db:start          # Start PostgreSQL with Docker
+bun run db:studio         # Open Drizzle Studio
+bun run db:push           # Push schema changes
+bun test                  # Run tests
+bun run worker:webhook    # Drain the GitHub webhook queue (long-lived; see WORKER_DEPLOYMENT.md)
 ```
+
+> **Note**: `worker:webhook` is a long-lived process that handles GitHub webhook
+> events outside the Vercel 30s request budget. It must run on Railway or a VM
+> (not Vercel) — see [WORKER_DEPLOYMENT.md](./WORKER_DEPLOYMENT.md) for details.
 
 ### Environment Variables
 

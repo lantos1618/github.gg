@@ -159,6 +159,14 @@ export async function sendDeveloperProfileEmail(email: string, profileHtml: stri
   });
 }
 
+export type CrossRepoCommit = {
+  repoOwner: string;
+  repoName: string;
+  sha: string;
+  message: string;
+  date: string;
+};
+
 export type DeveloperProfileParams = {
   username: string;
   repos: RepoSummary[];
@@ -178,6 +186,9 @@ export type DeveloperProfileParams = {
   userId: string; // userId is now required to associate scorecards
   onProgress?: (current: number, total: number, repoName: string) => void;
   forceRefreshScorecards?: boolean; // When true, regenerate all scorecards even if cached
+  // Recent public commits the user has pushed to repos they DON'T own.
+  // Signal-only — we deliberately do NOT generate scorecards for these.
+  crossRepoCommits?: CrossRepoCommit[];
 };
 
 export type DeveloperProfileResult = {
@@ -195,6 +206,7 @@ export async function* generateDeveloperProfileStreaming({
   repoFiles,
   userId,
   forceRefreshScorecards = false,
+  crossRepoCommits,
 }: Omit<DeveloperProfileParams, 'onProgress'>): AsyncGenerator<{
   type: 'progress' | 'complete' | 'repo_failed';
   progress?: number;
@@ -482,6 +494,13 @@ export async function* generateDeveloperProfileStreaming({
 
     Repository Metadata (${nonForkedRepos.length} original repositories, ${totalStars.toLocaleString()} total stars):
     ${JSON.stringify(repoDataForPrompt, null, 2)}
+    ${crossRepoCommits && crossRepoCommits.length > 0 ? `
+Cross-Repo Contributions (commits to others' repos — signal only, no scorecards generated):
+${crossRepoCommits.map(c => {
+  const preview = c.message.split('\n')[0].slice(0, 100);
+  return `- ${c.repoOwner}/${c.repoName}: "${preview}" (${c.date.slice(0, 10)})`;
+}).join('\n')}
+` : ''}
     ${scorecardInsights ? `\nDetailed Code Analysis from Scorecards:\n${scorecardInsights}` : ''}
   `;
 

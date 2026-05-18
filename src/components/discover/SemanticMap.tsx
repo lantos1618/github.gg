@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef } from 'react';
 import DeckGL from '@deck.gl/react';
-import { ScatterplotLayer, IconLayer } from '@deck.gl/layers';
+import { ScatterplotLayer } from '@deck.gl/layers';
 import { OrthographicView } from '@deck.gl/core';
 import type { PickingInfo } from '@deck.gl/core';
 
@@ -41,11 +41,6 @@ function colorFor(archetype: string | null): [number, number, number, number] {
   return [rgb[0], rgb[1], rgb[2], 200];
 }
 
-function radiusFor(confidence: number | null): number {
-  const c = confidence ?? 40;
-  return 4 + (c / 100) * 8;
-}
-
 // Avatar size in screen pixels. Bigger than the dot radius because faces need
 // the room to be recognisable, and avatars stack visually less than pure dots.
 function avatarSizeFor(confidence: number | null): number {
@@ -70,6 +65,9 @@ export function SemanticMap({
   );
   const [hovered, setHovered] = useState<{ point: SemanticMapPoint; x: number; y: number } | null>(null);
   const [clicked, setClicked] = useState<Set<string>>(() => new Set());
+  // Controlled view state — needed so we can project world ↔ screen for the
+  // HTML avatar overlay. Seeded from `bounds` (below) on first render.
+  const [viewState, setViewState] = useState<{ target: [number, number, number]; zoom: number } | null>(null);
 
   // Pass explicit width/height to DeckGL based on the container's actual size,
   // and recompute via ResizeObserver. Without this, DeckGL's internal viewport
@@ -117,50 +115,56 @@ export function SemanticMap({
     return { cx, cy, zoom };
   }, [points]);
 
-  // Underlay: thin archetype-coloured ring behind each avatar. Gives the
-  // semantic-cluster colouring while letting the avatar itself be the primary
-  // visual.
+  // Seed view state once bounds + size are known. After that, viewState is
+  // driven by user interaction via onViewStateChange.
+  useEffect(() => {
+    if (viewState || !size || points.length === 0) return;
+    setViewState({ target: [bounds.cx, bounds.cy, 0], zoom: bounds.zoom });
+  }, [viewState, size, points.length, bounds.cx, bounds.cy, bounds.zoom]);
+
+  // Project each visible point's world coords to canvas pixel coords using
+  // OrthographicView's simple projection: pixelsPerWorldUnit = 2^zoom, and
+  // y is flipped vs world y. Matches deck.gl's internal projection so the
+  // HTML overlay stays aligned with the ScatterplotLayer rings underneath.
+  const screenPositions = useMemo(() => {
+    if (!size || !viewState) return [] as Array<{ p: SemanticMapPoint; sx: number; sy: number; px: number }>;
+    const ppu = Math.pow(2, viewState.zoom);
+    const cx = viewState.target[0];
+    const cy = viewState.target[1];
+    return visible.map((p) => ({
+      p,
+      sx: size.width / 2 + (p.x - cx) * ppu,
+      sy: size.height / 2 - (p.y - cy) * ppu,
+      px: avatarSizeFor(p.confidence),
+    }));
+  }, [visible, viewState, size]);
+
+  // Avatars are rendered as HTML <img> overlays positioned by deck.gl's
+  // viewport projection so CSS `rounded-full` can clip them to circles
+  // (deck.gl's IconLayer can't mask non-power-of-two textures and avatars
+  // come back from GitHub as squares).
+  //
+  // Picking and hover are driven by this ScatterplotLayer, which sits *under*
+  // the HTML overlay and gives each point a slightly-larger hit target that
+  // doubles as the archetype-coloured ring.
   const ringLayer = new ScatterplotLayer<SemanticMapPoint>({
     id: 'semantic-map-rings',
     data: visible,
-    pickable: false,
+    pickable: true,
     getPosition: (p: SemanticMapPoint) => [p.x, p.y],
-    // Ring is slightly bigger than the avatar so a sliver of colour shows.
     getRadius: (p: SemanticMapPoint) => avatarSizeFor(p.confidence) / 2 + 2,
     radiusUnits: 'pixels',
     radiusMinPixels: 11,
     radiusMaxPixels: 24,
     getFillColor: (p: SemanticMapPoint) => colorFor(p.archetype),
     stroked: false,
-    updateTriggers: { getFillColor: enabled },
-  });
-
-  // Primary: GitHub avatar per point. DeckGL dynamically atlases the unique
-  // URLs the first time they're seen, then re-renders are GPU-cheap.
-  const avatarLayer = new IconLayer<SemanticMapPoint>({
-    id: 'semantic-map-avatars',
-    data: visible,
-    pickable: true,
-    getPosition: (p: SemanticMapPoint) => [p.x, p.y],
-    getIcon: (p: SemanticMapPoint) => ({
-      url: avatarUrlFor(p),
-      width: 80,
-      height: 80,
-      anchorY: 40,
-      anchorX: 40,
-      mask: false,
-    }),
-    getSize: (p: SemanticMapPoint) => avatarSizeFor(p.confidence),
-    sizeUnits: 'pixels',
-    sizeMinPixels: 18,
-    sizeMaxPixels: 48,
     onHover: (info: PickingInfo<SemanticMapPoint>) => {
       setHovered(info.object ? { point: info.object, x: info.x, y: info.y } : null);
     },
-    updateTriggers: { getSize: enabled },
+    updateTriggers: { getFillColor: enabled },
   });
 
-  const layers = [ringLayer, avatarLayer];
+  const layers = [ringLayer];
 
   const toggle = (name: string) => {
     setEnabled(prev => {
@@ -242,25 +246,55 @@ export function SemanticMap({
         {visible.length.toLocaleString()} / {points.length.toLocaleString()} developers · avatar size = confidence · ring colour = archetype
       </div>
 
-      {size && (
+      {size && viewState && (
         <DeckGL
           views={new OrthographicView({ id: 'ortho' })}
-          initialViewState={{ target: [bounds.cx, bounds.cy, 0], zoom: bounds.zoom }}
+          viewState={viewState}
           controller={true}
           layers={layers}
           onClick={handleClick}
           width={size.width}
           height={size.height}
-          // Clear the tooltip whenever the view changes (scroll-wheel zoom, drag
-          // pan). Otherwise the tooltip stays anchored to the pre-zoom info.x/y
-          // and shows the pre-zoom dot's data until the user moves the mouse 1px.
-          onViewStateChange={({ interactionState }) => {
+          onViewStateChange={({ viewState: vs, interactionState }) => {
+            // Controlled viewState — write back on every interaction so the HTML
+            // overlay's screen-position math stays in sync with the canvas.
+            setViewState({
+              target: (vs as { target: [number, number, number] }).target,
+              zoom: (vs as { zoom: number }).zoom,
+            });
             if (interactionState.isZooming || interactionState.isPanning) {
+              // Clear the tooltip during a gesture — otherwise it stays anchored
+              // to the pre-gesture info.x/y until the next mouse-move event.
               setHovered(null);
             }
           }}
           style={{ position: 'absolute', inset: '0' }}
         />
+      )}
+
+      {/* HTML avatar overlay — positioned by deck.gl's viewport projection.
+          pointer-events: none so picking falls through to the ring layer
+          underneath (which has a slightly larger hit target). */}
+      {size && viewState && (
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          {screenPositions.map(({ p, sx, sy, px }) => (
+            <img
+              key={p.username}
+              src={avatarUrlFor(p)}
+              alt=""
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              className="absolute rounded-full border border-white/60 shadow-sm"
+              style={{
+                left: sx - px / 2,
+                top: sy - px / 2,
+                width: px,
+                height: px,
+                willChange: 'transform',
+              }}
+            />
+          ))}
+        </div>
       )}
 
       {hovered && (

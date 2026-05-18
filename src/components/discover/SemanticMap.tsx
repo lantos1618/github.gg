@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef } from 'react';
 import DeckGL from '@deck.gl/react';
-import { ScatterplotLayer } from '@deck.gl/layers';
+import { ScatterplotLayer, IconLayer } from '@deck.gl/layers';
 import { OrthographicView } from '@deck.gl/core';
 import type { PickingInfo } from '@deck.gl/core';
 
@@ -44,6 +44,17 @@ function colorFor(archetype: string | null): [number, number, number, number] {
 function radiusFor(confidence: number | null): number {
   const c = confidence ?? 40;
   return 4 + (c / 100) * 8;
+}
+
+// Avatar size in screen pixels. Bigger than the dot radius because faces need
+// the room to be recognisable, and avatars stack visually less than pure dots.
+function avatarSizeFor(confidence: number | null): number {
+  const c = confidence ?? 40;
+  return 18 + (c / 100) * 18; // 18-36 px
+}
+
+function avatarUrlFor(p: SemanticMapPoint): string {
+  return p.avatar ?? `https://github.com/${p.username}.png?size=80`;
 }
 
 export function SemanticMap({
@@ -106,25 +117,50 @@ export function SemanticMap({
     return { cx, cy, zoom };
   }, [points]);
 
-  const layer = new ScatterplotLayer<SemanticMapPoint>({
-    id: 'semantic-map',
+  // Underlay: thin archetype-coloured ring behind each avatar. Gives the
+  // semantic-cluster colouring while letting the avatar itself be the primary
+  // visual.
+  const ringLayer = new ScatterplotLayer<SemanticMapPoint>({
+    id: 'semantic-map-rings',
+    data: visible,
+    pickable: false,
+    getPosition: (p: SemanticMapPoint) => [p.x, p.y],
+    // Ring is slightly bigger than the avatar so a sliver of colour shows.
+    getRadius: (p: SemanticMapPoint) => avatarSizeFor(p.confidence) / 2 + 2,
+    radiusUnits: 'pixels',
+    radiusMinPixels: 11,
+    radiusMaxPixels: 24,
+    getFillColor: (p: SemanticMapPoint) => colorFor(p.archetype),
+    stroked: false,
+    updateTriggers: { getFillColor: enabled },
+  });
+
+  // Primary: GitHub avatar per point. DeckGL dynamically atlases the unique
+  // URLs the first time they're seen, then re-renders are GPU-cheap.
+  const avatarLayer = new IconLayer<SemanticMapPoint>({
+    id: 'semantic-map-avatars',
     data: visible,
     pickable: true,
     getPosition: (p: SemanticMapPoint) => [p.x, p.y],
-    getRadius: (p: SemanticMapPoint) => radiusFor(p.confidence),
-    radiusUnits: 'pixels',
-    radiusMinPixels: 3,
-    radiusMaxPixels: 20,
-    getFillColor: (p: SemanticMapPoint) => colorFor(p.archetype),
-    getLineColor: [15, 23, 42, 120],
-    lineWidthUnits: 'pixels',
-    getLineWidth: 1,
-    stroked: true,
+    getIcon: (p: SemanticMapPoint) => ({
+      url: avatarUrlFor(p),
+      width: 80,
+      height: 80,
+      anchorY: 40,
+      anchorX: 40,
+      mask: false,
+    }),
+    getSize: (p: SemanticMapPoint) => avatarSizeFor(p.confidence),
+    sizeUnits: 'pixels',
+    sizeMinPixels: 18,
+    sizeMaxPixels: 48,
     onHover: (info: PickingInfo<SemanticMapPoint>) => {
       setHovered(info.object ? { point: info.object, x: info.x, y: info.y } : null);
     },
-    updateTriggers: { getFillColor: enabled },
+    updateTriggers: { getSize: enabled },
   });
+
+  const layers = [ringLayer, avatarLayer];
 
   const toggle = (name: string) => {
     setEnabled(prev => {
@@ -203,7 +239,7 @@ export function SemanticMap({
       )}
 
       <div className="absolute bottom-3 left-3 z-10 text-[11px] text-slate-500 bg-white/80 backdrop-blur px-2 py-1 rounded border">
-        {visible.length.toLocaleString()} / {points.length.toLocaleString()} developers · dot size = confidence
+        {visible.length.toLocaleString()} / {points.length.toLocaleString()} developers · avatar size = confidence · ring colour = archetype
       </div>
 
       {size && (
@@ -211,7 +247,7 @@ export function SemanticMap({
           views={new OrthographicView({ id: 'ortho' })}
           initialViewState={{ target: [bounds.cx, bounds.cy, 0], zoom: bounds.zoom }}
           controller={true}
-          layers={[layer]}
+          layers={layers}
           onClick={handleClick}
           width={size.width}
           height={size.height}

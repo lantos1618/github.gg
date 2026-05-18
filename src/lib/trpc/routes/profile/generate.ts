@@ -8,8 +8,115 @@ import { generateProfileEmbedding } from '@/lib/ai/embeddings';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
 import { TRPCError } from '@trpc/server';
-import { createGitHubServiceForUserOperations } from '@/lib/github';
+import { createGitHubServiceForUserOperations, type RepoSummary } from '@/lib/github';
+import type { Octokit } from '@octokit/rest';
 import { isPgErrorWithCode } from '@/lib/db/utils';
+
+/**
+ * Build the deduped list of repos to scan when extracting a developer's email.
+ *
+ * Bug fix: the previous code only scanned the user's own top 3 repos. If their
+ * real (non-noreply) email only ever appears on commits to OTHER people's
+ * repos — e.g. `badlogic` contributing to `cloudflare/cloudflare-docs` — that
+ * email is invisible. We now also include repos from their cross-repo commits.
+ *
+ * Each entry carries the REAL owner so the patch URL builder in
+ * findAndStoreDeveloperEmail hits `cloudflare/cloudflare-docs/...` instead of
+ * `badlogic/cloudflare-docs/...` (which 404s).
+ */
+function buildEmailScanRepos(
+  ownedRepos: RepoSummary[],
+  crossRepoCommits: CrossRepoCommit[] | undefined
+): { owner: string; name: string }[] {
+  const seen = new Set<string>();
+  const out: { owner: string; name: string }[] = [];
+
+  for (const r of ownedRepos.slice(0, 3)) {
+    const key = `${r.owner.toLowerCase()}/${r.name.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ owner: r.owner, name: r.name });
+  }
+
+  if (crossRepoCommits) {
+    for (const c of crossRepoCommits) {
+      const key = `${c.repoOwner.toLowerCase()}/${c.repoName.toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ owner: c.repoOwner, name: c.repoName });
+      if (out.length >= 6) break; // 3 own + 3 cross
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Fetch a user's recent public PushEvents and extract commits to repos they
+ * don't own. Same logic as inside generateProfileMutation; factored out so
+ * refreshDeveloperEmail can build the same cross-repo repo list without
+ * needing to re-run profile generation.
+ */
+async function fetchCrossRepoCommits(
+  octokit: Octokit,
+  username: string,
+  ownedRepoKeys: Set<string>
+): Promise<CrossRepoCommit[]> {
+  const collected: CrossRepoCommit[] = [];
+  try {
+    const { data: events } = await octokit.rest.activity.listPublicEventsForUser({
+      username,
+      per_page: 100,
+    });
+
+    const MAX_TOTAL = 20;
+    const MAX_PER_REPO = 5;
+    const MAX_SCANNED = 50;
+    const perRepoCount = new Map<string, number>();
+    let scanned = 0;
+
+    for (const ev of events) {
+      if (ev.type !== 'PushEvent') continue;
+      const [evOwner, evRepoName] = (ev.repo?.name || '').split('/');
+      if (!evOwner || !evRepoName) continue;
+      const repoKey = `${evOwner.toLowerCase()}/${evRepoName.toLowerCase()}`;
+      if (ownedRepoKeys.has(repoKey)) continue;
+
+      const payload = ev.payload as unknown as {
+        commits?: Array<{
+          sha?: string;
+          message?: string;
+          author?: { email?: string; name?: string };
+        }>;
+      };
+      const commits = payload?.commits ?? [];
+      const createdAt = ev.created_at || new Date().toISOString();
+
+      for (const commit of commits) {
+        if (scanned >= MAX_SCANNED) break;
+        scanned++;
+        if (collected.length >= MAX_TOTAL) break;
+        const used = perRepoCount.get(repoKey) ?? 0;
+        if (used >= MAX_PER_REPO) continue;
+        if (!commit.sha || !commit.message) continue;
+
+        collected.push({
+          repoOwner: evOwner,
+          repoName: evRepoName,
+          sha: commit.sha,
+          message: commit.message,
+          date: createdAt,
+        });
+        perRepoCount.set(repoKey, used + 1);
+      }
+
+      if (collected.length >= MAX_TOTAL || scanned >= MAX_SCANNED) break;
+    }
+  } catch (err) {
+    console.warn('[email-extract] cross-repo commit fetch failed (non-critical):', err instanceof Error ? err.message : err);
+  }
+  return collected;
+}
 
 export const profileGenerateRouter = router({
   // Check generation status (lock + recent profile)
@@ -172,74 +279,20 @@ export const profileGenerateRouter = router({
         // Fetch the user's recent public commit activity on repos they DON'T own.
         // GitHub's Events API only returns the last ~90 days of activity by design,
         // which is fine for "what is this dev currently contributing to" signal.
-        // One page (per_page=100) — no pagination, to keep rate-limit cost minimal.
-        // Failure here must NOT block profile generation; we just continue empty.
-        const crossRepoCommits: CrossRepoCommit[] = [];
-        try {
-          const ownedRepoKeys = new Set(
-            smartSortedRepos.map(r => `${r.owner.toLowerCase()}/${r.name.toLowerCase()}`)
+        // Failure here must NOT block profile generation; the helper returns [].
+        const ownedRepoKeys = new Set(
+          smartSortedRepos.map(r => `${r.owner.toLowerCase()}/${r.name.toLowerCase()}`)
+        );
+        const crossRepoCommits = await fetchCrossRepoCommits(
+          githubService.octokit,
+          username,
+          ownedRepoKeys
+        );
+        if (crossRepoCommits.length > 0) {
+          const uniqueRepos = new Set(
+            crossRepoCommits.map(c => `${c.repoOwner.toLowerCase()}/${c.repoName.toLowerCase()}`)
           );
-
-          const { data: events } = await githubService.octokit.rest.activity.listPublicEventsForUser({
-            username,
-            per_page: 100,
-          });
-
-          // Cap total at ~20 commits, max 5 per non-owned repo, ~50 raw commits scanned.
-          const MAX_TOTAL = 20;
-          const MAX_PER_REPO = 5;
-          const MAX_SCANNED = 50;
-          const perRepoCount = new Map<string, number>();
-          let scanned = 0;
-
-          for (const ev of events) {
-            if (ev.type !== 'PushEvent') continue;
-            // event.repo.name is "owner/name"
-            const [evOwner, evRepoName] = (ev.repo?.name || '').split('/');
-            if (!evOwner || !evRepoName) continue;
-            const repoKey = `${evOwner.toLowerCase()}/${evRepoName.toLowerCase()}`;
-            // Skip repos we're already scoring — would be double signal.
-            if (ownedRepoKeys.has(repoKey)) continue;
-
-            // The PushEvent payload's `commits` array isn't in the typed schema,
-            // so narrow it explicitly here.
-            const payload = ev.payload as unknown as {
-              commits?: Array<{
-                sha?: string;
-                message?: string;
-                author?: { email?: string; name?: string };
-              }>;
-            };
-            const commits = payload?.commits ?? [];
-            const createdAt = ev.created_at || new Date().toISOString();
-
-            for (const commit of commits) {
-              if (scanned >= MAX_SCANNED) break;
-              scanned++;
-              if (crossRepoCommits.length >= MAX_TOTAL) break;
-              const used = perRepoCount.get(repoKey) ?? 0;
-              if (used >= MAX_PER_REPO) continue;
-              if (!commit.sha || !commit.message) continue;
-
-              crossRepoCommits.push({
-                repoOwner: evOwner,
-                repoName: evRepoName,
-                sha: commit.sha,
-                message: commit.message,
-                date: createdAt,
-              });
-              perRepoCount.set(repoKey, used + 1);
-            }
-
-            if (crossRepoCommits.length >= MAX_TOTAL || scanned >= MAX_SCANNED) break;
-          }
-
-          if (crossRepoCommits.length > 0) {
-            console.log(`📤 Cross-repo commits collected: ${crossRepoCommits.length} across ${perRepoCount.size} repo(s)`);
-          }
-        } catch (err) {
-          // Never block profile generation on this.
-          console.warn('[generateProfile] cross-repo commit fetch failed (non-critical):', err instanceof Error ? err.message : err);
+          console.log(`📤 Cross-repo commits collected: ${crossRepoCommits.length} across ${uniqueRepos.size} repo(s)`);
         }
 
         const repoFiles: Array<{
@@ -462,53 +515,85 @@ export const profileGenerateRouter = router({
           console.error('[generateProfile] token usage log failed (non-critical):', tokenError);
         }
 
-        // Best-effort: find an email and notify the developer their profile
-        // was analyzed. Errors here never fail the request.
-        try {
-          const email = await findAndStoreDeveloperEmail(githubService['octokit'], username, smartSortedRepos);
+        // Best-effort: find the developer's email and notify them. Run in the
+        // background bounded by a 30s timeout — the subscription must NOT
+        // wait on this, mirroring the embedding-write pattern above. The
+        // profile is fully written by this point; email can land 30s later.
+        const BACKGROUND_EMAIL_TIMEOUT_MS = 30_000;
+        const profileForEmail = result.profile;
+        const analyzerUserName = ctx.user.name;
+        const analyzerEmail = ctx.user.email;
+        const emailScanRepos = buildEmailScanRepos(smartSortedRepos, crossRepoCommits);
+        const octokitForEmail = githubService['octokit'];
 
-          if (email) {
-            const emailRecord = await db.query.developerEmails.findFirst({
-              where: eq(developerEmails.email, email),
-            });
+        const emailPromise = (async () => {
+          const { email } = await findAndStoreDeveloperEmail(
+            octokitForEmail,
+            username,
+            emailScanRepos
+          );
+          if (!email) return;
 
-            const ONE_HOUR = 60 * 60 * 1000;
-            const timeSinceLastEmail = emailRecord?.lastUsedAt
-              ? new Date().getTime() - emailRecord.lastUsedAt.getTime()
-              : Infinity;
+          const emailRecord = await db.query.developerEmails.findFirst({
+            where: eq(developerEmails.email, email),
+          });
 
-            if (timeSinceLastEmail >= ONE_HOUR) {
-              const { sendProfileAnalysisEmail } = await import('@/lib/email/resend');
-              const analyzerGithubUsername = ctx.user.name || 'Someone';
+          const ONE_HOUR = 60 * 60 * 1000;
+          const timeSinceLastEmail = emailRecord?.lastUsedAt
+            ? new Date().getTime() - emailRecord.lastUsedAt.getTime()
+            : Infinity;
 
-              const scorecardScores = result.profile.topRepos
-                ?.map(repo => repo.significanceScore)
-                .filter(Boolean) || [];
-              const avgScore = scorecardScores.length > 0
-                ? Math.round(scorecardScores.reduce((a, b) => a + b, 0) / scorecardScores.length * 10)
-                : undefined;
+          if (timeSinceLastEmail < ONE_HOUR) return;
 
-              await sendProfileAnalysisEmail({
-                recipientEmail: email,
-                recipientUsername: username,
-                analyzerUsername: analyzerGithubUsername,
-                analyzerEmail: ctx.user.email,
-                profileData: {
-                  summary: result.profile.summary || 'Your profile has been analyzed!',
-                  overallScore: avgScore,
-                  topSkills: result.profile.techStack?.slice(0, 5).map(item => item.name) || [],
-                  suggestions: result.profile.suggestions || [],
-                },
-              });
+          const { sendProfileAnalysisEmail } = await import('@/lib/email/resend');
+          const analyzerGithubUsername = analyzerUserName || 'Someone';
 
-              await db.update(developerEmails)
-                .set({ lastUsedAt: new Date() })
-                .where(eq(developerEmails.email, email));
+          const scorecardScores = profileForEmail.topRepos
+            ?.map(repo => repo.significanceScore)
+            .filter(Boolean) || [];
+          const avgScore = scorecardScores.length > 0
+            ? Math.round(scorecardScores.reduce((a, b) => a + b, 0) / scorecardScores.length * 10)
+            : undefined;
+
+          await sendProfileAnalysisEmail({
+            recipientEmail: email,
+            recipientUsername: username,
+            analyzerUsername: analyzerGithubUsername,
+            analyzerEmail: analyzerEmail,
+            profileData: {
+              summary: profileForEmail.summary || 'Your profile has been analyzed!',
+              overallScore: avgScore,
+              topSkills: profileForEmail.techStack?.slice(0, 5).map(item => item.name) || [],
+              suggestions: profileForEmail.suggestions || [],
+            },
+          });
+
+          await db.update(developerEmails)
+            .set({ lastUsedAt: new Date() })
+            .where(eq(developerEmails.email, email));
+        })();
+
+        let emailTimeoutHandle: ReturnType<typeof setTimeout> | undefined;
+        const emailTimeoutPromise = new Promise<'timeout'>((resolve) => {
+          emailTimeoutHandle = setTimeout(() => resolve('timeout'), BACKGROUND_EMAIL_TIMEOUT_MS);
+        });
+        void Promise.race([emailPromise.then(() => 'ok' as const), emailTimeoutPromise])
+          .then((raceResult) => {
+            if (raceResult === 'timeout') {
+              console.warn(
+                `[email-extract] timed out, abandoning for ${normalizedUsername}`
+              );
             }
-          }
-        } catch (e) {
-          console.error('[generateProfile] developer email step failed:', e);
-        }
+          })
+          .catch((err) => {
+            console.error(
+              `[email-extract] failed for ${normalizedUsername}:`,
+              err instanceof Error ? err.message : err
+            );
+          })
+          .finally(() => {
+            if (emailTimeoutHandle) clearTimeout(emailTimeoutHandle);
+          });
 
         if (lockAcquired) {
           const { releaseGenerationLock: releaseLock } = await import('@/lib/rate-limit');
@@ -561,6 +646,59 @@ export const profileGenerateRouter = router({
           }
         }
       }
+    }),
+
+  /**
+   * Look up (and persist) a developer's real email by scanning recent commits
+   * on both their own top repos AND repos they've contributed to via
+   * cross-repo PushEvents. Split out from profile generation so the
+   * generation subscription doesn't block on it (it's now also kicked off
+   * fire-and-forget from generateProfileMutation, bounded by a 30s timeout).
+   *
+   * Returns the discovered email + which source produced it. Idempotent —
+   * safe to call repeatedly; the DB write upserts on the email.
+   */
+  refreshDeveloperEmail: protectedProcedure
+    .input(z.object({ username: z.string().min(1, 'Username is required') }))
+    .mutation(async ({ ctx, input }) => {
+      const { username } = input;
+      const normalizedUsername = username.toLowerCase();
+
+      // First check what's already in the DB — no point burning GitHub API
+      // budget if we've previously resolved this user's email.
+      const cached = await db.query.developerEmails.findFirst({
+        where: eq(developerEmails.username, normalizedUsername),
+      });
+      if (cached?.email) {
+        return { email: cached.email, source: 'database' as const };
+      }
+
+      const githubService = await createGitHubServiceForUserOperations(ctx.session);
+      const repos = await githubService.getUserRepositories(username);
+
+      const ownedTop = repos
+        .filter(r => !r.fork)
+        .sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0))
+        .slice(0, 15);
+
+      const ownedRepoKeys = new Set(
+        ownedTop.map(r => `${r.owner.toLowerCase()}/${r.name.toLowerCase()}`)
+      );
+
+      const crossRepoCommits = await fetchCrossRepoCommits(
+        githubService.octokit,
+        username,
+        ownedRepoKeys
+      );
+
+      const emailScanRepos = buildEmailScanRepos(ownedTop, crossRepoCommits);
+      const result = await findAndStoreDeveloperEmail(
+        githubService.octokit,
+        username,
+        emailScanRepos
+      );
+
+      return result;
     }),
 
   clearProfileCache: protectedProcedure

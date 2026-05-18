@@ -23,6 +23,7 @@ export const profileRouter = router({
   // Generation
   checkGenerationStatus: profileGenerateRouter.checkGenerationStatus,
   generateProfileMutation: profileGenerateRouter.generateProfileMutation,
+  refreshDeveloperEmail: profileGenerateRouter.refreshDeveloperEmail,
   clearProfileCache: profileGenerateRouter.clearProfileCache,
 
   // Search

@@ -43,21 +43,42 @@ function extractEmailFromPatch(patchText: string): string | null {
  * Returns the most frequent non-noreply email, or null if none found.
  *
  * IMPORTANT: This function is rate-limited to prevent self-DDoS:
- * - Max 3 repos scanned
+ * - Max 6 repos scanned (3 own + 3 cross-repo)
  * - Max 10 commits per repo
  * - Max 3 patch fetches total (expensive fallback)
  */
-const MAX_REPOS_TO_SCAN = 3;
+const MAX_REPOS_TO_SCAN = 6;
 const MAX_COMMITS_PER_REPO = 10;
 const MAX_PATCH_FETCHES = 3;
 
-export async function findAndStoreDeveloperEmail(octokit: Octokit, username: string, repos: { name: string }[]): Promise<string | null> {
+export type EmailExtractionSource = 'database' | 'github_commits' | 'patch' | 'not_found';
+
+export type EmailExtractionResult = {
+  email: string | null;
+  source: EmailExtractionSource;
+};
+
+/**
+ * Scan the supplied repos for the user's real (non-noreply) email and persist it.
+ *
+ * The `repos` list must include the REAL owner of each repo — we previously
+ * hardcoded `username` as the owner, which 404'd the patch fetch for any repo
+ * the user contributes to but doesn't own (e.g. badlogic committing to
+ * cloudflare/cloudflare-docs). Threading the real owner through is the fix.
+ */
+export async function findAndStoreDeveloperEmail(
+  octokit: Octokit,
+  username: string,
+  repos: { owner: string; name: string }[]
+): Promise<EmailExtractionResult> {
   const emailCounts: Record<string, number> = {};
   let bestEmail: string | null = null;
   let bestRepo: string | null = null;
+  let bestSource: 'github_commits' | 'patch' | null = null;
   let patchFetchCount = 0;
 
-  // Only scan top 3 repos (sorted by stars if available, otherwise take first 3)
+  // Cap total repos scanned. Callers should already pass a deduped list of
+  // "own repos + cross-repo contribution repos" up to this many entries.
   const reposToScan = repos.slice(0, MAX_REPOS_TO_SCAN);
   if (process.env.DEBUG_AI === 'true') console.log(`📧 Scanning ${reposToScan.length} repos for email (max ${MAX_REPOS_TO_SCAN})`);
 
@@ -70,7 +91,7 @@ export async function findAndStoreDeveloperEmail(octokit: Octokit, username: str
 
     try {
       const { data: commits } = await octokit.repos.listCommits({
-        owner: username,
+        owner: repo.owner,
         repo: repo.name,
         per_page: MAX_COMMITS_PER_REPO
       });
@@ -78,6 +99,7 @@ export async function findAndStoreDeveloperEmail(octokit: Octokit, username: str
       for (const commit of commits) {
         const login = commit.author?.login;
         let email = commit.commit?.author?.email;
+        let foundViaPatch = false;
 
         // If no email in API response or it's a noreply email, try fetching the patch as fallback
         // But limit patch fetches to avoid too many requests
@@ -88,19 +110,23 @@ export async function findAndStoreDeveloperEmail(octokit: Octokit, username: str
         ) {
           try {
             patchFetchCount++;
-            // Fetch commit patch to extract real email
-            const patchResponse = await fetch(`https://github.com/${username}/${repo.name}/commit/${commit.sha}.patch`);
+            const patchUrl = `https://github.com/${repo.owner}/${repo.name}/commit/${commit.sha}.patch`;
+            console.log(`[email-extract] fetching ${repo.owner}/${repo.name}/${commit.sha}.patch (counter ${patchFetchCount}/${MAX_PATCH_FETCHES})`);
+            const patchResponse = await fetch(patchUrl);
             if (patchResponse.ok) {
               const patchText = await patchResponse.text();
               const patchEmail = extractEmailFromPatch(patchText);
               if (patchEmail) {
                 email = patchEmail;
+                foundViaPatch = true;
                 if (process.env.DEBUG_AI === 'true') console.log(`✉️  Found email from patch for ${username}: ${email}`);
               }
+            } else {
+              console.log(`[email-extract] patch failed for ${repo.owner}/${repo.name}/${commit.sha}: ${patchResponse.status}`);
             }
           } catch (patchError) {
-            // Silently continue if patch fetch fails
-            console.warn(`Failed to fetch patch for commit ${commit.sha}:`, patchError);
+            const status = patchError instanceof Error ? patchError.message : String(patchError);
+            console.log(`[email-extract] patch failed for ${repo.owner}/${repo.name}/${commit.sha}: ${status}`);
           }
         }
 
@@ -114,17 +140,18 @@ export async function findAndStoreDeveloperEmail(octokit: Octokit, username: str
           emailCounts[email] = (emailCounts[email] || 0) + 1;
           if (!bestEmail || emailCounts[email] > (emailCounts[bestEmail] || 0)) {
             bestEmail = email;
-            bestRepo = repo.name;
+            bestRepo = `${repo.owner}/${repo.name}`;
+            bestSource = foundViaPatch ? 'patch' : 'github_commits';
           }
         }
       }
     } catch (error: unknown) {
       const err = error as { status?: number; message?: string };
       if (err.status === 409) {
-        if (process.env.DEBUG_AI === 'true') console.log(`Skipping empty repository: ${repo.name}`);
+        if (process.env.DEBUG_AI === 'true') console.log(`Skipping empty repository: ${repo.owner}/${repo.name}`);
         continue;
       }
-      console.warn(`Error fetching commits for ${repo.name}:`, err.message);
+      console.warn(`Error fetching commits for ${repo.owner}/${repo.name}:`, err.message);
       continue;
     }
   }
@@ -138,8 +165,9 @@ export async function findAndStoreDeveloperEmail(octokit: Octokit, username: str
       target: [developerEmails.email],
       set: { lastUsedAt: new Date(), sourceRepo: bestRepo },
     });
+    return { email: bestEmail, source: bestSource ?? 'github_commits' };
   }
-  return bestEmail;
+  return { email: null, source: 'not_found' };
 }
 
 /**

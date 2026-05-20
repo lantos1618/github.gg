@@ -122,10 +122,14 @@ export function SemanticMap({
     setViewState({ target: [bounds.cx, bounds.cy, 0], zoom: bounds.zoom });
   }, [viewState, size, points.length, bounds.cx, bounds.cy, bounds.zoom]);
 
-  // Project each visible point's world coords to canvas pixel coords using
-  // OrthographicView's simple projection: pixelsPerWorldUnit = 2^zoom, and
-  // y is flipped vs world y. Matches deck.gl's internal projection so the
-  // HTML overlay stays aligned with the ScatterplotLayer rings underneath.
+  // Project each visible point's world coords to canvas pixel coords.
+  // OrthographicView defaults to `flipY: true`, meaning positive world Y points
+  // *down* in screen space (screen convention) — so both X and Y use `+`. A
+  // previous version had `-` on the Y term, which mirrored avatars vertically
+  // relative to the ScatterplotLayer rings underneath.
+  //   ppu = pixelsPerWorldUnit = 2^zoom
+  //   screen_x = canvas_w/2 + (world_x - target_x) * ppu
+  //   screen_y = canvas_h/2 + (world_y - target_y) * ppu
   const screenPositions = useMemo(() => {
     if (!size || !viewState) return [] as Array<{ p: SemanticMapPoint; sx: number; sy: number; px: number }>;
     const ppu = Math.pow(2, viewState.zoom);
@@ -134,7 +138,7 @@ export function SemanticMap({
     return visible.map((p) => ({
       p,
       sx: size.width / 2 + (p.x - cx) * ppu,
-      sy: size.height / 2 - (p.y - cy) * ppu,
+      sy: size.height / 2 + (p.y - cy) * ppu,
       px: avatarSizeFor(p.confidence),
     }));
   }, [visible, viewState, size]);

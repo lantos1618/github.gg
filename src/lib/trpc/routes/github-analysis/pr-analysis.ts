@@ -9,6 +9,7 @@ import { tokenUsage, prAnalysisCache } from '@/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { checkMonthlyTokenQuota } from '@/lib/ai/monthly-quota';
+import { checkPaidAIRateLimit } from '@/lib/rate-limit';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
 import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 
@@ -60,6 +61,11 @@ export const githubAnalysisPrAnalysisRouter = router({
           const quota = await checkMonthlyTokenQuota({ userId: ctx.user.id, isByok: keyInfo.isByok });
           if (!quota.allowed) {
             yield { type: 'error' as const, message: quota.message };
+            return;
+          }
+          const rate = await checkPaidAIRateLimit(ctx.user.id);
+          if (rate.status !== 'allowed') {
+            yield { type: 'error' as const, message: rate.message };
             return;
           }
         }

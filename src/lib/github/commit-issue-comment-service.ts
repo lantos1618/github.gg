@@ -7,6 +7,7 @@ import { tokenUsage, webhookPreferences } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { checkMonthlyTokenQuota } from '@/lib/ai/monthly-quota';
+import { checkPaidAIRateLimit } from '@/lib/rate-limit';
 import { escapeHtmlEntities } from '@/lib/utils/sanitize';
 import {
   getFreeTierStatus,
@@ -21,13 +22,17 @@ type KeyInfo = { apiKey: string; isByok: boolean };
 async function resolveKeyAndTier(
   userId: string,
   installationId: number,
-): Promise<{ keyInfo: KeyInfo; freeTier: FreeTierState } | { skip: 'no_api_key' | 'free_tier_exhausted' | 'subscriber_key_unavailable' | 'monthly_token_limit_reached' }> {
+): Promise<{ keyInfo: KeyInfo; freeTier: FreeTierState } | { skip: 'no_api_key' | 'free_tier_exhausted' | 'subscriber_key_unavailable' | 'monthly_token_limit_reached' | 'ai_rate_limit_reached' | 'ai_rate_limit_unavailable' }> {
   const { subscription, plan } = await getUserPlanAndKey(userId);
   const isPaid = !!subscription && subscription.status === 'active';
   const paidKey = isPaid ? await getApiKeyForUser(userId, plan) : null;
   if (paidKey) {
     const quota = await checkMonthlyTokenQuota({ userId, isByok: paidKey.isByok });
     if (!quota.allowed) return { skip: 'monthly_token_limit_reached' };
+    const rate = await checkPaidAIRateLimit(userId);
+    if (rate.status !== 'allowed') {
+      return { skip: rate.status === 'limited' ? 'ai_rate_limit_reached' : 'ai_rate_limit_unavailable' };
+    }
     return { keyInfo: paidKey, freeTier: null };
   }
   if (isPaid) return { skip: 'subscriber_key_unavailable' };

@@ -5,6 +5,7 @@ import { diagramInputSchemaServer, diagramBaseSchema } from '@/lib/types/diagram
 import { parseGeminiError } from '@/lib/utils/errorHandling';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { checkMonthlyTokenQuota } from '@/lib/ai/monthly-quota';
+import { checkPaidAIRateLimit } from '@/lib/rate-limit';
 import { db } from '@/db';
 import { tokenUsage, repositoryDiagrams } from '@/db/schema';
 import { eq, and, or, desc, sql } from 'drizzle-orm';
@@ -228,6 +229,12 @@ export const diagramRouter = router({
         const quota = await checkMonthlyTokenQuota({ userId: ctx.user.id, isByok: keyInfo.isByok });
         if (!quota.allowed) {
           yield { type: 'error', message: quota.message };
+          return;
+        }
+
+        const rate = await checkPaidAIRateLimit(ctx.user.id);
+        if (rate.status !== 'allowed') {
+          yield { type: 'error', message: rate.message };
           return;
         }
 

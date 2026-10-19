@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 import { PR_REVIEW_CONFIG } from '@/lib/config/pr-review';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { checkMonthlyTokenQuota } from '@/lib/ai/monthly-quota';
+import { checkPaidAIRateLimit } from '@/lib/rate-limit';
 import { escapeHtmlEntities } from '@/lib/utils/sanitize';
 import {
   getFreeTierStatus,
@@ -125,6 +126,12 @@ export async function postPRReviewComment({
       if (!quota.allowed) {
         console.log(`Skipping PR review for PR #${prNumber}: monthly Pro token allowance reached`);
         return { success: false, skipped: true, reason: 'monthly_token_limit_reached' };
+      }
+      const rate = await checkPaidAIRateLimit(user.id);
+      if (rate.status !== 'allowed') {
+        const reason = rate.status === 'limited' ? 'ai_rate_limit_reached' : 'ai_rate_limit_unavailable';
+        console.log(`Skipping PR review for PR #${prNumber}: ${reason}`);
+        return { success: false, skipped: true, reason };
       }
     }
 

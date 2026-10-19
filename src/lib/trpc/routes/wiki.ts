@@ -11,6 +11,7 @@ import crypto from 'crypto';
 import { collectRepositoryFiles } from '@/lib/wiki/file-collector';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { checkMonthlyTokenQuota } from '@/lib/ai/monthly-quota';
+import { checkPaidAIRateLimit } from '@/lib/rate-limit';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
 import {
   insertWikiPages,
@@ -75,6 +76,11 @@ export const wikiRouter = router({
           const quota = await checkMonthlyTokenQuota({ userId: ctx.user.id, isByok: keyInfo.isByok });
           if (!quota.allowed) {
             yield { type: 'error', message: quota.message };
+            return;
+          }
+          const rate = await checkPaidAIRateLimit(ctx.user.id);
+          if (rate.status !== 'allowed') {
+            yield { type: 'error', message: rate.message };
             return;
           }
         }

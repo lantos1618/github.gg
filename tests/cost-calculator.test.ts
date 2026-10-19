@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   calculateDailyCostAndRevenue,
   calculatePerUserCostAndUsage,
+  calculatePlatformCost,
   calculateTokenCost,
   calculateTotalCost,
   formatCost,
@@ -63,9 +64,28 @@ describe('Gemini Standard paid-tier token estimates', () => {
     expect(formatCost(0.0004)).toBe('$0.0004');
   });
 
+  test('counts BYOK tokens but excludes them from platform cost', () => {
+    const managed = { ...usage('gemini-3.1-flash-lite', 1_000_000, 0), isByok: false };
+    const byok = { ...usage('gemini-3.1-pro-preview', 1_000_000, 1_000_000), isByok: true };
+
+    expect(calculatePlatformCost([managed, byok]).totalCost).toBeCloseTo(0.25);
+    expect(calculateTotalCost([managed, byok]).totalCost).toBeGreaterThan(0.25);
+
+    const perUser = calculatePerUserCostAndUsage([
+      { ...managed, userId: 'user-a' },
+      { ...byok, userId: 'user-a' },
+    ]);
+    expect(perUser.get('user-a')).toMatchObject({
+      totalCost: 0.25,
+      totalTokens: 3_000_000,
+      managedTokens: 1_000_000,
+      byokTokens: 2_000_000,
+    });
+  });
+
   test('passes usage dates through daily and per-user calculations', () => {
-    const oldUsage = usage('gemini-3.8-flash', 1_000_000, 0, new Date('2026-12-31T12:00:00Z'));
-    const newUsage = usage('gemini-3.8-flash', 1_000_000, 0, new Date('2027-01-01T12:00:00Z'));
+    const oldUsage = { ...usage('gemini-3.8-flash', 1_000_000, 0, new Date('2026-12-31T12:00:00Z')), isByok: false };
+    const newUsage = { ...usage('gemini-3.8-flash', 1_000_000, 0, new Date('2027-01-01T12:00:00Z')), isByok: false };
     const daily = calculateDailyCostAndRevenue({
       usages: [oldUsage, newUsage],
       subscriptions: [],
@@ -73,6 +93,14 @@ describe('Gemini Standard paid-tier token estimates', () => {
       getPlanPrice: () => 0,
     });
     expect(daily.map(day => day.cost)).toEqual([0.75, 1.5]);
+
+    const byokDaily = calculateDailyCostAndRevenue({
+      usages: [{ ...oldUsage, isByok: true }, newUsage],
+      subscriptions: [],
+      days: [new Date('2026-12-31T00:00:00Z'), new Date('2027-01-01T00:00:00Z')],
+      getPlanPrice: () => 0,
+    });
+    expect(byokDaily.map(day => day.cost)).toEqual([0, 1.5]);
 
     const perUser = calculatePerUserCostAndUsage([
       { ...oldUsage, userId: 'user-a', isByok: false },

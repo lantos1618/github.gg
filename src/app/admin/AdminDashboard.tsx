@@ -275,7 +275,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps = {}
           <div className="text-base text-[#aaa]">Registered accounts</div>
         </div>
         <div>
-          <div className="text-xs text-[#999] font-semibold tracking-[1px] uppercase mb-1">Cost (This Month)</div>
+          <div className="text-xs text-[#999] font-semibold tracking-[1px] uppercase mb-1">Platform AI Cost (This Month)</div>
           <div className="text-[31px] font-semibold text-[#111]">{formatCost(totalMonthlyCost)}</div>
           <div className="text-base text-[#aaa]">{usageStats?.summary.totalTokens?.toLocaleString() || 0} tokens</div>
         </div>
@@ -377,10 +377,10 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps = {}
         )}
       </div>
 
-      {/* Top Users by Cost */}
+      {/* Top Users by Platform Cost */}
       <div>
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">
-          Top Users by Cost (This Month)
+          Top Users by Platform Cost (This Month)
         </div>
         {loading ? (
           <div className="space-y-2">
@@ -419,7 +419,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps = {}
 
       {/* Cost & Revenue Chart */}
       <div className="mt-10">
-        <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">Cost & Revenue (30 Days)</div>
+        <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-4">Platform AI Cost & Revenue (30 Days)</div>
         <div className="w-full h-72 border border-[#eee] p-4">
           {loadingDailyStats ? (
             <div className="flex items-end gap-2 h-full px-4 pb-4">{[40,65,30,80,55,70,45,60,75,50].map((h,i) => <div key={i} className="flex-1 bg-[#f8f9fa] animate-pulse" style={{height:`${h}%`}} />)}</div>
@@ -431,7 +431,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps = {}
                 <YAxis tick={{ fontSize: 12 }} tickFormatter={v => `$${v.toFixed(2)}`} />
                 <Tooltip formatter={(v: number) => `$${v.toFixed(4)}`} />
                 <Legend />
-                <Line type="monotone" dataKey="cost" stroke="#e11d48" name="Cost" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="cost" stroke="#e11d48" name="Platform AI Cost" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="revenue" stroke="#10b981" name="Revenue" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>

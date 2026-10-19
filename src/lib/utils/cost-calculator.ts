@@ -113,8 +113,13 @@ export function calculateTotalCost(usages: TokenUsage[]): CostBreakdown {
   };
 }
 
+/** Calculate only costs billed to the platform; BYOK usage is billed to the user. */
+export function calculatePlatformCost(usages: Array<TokenUsage & { isByok: boolean }>): CostBreakdown {
+  return calculateTotalCost(usages.filter(usage => !usage.isByok));
+}
+
 /**
- * Calculate daily cost and revenue for a given set of usage and subscriptions.
+ * Calculate daily platform AI cost and revenue for usage and subscriptions.
  * @param usages Array of token usage records
  * @param subscriptions Array of subscription records
  * @param days Array of Date objects (each day to report on)
@@ -128,6 +133,7 @@ export function calculateDailyCostAndRevenue({ usages, subscriptions, days, getP
     totalTokens: number;
     model?: string;
     createdAt?: Date;
+    isByok: boolean;
   }>;
   subscriptions: Array<{
     currentPeriodEnd: Date;
@@ -139,8 +145,8 @@ export function calculateDailyCostAndRevenue({ usages, subscriptions, days, getP
 }) {
   return days.map(date => {
     const dayStr = date.toISOString().slice(0, 10);
-    // Cost: sum of token usage for this day
-    const cost = usages.filter(u => u.createdAt && u.createdAt.toISOString().slice(0, 10) === dayStr)
+    // Cost: only managed token usage is billed to the platform.
+    const cost = usages.filter(u => !u.isByok && u.createdAt && u.createdAt.toISOString().slice(0, 10) === dayStr)
       .reduce((sum, u) => {
         if (!u.createdAt) return sum;
         const costObj = calculateTokenCost({
@@ -162,7 +168,7 @@ export function calculateDailyCostAndRevenue({ usages, subscriptions, days, getP
 }
 
 /**
- * Calculate per-user cost and token usage for a set of usage records.
+ * Calculate per-user platform cost and all token usage for a set of records.
  * @param usages Array of token usage records (must include userId)
  * @returns Map of userId to { totalCost, totalTokens, byokTokens, managedTokens }
  */
@@ -177,16 +183,16 @@ export function calculatePerUserCostAndUsage(usages: Array<{
 }>): Map<string, { totalCost: number; totalTokens: number; byokTokens: number; managedTokens: number; }> {
   const userMap = new Map<string, { totalCost: number; totalTokens: number; byokTokens: number; managedTokens: number; }>();
   usages.forEach(u => {
-    const costObj = calculateTokenCost({
+    const cost = u.isByok ? 0 : calculateTokenCost({
       inputTokens: u.inputTokens,
       outputTokens: u.outputTokens,
       totalTokens: u.totalTokens,
       model: u.model || 'gemini-3.1-pro-preview',
       createdAt: u.createdAt,
-    });
+    }).totalCost;
     const prev = userMap.get(u.userId) || { totalCost: 0, totalTokens: 0, byokTokens: 0, managedTokens: 0 };
     userMap.set(u.userId, {
-      totalCost: prev.totalCost + costObj.totalCost,
+      totalCost: prev.totalCost + cost,
       totalTokens: prev.totalTokens + u.totalTokens,
       byokTokens: prev.byokTokens + (u.isByok ? u.totalTokens : 0),
       managedTokens: prev.managedTokens + (!u.isByok ? u.totalTokens : 0),

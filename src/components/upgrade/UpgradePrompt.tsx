@@ -58,6 +58,11 @@ const FEATURE_CONTEXTS = {
 } as const;
 
 export type UpgradeFeature = keyof typeof FEATURE_CONTEXTS;
+const githubAppFeaturesEnabled = process.env.NEXT_PUBLIC_GITHUB_REVIEWS_ENABLED === 'true';
+
+function isUnavailableGitHubAppFeature(feature: UpgradeFeature): boolean {
+  return !githubAppFeaturesEnabled && (feature === 'private' || feature === 'review');
+}
 
 interface UpgradePromptProps {
   feature?: UpgradeFeature;
@@ -77,6 +82,14 @@ export function UpgradePrompt({
   const createCheckout = trpc.billing.createCheckoutSession.useMutation();
 
   const context = FEATURE_CONTEXTS[feature];
+
+  if (isUnavailableGitHubAppFeature(feature)) {
+    return (
+      <div className={`border border-[#eee] bg-[#f8f9fa] p-4 text-base text-[#666] ${className}`}>
+        GitHub App reviews and private-repo access are currently unavailable while setup completes.
+      </div>
+    );
+  }
 
   const handleUpgrade = async () => {
     if (!isSignedIn) {
@@ -177,6 +190,14 @@ export function UpgradePrompt({
 
 export function UpgradeTeaser({ feature = 'general' }: { feature?: UpgradeFeature }) {
   const context = FEATURE_CONTEXTS[feature];
+
+  if (isUnavailableGitHubAppFeature(feature)) {
+    return (
+      <div className="border border-[#eee] bg-[#f8f9fa] p-4 text-base text-[#666]">
+        GitHub App reviews and private-repo access are currently unavailable while setup completes.
+      </div>
+    );
+  }
 
   return (
     <Link

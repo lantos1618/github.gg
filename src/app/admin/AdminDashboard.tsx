@@ -163,6 +163,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps = {}
       totalTokens: u.totalTokens,
       isByok: u.isByok,
       model: u.model ?? undefined,
+      createdAt: u.createdAt ?? undefined,
     }));
     // Calculate per-user cost and usage
     const perUser = calculatePerUserCostAndUsage(usageRecords);

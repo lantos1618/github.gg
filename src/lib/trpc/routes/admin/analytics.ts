@@ -49,6 +49,7 @@ export const adminAnalyticsRouter = router({
         outputTokens: u.outputTokens,
         totalTokens: u.totalTokens,
         model: u.model || 'gemini-3.1-pro-preview', // Default model
+        createdAt: u.createdAt ?? undefined,
       })));
 
       // Aggregate statistics
@@ -114,6 +115,7 @@ export const adminAnalyticsRouter = router({
         outputTokens: u.outputTokens,
         totalTokens: u.totalTokens,
         model: u.model || 'gemini-3.1-pro-preview',
+        createdAt: u.createdAt ?? undefined,
       })));
 
       return {
@@ -180,6 +182,7 @@ export const adminAnalyticsRouter = router({
           outputTokens: u.outputTokens,
           totalTokens: u.totalTokens,
           model: u.model || 'gemini-3.1-pro-preview',
+          createdAt: u.createdAt ?? undefined,
         })));
 
         return {
@@ -245,6 +248,7 @@ export const adminAnalyticsRouter = router({
           outputTokens: u.outputTokens,
           totalTokens: u.totalTokens,
           model: u.model || 'gemini-3.1-pro-preview',
+          createdAt: u.createdAt ?? undefined,
         });
 
         acc[u.feature].totalTokens += u.totalTokens;

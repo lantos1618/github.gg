@@ -3,7 +3,7 @@ import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { userApiKeys, tokenUsage, userSubscriptions, user } from '@/db/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
-import { encryptApiKey } from '@/lib/utils/encryption';
+import { encryptApiKey, getStoredApiKeyStatus } from '@/lib/utils/encryption';
 import type { Plan } from '@/lib/utils/permissions';
 import { TRPCError } from '@trpc/server';
 
@@ -86,7 +86,7 @@ export const userRouter = router({
         where: eq(userApiKeys.userId, ctx.user.id)
       });
       
-      return { hasKey: !!key };
+      return getStoredApiKeyStatus(key?.encryptedGeminiApiKey);
     }),
 
   // Usage Statistics
@@ -146,4 +146,4 @@ export const userRouter = router({
       
       return { plan: subscription.plan as Plan };
     }),
-}); 
+});

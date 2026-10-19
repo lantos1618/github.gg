@@ -28,12 +28,13 @@ function useDebounce<T>(value: T, delay: number): T {
 export interface SettingsInitialData {
   plan: string | null;
   isPaid: boolean;
-  keyStatus: { hasKey: boolean } | null;
+  keyStatus: { hasKey: boolean; needsReentry: boolean } | null;
   profileStyles: Record<string, string | boolean | undefined> | null;
   username: string | null;
 }
 
 export default function SettingsClient({ initialData }: { initialData: SettingsInitialData }) {
+  const utils = trpc.useUtils();
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
 
@@ -134,6 +135,7 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
     onSuccess: () => {
       toast.success('API Key saved successfully!');
       setApiKey('');
+      void utils.user.getApiKeyStatus.invalidate();
     },
     onError: (err) => {
       toast.error(err.message);
@@ -144,6 +146,7 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
   const deleteApiKey = trpc.user.deleteApiKey.useMutation({
     onSuccess: () => {
       toast.success('API Key deleted successfully!');
+      void utils.user.getApiKeyStatus.invalidate();
     },
     onError: (err) => {
       toast.error(err.message);
@@ -253,6 +256,7 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
         {/* API Key Management */}
         <APIKeyCard
           hasKey={!!keyStatus?.hasKey}
+          needsReentry={!!keyStatus?.needsReentry}
           apiKey={apiKey}
           showKey={showKey}
           isSaving={saveApiKey.isPending}

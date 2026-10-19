@@ -8,6 +8,7 @@ import { TextButton } from '@/components/ui/text-button';
 
 interface APIKeyCardProps {
   hasKey: boolean;
+  needsReentry: boolean;
   apiKey: string;
   showKey: boolean;
   isSaving: boolean;
@@ -20,6 +21,7 @@ interface APIKeyCardProps {
 
 export function APIKeyCard({
   hasKey,
+  needsReentry,
   apiKey,
   showKey,
   isSaving,
@@ -52,6 +54,11 @@ export function APIKeyCard({
           </div>
         ) : (
           <div className="space-y-4">
+            {needsReentry && (
+              <div role="alert" className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-900">
+                Your saved Gemini API key can no longer be read. Enter it again to continue using BYOK features. Saving a new key replaces the old one.
+              </div>
+            )}
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input

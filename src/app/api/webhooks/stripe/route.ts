@@ -8,15 +8,6 @@ import type { Plan } from '@/lib/utils/permissions';
 
 const logger = createLogger('StripeWebhook');
 
-// Initialize Stripe only if configured
-const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2025-09-30.clover',
-    })
-  : null;
-
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
 // Helper to safely extract subscription period end
 function getSubscriptionPeriodEnd(subscription: Stripe.Subscription): Date {
   // Stripe subscriptions have current_period_end as a Unix timestamp
@@ -27,10 +18,16 @@ function getSubscriptionPeriodEnd(subscription: Stripe.Subscription): Date {
 }
 
 export async function POST(req: NextRequest) {
-  if (!stripe || !webhookSecret) {
-    logger.debug('Stripe not configured - ignoring webhook');
-    return NextResponse.json({ received: true });
+  const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  if (!secretKey || !webhookSecret) {
+    logger.error('Stripe webhook is not configured');
+    return NextResponse.json({ error: 'Stripe webhook unavailable' }, { status: 503 });
   }
+
+  const stripe = new Stripe(secretKey, {
+    apiVersion: '2025-09-30.clover',
+  });
 
   const body = await req.text();
   const signature = req.headers.get('stripe-signature')!;

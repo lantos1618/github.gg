@@ -28,6 +28,7 @@ jobs:
             tests/repository-access.test.ts \
             tests/public-visibility.test.ts \
             tests/feature-request-security.test.ts \
+            tests/stripe-webhook-config.test.ts \
             tests/byok-key-status.test.ts \
             tests/test-session-guard.test.ts \
             tests/trpc-cache-control.test.ts \

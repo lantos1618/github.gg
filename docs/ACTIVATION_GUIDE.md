@@ -318,7 +318,7 @@ A: All webhooks stop immediately. Your settings are preserved if you reinstall.
 A: No, settings are per-installation (organization-wide). Each user has their own settings for their personal repos.
 
 **Q: How much does each PR review cost?**
-A: ~2000-10000 tokens = $0.01-0.05 per review with Gemini 2.5 Pro.
+A: Usage depends on the repository and review size. The app records tokens used by each review; check the [current Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing) for the model's cost.
 
 ---
 

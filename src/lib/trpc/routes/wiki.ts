@@ -6,13 +6,13 @@ import { GEMINI_FLASH_MODEL_NAME } from '@/lib/ai/models';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
 import { tokenUsage } from '@/db/schema';
-import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { collectRepositoryFiles } from '@/lib/wiki/file-collector';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { checkMonthlyTokenQuota } from '@/lib/ai/monthly-quota';
 import { checkPaidAIRateLimit } from '@/lib/rate-limit';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
+import { finishStargazerPerk, type StargazerPerkReservation } from '@/lib/utils/stargazer-reservation';
 import {
   insertWikiPages,
   getWikiPage,
@@ -42,6 +42,7 @@ export const wikiRouter = router({
     }))
     .subscription(async function* ({ input, ctx }) {
       const { owner, repo, maxFiles } = input;
+      let perkReservation: StargazerPerkReservation | undefined;
 
       try {
         yield { type: 'progress', progress: 0, message: 'Starting wiki generation...' };
@@ -63,6 +64,7 @@ export const wikiRouter = router({
 
           isStargazerPerk = true;
           effectivePlan = perkResult.effectivePlan;
+          perkReservation = perkResult.reservation;
         }
 
         // Get appropriate API key
@@ -154,23 +156,6 @@ export const wikiRouter = router({
 
         yield { type: 'progress', progress: 70, message: 'Saving wiki pages...' };
 
-        // Log token usage
-        try {
-          await db.insert(tokenUsage).values({
-            userId: ctx.user.id,
-            feature: 'wiki_generation',
-            repoOwner: owner,
-            repoName: repo,
-            model: GEMINI_FLASH_MODEL_NAME,
-            inputTokens: wikiResult.usage.inputTokens,
-            outputTokens: wikiResult.usage.outputTokens,
-            totalTokens: wikiResult.usage.totalTokens,
-            isByok: keyInfo.isByok,
-          });
-        } catch (dbError) {
-          console.error('Failed to log token usage for wiki generation:', dbError);
-        }
-
         // Calculate individual file hashes for cache invalidation
         const fileHashes: Record<string, string> = {};
         files.forEach(f => {
@@ -191,6 +176,33 @@ export const wikiRouter = router({
           !repoData.value.data.private && !currentRepository.private
         );
 
+        // Record the successful generation before consuming its free use.
+        try {
+          await db.insert(tokenUsage).values({
+            userId: ctx.user.id,
+            feature: 'wiki_generation',
+            repoOwner: owner,
+            repoName: repo,
+            model: GEMINI_FLASH_MODEL_NAME,
+            inputTokens: wikiResult.usage.inputTokens,
+            outputTokens: wikiResult.usage.outputTokens,
+            totalTokens: wikiResult.usage.totalTokens,
+            isByok: keyInfo.isByok,
+          });
+        } catch (dbError) {
+          console.error('Failed to log token usage for wiki generation:', dbError);
+          if (isStargazerPerk) throw dbError;
+        }
+        if (perkReservation) {
+          try {
+            await finishStargazerPerk(perkReservation, true);
+          } catch (reservationError) {
+            // The durable usage row still blocks another free generation.
+            console.error('Failed to complete stargazer perk reservation:', reservationError);
+          }
+          perkReservation = undefined;
+        }
+
         yield { type: 'progress', progress: 90, message: 'Wiki generation complete!' };
 
         yield {
@@ -210,6 +222,14 @@ export const wikiRouter = router({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to generate wiki: ${userFriendlyMessage}`,
         });
+      } finally {
+        if (perkReservation) {
+          try {
+            await finishStargazerPerk(perkReservation, false);
+          } catch (releaseError) {
+            console.error('Failed to release stargazer perk reservation:', releaseError);
+          }
+        }
       }
     }),
 

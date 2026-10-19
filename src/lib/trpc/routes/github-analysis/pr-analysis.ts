@@ -11,6 +11,7 @@ import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { checkMonthlyTokenQuota } from '@/lib/ai/monthly-quota';
 import { checkPaidAIRateLimit } from '@/lib/rate-limit';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
+import { finishStargazerPerk, type StargazerPerkReservation } from '@/lib/utils/stargazer-reservation';
 import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 
 export const githubAnalysisPrAnalysisRouter = router({
@@ -23,6 +24,7 @@ export const githubAnalysisPrAnalysisRouter = router({
     }))
     .subscription(async function* ({ input, ctx }) {
       const { owner, repo, number } = input;
+      let perkReservation: StargazerPerkReservation | undefined;
 
       try {
         // Yield initial progress
@@ -49,6 +51,7 @@ export const githubAnalysisPrAnalysisRouter = router({
 
           isStargazerPerk = true;
           effectivePlan = perkResult.effectivePlan;
+          perkReservation = perkResult.reservation;
         }
 
         const keyInfo = await getApiKeyForUser(ctx.user.id, effectivePlan);
@@ -141,24 +144,6 @@ export const githubAnalysisPrAnalysisRouter = router({
           message: 'Saving results...',
         };
 
-        // Log token usage
-        try {
-          await db.insert(tokenUsage).values({
-            userId: ctx.user.id,
-            feature: 'pr_analysis',
-            repoOwner: owner,
-            repoName: repo,
-            model: GEMINI_PRO_MODEL_NAME,
-            inputTokens: analysisResult.usage.inputTokens,
-            outputTokens: analysisResult.usage.outputTokens,
-            totalTokens: analysisResult.usage.totalTokens,
-            isByok: keyInfo.isByok,
-          });
-        } catch (dbError) {
-          console.error('Failed to log token usage for PR analysis:', dbError);
-          // Don't fail the entire request if token logging fails
-        }
-
         // Get the latest version for this PR
         const latestAnalysis = await db
           .select()
@@ -203,7 +188,33 @@ export const githubAnalysisPrAnalysisRouter = router({
           });
         } catch (cacheError) {
           console.error('Failed to cache PR analysis:', cacheError);
-          // Don't fail the entire request if caching fails
+          if (isStargazerPerk) throw cacheError;
+        }
+
+        // Record the persisted analysis before consuming its free use.
+        try {
+          await db.insert(tokenUsage).values({
+            userId: ctx.user.id,
+            feature: 'pr_analysis',
+            repoOwner: owner,
+            repoName: repo,
+            model: GEMINI_PRO_MODEL_NAME,
+            inputTokens: analysisResult.usage.inputTokens,
+            outputTokens: analysisResult.usage.outputTokens,
+            totalTokens: analysisResult.usage.totalTokens,
+            isByok: keyInfo.isByok,
+          });
+        } catch (dbError) {
+          console.error('Failed to log token usage for PR analysis:', dbError);
+          if (isStargazerPerk) throw dbError;
+        }
+        if (perkReservation) {
+          try {
+            await finishStargazerPerk(perkReservation, true);
+          } catch (reservationError) {
+            console.error('Failed to complete stargazer perk reservation:', reservationError);
+          }
+          perkReservation = undefined;
         }
 
         // Yield complete result
@@ -226,6 +237,14 @@ export const githubAnalysisPrAnalysisRouter = router({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to analyze PR: ${error instanceof Error ? error.message : 'Unknown error'}`,
         });
+      } finally {
+        if (perkReservation) {
+          try {
+            await finishStargazerPerk(perkReservation, false);
+          } catch (releaseError) {
+            console.error('Failed to release stargazer perk reservation:', releaseError);
+          }
+        }
       }
     }),
 });

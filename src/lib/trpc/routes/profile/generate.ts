@@ -10,6 +10,7 @@ import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { checkMonthlyTokenQuota } from '@/lib/ai/monthly-quota';
 import { checkPaidAIRateLimit } from '@/lib/rate-limit';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
+import { finishStargazerPerk, type StargazerPerkReservation } from '@/lib/utils/stargazer-reservation';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForRepo, createGitHubServiceForUserOperations, type RepoSummary } from '@/lib/github';
 import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
@@ -171,6 +172,7 @@ export const profileGenerateRouter = router({
       const normalizedUsername = username.toLowerCase();
       const lockKey = `profile:${normalizedUsername}`;
       let lockAcquired = false;
+      let perkReservation: StargazerPerkReservation | undefined;
 
       try {
         // 1. Check for recently generated profile to prevent spam/retries
@@ -224,6 +226,7 @@ export const profileGenerateRouter = router({
           }
           isStargazerPerk = true;
           effectivePlan = perkResult.effectivePlan;
+          perkReservation = perkResult.reservation;
         }
 
         const keyInfo = await getApiKeyForUser(ctx.user.id, effectivePlan);
@@ -503,6 +506,7 @@ export const profileGenerateRouter = router({
         }
         if (!profileInserted) {
           console.warn(`[generateProfile] failed to insert cache for ${normalizedUsername} after 3 retries`);
+          if (isStargazerPerk) throw new Error('Failed to save the free profile generation. Please retry.');
         }
 
         // Best-effort: compute + persist embedding for the semantic developer
@@ -552,7 +556,7 @@ export const profileGenerateRouter = router({
             });
         }
 
-        // Token usage log — non-critical, never fail the generation on this.
+        // A free use is consumed only after the profile and its usage are saved.
         try {
           const usageRows = geminiUsageRows(result.modelUsage).map(({ model, usage }) => ({
             userId: ctx.user.id,
@@ -564,94 +568,22 @@ export const profileGenerateRouter = router({
             isByok: keyInfo.isByok,
             createdAt: new Date(),
           }));
+          if (isStargazerPerk && usageRows.length === 0) {
+            throw new Error('Missing usage data for free profile generation');
+          }
           if (usageRows.length > 0) await db.insert(tokenUsage).values(usageRows);
         } catch (tokenError) {
-          console.error('[generateProfile] token usage log failed (non-critical):', tokenError);
+          console.error('[generateProfile] token usage log failed:', tokenError);
+          if (isStargazerPerk) throw tokenError;
         }
-
-        // Best-effort: find the developer's email and notify them. Run in the
-        // background bounded by a 30s timeout — the subscription must NOT
-        // wait on this, mirroring the embedding-write pattern above. The
-        // profile is fully written by this point; email can land 30s later.
-        const BACKGROUND_EMAIL_TIMEOUT_MS = 30_000;
-        const profileForEmail = publicProfile;
-        const analyzerUserName = ctx.user.name;
-        const analyzerEmail = ctx.user.email;
-        const emailScanRepos = buildEmailScanRepos(smartSortedRepos, crossRepoCommits);
-        const octokitForEmail = githubService['octokit'];
-
-        const emailPromise = (async () => {
-          const { email } = await findAndStoreDeveloperEmail(
-            octokitForEmail,
-            username,
-            emailScanRepos
-          );
-          if (!email) return;
-
-          const emailRecord = await db.query.developerEmails.findFirst({
-            where: eq(developerEmails.email, email),
-          });
-
-          const ONE_HOUR = 60 * 60 * 1000;
-          const timeSinceLastEmail = emailRecord?.lastUsedAt
-            ? new Date().getTime() - emailRecord.lastUsedAt.getTime()
-            : Infinity;
-
-          if (timeSinceLastEmail < ONE_HOUR) return;
-
-          const { sendProfileAnalysisEmail } = await import('@/lib/email/resend');
-          const analyzerGithubUsername = analyzerUserName || 'Someone';
-
-          const scorecardScores = profileForEmail.topRepos
-            ?.map(repo => repo.significanceScore)
-            .filter(Boolean) || [];
-          const avgScore = scorecardScores.length > 0
-            ? Math.round(scorecardScores.reduce((a, b) => a + b, 0) / scorecardScores.length * 10)
-            : undefined;
-
-          // This work runs after the response path. A source can become
-          // private while the email address is being discovered.
-          if (!(await areRepositoriesCurrentlyPublic(profileSourceRepos))) return;
-
-          await sendProfileAnalysisEmail({
-            recipientEmail: email,
-            recipientUsername: username,
-            analyzerUsername: analyzerGithubUsername,
-            analyzerEmail: analyzerEmail,
-            profileData: {
-              summary: profileForEmail.summary || 'Your profile has been analyzed!',
-              overallScore: avgScore,
-              topSkills: profileForEmail.techStack?.slice(0, 5).map(item => item.name) || [],
-              suggestions: profileForEmail.suggestions || [],
-            },
-          });
-
-          await db.update(developerEmails)
-            .set({ lastUsedAt: new Date() })
-            .where(eq(developerEmails.email, email));
-        })();
-
-        let emailTimeoutHandle: ReturnType<typeof setTimeout> | undefined;
-        const emailTimeoutPromise = new Promise<'timeout'>((resolve) => {
-          emailTimeoutHandle = setTimeout(() => resolve('timeout'), BACKGROUND_EMAIL_TIMEOUT_MS);
-        });
-        void Promise.race([emailPromise.then(() => 'ok' as const), emailTimeoutPromise])
-          .then((raceResult) => {
-            if (raceResult === 'timeout') {
-              console.warn(
-                `[email-extract] timed out, abandoning for ${normalizedUsername}`
-              );
-            }
-          })
-          .catch((err) => {
-            console.error(
-              `[email-extract] failed for ${normalizedUsername}:`,
-              err instanceof Error ? err.message : err
-            );
-          })
-          .finally(() => {
-            if (emailTimeoutHandle) clearTimeout(emailTimeoutHandle);
-          });
+        if (perkReservation) {
+          try {
+            await finishStargazerPerk(perkReservation, true);
+          } catch (reservationError) {
+            console.error('Failed to complete stargazer perk reservation:', reservationError);
+          }
+          perkReservation = undefined;
+        }
 
         if (lockAcquired) {
           const { releaseGenerationLock: releaseLock } = await import('@/lib/rate-limit');
@@ -694,6 +626,13 @@ export const profileGenerateRouter = router({
           cause: error instanceof Error ? error : undefined,
         });
       } finally {
+        if (perkReservation) {
+          try {
+            await finishStargazerPerk(perkReservation, false);
+          } catch (releaseError) {
+            console.error('Failed to release stargazer perk reservation:', releaseError);
+          }
+        }
         // Safety net: release lock if still held (client disconnected mid-generator)
         if (lockAcquired) {
           try {

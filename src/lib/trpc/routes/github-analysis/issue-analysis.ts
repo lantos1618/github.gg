@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
 import { createGitHubServiceForRepo, createPublicGitHubService } from '@/lib/github';
 import { analyzeIssue } from '@/lib/ai/issue-analysis';
+import { GEMINI_PRO_MODEL_NAME } from '@/lib/ai/models';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
 import { tokenUsage, issueAnalysisCache } from '@/db/schema';
@@ -175,7 +176,7 @@ export const githubAnalysisIssueAnalysisRouter = router({
             feature: 'issue_analysis',
             repoOwner: owner,
             repoName: repo,
-            model: 'gemini-3.1-pro-preview',
+            model: GEMINI_PRO_MODEL_NAME,
             inputTokens: analysisResult.usage.inputTokens,
             outputTokens: analysisResult.usage.outputTokens,
             totalTokens: analysisResult.usage.totalTokens,

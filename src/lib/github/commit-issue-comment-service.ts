@@ -1,6 +1,7 @@
 import { getInstallationOctokit, getUserFromInstallation } from './app';
 import { analyzeCommit } from '@/lib/ai/commit-analysis';
 import { analyzeIssue } from '@/lib/ai/issue-analysis';
+import { GEMINI_PRO_MODEL_NAME } from '@/lib/ai/models';
 import { db } from '@/db';
 import { tokenUsage, webhookPreferences } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -154,7 +155,7 @@ export async function postCommitAnalysisComment({
         feature: 'commit_analysis',
         repoOwner: owner,
         repoName: repo,
-        model: 'gemini-3.1-pro-preview',
+        model: GEMINI_PRO_MODEL_NAME,
         inputTokens: analysisResult.usage.inputTokens,
         outputTokens: analysisResult.usage.outputTokens,
         totalTokens: analysisResult.usage.totalTokens,
@@ -285,7 +286,7 @@ export async function postIssueAnalysisComment({
         feature: 'issue_analysis',
         repoOwner: owner,
         repoName: repo,
-        model: 'gemini-3.1-pro-preview',
+        model: GEMINI_PRO_MODEL_NAME,
         inputTokens: analysisResult.usage.inputTokens,
         outputTokens: analysisResult.usage.outputTokens,
         totalTokens: analysisResult.usage.totalTokens,

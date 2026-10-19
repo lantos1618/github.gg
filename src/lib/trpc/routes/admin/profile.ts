@@ -5,7 +5,7 @@ import { db } from '@/db';
 import { tokenUsage, developerProfileCache } from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { generateDeveloperProfileStreaming } from '@/lib/ai/developer-profile';
-import { getPlatformGeminiApiKey } from '@/lib/ai/models';
+import { GEMINI_PRO_MODEL_NAME, getPlatformGeminiApiKey } from '@/lib/ai/models';
 import { createGitHubServiceForRepo, createGitHubServiceForUserOperations } from '@/lib/github';
 import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 import { areRepositoriesCurrentlyPublic, withVerifiedPublicSources } from '@/lib/profile/public-provenance';
@@ -156,7 +156,7 @@ export const adminProfileRouter = router({
           userId: ctx.user.id, // Admin ID
           feature: 'admin_mass_analysis',
           repoOwner: username,
-          model: 'gemini-3.1-pro-preview',
+          model: GEMINI_PRO_MODEL_NAME,
           inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,
           totalTokens: result.usage.totalTokens,

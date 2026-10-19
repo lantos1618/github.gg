@@ -1,3 +1,5 @@
+import { GEMINI_PRO_MODEL_NAME } from '@/lib/ai/models';
+
 /**
  * Configuration for PR review analysis
  */
@@ -23,9 +25,9 @@ export const PR_REVIEW_CONFIG = {
   filesPerPage: 100,
 
   /**
-   * AI model to use for analysis (can be overridden via env)
+   * AI model used for analysis and usage logging
    */
-  aiModel: (process.env.PR_REVIEW_AI_MODEL || 'gemini-3.1-pro-preview'),
+  aiModel: GEMINI_PRO_MODEL_NAME,
 
   /**
    * GitHub comment marker for identifying our AI reviews

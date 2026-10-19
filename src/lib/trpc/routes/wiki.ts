@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
 import { createGitHubServiceForRepo } from '@/lib/github';
 import { generateWikiWithCacheStreaming } from '@/lib/ai/wiki-generator';
+import { GEMINI_FLASH_MODEL_NAME } from '@/lib/ai/models';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
 import { tokenUsage } from '@/db/schema';
@@ -113,6 +114,7 @@ export const wikiRouter = router({
         let wikiResult;
         for await (const update of generateWikiWithCacheStreaming({
           apiKey: keyInfo.apiKey,
+          useExplicitCache: !keyInfo.isByok,
           owner,
           repo,
           repoDescription: repoData.value.data.description || undefined,
@@ -144,7 +146,7 @@ export const wikiRouter = router({
             feature: 'wiki_generation',
             repoOwner: owner,
             repoName: repo,
-            model: 'gemini-3.1-flash-lite',
+            model: GEMINI_FLASH_MODEL_NAME,
             inputTokens: wikiResult.usage.inputTokens,
             outputTokens: wikiResult.usage.outputTokens,
             totalTokens: wikiResult.usage.totalTokens,

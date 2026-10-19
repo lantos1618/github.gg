@@ -1,5 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
 import { retryWithBackoff, awaitWithHeartbeat } from './retry-utils';
+import { GEMINI_FLASH_MODEL_NAME } from './models';
+
+const MAX_DIRECT_CONTEXT_CHARS = 1_500_000;
+type WikiContext = { cacheId?: string; codebaseContent?: string };
 
 // Example page types to guide AI planning
 const EXAMPLE_PAGE_TYPES = `
@@ -63,6 +67,8 @@ interface GeneratedPage {
 
 export interface WikiGeneratorParams {
   apiKey: string;
+  /** Platform requests may use paid explicit caching; BYOK requests use direct context. */
+  useExplicitCache?: boolean;
   owner: string;
   repo: string;
   repoDescription?: string;
@@ -91,11 +97,11 @@ export interface WikiGeneratorResult {
 /**
  * Create cached content for the entire codebase
  */
-async function createCodebaseCache(genAI: GoogleGenAI, params: WikiGeneratorParams): Promise<string> {
+function buildCodebaseContent(params: WikiGeneratorParams): string {
   const { owner, repo, repoDescription, primaryLanguage, files, packageJson, readme } = params;
 
   // Build complete codebase context
-  const codebaseContent = `
+  return `
 # Repository: ${owner}/${repo}
 ${repoDescription ? `Description: ${repoDescription}` : ''}
 ${primaryLanguage ? `Primary Language: ${primaryLanguage}` : ''}
@@ -121,11 +127,13 @@ ${f.content}
 \`\`\`
 `).join('\n---\n')}
 `;
+}
 
+async function createCodebaseCache(genAI: GoogleGenAI, codebaseContent: string): Promise<string> {
   // Create cached content using Gemini API with retry logic
   const cacheResponse = await retryWithBackoff(() =>
     genAI.caches.create({
-      model: 'gemini-3.1-flash-lite',
+      model: GEMINI_FLASH_MODEL_NAME,
       config: {
         systemInstruction: 'You are a documentation generator. This cached content contains a complete codebase for wiki generation.',
         contents: [{
@@ -137,7 +145,21 @@ ${f.content}
     })
   );
 
-  return cacheResponse.name || '';
+  if (!cacheResponse.name) throw new Error('Gemini did not return a wiki cache identifier');
+  return cacheResponse.name;
+}
+
+function directWikiContext(codebaseContent: string): WikiContext {
+  const content = codebaseContent.length > MAX_DIRECT_CONTEXT_CHARS
+    ? `${codebaseContent.slice(0, MAX_DIRECT_CONTEXT_CHARS)}\n\n[Additional source content omitted to fit the model context.]`
+    : codebaseContent;
+  return { codebaseContent: content };
+}
+
+function cacheUnavailable(error: unknown): boolean {
+  const apiError = error as { status?: number; message?: string };
+  return apiError?.status === 400 || apiError?.status === 403 ||
+    /cach(?:e|ed content).*(?:not available|not supported|billing|paid|permission)/i.test(apiError?.message || '');
 }
 
 /**
@@ -145,11 +167,11 @@ ${f.content}
  */
 async function planWikiPages(
   genAI: GoogleGenAI,
-  cacheId: string,
+  context: WikiContext,
   owner: string,
   repo: string
 ): Promise<WikiPlan> {
-  const prompt = `Using the cached codebase above, plan wiki pages for this repository.
+  const prompt = `Using the provided codebase context, plan wiki pages for this repository.
 
 ${EXAMPLE_PAGE_TYPES}
 
@@ -185,11 +207,9 @@ Return ONLY valid JSON matching this structure:
 
   const result = await retryWithBackoff(() =>
     genAI.models.generateContent({
-      model: 'gemini-3.1-flash-lite',
-      contents: prompt,
-      config: {
-        cachedContent: cacheId,
-      }
+      model: GEMINI_FLASH_MODEL_NAME,
+      contents: context.cacheId ? prompt : `${context.codebaseContent}\n\n${prompt}`,
+      config: context.cacheId ? { cachedContent: context.cacheId } : undefined,
     })
   );
   const responseText = result.text || '';
@@ -308,7 +328,7 @@ function groupPagesByLevel(pages: WikiPage[]): WikiPage[][] {
  */
 async function generateWikiPage(
   genAI: GoogleGenAI,
-  cacheId: string,
+  context: WikiContext,
   page: WikiPage,
   generatedPages: Map<string, GeneratedPage>
 ): Promise<GeneratedPage> {
@@ -332,18 +352,16 @@ ${dependencyContext}
 When referencing them, use markdown links: [${page.dependsOn.map(s => generatedPages.get(s)?.title).join(', ')}]
 ` : ''}
 
-The entire codebase is in the cached context above. Use it to generate this page.
+Use the provided codebase context to generate this page.
 
 IMPORTANT: Return ONLY clean markdown. No JSON, no code blocks wrapping the markdown.
 Start directly with the content.`;
 
   const result = await retryWithBackoff(() =>
     genAI.models.generateContent({
-      model: 'gemini-3.1-flash-lite',
-      contents: prompt,
-      config: {
-        cachedContent: cacheId,
-      }
+      model: GEMINI_FLASH_MODEL_NAME,
+      contents: context.cacheId ? prompt : `${context.codebaseContent}\n\n${prompt}`,
+      config: context.cacheId ? { cachedContent: context.cacheId } : undefined,
     })
   );
 
@@ -371,26 +389,35 @@ export async function generateWikiWithCache(
 ): Promise<WikiGeneratorResult> {
   const genAI = new GoogleGenAI({ apiKey: params.apiKey });
   const { owner, repo } = params;
+  const codebaseContent = buildCodebaseContent(params);
 
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
   let cacheTokens = 0;
 
   try {
-    // Step 1: Cache the entire codebase
-    if (process.env.DEBUG_AI === 'true') console.log('📦 Creating codebase cache...');
-    params.onProgress?.('Caching codebase context...', 0, 1);
-    const cacheId = await createCodebaseCache(genAI, params);
-
-    // Estimate cache size (rough)
-    const codebaseSize = params.files.reduce((sum, f) => sum + f.content.length, 0);
-    cacheTokens = Math.ceil(codebaseSize / 4); // Rough token estimate
-    if (process.env.DEBUG_AI === 'true') console.log(`✅ Cache created: ${cacheId} (~${cacheTokens} tokens)`);
+    // Explicit caching requires a paid Google project, so BYOK uses direct
+    // context and stays compatible with free-tier Gemini keys.
+    let context: WikiContext;
+    if (params.useExplicitCache === false) {
+      context = directWikiContext(codebaseContent);
+    } else {
+      params.onProgress?.('Caching codebase context...', 0, 1);
+      try {
+        context = { cacheId: await createCodebaseCache(genAI, codebaseContent) };
+        cacheTokens = Math.ceil(codebaseContent.length / 4);
+      } catch (error) {
+        if (!cacheUnavailable(error)) throw error;
+        context = directWikiContext(codebaseContent);
+      }
+    }
+    const directContextTokens = context.codebaseContent ? Math.ceil(context.codebaseContent.length / 4) : 0;
 
     // Step 2: Plan wiki pages
     if (process.env.DEBUG_AI === 'true') console.log('🎯 Planning wiki pages...');
     params.onProgress?.('Planning wiki structure...', 0, 1);
-    const plan = await planWikiPages(genAI, cacheId, owner, repo);
+    const plan = await planWikiPages(genAI, context, owner, repo);
+    totalInputTokens += directContextTokens;
     if (process.env.DEBUG_AI === 'true') console.log(`📋 Planned ${plan.pages.length} pages:`, plan.pages.map(p => p.title).join(', '));
 
     // Step 3: Group pages by dependency level for parallel generation
@@ -409,7 +436,7 @@ export async function generateWikiWithCache(
 
       // Generate all pages in this level in parallel
       const levelResults = await Promise.all(
-        level.map(page => generateWikiPage(genAI, cacheId, page, generatedPages))
+        level.map(page => generateWikiPage(genAI, context, page, generatedPages))
       );
 
       // Store results
@@ -418,7 +445,7 @@ export async function generateWikiWithCache(
         processedPages++;
 
         // Track tokens (rough estimate since we're using cache)
-        totalInputTokens += 500; // Prompt overhead
+        totalInputTokens += 500 + directContextTokens; // Approximate prompt and repeated context
         totalOutputTokens += Math.ceil(generated.content.length / 4);
       });
 
@@ -456,37 +483,38 @@ export async function* generateWikiWithCacheStreaming(
 ): AsyncGenerator<{ type: 'progress' | 'complete' | 'ping', progress?: number, message?: string, result?: WikiGeneratorResult }> {
   const genAI = new GoogleGenAI({ apiKey: params.apiKey });
   const { owner, repo } = params;
+  const codebaseContent = buildCodebaseContent(params);
 
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
   let cacheTokens = 0;
 
   try {
-    // Step 1: Cache the entire codebase
-    yield { type: 'progress', progress: 40, message: 'Analyizing codebase context & creating cache...' };
-    
-    // Use heartbeat for long running cache creation
-    let cacheId = '';
-    const cachePromise = createCodebaseCache(genAI, params);
-    
-    for await (const ping of awaitWithHeartbeat(cachePromise)) {
-      if (ping.type === 'ping') {
-        yield { type: 'ping' };
+    yield { type: 'progress', progress: 40, message: 'Preparing codebase context...' };
+    let context: WikiContext;
+    if (params.useExplicitCache === false) {
+      context = directWikiContext(codebaseContent);
+    } else {
+      const cachePromise = createCodebaseCache(genAI, codebaseContent);
+      try {
+        for await (const ping of awaitWithHeartbeat(cachePromise)) {
+          if (ping.type === 'ping') yield { type: 'ping' };
+        }
+        context = { cacheId: await cachePromise };
+        cacheTokens = Math.ceil(codebaseContent.length / 4);
+      } catch (error) {
+        if (!cacheUnavailable(error)) throw error;
+        context = directWikiContext(codebaseContent);
       }
     }
-    cacheId = await cachePromise;
-
-    // Estimate cache size (rough)
-    const codebaseSize = params.files.reduce((sum, f) => sum + f.content.length, 0);
-    cacheTokens = Math.ceil(codebaseSize / 4); // Rough token estimate
-    if (process.env.DEBUG_AI === 'true') console.log(`✅ Cache created: ${cacheId} (~${cacheTokens} tokens)`);
+    const directContextTokens = context.codebaseContent ? Math.ceil(context.codebaseContent.length / 4) : 0;
 
     // Step 2: Plan wiki pages
     yield { type: 'progress', progress: 50, message: 'Designing wiki structure & pages...' };
     
     // Use heartbeat for long running planning
     let plan: WikiPlan | null = null;
-    const planPromise = planWikiPages(genAI, cacheId, owner, repo);
+    const planPromise = planWikiPages(genAI, context, owner, repo);
     
     for await (const ping of awaitWithHeartbeat(planPromise)) {
       if (ping.type === 'ping') {
@@ -494,6 +522,7 @@ export async function* generateWikiWithCacheStreaming(
       }
     }
     plan = await planPromise;
+    totalInputTokens += directContextTokens;
     
     if (process.env.DEBUG_AI === 'true') console.log(`📋 Planned ${plan.pages.length} pages:`, plan.pages.map(p => p.title).join(', '));
 
@@ -524,7 +553,7 @@ export async function* generateWikiWithCacheStreaming(
       // Generate all pages in this level in parallel
       // Use heartbeat for generation too
       const generationPromise = Promise.all(
-        level.map(page => generateWikiPage(genAI, cacheId, page, generatedPages))
+        level.map(page => generateWikiPage(genAI, context, page, generatedPages))
       );
       
       for await (const ping of awaitWithHeartbeat(generationPromise)) {
@@ -540,7 +569,7 @@ export async function* generateWikiWithCacheStreaming(
         processedPages++;
 
         // Track tokens (rough estimate since we're using cache)
-        totalInputTokens += 500; // Prompt overhead
+        totalInputTokens += 500 + directContextTokens; // Approximate prompt and repeated context
         totalOutputTokens += Math.ceil(generated.content.length / 4);
       });
 

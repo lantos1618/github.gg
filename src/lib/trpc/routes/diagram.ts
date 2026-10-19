@@ -1,5 +1,6 @@
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { generateRepoDiagramVercel } from '@/lib/ai/diagram';
+import { GEMINI_PRO_MODEL_NAME } from '@/lib/ai/models';
 import { diagramInputSchemaServer, diagramBaseSchema } from '@/lib/types/diagram';
 import { parseGeminiError } from '@/lib/utils/errorHandling';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
@@ -326,7 +327,7 @@ export const diagramRouter = router({
           feature: 'diagram',
           repoOwner: ownerNormalized,
           repoName: repoNormalized,
-          model: 'gemini-3.1-pro-preview', // Default model used
+          model: GEMINI_PRO_MODEL_NAME,
           inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,
           totalTokens: result.usage.totalTokens,

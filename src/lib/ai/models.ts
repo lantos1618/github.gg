@@ -2,15 +2,11 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 
 /**
  * Centralized AI model configuration.
- * Change the model name here to update all AI features at once.
+ * The quality role uses a stable Flash model with free-tier API access, so
+ * BYOK users do not need a paid Google project for normal analyses.
  */
-export const GEMINI_PRO_MODEL_NAME = 'gemini-3.1-pro-preview';
-// Flash-lite is GA as of the 3.1 family — use the stable channel name
-// (no `-preview` suffix) so we don't get pulled out from under by Google's
-// preview deprecation schedule. Full 3.1 Flash doesn't exist; if we ever
-// want a beefier map-step model the alternative is `gemini-3-flash-preview`
-// (3.0 family, "full" Flash).
-export const GEMINI_FLASH_MODEL_NAME = 'gemini-3.1-flash-lite';
+export const GEMINI_PRO_MODEL_NAME = 'gemini-3.8-flash';
+export const GEMINI_FLASH_MODEL_NAME = 'gemini-3.5-flash-lite';
 
 /** Bind a Gemini provider to the key selected for this request. Never mutate process.env. */
 export function createGeminiModels(apiKey: string) {

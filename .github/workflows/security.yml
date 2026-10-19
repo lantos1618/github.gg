@@ -29,10 +29,29 @@ jobs:
             tests/public-visibility.test.ts \
             tests/feature-request-security.test.ts \
             tests/stripe-webhook-config.test.ts \
+            tests/stripe-subscription-webhook.test.ts \
+            tests/billing-checkout-guard.test.ts \
+            tests/checkout-session-reservation.test.ts \
             tests/byok-key-status.test.ts \
+            tests/github-webhook-enqueue-retry.test.ts \
+            tests/sign-out-installation-link.test.ts \
+            tests/analysis-job-store.test.ts \
+            tests/gemini-key-routing.test.ts \
+            tests/hire-ai-routing.test.ts \
+            tests/hire-route-gates.test.ts \
+            tests/subscription-entitlement.test.ts \
+            tests/cost-calculator.test.ts \
+            tests/monthly-quota.test.ts \
+            tests/monthly-quota-gates.test.ts \
+            tests/paid-ai-rate-limit.test.ts \
+            tests/semantic-search-identity.test.ts \
+            tests/semantic-search-fallback.test.ts \
+            tests/stargazer-perk-access.test.ts \
+            tests/stargazer-reservation.test.ts \
             tests/test-session-guard.test.ts \
             tests/trpc-cache-control.test.ts \
             tests/wiki-visibility.test.ts \
+            tests/wiki-byok-context.test.ts \
             tests/wiki-viewers-access.test.ts; do
             bun test "$file" || exit 1
           done

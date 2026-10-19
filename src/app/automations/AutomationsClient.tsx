@@ -14,6 +14,8 @@ import { SortableTable, Column } from '@/components/ui/sortable-table';
 import { CardWithHeader } from '@/components/common';
 import { buildGitHubAppInstallUrl } from '@/lib/github/install-url';
 
+const reviewsEnabled = process.env.NEXT_PUBLIC_GITHUB_REVIEWS_ENABLED === 'true';
+
 type RepoWithActivity = {
   id: string;
   repositoryId: number;
@@ -27,12 +29,12 @@ export default function AutomationsClient() {
   const [activitySearch, setActivitySearch] = useState('');
 
   // Queries
-  const { data: repos, refetch: refetchRepos } = trpc.webhooks.getRepositories.useQuery();
+  const { data: repos, refetch: refetchRepos } = trpc.webhooks.getRepositories.useQuery(undefined, { enabled: reviewsEnabled });
   const { data: activityLog } = trpc.webhooks.getActivityLog.useQuery({
     limit: 50,
-  });
-  const { data: installationInfo } = trpc.webhooks.getInstallationInfo.useQuery();
-  const { data: webhookPrefs } = trpc.webhooks.getPreferences.useQuery();
+  }, { enabled: reviewsEnabled });
+  const { data: installationInfo } = trpc.webhooks.getInstallationInfo.useQuery(undefined, { enabled: reviewsEnabled });
+  const { data: webhookPrefs } = trpc.webhooks.getPreferences.useQuery(undefined, { enabled: reviewsEnabled });
 
   // Mutations
   const toggleRepoWebhook = trpc.webhooks.toggleRepoWebhook.useMutation({
@@ -195,6 +197,19 @@ export default function AutomationsClient() {
       headerClassName: 'text-right',
     },
   ];
+
+  if (!reviewsEnabled) {
+    return (
+      <div className="container py-8 max-w-6xl px-4 md:px-8">
+        <h1 className="text-3xl font-bold mb-8">Automations</h1>
+        <Card>
+          <CardContent className="pt-6 text-sm text-muted-foreground">
+            Automated PR reviews and GitHub App setup are temporarily unavailable.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!installationInfo) {
     return (

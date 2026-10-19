@@ -10,6 +10,8 @@ import { TextButton } from '@/components/ui/text-button';
 import { buildGitHubAppInstallUrl } from '@/lib/github/install-url';
 import { safeLocalPath } from '@/lib/utils/safe-local-path';
 
+const reviewsEnabled = process.env.NEXT_PUBLIC_GITHUB_REVIEWS_ENABLED === 'true';
+
 function InstallCallbackContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -78,7 +80,7 @@ function InstallCallbackContent() {
         const target = safeLocalPath(state);
         setMessage(target
           ? `Installed. Taking you back to ${target}...`
-          : 'GitHub App installed. You can now access private repositories.');
+          : 'GitHub App installation linked to your account.');
         if (target) {
           setTimeout(() => router.push(target), 1500);
         }
@@ -170,9 +172,11 @@ function InstallCallbackContent() {
               <TextButton onClick={handleRetryLinking}>
                 Try Linking Again
               </TextButton>
-              <TextButton onClick={handleRetry}>
-                Try Installation Again
-              </TextButton>
+              {reviewsEnabled && (
+                <TextButton onClick={handleRetry}>
+                  Try Installation Again
+                </TextButton>
+              )}
               <Button onClick={handleContinue} className="w-full">
                 Go Home
               </Button>

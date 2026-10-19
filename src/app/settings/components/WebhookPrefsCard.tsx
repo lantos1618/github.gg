@@ -7,6 +7,8 @@ import { CardWithHeader } from '@/components/common';
 import { TextLink } from '@/components/ui/text-link';
 import { buildGitHubAppInstallUrl } from '@/lib/github/install-url';
 
+const reviewsEnabled = process.env.NEXT_PUBLIC_GITHUB_REVIEWS_ENABLED === 'true';
+
 export interface WebhookInstallationInfo {
   accountLogin: string;
 }
@@ -29,6 +31,20 @@ export function WebhookPrefsCard({
   isUpdating,
   onUpdate,
 }: WebhookPrefsCardProps) {
+  if (!reviewsEnabled) {
+    return (
+      <CardWithHeader
+        title="PR Reviews"
+        description="Automated code reviews on pull requests."
+        icon={Webhook}
+      >
+        <p className="text-sm text-muted-foreground">
+          Automated PR reviews and GitHub App setup are temporarily unavailable.
+        </p>
+      </CardWithHeader>
+    );
+  }
+
   return (
     <CardWithHeader
       title="PR Reviews"

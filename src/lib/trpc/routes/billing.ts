@@ -18,6 +18,11 @@ const isStripeConfigured = () => {
   return !!process.env.STRIPE_SECRET_KEY;
 };
 
+// These statuses can still become active or resume billing. Starting another
+// Checkout subscription would leave the first one charging the customer while
+// our one-row-per-user table tracks only the newer subscription.
+const terminalSubscriptionStatuses = new Set(['canceled', 'incomplete_expired']);
+
 export const billingRouter = router({
   createCheckoutSession: protectedProcedure
     .input(z.object({
@@ -31,18 +36,29 @@ export const billingRouter = router({
         });
       }
 
-      const priceId = input.plan === 'byok'
-        ? process.env.STRIPE_BYOK_PRICE_ID
-        : process.env.STRIPE_PRO_PRICE_ID;
-
-      if (!priceId) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `${input.plan} plan price ID not configured`
-        });
-      }
-
       try {
+        const existingSubscription = await db.query.userSubscriptions.findFirst({
+          where: eq(userSubscriptions.userId, ctx.user.id),
+        });
+
+        if (existingSubscription && !terminalSubscriptionStatuses.has(existingSubscription.status)) {
+          const portalSession = await stripe!.billingPortal.sessions.create({
+            customer: existingSubscription.stripeCustomerId,
+            return_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings`,
+          });
+          return { url: portalSession.url };
+        }
+
+        const priceId = input.plan === 'byok'
+          ? process.env.STRIPE_BYOK_PRICE_ID
+          : process.env.STRIPE_PRO_PRICE_ID;
+        if (!priceId) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `${input.plan} plan price ID not configured`
+          });
+        }
+
         const session = await stripe!.checkout.sessions.create({
           customer_email: ctx.user.email,
           line_items: [{
@@ -60,10 +76,11 @@ export const billingRouter = router({
 
         return { url: session.url };
       } catch (error) {
-        console.error('Stripe checkout error:', error);
+        if (error instanceof TRPCError) throw error;
+        console.error('Stripe billing session error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to create checkout session'
+          message: 'Failed to open billing session'
         });
       }
     }),

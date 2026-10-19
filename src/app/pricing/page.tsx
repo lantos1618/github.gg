@@ -22,6 +22,14 @@ const PRO_FEATURES = [
   { label: 'Tokens', name: '5M AI Tokens/Month', benefit: 'Analyze hundreds of repos per month', color: '#6b7280' },
 ];
 
+const githubAppFeaturesEnabled = process.env.NEXT_PUBLIC_GITHUB_REVIEWS_ENABLED === 'true';
+const availableProFeatures = githubAppFeaturesEnabled
+  ? PRO_FEATURES
+  : PRO_FEATURES.filter((feature) => feature.label !== 'Reviews' && feature.label !== 'Private');
+const availableComparison = githubAppFeaturesEnabled
+  ? FEATURE_COMPARISON
+  : FEATURE_COMPARISON.filter((row) => row.feature !== 'Private repos' && row.feature !== 'AI code reviews');
+
 export default function PricingPage() {
   return (
     <div className="min-h-screen bg-white">
@@ -34,14 +42,19 @@ export default function PricingPage() {
           Stop wasting hours reading unfamiliar code
         </h1>
         <p className="text-base text-[#aaa] mb-4">
-          Pro gives you AI-generated docs, diagrams, and reviews for any repo
+          Pro gives you AI-generated docs, diagrams, and code insights
         </p>
         <div className="border-b border-[#eee] mb-10" />
 
         <p className="text-base text-[#666] leading-[1.6] mb-10">
-          Public repos are free, forever. <strong className="text-[#111]">Pro</strong> unlocks AI features, private repo access, and priority support.
+          Public repo browsing is free, forever. <strong className="text-[#111]">Pro</strong> unlocks AI features and priority support.
           Understand codebases in minutes, not hours.
         </p>
+        {!githubAppFeaturesEnabled && (
+          <p className="text-sm text-[#666] mb-6">
+            GitHub App reviews and private-repo access are currently unavailable while setup completes.
+          </p>
+        )}
       </PageWidthContainer>
 
       {/* Pricing Cards */}
@@ -83,10 +96,10 @@ export default function PricingPage() {
               <span className="text-[31px] font-semibold text-[#111]">$20</span>
               <span className="text-base text-[#aaa]">/month</span>
             </div>
-            <p className="text-base text-[#666] mb-6">Everything you need to master any codebase</p>
+            <p className="text-base text-[#666] mb-6">Understand complex codebases faster</p>
 
             <div className="space-y-3 mb-6">
-              {PRO_FEATURES.map((feature, idx) => (
+              {availableProFeatures.map((feature, idx) => (
                 <div key={idx} className="flex items-start gap-3">
                   <div
                     className="w-1 h-4 mt-0.5 flex-shrink-0 rounded-sm"
@@ -124,7 +137,7 @@ export default function PricingPage() {
             </tr>
           </thead>
           <tbody>
-            {FEATURE_COMPARISON.map((row, idx) => (
+            {availableComparison.map((row, idx) => (
               <tr key={idx} className="border-b border-[#f0f0f0]">
                 <td className="py-2 px-2 text-[#333]">{row.feature}</td>
                 <td className="py-2 px-2 text-center">

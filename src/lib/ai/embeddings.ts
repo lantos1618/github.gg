@@ -139,7 +139,7 @@ export async function generateJobEmbedding(
   return { embedding, inputTokens };
 }
 
-// text-embedding-004 has a token budget around ~2k. Markdown scorecards routinely
+// gemini-embedding-001 has a 2,048-token input limit. Markdown scorecards routinely
 // run longer than that, so trim before embedding. Character cap is conservative
 // (~1 token per 4 chars in English prose, less in code blocks).
 const SCORECARD_EMBED_CHAR_LIMIT = 6000;

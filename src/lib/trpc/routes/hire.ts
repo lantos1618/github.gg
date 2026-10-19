@@ -17,7 +17,7 @@ const matchCandidatesInput = z.object({
   jobDescription: z.string().trim().min(50, 'Job description must be at least 50 characters').max(4000),
   limit: z.number().int().min(1).max(MAX_RANKED_CANDIDATES).default(MAX_RANKED_CANDIDATES),
   minConfidence: z.number().min(0).max(100).optional(),
-  archetypes: z.array(z.string()).optional(),
+  archetypes: z.array(z.string().max(100)).max(20).optional(),
 });
 
 // Output schema for a matched candidate

@@ -51,7 +51,7 @@ const FEATURE_CONTEXTS = {
   },
   general: {
     headline: 'Unlock AI-powered code intelligence',
-    subtext: 'Get docs, diagrams, scorecards, and reviews for any repository.',
+    subtext: 'Get docs, diagrams, and scorecards with Pro.',
     benefit: 'Master any codebase in minutes',
     cta: 'Upgrade to Pro',
   },

@@ -51,10 +51,10 @@ export async function reserveSemanticSearchEmbedding(
   if (!actorLimiter || !globalLimiter) return false;
 
   try {
-    const global = await globalLimiter.limit('all');
-    if (!global.success) return false;
     const actor = await actorLimiter.limit(semanticSearchActorKey(request, userId));
-    return actor.success;
+    if (!actor.success) return false;
+    const global = await globalLimiter.limit('all');
+    return global.success;
   } catch (error) {
     logger.warn('REST Redis rate limit failed; using text search', { error: String(error) });
     return false;
@@ -71,10 +71,10 @@ export async function reserveRepoSearchRequest(
   if (!requestActorLimiter || !requestGlobalLimiter) return 'unavailable';
 
   try {
-    const global = await requestGlobalLimiter.limit('all');
-    if (!global.success) return 'limited';
     const actor = await requestActorLimiter.limit(semanticSearchActorKey(request, userId));
-    return actor.success ? 'allowed' : 'limited';
+    if (!actor.success) return 'limited';
+    const global = await requestGlobalLimiter.limit('all');
+    return global.success ? 'allowed' : 'limited';
   } catch (error) {
     logger.warn('REST Redis request limit failed; using capped repository search', { error: String(error) });
     return 'unavailable';

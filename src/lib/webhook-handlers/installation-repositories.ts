@@ -31,7 +31,9 @@ export async function handleInstallationRepositoriesAdded(
         repositoryId: repo.id,
         fullName: repo.full_name,
       })),
-    );
+    ).onConflictDoNothing({
+      target: [installationRepositories.installationId, installationRepositories.repositoryId],
+    });
   }
   logger.info('Successfully added repositories', { installationId, count });
 }

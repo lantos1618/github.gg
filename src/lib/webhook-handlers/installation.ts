@@ -55,25 +55,43 @@ export async function handleInstallationCreated(payload: unknown): Promise<void>
     repositoryCount: event.repositories?.length || 0,
   });
 
-  await db.insert(githubAppInstallations).values({
-    installationId: event.installation.id,
-    accountId: account.id,
-    accountType,
-    accountLogin,
-    accountAvatarUrl,
-    accountName,
-    repositorySelection: event.installation.repository_selection,
-  });
+  // GitHub retries deliveries and BullMQ retries failed jobs. Keep the
+  // installation and its initial repository list in one transaction so a
+  // failed repository insert cannot leave an installation that blocks retry.
+  await db.transaction(async (tx) => {
+    await tx.insert(githubAppInstallations).values({
+      installationId,
+      accountId: account.id,
+      accountType,
+      accountLogin,
+      accountAvatarUrl,
+      accountName,
+      repositorySelection: event.installation.repository_selection,
+    }).onConflictDoUpdate({
+      target: githubAppInstallations.installationId,
+      set: {
+        accountId: account.id,
+        accountType,
+        accountLogin,
+        accountAvatarUrl,
+        accountName,
+        repositorySelection: event.installation.repository_selection,
+        updatedAt: new Date(),
+      },
+    });
 
-  if (event.repositories && event.repositories.length > 0) {
-    await db.insert(installationRepositories).values(
-      event.repositories.map((repo) => ({
-        installationId: event.installation.id,
-        repositoryId: repo.id,
-        fullName: repo.full_name,
-      })),
-    );
-  }
+    if (event.repositories && event.repositories.length > 0) {
+      await tx.insert(installationRepositories).values(
+        event.repositories.map((repo) => ({
+          installationId,
+          repositoryId: repo.id,
+          fullName: repo.full_name,
+        })),
+      ).onConflictDoNothing({
+        target: [installationRepositories.installationId, installationRepositories.repositoryId],
+      });
+    }
+  });
 
   logger.info('Successfully recorded installation', {
     installationId,

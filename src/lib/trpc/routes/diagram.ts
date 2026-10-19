@@ -5,10 +5,11 @@ import { parseGeminiError } from '@/lib/utils/errorHandling';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { db } from '@/db';
 import { tokenUsage, repositoryDiagrams } from '@/db/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, or, desc, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { createGitHubServiceForRepo } from '@/lib/github';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 
 export const diagramRouter = router({
   getDiagram: protectedProcedure
@@ -17,6 +18,10 @@ export const diagramRouter = router({
       const { user, repo, ref, diagramType } = input;
       const normalizedUser = user.toLowerCase();
       const normalizedRepo = repo.toLowerCase();
+
+      if (!await getAccessibleRepositoryInfo(user, repo, ctx.session)) {
+        return { diagramCode: null, cached: false, stale: false, lastUpdated: null, error: 'Unable to access repository' };
+      }
 
       // Check for cached diagram (case-insensitive)
       const cached = await db
@@ -63,28 +68,8 @@ export const diagramRouter = router({
       const normalizedUser = user.toLowerCase();
       const normalizedRepo = repo.toLowerCase();
 
-      // Check repository access and privacy
-      try {
-        const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
-        const repoInfo = await githubService.getRepositoryInfo(user, repo);
-
-        // If the repository is private, check if user has access
-        if (repoInfo.private === true) {
-          // If user is not authenticated, block access
-          if (!ctx.session?.user) {
-            return {
-              diagramCode: null,
-              cached: false,
-              stale: false,
-              lastUpdated: null,
-              error: 'This repository is private',
-            };
-          }
-          // User is authenticated, so they should have access (since we successfully fetched repo info)
-          // Continue to show the diagram
-        }
-      } catch {
-        // If we can't access the repo (404 or no auth), it might be private or user doesn't have access
+      const repoInfo = await getAccessibleRepositoryInfo(user, repo, ctx.session);
+      if (!repoInfo) {
         return {
           diagramCode: null,
           cached: false,
@@ -103,7 +88,13 @@ export const diagramRouter = router({
             sql`LOWER(${repositoryDiagrams.repoOwner}) = ${normalizedUser}`,
             sql`LOWER(${repositoryDiagrams.repoName}) = ${normalizedRepo}`,
             eq(repositoryDiagrams.ref, ref || 'main'),
-            eq(repositoryDiagrams.diagramType, diagramType)
+            eq(repositoryDiagrams.diagramType, diagramType),
+            ...(repoInfo.private && ctx.session?.user?.id
+              ? [eq(repositoryDiagrams.userId, ctx.session.user.id)]
+              : []),
+            ctx.session?.user?.id
+              ? or(eq(repositoryDiagrams.isPrivate, false), eq(repositoryDiagrams.userId, ctx.session.user.id))!
+              : eq(repositoryDiagrams.isPrivate, false)
           )
         )
         .orderBy(desc(repositoryDiagrams.version))
@@ -141,7 +132,9 @@ export const diagramRouter = router({
 
   getDiagramVersions: publicProcedure
     .input(diagramBaseSchema)
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const repoInfo = await getAccessibleRepositoryInfo(input.user, input.repo, ctx.session);
+      if (!repoInfo) return [];
       const normalizedUser = input.user.toLowerCase();
       const normalizedRepo = input.repo.toLowerCase();
       const versions = await db
@@ -152,7 +145,13 @@ export const diagramRouter = router({
             sql`LOWER(${repositoryDiagrams.repoOwner}) = ${normalizedUser}`,
             sql`LOWER(${repositoryDiagrams.repoName}) = ${normalizedRepo}`,
             eq(repositoryDiagrams.ref, input.ref || 'main'),
-            eq(repositoryDiagrams.diagramType, input.diagramType)
+            eq(repositoryDiagrams.diagramType, input.diagramType),
+            ...(repoInfo.private && ctx.session?.user?.id
+              ? [eq(repositoryDiagrams.userId, ctx.session.user.id)]
+              : []),
+            ctx.session?.user?.id
+              ? or(eq(repositoryDiagrams.isPrivate, false), eq(repositoryDiagrams.userId, ctx.session.user.id))!
+              : eq(repositoryDiagrams.isPrivate, false)
           )
         )
         .orderBy(desc(repositoryDiagrams.version));
@@ -170,7 +169,9 @@ export const diagramRouter = router({
 
   getDiagramByVersion: publicProcedure
     .input(diagramBaseSchema.extend({ version: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const repoInfo = await getAccessibleRepositoryInfo(input.user, input.repo, ctx.session);
+      if (!repoInfo) return null;
       const normalizedUser = input.user.toLowerCase();
       const normalizedRepo = input.repo.toLowerCase();
       const result = await db
@@ -182,7 +183,13 @@ export const diagramRouter = router({
             sql`LOWER(${repositoryDiagrams.repoName}) = ${normalizedRepo}`,
             eq(repositoryDiagrams.ref, input.ref || 'main'),
             eq(repositoryDiagrams.diagramType, input.diagramType),
-            eq(repositoryDiagrams.version, input.version)
+            eq(repositoryDiagrams.version, input.version),
+            ...(repoInfo.private && ctx.session?.user?.id
+              ? [eq(repositoryDiagrams.userId, ctx.session.user.id)]
+              : []),
+            ctx.session?.user?.id
+              ? or(eq(repositoryDiagrams.isPrivate, false), eq(repositoryDiagrams.userId, ctx.session.user.id))!
+              : eq(repositoryDiagrams.isPrivate, false)
           )
         )
         .limit(1);
@@ -220,6 +227,7 @@ export const diagramRouter = router({
 
         // NEW: Fetch files on the server-side
         const githubService = await createGitHubServiceForRepo(owner, repo, ctx.session);
+        const repoInfo = await githubService.getRepositoryInfo(owner, repo);
         const { files: repoFiles } = await githubService.getRepositoryFiles(
           owner,
           repo,
@@ -274,6 +282,10 @@ export const diagramRouter = router({
           nextVersion
         });
 
+        const currentRepository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!currentRepository) throw new Error('Repository access could not be verified before saving');
+        const isPrivate = repoInfo.private || currentRepository.private;
+
         await db
           .insert(repositoryDiagrams)
           .values({
@@ -283,6 +295,7 @@ export const diagramRouter = router({
             ref: ref || 'main',
             diagramType,
             version: nextVersion,
+            isPrivate,
             diagramCode: result.diagramCode,
             format: 'mermaid',
             options: options || {},
@@ -298,6 +311,7 @@ export const diagramRouter = router({
               repositoryDiagrams.version
             ],
             set: {
+              isPrivate,
               diagramCode: result.diagramCode,
               format: 'mermaid',
               options: options || {},
@@ -362,4 +376,4 @@ export const diagramRouter = router({
 
       return { success: true };
     }),
-}); 
+});

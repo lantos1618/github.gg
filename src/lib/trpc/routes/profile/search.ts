@@ -5,6 +5,7 @@ import { developerProfileCache } from '@/db/schema';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { generateEmbedding, formatEmbeddingForPg } from '@/lib/ai/embeddings';
 import type { DeveloperProfile } from '@/lib/types/profile';
+import { filterCurrentlyPublicProfiles } from '@/lib/profile/public-provenance';
 
 export const profileSearchRouter = router({
   // Search profiles by skills, archetype, confidence, with semantic search
@@ -49,6 +50,7 @@ export const profileSearchRouter = router({
               GROUP BY username
             ) latest ON p.username = latest.username AND p.version = latest.max_version
             WHERE p.embedding IS NOT NULL
+              AND p.profile_data->>'visibilityVerified' = 'true'
             ${minConfidence ? sql`AND (p.profile_data->>'profileConfidence')::int >= ${minConfidence}` : sql``}
             ${maxConfidence ? sql`AND (p.profile_data->>'profileConfidence')::int <= ${maxConfidence}` : sql``}
             ORDER BY p.embedding <=> ${embeddingStr}::vector
@@ -73,7 +75,8 @@ export const profileSearchRouter = router({
         allProfiles = await fetchLatestProfiles();
       }
 
-      const filtered = allProfiles.filter(profile => {
+      const publicProfiles = await filterCurrentlyPublicProfiles(allProfiles);
+      const filtered = publicProfiles.filter(profile => {
         const data = profile.profileData as DeveloperProfile;
         if (!data) return false;
 
@@ -182,5 +185,6 @@ async function fetchLatestProfiles() {
         eq(developerProfileCache.version, maxVersions.maxVersion)
       )
     )
+    .where(sql`${developerProfileCache.profileData}->>'visibilityVerified' = 'true'`)
     .orderBy(desc(developerProfileCache.updatedAt));
 }

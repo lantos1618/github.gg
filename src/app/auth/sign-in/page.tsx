@@ -4,12 +4,13 @@ import { useEffect } from 'react';
 import { useAuth } from '@/lib/auth/client';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense } from 'react';
+import { safeLocalPath } from '@/lib/utils/safe-local-path';
 
 function SignInContent() {
   const { signIn, isSignedIn, isLoading } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const redirectTo = searchParams.get('redirect') || '/';
+  const redirectTo = safeLocalPath(searchParams.get('redirect')) || '/';
 
   useEffect(() => {
     if (isLoading) return;

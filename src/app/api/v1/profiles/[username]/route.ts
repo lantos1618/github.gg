@@ -51,7 +51,7 @@ export async function GET(
       lastUpdated: data.lastUpdated?.toISOString() || null,
     }, {
       headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        'Cache-Control': 'private, no-store',
       }
     });
   } catch (error) {

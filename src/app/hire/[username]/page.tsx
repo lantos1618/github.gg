@@ -2,7 +2,7 @@ import { Metadata } from 'next';
 import { createCaller } from '@/lib/trpc/server';
 import { HiringReportClient } from './HiringReportClient';
 
-export const revalidate = 600; // ISR: revalidate every 10 minutes
+export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ username: string }>;

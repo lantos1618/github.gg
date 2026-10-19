@@ -22,6 +22,7 @@ import {
   createWikiPage,
 } from '@/lib/wiki/repository';
 import { checkRepositoryWriteAccess } from '@/lib/wiki/permissions';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 
 export const wikiRouter = router({
   /**
@@ -158,8 +159,19 @@ export const wikiRouter = router({
           fileHashes[f.path] = crypto.createHash('sha256').update(f.content).digest('hex');
         });
 
+        // Generation can take minutes. Recheck access and visibility before
+        // writing so a repo made private during generation is never published.
+        const currentRepository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!currentRepository) {
+          yield { type: 'error', message: 'Repository access could not be verified. Please retry.' };
+          return;
+        }
+
         // Insert pages using repository module
-        const result = await insertWikiPages(owner, repo, wikiResult.pages, fileHashes);
+        const result = await insertWikiPages(
+          owner, repo, wikiResult.pages, fileHashes,
+          !repoData.value.data.private && !currentRepository.private
+        );
 
         yield { type: 'progress', progress: 90, message: 'Wiki generation complete!' };
 
@@ -194,11 +206,13 @@ export const wikiRouter = router({
       slug: z.string(),
       version: z.number().optional(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const { owner, repo, slug, version } = input;
 
       try {
-        return await getWikiPage(owner, repo, slug, version);
+        const repository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!repository) return null;
+        return await getWikiPage(owner, repo, slug, version, repository.private);
       } catch (error) {
         console.error('Failed to fetch wiki page:', error);
         return null;
@@ -215,11 +229,13 @@ export const wikiRouter = router({
       repo: z.string(),
       version: z.number().optional(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const { owner, repo, version } = input;
 
       try {
-        return await getWikiTableOfContents(owner, repo, version);
+        const repository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!repository) return { pages: [], version: 0 };
+        return await getWikiTableOfContents(owner, repo, version, repository.private);
       } catch (error) {
         console.error('Failed to fetch wiki table of contents:', error);
         return { pages: [], version: 0 };
@@ -244,7 +260,11 @@ export const wikiRouter = router({
       const username = ctx.session?.user?.name ?? undefined;
 
       try {
-        const success = await incrementViewCount(owner, repo, slug, version, userId, username);
+        const repository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!repository) return { success: false };
+        const page = await getWikiPage(owner, repo, slug, version, repository.private);
+        if (!page) return { success: false };
+        const success = await incrementViewCount(owner, repo, slug, page.version, userId, username);
         return { success };
       } catch (error) {
         console.error('Failed to increment view count:', error);
@@ -252,10 +272,7 @@ export const wikiRouter = router({
       }
     }),
 
-  /**
-   * Get viewers for a wiki page
-   * Public: no authentication required
-   */
+  /** Get viewer identities only for current repository writers. */
   getWikiPageViewers: publicProcedure
     .input(z.object({
       owner: z.string(),
@@ -263,14 +280,21 @@ export const wikiRouter = router({
       slug: z.string(),
       version: z.number().optional(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const { owner, repo, slug, version } = input;
 
       try {
-        return await getWikiPageViewers(owner, repo, slug, version);
+        const repository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!repository) return { viewers: [], totalViews: 0, restricted: true };
+        const page = await getWikiPage(owner, repo, slug, version, repository.private);
+        if (!page) return { viewers: [], totalViews: 0, restricted: true };
+        if (!ctx.session?.user?.id || !await checkRepositoryWriteAccess(ctx.session, owner, repo)) {
+          return { viewers: [], totalViews: 0, restricted: true };
+        }
+        return { ...await getWikiPageViewers(owner, repo, slug, page.version), restricted: false };
       } catch (error) {
         console.error('Failed to fetch wiki page viewers:', error);
-        return { viewers: [], totalViews: 0 };
+        return { viewers: [], totalViews: 0, restricted: true };
       }
     }),
 
@@ -345,7 +369,11 @@ export const wikiRouter = router({
           });
         }
 
-        const page = await updateWikiPage(owner, repo, slug, { title, content, summary });
+        const repository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!repository) throw new TRPCError({ code: 'FORBIDDEN' });
+        const page = await updateWikiPage(owner, repo, slug, {
+          title, content, summary, isPublic: !repository.private,
+        });
 
         if (!page) {
           throw new TRPCError({
@@ -396,7 +424,11 @@ export const wikiRouter = router({
           });
         }
 
-        const page = await createWikiPage(owner, repo, { slug, title, content, summary });
+        const repository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!repository) throw new TRPCError({ code: 'FORBIDDEN' });
+        const page = await createWikiPage(
+          owner, repo, { slug, title, content, summary }, !repository.private
+        );
 
         if (!page) {
           throw new TRPCError({

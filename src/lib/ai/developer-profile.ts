@@ -9,6 +9,7 @@ import { generateObject } from 'ai';
 import { developerProfileSchema } from '@/lib/types/profile';
 import { generateScorecardAnalysis, type ScorecardAnalysisResult } from './scorecard';
 import { and, eq, sql, inArray } from 'drizzle-orm';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 
 // Initialize Resend only if API key is available
 const resend = process.env.RESEND_API_KEY 
@@ -291,7 +292,7 @@ export async function* generateDeveloperProfileStreaming({
 
     // Map uses (owner/name) lowercase keys for case-insensitive lookup.
     const existingScorecardMap = new Map(
-      existingScorecards.map(sc => [`${sc.repoOwner.toLowerCase()}/${sc.repoName.toLowerCase()}`, sc])
+      existingScorecards.filter(sc => !sc.isPrivate).map(sc => [`${sc.repoOwner.toLowerCase()}/${sc.repoName.toLowerCase()}`, sc])
     );
 
     if (process.env.DEBUG_AI === 'true') console.log(`🔍 Found ${existingScorecards.length} existing scorecards`);
@@ -306,6 +307,9 @@ export async function* generateDeveloperProfileStreaming({
       const normalizedRepoName = repoData.repoName.toLowerCase();
       const repoKey = `${normalizedRepoOwner}/${normalizedRepoName}`;
       let result;
+
+      const initialInfo = await getAccessibleRepositoryInfo(repoData.owner, repoData.repoName, null);
+      if (!initialInfo || initialInfo.private) throw new Error(`Repository visibility changed for ${repoKey}`);
 
       // Check if we already have a recent scorecard for this repo (skip if force refresh)
       if (!forceRefreshScorecards && existingScorecardMap.has(repoKey)) {
@@ -354,6 +358,8 @@ export async function* generateDeveloperProfileStreaming({
           const repoRef = repoData.defaultBranch || 'main';
           if (process.env.DEBUG_AI === 'true') console.log(`Saving scorecard for ${normalizedRepoOwner}/${normalizedRepoName}@${repoRef}, userId: ${userId}`);
           try {
+            const currentInfo = await getAccessibleRepositoryInfo(repoData.owner, repoData.repoName, null);
+            if (!currentInfo || currentInfo.private) throw new Error(`Repository visibility changed for ${repoKey}`);
             await db.execute(sql`
               INSERT INTO repository_scorecards (id, "userId", repo_owner, repo_name, ref, version, is_private, overall_score, metrics, markdown, created_at, updated_at)
               SELECT gen_random_uuid(), ${userId}, ${normalizedRepoOwner}, ${normalizedRepoName}, ${repoRef},

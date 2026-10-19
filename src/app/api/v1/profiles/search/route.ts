@@ -4,6 +4,7 @@ import { developerProfileCache } from '@/db/schema';
 import { desc, sql, and } from 'drizzle-orm';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import { requireApiKey, isErrorResponse } from '@/lib/api/auth';
+import { filterCurrentlyPublicProfiles } from '@/lib/profile/public-provenance';
 
 /**
  * GET /api/v1/profiles/search
@@ -45,7 +46,9 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
 
     // Build SQL conditions for filtering
-    const conditions: ReturnType<typeof sql>[] = [];
+    const conditions: ReturnType<typeof sql>[] = [
+      sql`${developerProfileCache.profileData}->>'visibilityVerified' = 'true'`,
+    ];
 
     if (minConfidence !== undefined && minConfidence > 0) {
       conditions.push(
@@ -99,7 +102,7 @@ export async function GET(request: NextRequest) {
       .offset(offset);
 
     // Apply client-side filters that are harder to do in SQL
-    let filtered = allProfiles.filter(profile => {
+    let filtered = (await filterCurrentlyPublicProfiles(allProfiles)).filter(profile => {
       const data = profile.profileData as DeveloperProfile;
 
       // Skills filter - check if profile has matching skills
@@ -159,7 +162,7 @@ export async function GET(request: NextRequest) {
       hasMore,
     }, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        'Cache-Control': 'private, no-store',
       }
     });
   } catch (error) {

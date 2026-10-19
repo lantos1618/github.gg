@@ -18,7 +18,6 @@ interface SerializableInitialProfileData {
   cached: boolean;
   stale: boolean;
   lastUpdated: string | null;
-  email?: string | null;
 }
 
 interface DeveloperProfileProps {
@@ -198,8 +197,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
   const { data: emailData, isLoading: emailLoading } = trpc.profile.getDeveloperEmail.useQuery(
     { username },
     {
-      enabled: !!currentUser?.user,
-      initialData: initialData?.email ? { email: initialData.email, source: 'ssr' } : undefined,
+      enabled: isOwnProfile,
       refetchOnWindowFocus: false,
       staleTime: 10 * 60 * 1000,
     }
@@ -269,7 +267,7 @@ export function DeveloperProfile({ username, initialData }: DeveloperProfileProp
     <div className="mt-2 space-y-1 min-h-[52px]">
       {/* Fixed-height container for email to prevent CLS */}
       <div className="h-5 overflow-hidden">
-        {currentUser?.user && emailLoading ? (
+        {isOwnProfile && emailLoading ? (
           <div className="animate-pulse rounded-md bg-gray-200 h-4 w-32" />
         ) : emailData?.email ? (
           <div className="flex items-center gap-2 text-gray-500">

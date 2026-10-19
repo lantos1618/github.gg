@@ -9,10 +9,11 @@ import { SessionData } from '@/lib/types/errors';
 
 // Factory functions for different authentication methods
 export class GitHubAuthFactory {
-  // Create service with public API key (for unauthenticated users)
+  // Never use a configured token for anonymous requests. A token supplied via
+  // GITHUB_PUBLIC_API_KEY may have access to private repositories, so treating
+  // it as "public" would bypass repository authorization on fallback paths.
   static createPublic(): Octokit {
-    console.log('🔑 Using public GitHub API key');
-    return new Octokit({ auth: process.env.GITHUB_PUBLIC_API_KEY! });
+    return new Octokit();
   }
 
   // Create service with GitHub App installation (for authenticated users with installations)
@@ -48,9 +49,17 @@ export class GitHubAuthFactory {
     }
 
     try {
+      const githubAccount = await db.query.account.findFirst({
+        where: and(
+          eq(account.userId, session.user.id),
+          eq(account.providerId, 'github')
+        ),
+      });
+      if (!githubAccount) return null;
+
       const { accessToken } = await auth.api.getAccessToken({
         body: {
-          providerId: 'github',
+          accountId: githubAccount.id,
           userId: session.user.id,
         },
         headers: {},
@@ -77,4 +86,4 @@ export class GitHubAuthFactory {
       auth: session.accessToken,
     });
   }
-} 
+}

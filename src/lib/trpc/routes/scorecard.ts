@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { repositoryScorecards, tokenUsage } from '@/db/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, or, desc, sql } from 'drizzle-orm';
 import { generateScorecardAnalysis } from '@/lib/ai/scorecard';
 import { TRPCError } from '@trpc/server';
 import { scorecardSchema } from '@/lib/types/scorecard';
@@ -13,6 +13,7 @@ import { repoRefInputSchema } from '@/lib/trpc/helpers/repo-input';
 import { createJob, consumeJob } from '@/lib/analysis/job-store';
 import { generateScorecardEmbedding } from '@/lib/ai/embeddings';
 import { normalizeRepoIdent } from '@/lib/normalize';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 
 export const scorecardRouter = router({
   // Step 1: POST mutation to store file selection, returns a short jobId
@@ -84,7 +85,7 @@ export const scorecardRouter = router({
         const repoInfo = await githubService.getRepositoryInfo(job.user, job.repo);
         console.log(`${tag} getRepositoryInfo ${elapsed()} private=${repoInfo.private} defaultBranch=${repoInfo.defaultBranch}`);
         const ref = (!job.ref || job.ref === 'main') ? (repoInfo.defaultBranch || 'main') : job.ref;
-        const isPrivate = repoInfo.private === true;
+        const initiallyPrivate = repoInfo.private === true;
 
         yield { type: 'progress', progress: 5, message: 'Fetching repository files...' };
 
@@ -252,16 +253,19 @@ export const scorecardRouter = router({
         }
 
         // Content changed or no existing version, create new version
+        let isPrivate = initiallyPrivate;
         const { insertedRecord } = await executeAnalysisWithVersioning({
           userId: ctx.user.id,
           feature: 'scorecard',
           repoOwner: repoOwnerNormalized,
           repoName: repoNameNormalized,
           table: repositoryScorecards,
-          generateFn: async () => ({
-            data: parsedData,
-            usage: result.usage,
-          }),
+          generateFn: async () => {
+            const currentInfo = await getAccessibleRepositoryInfo(job.user, job.repo, ctx.session);
+            if (!currentInfo) throw new Error('Repository visibility could not be verified before saving scorecard');
+            isPrivate = initiallyPrivate || currentInfo.private;
+            return { data: parsedData, usage: result.usage };
+          },
           versioningConditions: [
             eq(repositoryScorecards.userId, ctx.user.id),
             eq(repositoryScorecards.repoOwner, repoOwnerNormalized),
@@ -357,15 +361,9 @@ export const scorecardRouter = router({
       }
     }),
 
-  // Unified public endpoint: fetch latest or specific version of a scorecard for a repo/ref.
-  //
-  // Cache-first. We trust the `is_private` column written when the scorecard was
-  // generated (the write path validates privacy via the GitHub App). Calling
-  // GitHub on every read was both slow and unreliable — a flake there used to
-  // wrongly mark a public repo as private and block signed-out users from a
-  // perfectly visible cached scorecard. Now we only ping GitHub if the cached
-  // row is flagged private *and* the caller is signed-out, to confirm whether
-  // the repo has gone public since (self-healing flip).
+  // Fetch the latest or a specific version only after checking the repository's
+  // current visibility and this caller's current access. Cached privacy flags
+  // can be stale when a repository changes visibility or access is revoked.
   publicGetScorecard: publicProcedure
     .input(repoRefInputSchema)
     .query(async ({ input, ctx }) => {
@@ -373,12 +371,29 @@ export const scorecardRouter = router({
       const { owner: normalizedUser, repo: normalizedRepo } = normalizeRepoIdent({ owner: user, repo });
       const ref = input.ref;
 
+      const repoInfo = await getAccessibleRepositoryInfo(user, repo, ctx.session);
+      if (!repoInfo) {
+        return { scorecard: null, cached: false, stale: false, lastUpdated: null, error: 'Unable to access repository' };
+      }
+
       // Look up cache. Try the resolved ref first; if nothing, fall back to ANY
       // ref for the same repo — guards against historical main↔master mismatches.
       const baseConditions = [
         sql`LOWER(${repositoryScorecards.repoOwner}) = LOWER(${normalizedUser})`,
         sql`LOWER(${repositoryScorecards.repoName}) = ${normalizedRepo}`,
       ];
+      if (repoInfo.private && ctx.session?.user?.id) {
+        baseConditions.push(eq(repositoryScorecards.userId, ctx.session.user.id));
+      } else if (!repoInfo.private) {
+        // A scorecard generated while private can still contain old private
+        // source even if the repository has since become public.
+        baseConditions.push(ctx.session?.user?.id
+          ? or(
+              eq(repositoryScorecards.isPrivate, false),
+              eq(repositoryScorecards.userId, ctx.session.user.id)
+            )!
+          : eq(repositoryScorecards.isPrivate, false));
+      }
       if (version !== undefined) {
         baseConditions.push(eq(repositoryScorecards.version, version));
       }
@@ -404,32 +419,6 @@ export const scorecardRouter = router({
       if (cached.length > 0) {
         const scorecard = cached[0];
 
-        // Cached row was generated for a private repo. Signed-in caller sees it
-        // (matches prior behaviour: signed-in = trusted). Signed-out caller has
-        // to be gated — but the repo may have gone public since, so re-verify
-        // with GitHub and self-heal the flag on flip.
-        if (scorecard.isPrivate && !ctx.session?.user) {
-          let nowPublic = false;
-          try {
-            const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
-            const repoInfo = await githubService.getRepositoryInfo(user, repo);
-            nowPublic = repoInfo.private === false;
-          } catch (err) {
-            const message = (err as { message?: string })?.message;
-            console.warn(`[publicGetScorecard ${normalizedUser}/${normalizedRepo}] privacy re-check failed:`, message);
-          }
-          if (!nowPublic) {
-            return { scorecard: null, cached: false, stale: false, lastUpdated: null, error: 'This repository is private' };
-          }
-          // Repo is public now — flip the flag so future signed-out reads skip
-          // this check entirely. Fire-and-forget; failure here is harmless.
-          db
-            .update(repositoryScorecards)
-            .set({ isPrivate: false })
-            .where(eq(repositoryScorecards.id, scorecard.id))
-            .catch((err) => console.warn('[publicGetScorecard] flag flip failed:', err));
-        }
-
         const isStale = new Date().getTime() - scorecard.updatedAt.getTime() > 24 * 60 * 60 * 1000;
         return {
           scorecard: {
@@ -448,7 +437,9 @@ export const scorecardRouter = router({
 
   getScorecardVersions: publicProcedure
     .input(z.object({ user: z.string(), repo: z.string(), ref: z.string().optional().default('main') }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const repoInfo = await getAccessibleRepositoryInfo(input.user, input.repo, ctx.session);
+      if (!repoInfo) return [];
       const { owner: normalizedUser, repo: normalizedRepo } = normalizeRepoIdent({
         owner: input.user,
         repo: input.repo,
@@ -460,7 +451,15 @@ export const scorecardRouter = router({
           and(
             sql`LOWER(${repositoryScorecards.repoOwner}) = LOWER(${normalizedUser})`,
             sql`LOWER(${repositoryScorecards.repoName}) = ${normalizedRepo}`,
-            eq(repositoryScorecards.ref, input.ref)
+            eq(repositoryScorecards.ref, input.ref),
+            ...(repoInfo.private && ctx.session?.user?.id
+              ? [eq(repositoryScorecards.userId, ctx.session.user.id)]
+              : [ctx.session?.user?.id
+                ? or(
+                    eq(repositoryScorecards.isPrivate, false),
+                    eq(repositoryScorecards.userId, ctx.session.user.id)
+                  )!
+                : eq(repositoryScorecards.isPrivate, false)])
           )
         )
         .orderBy(desc(repositoryScorecards.version));
@@ -489,6 +488,7 @@ export const scorecardRouter = router({
         : eq(repositoryScorecards.isPrivate, false);
       
       const scorecards = await db.select({
+        userId: repositoryScorecards.userId,
         repoOwner: repositoryScorecards.repoOwner,
         repoName: repositoryScorecards.repoName,
         ref: repositoryScorecards.ref,
@@ -504,8 +504,23 @@ export const scorecardRouter = router({
       .limit(input.limit)
       .offset(input.offset);
 
+      const repositoryAccess = new Map<string, { private: boolean } | null>();
+      await Promise.all([...new Set(scorecards.map((scorecard) =>
+        `${scorecard.repoOwner.toLowerCase()}/${scorecard.repoName.toLowerCase()}`
+      ))].map(async (key) => {
+        const scorecard = scorecards.find((item) =>
+          `${item.repoOwner.toLowerCase()}/${item.repoName.toLowerCase()}` === key
+        )!;
+        repositoryAccess.set(key, await getAccessibleRepositoryInfo(
+          scorecard.repoOwner, scorecard.repoName, ctx.session
+        ));
+      }));
+
       const latestRepos = new Map<string, typeof scorecards[0]>();
       for (const scorecard of scorecards) {
+        const accessKey = `${scorecard.repoOwner.toLowerCase()}/${scorecard.repoName.toLowerCase()}`;
+        const access = repositoryAccess.get(accessKey);
+        if (!access || (access.private && scorecard.userId !== currentUserId)) continue;
         const key = `${scorecard.repoOwner}/${scorecard.repoName}/${scorecard.ref}`;
         const existing = latestRepos.get(key);
         if (!existing || scorecard.version > existing.version) {
@@ -513,9 +528,9 @@ export const scorecardRouter = router({
         }
       }
 
-      return Array.from(latestRepos.values()).sort((a, b) =>
-        b.updatedAt.getTime() - a.updatedAt.getTime()
-      );
+      return Array.from(latestRepos.values())
+        .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+        .map(({ userId: _userId, ...scorecard }) => scorecard);
     }),
 
 });

@@ -5,7 +5,9 @@ import { db } from '@/db';
 import { tokenUsage, developerProfileCache } from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { generateDeveloperProfileStreaming } from '@/lib/ai/developer-profile';
-import { createGitHubServiceForUserOperations } from '@/lib/github';
+import { createGitHubServiceForRepo, createGitHubServiceForUserOperations } from '@/lib/github';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
+import { areRepositoriesCurrentlyPublic, withVerifiedPublicSources } from '@/lib/profile/public-provenance';
 
 export const adminProfileRouter = router({
   // Admin Mass Generate Profile Subscription
@@ -36,6 +38,11 @@ export const adminProfileRouter = router({
           })
           .slice(0, 15);
 
+        const profileSourceRepos = smartSortedRepos.map(repo => ({ owner: repo.owner, name: repo.name }));
+        if (!(await areRepositoriesCurrentlyPublic(profileSourceRepos))) {
+          throw new Error('Repository visibility could not be verified as public. Please retry.');
+        }
+
         yield { type: 'progress', progress: 10, message: `Found ${smartSortedRepos.length} repositories` };
 
         // Fetch files for top 5 repos for deep analysis
@@ -52,8 +59,11 @@ export const adminProfileRouter = router({
           yield { type: 'progress', progress: 15, message: 'Fetching repository files...' };
 
           const fileFetchPromises = topRepos.map(async (repo) => {
+            const currentInfo = await getAccessibleRepositoryInfo(repo.owner, repo.name, null);
+            if (!currentInfo || currentInfo.private) throw new Error(`Repository visibility changed for ${repo.owner}/${repo.name}`);
             try {
-              const files = await githubService.getRepositoryFiles(username, repo.name, 'main');
+              const publicService = await createGitHubServiceForRepo(repo.owner, repo.name, null);
+              const files = await publicService.getRepositoryFiles(repo.owner, repo.name, repo.defaultBranch || 'main');
               const importantFiles = files.files.filter((file: { path: string; size: number }) =>
                 !file.path.includes('node_modules') &&
                 !file.path.includes('.git') &&
@@ -66,8 +76,8 @@ export const adminProfileRouter = router({
               const fileContents = await Promise.all(
                 importantFiles.map(async (file: { path: string; size: number }) => {
                   try {
-                    const response = await githubService['octokit'].repos.getContent({
-                      owner: username,
+                    const response = await publicService.octokit.repos.getContent({
+                      owner: repo.owner,
                       repo: repo.name,
                       path: file.path,
                     });
@@ -89,6 +99,10 @@ export const adminProfileRouter = router({
               };
               return null;
             } catch { return null; }
+            finally {
+              const latestInfo = await getAccessibleRepositoryInfo(repo.owner, repo.name, null);
+              if (!latestInfo || latestInfo.private) throw new Error(`Repository visibility changed for ${repo.owner}/${repo.name}`);
+            }
           });
 
           const fileResults = await Promise.all(fileFetchPromises);
@@ -114,6 +128,11 @@ export const adminProfileRouter = router({
 
         if (!result) throw new Error("Failed to generate profile");
 
+        if (!(await areRepositoriesCurrentlyPublic(profileSourceRepos))) {
+          throw new Error('Repository visibility changed during profile generation. Please retry.');
+        }
+        const publicProfile = withVerifiedPublicSources(result.profile, profileSourceRepos);
+
         // Save Profile
         const maxVersionResult = await db
           .select({ max: sql<number | null>`COALESCE(MAX(version), 0)` })
@@ -126,7 +145,7 @@ export const adminProfileRouter = router({
           .values({
             username: normalizedUsername,
             version: nextVersion,
-            profileData: result.profile,
+            profileData: publicProfile,
             updatedAt: new Date(),
           });
 

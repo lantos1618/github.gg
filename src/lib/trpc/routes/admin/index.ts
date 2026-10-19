@@ -12,6 +12,7 @@ import { GEMINI_FLASH } from '@/lib/ai/models';
 import { adminProfileRouter } from './profile';
 import { adminNetworkRouter } from './network';
 import { adminAnalyticsRouter } from './analytics';
+import { areRepositoriesCurrentlyPublic, withVerifiedPublicSources } from '@/lib/profile/public-provenance';
 
 export const adminRouter = router({
   // Admin check
@@ -123,6 +124,10 @@ ${input.text}`,
           }
 
           const topRepos = repos.filter(r => !r.fork).sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0)).slice(0, 5);
+          const sourceRepos = topRepos.map(repo => ({ owner: repo.owner, name: repo.name }));
+          if (!(await areRepositoriesCurrentlyPublic(sourceRepos))) {
+            throw new Error('Repository visibility could not be verified as public');
+          }
 
           // Run the streaming generator
           const generator = generateDeveloperProfileStreaming({ username, repos: topRepos, userId: ctx.user.id });
@@ -136,13 +141,18 @@ ${input.text}`,
             return { processed: true, username, status: 'failed', error: 'No result' };
           }
 
+          if (!(await areRepositoriesCurrentlyPublic(sourceRepos))) {
+            throw new Error('Repository visibility changed during profile generation');
+          }
+          const publicProfile = withVerifiedPublicSources(result.profile, sourceRepos);
+
           // Cache the profile
           const normalizedUsername = username.toLowerCase();
           await db.execute(sql`
             INSERT INTO developer_profile_cache (id, username, version, profile_data, created_at, updated_at)
             SELECT gen_random_uuid(), ${normalizedUsername},
                    COALESCE(MAX(version), 0) + 1,
-                   ${JSON.stringify(result.profile)}::jsonb,
+                   ${JSON.stringify(publicProfile)}::jsonb,
                    NOW(), NOW()
             FROM developer_profile_cache
             WHERE username = ${normalizedUsername}

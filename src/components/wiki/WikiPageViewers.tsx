@@ -18,8 +18,9 @@ export function WikiPageViewers({ owner, repo, slug, version, totalViewCount }: 
   const [isOpen, setIsOpen] = useState(false);
   const { data } = trpc.wiki.getWikiPageViewers.useQuery({ owner, repo, slug, version });
 
+  const viewerDetailsRestricted = data?.restricted !== false;
   const registeredUserViews = data?.totalViews || 0;
-  const guestViews = Math.max(0, totalViewCount - registeredUserViews);
+  const guestViews = viewerDetailsRestricted ? 0 : Math.max(0, totalViewCount - registeredUserViews);
   const registeredUserCount = data?.viewers.length || 0;
 
   useEffect(() => {
@@ -59,8 +60,14 @@ export function WikiPageViewers({ owner, repo, slug, version, totalViewCount }: 
                 {totalViewCount}
               </div>
               <div className="flex items-center gap-3 text-[13px] text-[#aaa] mt-1">
-                <span>{registeredUserCount} users</span>
-                <span>~{guestViews} guests</span>
+                {viewerDetailsRestricted ? (
+                  <span>Viewer details are available to repository maintainers</span>
+                ) : (
+                  <>
+                    <span>{registeredUserCount} users</span>
+                    <span>~{guestViews} guests</span>
+                  </>
+                )}
               </div>
             </div>
             <button onClick={() => setIsOpen(false)} className="p-1.5 text-[#aaa] hover:text-[#111] transition-colors">
@@ -69,7 +76,10 @@ export function WikiPageViewers({ owner, repo, slug, version, totalViewCount }: 
           </div>
 
           <div className="flex-1 overflow-y-auto p-6">
-            {registeredUserCount > 0 && (
+            {viewerDetailsRestricted && (
+              <p className="text-base text-[#aaa]">Sign in with repository write access to see viewer details.</p>
+            )}
+            {!viewerDetailsRestricted && registeredUserCount > 0 && (
               <div className="mb-6">
                 <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
                   Users ({registeredUserCount})
@@ -107,7 +117,7 @@ export function WikiPageViewers({ owner, repo, slug, version, totalViewCount }: 
               </div>
             )}
 
-            {guestViews > 0 && (
+            {!viewerDetailsRestricted && guestViews > 0 && (
               <div>
                 <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
                   Guest Views
@@ -118,7 +128,7 @@ export function WikiPageViewers({ owner, repo, slug, version, totalViewCount }: 
               </div>
             )}
 
-            {registeredUserCount === 0 && guestViews === 0 && (
+            {!viewerDetailsRestricted && registeredUserCount === 0 && guestViews === 0 && (
               <div className="py-12 text-center">
                 <p className="text-base text-[#aaa]">No views yet</p>
               </div>

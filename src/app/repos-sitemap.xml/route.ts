@@ -1,6 +1,9 @@
 import { db } from '@/db';
 import { repositoryScorecards, cachedRepos, trendingRepos } from '@/db/schema';
-import { sql, desc } from 'drizzle-orm';
+import { desc, eq, isNull } from 'drizzle-orm';
+import { getCurrentlyPublicRepositoryKeys } from '@/lib/github/public-visibility';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const baseUrl = 'https://github.gg';
@@ -14,8 +17,10 @@ export async function GET() {
         updatedAt: repositoryScorecards.updatedAt,
       })
       .from(repositoryScorecards)
+      // Old scorecards made while private can retain removed private code.
+      .where(eq(repositoryScorecards.isPrivate, false))
       .orderBy(desc(repositoryScorecards.updatedAt))
-      .limit(5000);
+      .limit(500);
 
     // Get trending repos
     const trending = await db
@@ -26,7 +31,7 @@ export async function GET() {
       })
       .from(trendingRepos)
       .orderBy(desc(trendingRepos.starsThisWeek))
-      .limit(500);
+      .limit(150);
 
     // Get popular cached repos
     const popular = await db
@@ -36,8 +41,10 @@ export async function GET() {
         updatedAt: cachedRepos.updatedAt,
       })
       .from(cachedRepos)
+      // OAuth-owned cache rows can contain private repository metadata.
+      .where(isNull(cachedRepos.userId))
       .orderBy(desc(cachedRepos.stargazersCount))
-      .limit(1000);
+      .limit(150);
 
     // Deduplicate repos
     const repoMap = new Map<string, { owner: string; name: string; updatedAt: Date; priority: number }>();
@@ -66,13 +73,16 @@ export async function GET() {
       }
     });
 
-    const repos = Array.from(repoMap.values());
+    const publicKeys = await getCurrentlyPublicRepositoryKeys(Array.from(repoMap.values()));
+    const repos = Array.from(repoMap.entries())
+      .filter(([key]) => publicKeys.has(key))
+      .map(([, repository]) => repository);
 
     const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   ${repos.map(repo => `
   <url>
-    <loc>${baseUrl}/${repo.owner}/${repo.name}</loc>
+    <loc>${baseUrl}/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}</loc>
     <lastmod>${repo.updatedAt.toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>${repo.priority}</priority>
@@ -82,7 +92,7 @@ export async function GET() {
     return new Response(sitemap, {
       headers: {
         'Content-Type': 'application/xml',
-        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+        'Cache-Control': 'no-store',
       },
     });
   } catch (error) {

@@ -1,6 +1,8 @@
 import { db } from '@/db';
-import { developerProfileCache } from '@/db/schema';
-import { sql, desc } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
+import { filterCurrentlyPublicProfiles } from '@/lib/profile/public-provenance';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const baseUrl = 'https://github.gg';
@@ -11,8 +13,10 @@ export async function GET() {
       SELECT DISTINCT ON (username)
         username,
         updated_at as "updatedAt",
+        profile_data as "profileData",
         (profile_data->>'profileConfidence')::int as confidence
       FROM developer_profile_cache
+      WHERE profile_data->>'visibilityVerified' = 'true'
       ORDER BY username, version DESC
     `);
 
@@ -20,10 +24,13 @@ export async function GET() {
       username: string;
       updatedAt: Date;
       confidence: number | null;
+      profileData: unknown;
     }>;
 
+    const publicProfiles = await filterCurrentlyPublicProfiles(profileRows);
+
     // Sort by confidence (higher confidence = better profile = higher priority)
-    const sortedProfiles = profileRows.sort((a, b) =>
+    const sortedProfiles = publicProfiles.sort((a, b) =>
       (b.confidence || 0) - (a.confidence || 0)
     );
 
@@ -37,7 +44,7 @@ export async function GET() {
 
     return `
   <url>
-    <loc>${baseUrl}/hire/${profile.username}</loc>
+    <loc>${baseUrl}/hire/${encodeURIComponent(profile.username)}</loc>
     <lastmod>${new Date(profile.updatedAt).toISOString()}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>${priority.toFixed(1)}</priority>
@@ -48,7 +55,7 @@ export async function GET() {
     return new Response(sitemap, {
       headers: {
         'Content-Type': 'application/xml',
-        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+        'Cache-Control': 'no-store',
       },
     });
   } catch (error) {

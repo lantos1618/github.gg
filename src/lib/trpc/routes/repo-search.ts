@@ -3,8 +3,12 @@ import { router, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { sql } from 'drizzle-orm';
 import { generateEmbedding, formatEmbeddingForPg } from '@/lib/ai/embeddings';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
+import type { BetterAuthSession } from '@/lib/github';
 
 interface ScorecardSearchRow {
+  userId: string;
+  isPrivate: boolean;
   repoOwner: string;
   repoName: string;
   ref: string | null;
@@ -12,6 +16,25 @@ interface ScorecardSearchRow {
   version: number;
   updatedAt: Date;
   similarityScore?: number;
+}
+
+async function visibleScorecards<Row extends ScorecardSearchRow>(rows: Row[], session: BetterAuthSession | null) {
+  const repoAccess = new Map<string, { private: boolean } | null>();
+  const uniqueRepos = new Map<string, ScorecardSearchRow>();
+  for (const row of rows) {
+    uniqueRepos.set(`${row.repoOwner.toLowerCase()}/${row.repoName.toLowerCase()}`, row);
+  }
+  await Promise.all([...uniqueRepos].map(async ([key, row]) => {
+    repoAccess.set(key, await getAccessibleRepositoryInfo(row.repoOwner, row.repoName, session));
+  }));
+
+  return rows
+    .filter((row) => {
+      const access = repoAccess.get(`${row.repoOwner.toLowerCase()}/${row.repoName.toLowerCase()}`);
+      return access && (!access.private || row.userId === session?.user?.id)
+        && (!row.isPrivate || row.userId === session?.user?.id);
+    })
+    .map(({ userId: _userId, isPrivate: _isPrivate, ...row }) => row);
 }
 
 export const repoSearchRouter = router({
@@ -34,7 +57,7 @@ export const repoSearchRouter = router({
       // users additionally see their own private ones (matches getAllAnalyzedRepos).
       const currentUserId = ctx.session?.user?.id;
       const visibilityClause = currentUserId
-        ? sql`(s.is_private = false OR s.user_id = ${currentUserId})`
+        ? sql`(s.is_private = false OR s."userId" = ${currentUserId})`
         : sql`s.is_private = false`;
 
       // Latest version per (repo_owner, repo_name, ref). We collapse on
@@ -67,6 +90,8 @@ export const repoSearchRouter = router({
           const vectorResults = await db.execute(sql`
             WITH latest AS (${latestPartition})
             SELECT
+              l."userId" as "userId",
+              l.is_private as "isPrivate",
               l.repo_owner as "repoOwner",
               l.repo_name as "repoName",
               l.ref as "ref",
@@ -80,6 +105,8 @@ export const repoSearchRouter = router({
             LIMIT ${fetchLimit}
           `);
           rows = (vectorResults as unknown as Array<{
+            userId: string;
+            isPrivate: boolean;
             repoOwner: string;
             repoName: string;
             ref: string | null;
@@ -88,6 +115,8 @@ export const repoSearchRouter = router({
             updatedAt: Date;
             similarity_score: number;
           }>).map(r => ({
+            userId: r.userId,
+            isPrivate: r.isPrivate,
             repoOwner: r.repoOwner,
             repoName: r.repoName,
             ref: r.ref,
@@ -111,6 +140,8 @@ export const repoSearchRouter = router({
           const ilikeResults = await db.execute(sql`
             WITH latest AS (${latestPartition})
             SELECT
+              l."userId" as "userId",
+              l.is_private as "isPrivate",
               l.repo_owner as "repoOwner",
               l.repo_name as "repoName",
               l.ref as "ref",
@@ -139,10 +170,11 @@ export const repoSearchRouter = router({
         // Semantic mode over-fetches up to fetchLimit; total/hasMore reflect
         // what we have in hand, not a global COUNT (that would require a
         // second pass). Good enough for UI hint, not authoritative.
+        const accessible = await visibleScorecards(rows.slice(offset, offset + limit), ctx.session);
         return {
-          results: rows.slice(offset, offset + limit),
-          total: rows.length,
-          hasMore: rows.length > offset + limit,
+          results: accessible,
+          total: accessible.length,
+          hasMore: accessible.length === limit && rows.length > offset + limit,
           mode: 'semantic' as const,
           totalIsExact: false,
         };
@@ -152,6 +184,8 @@ export const repoSearchRouter = router({
       const browseResults = await db.execute(sql`
         WITH latest AS (${latestPartition})
         SELECT
+          l."userId" as "userId",
+          l.is_private as "isPrivate",
           l.repo_owner as "repoOwner",
           l.repo_name as "repoName",
           l.ref as "ref",
@@ -166,10 +200,11 @@ export const repoSearchRouter = router({
         ...r,
         updatedAt: new Date(r.updatedAt),
       }));
+      const accessible = await visibleScorecards(rows, ctx.session);
       return {
-        results: rows,
-        total: rows.length,
-        hasMore: rows.length === limit,
+        results: accessible,
+        total: accessible.length,
+        hasMore: accessible.length === limit,
         mode: 'browse' as const,
       };
     }),
@@ -185,8 +220,10 @@ export const repoSearchRouter = router({
     .query(async ({ input, ctx }) => {
       const { owner, repo, limit } = input;
       const currentUserId = ctx.session?.user?.id;
+      const sourceAccess = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+      if (!sourceAccess) return { results: [], mode: 'unavailable' as const };
       const visibilityClause = currentUserId
-        ? sql`(s.is_private = false OR s.user_id = ${currentUserId})`
+        ? sql`(s.is_private = false OR s."userId" = ${currentUserId})`
         : sql`s.is_private = false`;
 
       // Source row: the latest embedded scorecard for the given (owner, repo).
@@ -194,19 +231,19 @@ export const repoSearchRouter = router({
       // unauthenticated caller can probe whether a private scorecard exists
       // by observing whether this endpoint returns results vs 'unavailable'.
       const sourceResult = await db.execute(sql`
-        SELECT embedding
+        SELECT embedding, "userId" as "userId", is_private as "isPrivate"
         FROM repository_scorecards
         WHERE LOWER(repo_owner) = LOWER(${owner})
           AND LOWER(repo_name) = LOWER(${repo})
           AND embedding IS NOT NULL
           AND ${currentUserId
-            ? sql`(is_private = false OR user_id = ${currentUserId})`
+            ? sql`(is_private = false OR "userId" = ${currentUserId})`
             : sql`is_private = false`}
         ORDER BY updated_at DESC, version DESC
         LIMIT 1
       `);
-      const source = sourceResult[0] as { embedding: string | null } | undefined;
-      if (!source?.embedding) {
+      const source = sourceResult[0] as { embedding: string | null; userId: string; isPrivate: boolean } | undefined;
+      if (!source?.embedding || ((sourceAccess.private || source.isPrivate) && source.userId !== currentUserId)) {
         return { results: [], mode: 'unavailable' as const };
       }
 
@@ -233,6 +270,8 @@ export const repoSearchRouter = router({
           WHERE t.rn = 1
         )
         SELECT
+          l."userId" as "userId",
+          l.is_private as "isPrivate",
           l.repo_owner as "repoOwner",
           l.repo_name as "repoName",
           l.ref as "ref",
@@ -247,6 +286,8 @@ export const repoSearchRouter = router({
       `);
 
       const rows = (neighbours as unknown as Array<{
+        userId: string;
+        isPrivate: boolean;
         repoOwner: string;
         repoName: string;
         ref: string | null;
@@ -255,6 +296,8 @@ export const repoSearchRouter = router({
         updatedAt: Date;
         similarity_score: number;
       }>).map(r => ({
+        userId: r.userId,
+        isPrivate: r.isPrivate,
         repoOwner: r.repoOwner,
         repoName: r.repoName,
         ref: r.ref,
@@ -264,6 +307,6 @@ export const repoSearchRouter = router({
         similarityScore: Number(r.similarity_score) || 0,
       }));
 
-      return { results: rows, mode: 'semantic' as const };
+      return { results: await visibleScorecards(rows, ctx.session), mode: 'semantic' as const };
     }),
 });

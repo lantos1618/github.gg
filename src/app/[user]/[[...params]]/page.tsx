@@ -20,8 +20,7 @@ import { ProfileJsonLd } from '@/components/seo/ProfileJsonLd';
 import { RepoJsonLd } from '@/components/seo/RepoJsonLd';
 import { createCaller } from '@/lib/trpc/server';
 
-// Use ISR with 5-minute revalidation to cache profile pages and reduce DB load
-export const revalidate = 300;
+export const dynamic = 'force-dynamic';
 
 interface PageProps {
   params: Promise<{
@@ -35,7 +34,6 @@ interface SerializableInitialProfileData {
   cached: boolean;
   stale: boolean;
   lastUpdated: string | null;
-  email?: string | null;
 }
 
 import { DeveloperProfile } from '@/components/profile';
@@ -103,7 +101,6 @@ async function ProfileLoader({ user }: { user: string }) {
     cached: data.cached,
     stale: data.stale,
     lastUpdated: data.lastUpdated?.toISOString() ?? null,
-    email: data.email,
   };
   return (
     <>

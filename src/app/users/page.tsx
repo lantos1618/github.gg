@@ -2,7 +2,7 @@ import { createCaller } from '@/lib/trpc/server';
 import { UsersClientView } from '@/components/users/UsersClientView';
 import type { Metadata } from 'next';
 
-export const revalidate = 300; // ISR: revalidate every 5 minutes
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Developer Profiles - gh.gg',

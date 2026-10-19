@@ -8,6 +8,7 @@ import { tokenUsage, issueAnalysisCache } from '@/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 
 export const githubAnalysisIssueAnalysisRouter = router({
   // Get all issues for a repository
@@ -201,6 +202,10 @@ export const githubAnalysisIssueAnalysisRouter = router({
 
         const nextVersion = latestAnalysis.length > 0 ? latestAnalysis[0].version + 1 : 1;
 
+        const currentRepository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!currentRepository) throw new Error('Repository access could not be verified before saving');
+        const isPrivate = repoData.data.private || currentRepository.private;
+
         // Cache the analysis
         try {
           await db.insert(issueAnalysisCache).values({
@@ -209,6 +214,7 @@ export const githubAnalysisIssueAnalysisRouter = router({
             repoName: repo,
             issueNumber: number,
             version: nextVersion,
+            isPrivate,
             overallScore: analysisResult.analysis.overallScore,
             slopRanking: analysisResult.analysis.slopRanking,
             suggestedPriority: analysisResult.analysis.suggestedPriority,

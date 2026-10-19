@@ -8,9 +8,13 @@ import { generateProfileEmbedding } from '@/lib/ai/embeddings';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
 import { TRPCError } from '@trpc/server';
-import { createGitHubServiceForUserOperations, type RepoSummary } from '@/lib/github';
+import { createGitHubServiceForRepo, createGitHubServiceForUserOperations, type RepoSummary } from '@/lib/github';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
+import { getCurrentlyPublicRepositoryKeys } from '@/lib/github/public-visibility';
+import { areRepositoriesCurrentlyPublic, filterCurrentlyPublicProfiles, withVerifiedPublicSources } from '@/lib/profile/public-provenance';
 import type { Octokit } from '@octokit/rest';
 import { isPgErrorWithCode } from '@/lib/db/utils';
+import { isCurrentGitHubProfileOwner } from '@/lib/profile/service';
 
 /**
  * Build the deduped list of repos to scan when extracting a developer's email.
@@ -133,7 +137,8 @@ export const profileGenerateRouter = router({
         .orderBy(desc(developerProfileCache.version))
         .limit(1);
 
-      const hasRecentProfile = recentProfile.length > 0 &&
+      const publicRecentProfile = await filterCurrentlyPublicProfiles(recentProfile);
+      const hasRecentProfile = publicRecentProfile.length > 0 &&
         (new Date().getTime() - recentProfile[0].updatedAt.getTime() < 5 * 60 * 1000);
 
       const { isGenerationInProgress } = await import('@/lib/rate-limit');
@@ -141,7 +146,7 @@ export const profileGenerateRouter = router({
 
       return {
         hasRecentProfile,
-        profile: hasRecentProfile ? recentProfile[0].profileData : null,
+        profile: hasRecentProfile ? publicRecentProfile[0].profileData : null,
         lockExists,
         canReconnect: lockExists && !hasRecentProfile,
       };
@@ -176,7 +181,7 @@ export const profileGenerateRouter = router({
         if (recentProfile.length > 0) {
           const profile = recentProfile[0];
           const timeSinceUpdate = new Date().getTime() - profile.updatedAt.getTime();
-          if (timeSinceUpdate < 5 * 60 * 1000) {
+          if (timeSinceUpdate < 5 * 60 * 1000 && (await filterCurrentlyPublicProfiles([profile])).length > 0) {
             yield { type: 'progress', progress: 100, message: 'Profile was just generated! Loading results...' };
             yield {
               type: 'complete',
@@ -263,6 +268,7 @@ export const profileGenerateRouter = router({
             if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
             return (b.stargazersCount || 0) - (a.stargazersCount || 0);
           });
+          smartSortedRepos = smartSortedRepos.slice(0, 15);
         } else {
           smartSortedRepos = repos
             .filter(repo => !repo.fork)
@@ -276,6 +282,13 @@ export const profileGenerateRouter = router({
             .slice(0, 15);
         }
 
+        // The user OAuth service can see private repositories. Every source
+        // entering a public profile must be independently visible without it.
+        const profileSourceRepos = smartSortedRepos.map(repo => ({ owner: repo.owner, name: repo.name }));
+        if (!(await areRepositoriesCurrentlyPublic(profileSourceRepos))) {
+          throw new Error('Repository visibility could not be verified as public. Please retry.');
+        }
+
         // Fetch the user's recent public commit activity on repos they DON'T own.
         // GitHub's Events API only returns the last ~90 days of activity by design,
         // which is fine for "what is this dev currently contributing to" signal.
@@ -283,11 +296,23 @@ export const profileGenerateRouter = router({
         const ownedRepoKeys = new Set(
           smartSortedRepos.map(r => `${r.owner.toLowerCase()}/${r.name.toLowerCase()}`)
         );
-        const crossRepoCommits = await fetchCrossRepoCommits(
+        const fetchedCrossRepoCommits = await fetchCrossRepoCommits(
           githubService.octokit,
           username,
           ownedRepoKeys
         );
+        const publicContributionKeys = await getCurrentlyPublicRepositoryKeys(
+          fetchedCrossRepoCommits.map(commit => ({ owner: commit.repoOwner, name: commit.repoName }))
+        );
+        const crossRepoCommits = fetchedCrossRepoCommits.filter(commit =>
+          publicContributionKeys.has(`${commit.repoOwner.toLowerCase()}/${commit.repoName.toLowerCase()}`)
+        ).slice(0, 15);
+        for (const commit of crossRepoCommits) {
+          const key = `${commit.repoOwner.toLowerCase()}/${commit.repoName.toLowerCase()}`;
+          if (!profileSourceRepos.some(repo => `${repo.owner.toLowerCase()}/${repo.name.toLowerCase()}` === key)) {
+            profileSourceRepos.push({ owner: commit.repoOwner, name: commit.repoName });
+          }
+        }
         if (crossRepoCommits.length > 0) {
           const uniqueRepos = new Set(
             crossRepoCommits.map(c => `${c.repoOwner.toLowerCase()}/${c.repoName.toLowerCase()}`)
@@ -307,11 +332,14 @@ export const profileGenerateRouter = router({
           const topRepos = smartSortedRepos.slice(0, maxReposToAnalyze);
 
           const fileFetchPromises = topRepos.map(async (repo) => {
+            const currentInfo = await getAccessibleRepositoryInfo(repo.owner, repo.name, null);
+            if (!currentInfo || currentInfo.private) throw new Error(`Repository visibility changed for ${repo.owner}/${repo.name}`);
             try {
               // Use the repo's actual default branch — hardcoding 'main' 404'd
               // for repos still on 'master', silently dropping them.
               const ref = repo.defaultBranch || 'main';
-              const files = await githubService.getRepositoryFiles(username, repo.name, ref);
+              const publicService = await createGitHubServiceForRepo(repo.owner, repo.name, null);
+              const files = await publicService.getRepositoryFiles(repo.owner, repo.name, ref);
 
               const importantFiles = files.files.filter((file: { path: string; size: number }) =>
                 !file.path.includes('node_modules') &&
@@ -336,8 +364,8 @@ export const profileGenerateRouter = router({
               const fileContents = await Promise.all(
                 importantFiles.map(async (file: { path: string; size: number }) => {
                   try {
-                    const response = await githubService['octokit'].repos.getContent({
-                      owner: username,
+                    const response = await publicService.octokit.repos.getContent({
+                      owner: repo.owner,
                       repo: repo.name,
                       path: file.path,
                     });
@@ -372,6 +400,9 @@ export const profileGenerateRouter = router({
                 console.warn(`Failed to analyze ${repo.name}:`, error.message);
               }
               return null;
+            } finally {
+              const latestInfo = await getAccessibleRepositoryInfo(repo.owner, repo.name, null);
+              if (!latestInfo || latestInfo.private) throw new Error(`Repository visibility changed for ${repo.owner}/${repo.name}`);
             }
           });
 
@@ -415,6 +446,13 @@ export const profileGenerateRouter = router({
 
         if (!result.profile) throw new Error('Generated profile is null or undefined');
 
+        // The AI has incorporated metadata, source files and public event
+        // commits. Abort publication if any source is now private or unknown.
+        if (!(await areRepositoriesCurrentlyPublic(profileSourceRepos))) {
+          throw new Error('Repository visibility changed during profile generation. Please retry.');
+        }
+        const publicProfile = withVerifiedPublicSources(result.profile, profileSourceRepos);
+
         let profileInserted = false;
         let insertedVersion: number | null = null;
         for (let retryCount = 0; retryCount < 3; retryCount++) {
@@ -430,7 +468,7 @@ export const profileGenerateRouter = router({
               .values({
                 username: normalizedUsername,
                 version: nextVersion,
-                profileData: result.profile,
+                profileData: publicProfile,
                 updatedAt: new Date(),
               })
               .onConflictDoNothing()
@@ -460,7 +498,7 @@ export const profileGenerateRouter = router({
         // pool slot. Mirrors the scorecard embedding pattern in scorecard.ts.
         if (profileInserted && insertedVersion !== null && result.profile) {
           const BACKGROUND_EMBED_TIMEOUT_MS = 15_000;
-          const profileForEmbedding = result.profile;
+          const profileForEmbedding = publicProfile;
           const targetVersion = insertedVersion;
           const embeddingPromise = (async () => {
             const embedding = await generateProfileEmbedding(profileForEmbedding);
@@ -520,7 +558,7 @@ export const profileGenerateRouter = router({
         // wait on this, mirroring the embedding-write pattern above. The
         // profile is fully written by this point; email can land 30s later.
         const BACKGROUND_EMAIL_TIMEOUT_MS = 30_000;
-        const profileForEmail = result.profile;
+        const profileForEmail = publicProfile;
         const analyzerUserName = ctx.user.name;
         const analyzerEmail = ctx.user.email;
         const emailScanRepos = buildEmailScanRepos(smartSortedRepos, crossRepoCommits);
@@ -554,6 +592,10 @@ export const profileGenerateRouter = router({
           const avgScore = scorecardScores.length > 0
             ? Math.round(scorecardScores.reduce((a, b) => a + b, 0) / scorecardScores.length * 10)
             : undefined;
+
+          // This work runs after the response path. A source can become
+          // private while the email address is being discovered.
+          if (!(await areRepositoriesCurrentlyPublic(profileSourceRepos))) return;
 
           await sendProfileAnalysisEmail({
             recipientEmail: email,
@@ -604,7 +646,7 @@ export const profileGenerateRouter = router({
         yield {
           type: 'complete',
           data: {
-            profile: result.profile,
+            profile: publicProfile,
             cached: false,
             stale: false,
             lastUpdated: new Date(),
@@ -663,6 +705,10 @@ export const profileGenerateRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { username } = input;
       const normalizedUsername = username.toLowerCase();
+
+      if (!await isCurrentGitHubProfileOwner(ctx.session, normalizedUsername)) {
+        throw new TRPCError({ code: 'FORBIDDEN' });
+      }
 
       // First check what's already in the DB — no point burning GitHub API
       // budget if we've previously resolved this user's email.

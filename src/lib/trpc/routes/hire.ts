@@ -7,6 +7,7 @@ import { TRPCError } from '@trpc/server';
 import { generateJobEmbedding, generateProfileEmbedding, formatEmbeddingForPg } from '@/lib/ai/embeddings';
 import { rankCandidates, type CandidateMatch } from '@/lib/ai/candidate-ranker';
 import type { DeveloperProfile } from '@/lib/types/profile';
+import { filterCurrentlyPublicProfiles } from '@/lib/profile/public-provenance';
 
 // Input schema for matching
 const matchCandidatesInput = z.object({
@@ -95,6 +96,7 @@ export const hireRouter = router({
             GROUP BY username
           ) latest ON p.username = latest.username AND p.version = latest.max_version
           WHERE p.embedding IS NOT NULL
+            AND p.profile_data->>'visibilityVerified' = 'true'
           ${minConfidence ? sql`AND (p.profile_data->>'profileConfidence')::int >= ${minConfidence}` : sql``}
           ORDER BY p.embedding <=> ${embeddingStr}::vector
           LIMIT ${vectorSearchLimit}
@@ -114,14 +116,14 @@ export const hireRouter = router({
             FROM developer_profile_cache
             GROUP BY username
           ) latest ON p.username = latest.username AND p.version = latest.max_version
-          WHERE 1=1
+          WHERE p.profile_data->>'visibilityVerified' = 'true'
           ${minConfidence ? sql`AND (p.profile_data->>'profileConfidence')::int >= ${minConfidence}` : sql``}
           ORDER BY (p.profile_data->>'profileConfidence')::int DESC
           LIMIT ${vectorSearchLimit}
         `);
       }
 
-      const rawCandidates = (candidatesQuery as unknown as Array<{
+      const rawCandidates = await filterCurrentlyPublicProfiles(candidatesQuery as unknown as Array<{
         username: string;
         profileData: DeveloperProfile;
         similarity_score: number;
@@ -204,15 +206,16 @@ export const hireRouter = router({
       `);
 
       const profileRows = profile as unknown as Array<{ id: string; profileData: DeveloperProfile }>;
-      if (profileRows.length === 0) {
+      const publicRows = await filterCurrentlyPublicProfiles(profileRows);
+      if (publicRows.length === 0) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Profile not found',
         });
       }
 
-      const profileData = profileRows[0].profileData;
-      const profileId = profileRows[0].id;
+      const profileData = publicRows[0].profileData;
+      const profileId = publicRows[0].id;
 
       // Generate embedding
       const embedding = await generateProfileEmbedding(profileData);
@@ -249,11 +252,11 @@ export const hireRouter = router({
         LIMIT ${limit}
       `);
 
-      const profiles = profilesWithoutEmbeddings as unknown as Array<{
+      const profiles = await filterCurrentlyPublicProfiles(profilesWithoutEmbeddings as unknown as Array<{
         id: string;
         username: string;
         profileData: DeveloperProfile;
-      }>;
+      }>);
 
       let processed = 0;
       let failed = 0;

@@ -114,6 +114,7 @@ export const repositoryDiagrams = pgTable('repository_diagrams', {
   ref: text('ref').default('main'),
   diagramType: text('diagram_type').notNull(), // 'file_tree', 'dependency', 'timeline', 'heatmap'
   version: integer('version').notNull().default(1),
+  isPrivate: boolean('is_private').notNull().default(true),
   diagramCode: text('diagram_code').notNull(), // Mermaid diagram code
   format: text('format').notNull().default('mermaid'), // Diagram format
   options: jsonb('options').$type<DiagramOptions>(), // Diagram generation options
@@ -139,6 +140,7 @@ export const aiSlopAnalyses = pgTable('ai_slop_analyses', {
   repoName: text('repo_name').notNull(),
   ref: text('ref').default('main'),
   version: integer('version').notNull(), // Per-group version, set in app logic
+  isPrivate: boolean('is_private').notNull().default(true),
   overallScore: integer('overall_score').notNull(), // 0-100 overall code quality score
   aiGeneratedPercentage: integer('ai_generated_percentage').notNull(), // 0-100 estimated AI-generated percentage
   detectedPatterns: jsonb('detected_patterns').$type<string[]>().notNull(), // List of AI slop patterns detected
@@ -165,6 +167,7 @@ export const securityReviews = pgTable('security_reviews', {
   repoName: text('repo_name').notNull(),
   ref: text('ref').default('main'),
   version: integer('version').notNull(),
+  isPrivate: boolean('is_private').notNull().default(true),
   overallScore: integer('overall_score').notNull(),
   riskLevel: text('risk_level').$type<SecurityRiskLevel>().notNull(),
   vulnerabilities: jsonb('vulnerabilities').$type<SecurityVulnerability[]>().notNull(),

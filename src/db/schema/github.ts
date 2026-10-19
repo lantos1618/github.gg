@@ -58,6 +58,7 @@ export const prAnalysisCache = pgTable('pr_analysis_cache', {
   repoName: text('repo_name').notNull(),
   prNumber: integer('pr_number').notNull(),
   version: integer('version').notNull(), // Per-PR version, increments on regeneration
+  isPrivate: boolean('is_private').notNull().default(true),
   overallScore: integer('overall_score').notNull(), // 0-100 overall score
   analysis: jsonb('analysis').notNull(), // Structured analysis data
   markdown: text('markdown').notNull(), // Full markdown analysis
@@ -90,6 +91,7 @@ export const issueAnalysisCache = pgTable('issue_analysis_cache', {
   repoName: text('repo_name').notNull(),
   issueNumber: integer('issue_number').notNull(),
   version: integer('version').notNull(), // Per-issue version, increments on regeneration
+  isPrivate: boolean('is_private').notNull().default(true),
   overallScore: integer('overall_score').notNull(), // 0-100 overall score
   slopRanking: integer('slop_ranking').notNull(), // 0-100 slop score
   suggestedPriority: text('suggested_priority').notNull(), // Priority level

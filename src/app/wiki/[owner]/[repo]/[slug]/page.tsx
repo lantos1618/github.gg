@@ -1,12 +1,17 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import { createCaller } from '@/lib/trpc/server';
 import { incrementViewCount } from './actions';
 import { WikiPageClient } from './WikiPageClient';
 import { buildCanonicalUrl } from '@/lib/utils/seo';
+import { auth } from '@/lib/auth';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 
-// Restore ISR: Revalidate every hour to keep content fresh while reducing DB load
-export const revalidate = 3600;
+// Wiki visibility depends on the current user and the repository's current
+// visibility. Never share a cached page across visitors.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 export const dynamicParams = true;
 
 interface WikiPageProps {
@@ -24,6 +29,9 @@ interface WikiPageProps {
 export async function generateMetadata({ params, searchParams }: WikiPageProps): Promise<Metadata> {
   const { owner, repo, slug } = await params;
   const { version } = await searchParams;
+  const session = await auth.api.getSession({ headers: await headers() });
+  const repository = await getAccessibleRepositoryInfo(owner, repo, session);
+  if (!repository) return { title: 'Wiki Page Not Found', robots: 'noindex, nofollow' };
 
   const caller = await createCaller();
   const page = await caller.wiki.getWikiPage({
@@ -63,8 +71,8 @@ export async function generateMetadata({ params, searchParams }: WikiPageProps):
       description,
     },
     robots: {
-      index: page.isPublic,
-      follow: page.isPublic,
+      index: page.isPublic && !repository.private,
+      follow: page.isPublic && !repository.private,
     },
   };
 }
@@ -72,6 +80,8 @@ export async function generateMetadata({ params, searchParams }: WikiPageProps):
 export default async function WikiPage({ params, searchParams }: WikiPageProps) {
   const { owner, repo, slug } = await params;
   const { version } = await searchParams;
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!await getAccessibleRepositoryInfo(owner, repo, session)) notFound();
 
   const caller = await createCaller();
   const [page, toc] = await Promise.all([

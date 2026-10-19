@@ -2,10 +2,12 @@ import { z } from 'zod';
 import { router, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { prAnalysisCache, issueAnalysisCache } from '@/db/schema';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, or, desc, eq } from 'drizzle-orm';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 
 export const githubAnalysisCacheRouter = router({
-  // Get cached PR analysis (public endpoint)
+  // Cached analyses can contain private repository data. Check current access
+  // even if this repository was public when the cache entry was written.
   getCachedPRAnalysis: publicProcedure
     .input(z.object({
       owner: z.string(),
@@ -13,8 +15,11 @@ export const githubAnalysisCacheRouter = router({
       number: z.number(),
       version: z.number().optional(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const { owner, repo, number, version } = input;
+
+      const repoInfo = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+      if (!repoInfo) return null;
 
       try {
         const conditions = [
@@ -22,6 +27,12 @@ export const githubAnalysisCacheRouter = router({
           eq(prAnalysisCache.repoName, repo),
           eq(prAnalysisCache.prNumber, number),
         ];
+        if (repoInfo.private && ctx.session?.user?.id) {
+          conditions.push(eq(prAnalysisCache.userId, ctx.session.user.id));
+        }
+        conditions.push(ctx.session?.user?.id
+          ? or(eq(prAnalysisCache.isPrivate, false), eq(prAnalysisCache.userId, ctx.session.user.id))!
+          : eq(prAnalysisCache.isPrivate, false));
 
         if (version !== undefined) {
           conditions.push(eq(prAnalysisCache.version, version));
@@ -47,7 +58,7 @@ export const githubAnalysisCacheRouter = router({
       }
     }),
 
-  // Get cached issue analysis (public endpoint)
+  // Apply the same access rule to cached issue analyses.
   getCachedIssueAnalysis: publicProcedure
     .input(z.object({
       owner: z.string(),
@@ -55,8 +66,11 @@ export const githubAnalysisCacheRouter = router({
       number: z.number(),
       version: z.number().optional(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const { owner, repo, number, version } = input;
+
+      const repoInfo = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+      if (!repoInfo) return null;
 
       try {
         const conditions = [
@@ -64,6 +78,12 @@ export const githubAnalysisCacheRouter = router({
           eq(issueAnalysisCache.repoName, repo),
           eq(issueAnalysisCache.issueNumber, number),
         ];
+        if (repoInfo.private && ctx.session?.user?.id) {
+          conditions.push(eq(issueAnalysisCache.userId, ctx.session.user.id));
+        }
+        conditions.push(ctx.session?.user?.id
+          ? or(eq(issueAnalysisCache.isPrivate, false), eq(issueAnalysisCache.userId, ctx.session.user.id))!
+          : eq(issueAnalysisCache.isPrivate, false));
 
         if (version !== undefined) {
           conditions.push(eq(issueAnalysisCache.version, version));

@@ -56,11 +56,24 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    const userAccount = await db.query.account.findFirst({
+      where: and(
+        eq(account.userId, session.user.id),
+        eq(account.providerId, 'github')
+      ),
+    });
+
+    if (!userAccount) {
+      return NextResponse.json({
+        error: 'No GitHub account found for this user. Please sign in with GitHub first.'
+      }, { status: 404 });
+    }
+
     // Verify the caller has access to this installation BEFORE doing anything else.
     let accessToken: string | null = null;
     try {
       const tokenResult = await auth.api.getAccessToken({
-        body: { providerId: 'github', userId: session.user.id },
+        body: { accountId: userAccount.id, userId: session.user.id },
         headers: {},
       });
       accessToken = tokenResult.accessToken ?? null;
@@ -94,20 +107,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         error: 'This GitHub App installation is already linked to another account'
       }, { status: 409 });
-    }
-
-    // Check if the current user already has a GitHub account linked
-    const userAccount = await db.query.account.findFirst({
-      where: and(
-        eq(account.userId, session.user.id),
-        eq(account.providerId, 'github')
-      ),
-    });
-
-    if (!userAccount) {
-      return NextResponse.json({
-        error: 'No GitHub account found for this user. Please sign in with GitHub first.'
-      }, { status: 404 });
     }
 
     // Update the user's GitHub account with the installation ID.
@@ -179,4 +178,4 @@ export async function GET(request: NextRequest) {
       error: 'Internal server error while checking installation link' 
     }, { status: 500 });
   }
-} 
+}

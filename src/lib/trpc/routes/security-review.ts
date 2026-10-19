@@ -14,6 +14,7 @@ import { createJob, consumeJob } from '@/lib/analysis/job-store';
 import { isPgErrorWithCode } from '@/lib/db/utils';
 import { checkRepositoryWriteAccess } from '@/lib/wiki/permissions';
 import { normalizeRepoIdent } from '@/lib/normalize';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 
 export const securityReviewRouter = router({
   createAnalysisJob: protectedProcedure
@@ -76,11 +77,11 @@ export const securityReviewRouter = router({
         yield { type: 'progress', progress: 3, message: 'Authenticating with GitHub...' };
 
         const githubService = await createGitHubServiceForRepo(job.user, job.repo, ctx.session);
+        const repoInfo = await githubService.getRepositoryInfo(job.user, job.repo);
 
         let ref = job.ref;
         if (!ref || ref === 'main') {
           yield { type: 'progress', progress: 4, message: 'Fetching repository info...' };
-          const repoInfo = await githubService.getRepositoryInfo(job.user, job.repo);
           ref = repoInfo.defaultBranch || 'main';
         }
 
@@ -146,6 +147,10 @@ export const securityReviewRouter = router({
           const maxVersion = typeof rawMax === 'number' ? rawMax : Number(rawMax) || 0;
           const nextVersion = maxVersion + 1;
 
+          const currentRepository = await getAccessibleRepositoryInfo(job.user, job.repo, ctx.session);
+          if (!currentRepository) throw new Error('Repository access could not be verified before saving');
+          const isPrivate = repoInfo.private || currentRepository.private;
+
           try {
             const results = await db
               .insert(securityReviews)
@@ -155,6 +160,7 @@ export const securityReviewRouter = router({
                 repoName: repoNameNormalized,
                 ref: ref,
                 version: nextVersion,
+                isPrivate,
                 overallScore: reviewData.overallScore,
                 riskLevel: reviewData.riskLevel,
                 vulnerabilities: reviewData.vulnerabilities,
@@ -249,19 +255,24 @@ export const securityReviewRouter = router({
         };
       }
 
-      let ref = input.ref;
-      try {
-        const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
-        const repoInfo = await githubService.getRepositoryInfo(user, repo);
-        if (!ref) ref = repoInfo.defaultBranch || 'main';
-      } catch (err) {
-        const message = (err as { message?: string })?.message;
-        console.warn(`[publicGetSecurityReview ${normalizedUser}/${normalizedRepo}] repo info fetch failed (will still try cache):`, message);
+      const repoInfo = await getAccessibleRepositoryInfo(user, repo, ctx.session);
+      if (!repoInfo) {
+        return {
+          review: null,
+          cached: false,
+          stale: false,
+          lastUpdated: null,
+          error: 'Unable to access repository',
+        };
       }
+      const ref = input.ref || repoInfo.defaultBranch || 'main';
 
       const baseConditions = [
         sql`LOWER(${securityReviews.repoOwner}) = ${normalizedUser}`,
         sql`LOWER(${securityReviews.repoName}) = ${normalizedRepo}`,
+        // Scans can contain private source from before a visibility change.
+        // Only the user who created a scan may retrieve that historical result.
+        eq(securityReviews.userId, ctx.session.user.id),
       ];
       if (version !== undefined) {
         baseConditions.push(eq(securityReviews.version, version));
@@ -323,6 +334,7 @@ export const securityReviewRouter = router({
       if (!ctx.session?.user) return [];
       const hasAccess = await checkRepositoryWriteAccess(ctx.session, input.user, input.repo);
       if (!hasAccess) return [];
+      if (!await getAccessibleRepositoryInfo(input.user, input.repo, ctx.session)) return [];
 
       return await db
         .select({ version: securityReviews.version, updatedAt: securityReviews.updatedAt })
@@ -332,6 +344,7 @@ export const securityReviewRouter = router({
             sql`LOWER(${securityReviews.repoOwner}) = ${normalizedUser}`,
             sql`LOWER(${securityReviews.repoName}) = ${normalizedRepo}`,
             eq(securityReviews.ref, input.ref),
+            eq(securityReviews.userId, ctx.session.user.id),
           ),
         )
         .orderBy(desc(securityReviews.version));

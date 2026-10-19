@@ -8,6 +8,7 @@ import { tokenUsage, prAnalysisCache } from '@/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 
 export const githubAnalysisPrAnalysisRouter = router({
   // Analyze a PR
@@ -60,6 +61,7 @@ export const githubAnalysisPrAnalysisRouter = router({
         };
 
         const githubService = await createGitHubServiceForRepo(owner, repo, ctx.session);
+        const repoInfo = await githubService.getRepositoryInfo(owner, repo);
 
         const [pr, files] = await Promise.all([
           githubService['octokit'].pulls.get({
@@ -157,6 +159,10 @@ export const githubAnalysisPrAnalysisRouter = router({
 
         const nextVersion = latestAnalysis.length > 0 ? latestAnalysis[0].version + 1 : 1;
 
+        const currentRepository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!currentRepository) throw new Error('Repository access could not be verified before saving');
+        const isPrivate = repoInfo.private || currentRepository.private;
+
         // Cache the analysis
         try {
           await db.insert(prAnalysisCache).values({
@@ -165,6 +171,7 @@ export const githubAnalysisPrAnalysisRouter = router({
             repoName: repo,
             prNumber: number,
             version: nextVersion,
+            isPrivate,
             overallScore: analysisResult.analysis.overallScore,
             analysis: analysisResult.analysis,
             markdown: analysisResult.markdown,

@@ -1,5 +1,13 @@
 import { test as base, type Page } from '@playwright/test';
 
+function testSessionHeaders() {
+  const secret = process.env.TEST_SESSION_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error('Set TEST_SESSION_SECRET to a random value of at least 32 characters before running authenticated E2E tests.');
+  }
+  return { 'x-test-session-secret': secret };
+}
+
 /**
  * Create an authenticated test session by calling the dev-only test-session endpoint.
  * Returns the cookie that Playwright needs to set.
@@ -7,6 +15,7 @@ import { test as base, type Page } from '@playwright/test';
 async function createTestSession(page: Page, username = 'e2e-test-user') {
   const response = await page.request.post('/api/auth/test-session', {
     data: { username },
+    headers: testSessionHeaders(),
   });
 
   if (!response.ok()) {
@@ -28,6 +37,7 @@ export const test = base.extend<{ authedPage: Page }>({
     // so we need to extract and set them manually.
     const response = await page.request.post('/api/auth/test-session', {
       data: { username: 'e2e-test-user' },
+      headers: testSessionHeaders(),
     });
 
     if (!response.ok()) {

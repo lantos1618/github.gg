@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { repositoryScorecards } from '@/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { repositoryScorecards, user as users } from '@/db/schema';
+import { eq, and, or, desc } from 'drizzle-orm';
 import { requireApiKey, isErrorResponse } from '@/lib/api/auth';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
+import type { BetterAuthSession } from '@/lib/github';
 
 type RouteContext = {
   params: Promise<{ owner: string; repo: string }>;
@@ -49,16 +51,40 @@ export async function GET(
         { status: 400 }
       );
     }
+    if (requestedVersion !== undefined && (!Number.isSafeInteger(requestedVersion) || requestedVersion < 1)) {
+      return NextResponse.json({ error: 'Invalid version' }, { status: 400 });
+    }
 
     // Normalize to lowercase for database lookup
     const normalizedOwner = owner.toLowerCase();
     const normalizedRepo = repo.toLowerCase();
+
+    // An API key identifies its owner, but it is not a browser session. Use
+    // that validated user ID to check the owner's current GitHub permission.
+    const keyOwner = await db.query.user.findFirst({ where: eq(users.id, authResult.userId) });
+    if (!keyOwner) {
+      return NextResponse.json({ error: 'Unable to access repository' }, { status: 403 });
+    }
+    const accessSession = { user: { id: keyOwner.id } } as BetterAuthSession;
+    const repoInfo = await getAccessibleRepositoryInfo(owner, repo, accessSession);
+    if (!repoInfo) {
+      return NextResponse.json({ error: 'Unable to access repository' }, { status: 403 });
+    }
+    const cacheControl = 'private, no-store';
 
     // Build query conditions
     const conditions = [
       eq(repositoryScorecards.repoOwner, normalizedOwner),
       eq(repositoryScorecards.repoName, normalizedRepo),
     ];
+    if (repoInfo.private) {
+      conditions.push(eq(repositoryScorecards.userId, authResult.userId));
+    } else {
+      conditions.push(or(
+        eq(repositoryScorecards.isPrivate, false),
+        eq(repositoryScorecards.userId, authResult.userId)
+      )!);
+    }
 
     if (requestedVersion !== undefined) {
       conditions.push(eq(repositoryScorecards.version, requestedVersion));
@@ -81,7 +107,7 @@ export async function GET(
         cached: false,
         stale: false,
         lastUpdated: null,
-      }, { status: 200 });
+      }, { status: 200, headers: { 'Cache-Control': cacheControl } });
     }
 
     const scorecard = scorecards[0];
@@ -102,7 +128,7 @@ export async function GET(
       ref: scorecard.ref,
     }, {
       headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        'Cache-Control': cacheControl,
       }
     });
   } catch (error) {

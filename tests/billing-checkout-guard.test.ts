@@ -12,8 +12,17 @@ process.env.STRIPE_BYOK_PRICE_ID = 'price_byok_test';
 process.env.NEXT_PUBLIC_APP_URL = 'https://www.github.gg';
 
 let existingSubscription: { status: string; stripeCustomerId: string } | null = null;
-const checkoutCreate = mock(async () => ({ url: 'https://checkout.stripe.com/new' }));
+const checkoutCreate = mock(async (...args: unknown[]) => {
+  void args;
+  return { url: 'https://checkout.stripe.com/new' };
+});
 const portalCreate = mock(async () => ({ url: 'https://billing.stripe.com/existing' }));
+const guardedCheckout = mock(async ({ createSession }: {
+  createSession: (args: { expiresAt: number; idempotencyKey: string }) => Promise<{ url: string | null }>;
+}) => {
+  const session = await createSession({ expiresAt: 2_000_000_000, idempotencyKey: 'test-checkout-key' });
+  return { url: session.url! };
+});
 
 mock.module('../src/lib/auth', () => ({ auth: { api: { getSession: async () => null } } }));
 mock.module('../src/db', () => ({
@@ -31,6 +40,7 @@ mock.module('stripe', () => ({
     billingPortal = { sessions: { create: portalCreate } };
   },
 }));
+mock.module('../src/lib/stripe/checkout-guard', () => ({ getOrCreateCheckoutSession: guardedCheckout }));
 
 const { billingRouter } = await import('../src/lib/trpc/routes/billing');
 const caller = billingRouter.createCaller({
@@ -42,6 +52,7 @@ beforeEach(() => {
   existingSubscription = null;
   checkoutCreate.mockClear();
   portalCreate.mockClear();
+  guardedCheckout.mockClear();
 });
 
 describe('billing Checkout duplicate subscription guard', () => {
@@ -57,6 +68,7 @@ describe('billing Checkout duplicate subscription guard', () => {
         return_url: 'https://www.github.gg/settings',
       });
       expect(checkoutCreate).not.toHaveBeenCalled();
+      expect(guardedCheckout).not.toHaveBeenCalled();
     });
   }
 
@@ -68,11 +80,15 @@ describe('billing Checkout duplicate subscription guard', () => {
 
       expect(result.url).toBe('https://checkout.stripe.com/new');
       expect(checkoutCreate).toHaveBeenCalledTimes(1);
-      expect(checkoutCreate).toHaveBeenCalledWith(expect.objectContaining({
+      expect(checkoutCreate.mock.calls[0]?.[0]).toMatchObject({
         line_items: [{ price: 'price_pro_test', quantity: 1 }],
         mode: 'subscription',
+        expires_at: 2_000_000_000,
+        success_url: 'https://www.github.gg/settings?upgraded=1',
         metadata: { userId: 'billing-user', plan: 'pro' },
-      }));
+      });
+      expect(checkoutCreate.mock.calls[0]?.[1]).toEqual({ idempotencyKey: 'test-checkout-key' });
+      expect(guardedCheckout).toHaveBeenCalledTimes(1);
       expect(portalCreate).not.toHaveBeenCalled();
     });
   }

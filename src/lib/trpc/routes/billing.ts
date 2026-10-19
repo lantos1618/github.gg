@@ -5,6 +5,8 @@ import { userSubscriptions } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import Stripe from 'stripe';
+import { getOrCreateCheckoutSession } from '@/lib/stripe/checkout-guard';
+import { CheckoutGuardError } from '@/lib/stripe/checkout-guard-core';
 
 // Initialize Stripe only if API key is available
 const stripe = process.env.STRIPE_SECRET_KEY
@@ -59,24 +61,35 @@ export const billingRouter = router({
           });
         }
 
-        const session = await stripe!.checkout.sessions.create({
-          customer_email: ctx.user.email,
-          line_items: [{
-            price: priceId,
-            quantity: 1
-          }],
-          mode: 'subscription',
-          success_url: `${process.env.NEXT_PUBLIC_APP_URL}/onboarding?upgraded=1`,
-          cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?canceled=true`,
-          metadata: {
-            userId: ctx.user.id,
-            plan: input.plan
-          }
+        const session = await getOrCreateCheckoutSession({
+          userId: ctx.user.id,
+          plan: input.plan,
+          createSession: ({ expiresAt, idempotencyKey }) => stripe!.checkout.sessions.create({
+            customer_email: ctx.user.email,
+            line_items: [{
+              price: priceId,
+              quantity: 1
+            }],
+            mode: 'subscription',
+            expires_at: expiresAt,
+            success_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings?upgraded=1`,
+            cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?canceled=true`,
+            metadata: {
+              userId: ctx.user.id,
+              plan: input.plan
+            }
+          }, { idempotencyKey }),
         });
 
         return { url: session.url };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
+        if (error instanceof CheckoutGuardError) {
+          throw new TRPCError({
+            code: error.reason === 'unavailable' ? 'INTERNAL_SERVER_ERROR' : 'CONFLICT',
+            message: error.message,
+          });
+        }
         console.error('Stripe billing session error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',

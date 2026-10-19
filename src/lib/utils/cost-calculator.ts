@@ -30,6 +30,7 @@ const GEMINI_3_1_PRO_LARGE: ModelPricing = { input: 4.00, output: 18.00 };
 const GEMINI_3_5_FLASH_LITE_PRICING: ModelPricing = { input: 0.30, output: 2.50 };
 const GEMINI_3_8_FLASH_INTRO: ModelPricing = { input: 0.75, output: 3.75 };
 const GEMINI_3_8_FLASH_STANDARD: ModelPricing = { input: 1.50, output: 7.50 };
+const GEMINI_EMBEDDING_001_PRICING: ModelPricing = { input: 0.15, output: 0 };
 const GEMINI_3_8_FLASH_PRICE_CHANGE = Date.parse('2027-01-01T00:00:00Z');
 
 function getModelPricing({ model, inputTokens, createdAt }: TokenUsage): ModelPricing {
@@ -53,6 +54,9 @@ function getModelPricing({ model, inputTokens, createdAt }: TokenUsage): ModelPr
   }
   if (modelId === 'gemini-3-flash-preview') {
     return GEMINI_3_FLASH_PRICING;
+  }
+  if (modelId === 'gemini-embedding-001') {
+    return GEMINI_EMBEDDING_001_PRICING;
   }
   if (modelId.startsWith('gemini-2.5-pro')) {
     return inputTokens > 200_000 ? GEMINI_2_5_PRO_LARGE : GEMINI_2_5_PRO_SMALL;

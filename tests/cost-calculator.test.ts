@@ -47,6 +47,16 @@ describe('Gemini Standard paid-tier token estimates', () => {
     expect(flash.outputCost).toBeCloseTo(3);
   });
 
+  test('prices embedding-001 input tokens at its input-only rate', () => {
+    const embedding = calculateTokenCost(usage('models/gemini-embedding-001', 1_000_000, 0));
+    expect(embedding.inputCost).toBeCloseTo(0.15);
+    expect(embedding.outputCost).toBe(0);
+    expect(embedding.totalCost).toBeCloseTo(0.15);
+
+    const smallEmbedding = usage('gemini-embedding-001', 1_000, 0);
+    expect(calculateTotalCost(Array.from({ length: 100 }, () => smallEmbedding)).totalCost).toBeCloseTo(0.015);
+  });
+
   test('uses the usage date for the 3.8 Flash January 2027 price change', () => {
     const intro = calculateTokenCost(usage('gemini-3.8-flash', 1_000_000, 1_000_000, new Date('2026-12-31T23:59:59Z')));
     expect(intro.inputCost).toBeCloseTo(0.75);

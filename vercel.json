@@ -1,4 +1,20 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "daemons": {
+    "webhook-worker": {
+      "root": ".",
+      "entrypoint": "Dockerfile",
+      "instances": {
+        "iad1": 0
+      },
+      "resources": {
+        "requests": {
+          "memory": "1Gi"
+        }
+      },
+      "terminationGracePeriodSeconds": 120
+    }
+  },
   "functions": {
     "src/app/api/wiki/generate/**": {
       "maxDuration": 300

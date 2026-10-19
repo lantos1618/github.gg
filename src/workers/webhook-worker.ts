@@ -3,14 +3,13 @@
  *
  * Run with:   bun run worker:webhook
  *
- * This process must live OUTSIDE Vercel (Vercel serverless functions can't
- * host long-running workers). See WORKER_DEPLOYMENT.md for the recommended
- * setup (Railway / VM).
+ * This process runs as a Vercel Daemon or another long-running service.
+ * Vercel Functions cannot host a persistent BullMQ consumer. See
+ * WORKER_DEPLOYMENT.md for deployment and activation steps.
  *
  * The worker:
  *   - Subscribes to WEBHOOK_QUEUE_NAME
- *   - Has a 60s per-job timeout (vs. Vercel's 30s — gives us headroom for
- *     Neon multi-row inserts on huge installs)
+ *   - Renews its 60s BullMQ job lock while an active handler runs
  *   - Lets BullMQ handle exponential backoff retries (see DEFAULT_WEBHOOK_JOB_OPTS)
  *   - Logs every job lifecycle event so we can diagnose timeouts/retries
  */
@@ -25,7 +24,7 @@ import { createLogger } from '@/lib/logging';
 
 const logger = createLogger('WebhookWorker');
 
-const PER_JOB_TIMEOUT_MS = 60_000;
+const JOB_LOCK_DURATION_MS = 60_000;
 
 function startWorker(): Worker<WebhookJobData> {
   const connection = getWebhookRedisConnection();
@@ -39,7 +38,7 @@ function startWorker(): Worker<WebhookJobData> {
     concurrency: 5,
     // BullMQ uses Redis BRPOPLPUSH with this drain delay when the queue is
     // empty. 5s is the default — leaving explicit so it's discoverable.
-    lockDuration: PER_JOB_TIMEOUT_MS,
+    lockDuration: JOB_LOCK_DURATION_MS,
   };
 
   const worker = new Worker<WebhookJobData>(
@@ -53,19 +52,11 @@ function startWorker(): Worker<WebhookJobData> {
         attempt: job.attemptsMade + 1,
       });
 
-      // Per-job timeout guard. BullMQ doesn't enforce a wall-clock timeout on
-      // the processor function itself (only the Redis lock duration), so we
-      // race the dispatch against an explicit timer. On timeout we throw,
-      // BullMQ retries up to `attempts` times.
-      await Promise.race([
-        dispatchWebhookEvent({ deliveryId, eventName, payload }),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error(`Job timed out after ${PER_JOB_TIMEOUT_MS}ms`)),
-            PER_JOB_TIMEOUT_MS,
-          ),
-        ),
-      ]);
+      // A Promise.race timeout would reject the BullMQ job while dispatch
+      // keeps running, so its retry could overlap the original side effects.
+      // BullMQ renews the lock for a live processor and retries genuine
+      // failures or interrupted processes instead.
+      await dispatchWebhookEvent({ deliveryId, eventName, payload });
 
       logger.info('Webhook job complete', {
         jobId: job.id,

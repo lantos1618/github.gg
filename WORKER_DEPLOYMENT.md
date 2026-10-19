@@ -1,81 +1,96 @@
-# Worker deployment
+# GitHub webhook worker deployment
 
-The webhook worker (`src/workers/webhook-worker.ts`) is a long-lived process
-that drains the BullMQ `github-webhooks` queue. **Vercel cannot host it** —
-Vercel functions are serverless and time out after at most 30s, which is
-exactly the problem this worker exists to solve.
+`src/workers/webhook-worker.ts` is a persistent BullMQ consumer for the
+`github-webhooks` Redis queue. The `github.gg` Vercel project uses the repository
+root as its Root Directory, so it can run this worker as a Vercel Daemon next to
+the Next.js app. Its image is built from the root `Dockerfile`.
 
-## TL;DR — recommended setup
+## Current state
 
-Run the worker on **Railway** (or any small VM you already pay for —
-OVH/Hetzner/Fly.io all work the same way).
+`vercel.json` declares one `webhook-worker` daemon in `iad1` with **zero
+instances**. A production deployment can build its image, but will not start a
+worker or consume queued jobs. Keep the count at zero until the production
+credentials and queue have been checked.
+
+Daemons currently run only for production deployments; preview deployments and
+`vercel dev` do not run them. Vercel restarts crashed instances, collects their
+stdout/stderr in project Logs (source `daemon`), and sends `SIGTERM` on rollout.
+The worker closes its BullMQ connection and drains in-flight jobs on shutdown.
+
+## Production prerequisites
+
+Set these in the `github.gg` Vercel project's **Production** environment:
+
+| Variable | Purpose |
+| --- | --- |
+| `REDIS_URL` | Redis TCP connection shared by the webhook receiver and BullMQ worker. Upstash REST variables alone do not work for BullMQ. |
+| `DATABASE_URL` | Neon database connection shared with the web app. |
+| `GITHUB_APP_ID` and `GITHUB_PRIVATE_KEY` | GitHub App installation authentication for repository access and comments. Use the exact Vercel variable name `GITHUB_PRIVATE_KEY`. |
+| `API_KEY_ENCRYPTION_SECRET` | Decrypt subscribers' saved Gemini keys for BYOK analysis. |
+| `GEMINI_API_KEY` | Platform Gemini key for users without a saved BYOK key. |
+| `GITHUB_WEBHOOK_SECRET` | Used by the **webhook receiver** to verify GitHub signatures before enqueueing; the worker does not read it. |
+
+The GitHub App webhook URL must point to
+`https://www.github.gg/api/webhooks/github` and use the same
+`GITHUB_WEBHOOK_SECRET`. Confirm the App is installed on the intended
+repositories and the receiver can enqueue a signed test delivery before
+starting the worker. Keep all credentials out of Git and Docker images.
+
+## Build and activate
+
+To verify the image locally (with an appropriate local `.env.local`):
 
 ```bash
-bun install
+docker build -t github-gg-webhook-worker .
+docker run --rm --env-file .env.local github-gg-webhook-worker
+```
+
+The image runs `bun src/workers/webhook-worker.ts`; Vercel injects its
+Production environment variables, so the container does not require an
+`.env.local` file in production.
+
+Once the production prerequisites pass, change
+`daemons.webhook-worker.instances.iad1` from `0` to `1` and deploy to
+Production, or use the project's Daemons dashboard to scale to one instance.
+Dashboard scaling creates an override that persists across deployments until
+cleared; check for an override before assuming the repository value controls
+the running instance count. Watch the daemon logs for `Webhook worker ready`
+and confirm a new GitHub delivery leaves the BullMQ `waiting` state. Scale
+back to zero if processing fails.
+
+The daemon requests 1 GiB of memory and gives the worker 120 seconds to drain
+after `SIGTERM`. Vercel Daemons are in public beta and available on all plans.
+Hobby has a shared 10 Active CPU-hour monthly daemon quota; reaching it stops
+the team's daemons until the next month or a Pro upgrade. Pro use is metered
+for provisioned memory and active CPU. Check current Vercel Usage and the
+[regional price table](https://vercel.com/docs/pricing/regional-pricing/iad1)
+before scaling above zero.
+
+## Running locally without Docker
+
+```bash
+bun install --frozen-lockfile
 bun run worker:webhook
 ```
 
-Required environment variables:
+`worker:webhook` loads `.env.local`. If `REDIS_URL` is absent, the worker exits
+with a clear error.
 
-| Var | Notes |
+## Monitoring and failure modes
+
+BullMQ retains up to 1,000 completed jobs for one hour and 1,000 failed jobs
+for 24 hours; see `DEFAULT_WEBHOOK_JOB_OPTS` in
+`src/lib/webhook-queue.ts`. Vercel project Logs show daemon lifecycle and job
+errors. The Redis queue should be monitored separately for waiting and failed
+jobs.
+
+| Symptom | Likely cause |
 | --- | --- |
-| `REDIS_URL`           | ioredis TCP URL. Vercel KV exposes this; copy from `vercel env pull`. |
-| `DATABASE_URL`        | Same Neon URL the web app uses. |
-| `GITHUB_APP_ID`       | Same as web app (needed for installation token minting). |
-| `GITHUB_APP_PRIVATE_KEY` | Same as web app. |
-| `GEMINI_API_KEY` | Platform key for AI analysis handlers. BYOK subscribers use their saved key. |
-| `ENABLE_PR_REVIEWS`, `ENABLE_COMMIT_ANALYSIS`, etc. | Feature flags must match the web app or analysis silently no-ops. |
+| GitHub webhook returns 500 | Redis is unavailable to the receiver; restore Redis and redeliver the failed event from GitHub if it is not retried automatically. |
+| Jobs remain in `waiting` | Daemon has zero instances, has stopped, or cannot connect to Redis. |
+| Private repository jobs fail | GitHub App PEM, App ID, or installation access is missing. |
+| BYOK jobs fail to decrypt a stored key | `API_KEY_ENCRYPTION_SECRET` is missing or differs from the key used to encrypt it. |
 
-The worker doesn't need `GITHUB_WEBHOOK_SECRET` — signature verification
-happens in the request path before the job is enqueued.
-
-## Why Railway
-
-- Native bun support (`nixpacks` autodetects `package.json`).
-- One service per repo, point it at the `worker:webhook` script.
-- Cheaper than Fly's smallest VM at the scale we need.
-- Logs are queryable out of the box.
-
-If you already have OVH/Hetzner credits, deploying as a systemd unit is
-equivalent — no architectural difference.
-
-## Alternative: Vercel Cron drain endpoint
-
-Not currently implemented. The pattern would be:
-
-1. Add `/api/cron/drain-webhooks` that pulls N jobs off the queue and processes
-   them inline within Vercel's 30s budget.
-2. Schedule it every 30s via `vercel.json`.
-
-This avoids the extra infra but trades latency (up to 30s before a webhook is
-processed) and is fragile under bursts. Only go this route if Railway/VM is
-genuinely not an option.
-
-## Running locally
-
-```bash
-# Terminal 1 — web app
-bun run dev
-
-# Terminal 2 — worker
-bun run worker:webhook
-```
-
-Both processes share `.env.local`. If `REDIS_URL` isn't set the worker exits
-on startup with a clear error.
-
-## Monitoring
-
-BullMQ keeps the last 1000 completed jobs (1h retention) and 1000 failed jobs
-(24h retention) — see `DEFAULT_WEBHOOK_JOB_OPTS` in `src/lib/webhook-queue.ts`.
-For a UI, install [`bull-board`](https://github.com/felixmosh/bull-board) and
-mount it behind admin auth — it's the standard tool and we've used it before.
-
-## Failure modes
-
-| Symptom | Diagnosis |
-| --- | --- |
-| Webhooks return 500 from `/api/webhooks/github` | `REDIS_URL` missing or Redis unreachable. The request path treats an unavailable queue as a hard failure so GitHub retries. |
-| Jobs sit in `waiting` indefinitely | Worker process is down. Restart `worker:webhook`. |
-| Same delivery ID retried forever | A handler is throwing on a permanently malformed payload. Check failed jobs; if it's hopeless, manually remove the job via `bull-board` or `Queue.removeJobs()`. |
-| `installation.created` events succeed but no DB rows | Worker has a stale `DATABASE_URL` — re-sync env. |
+See [Vercel Daemons](https://vercel.com/docs/daemons), its
+[configuration reference](https://vercel.com/docs/daemons/config-reference),
+and [limits](https://vercel.com/docs/daemons/limits) for current beta behavior.

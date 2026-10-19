@@ -19,7 +19,7 @@
  */
 import { Webhooks } from '@octokit/webhooks';
 import { createLogger } from '@/lib/logging';
-import { checkGitHubWebhookRateLimit } from '@/lib/webhooks/rate-limiter';
+import { checkWebhookRateLimit } from '@/lib/rate-limit';
 import { markWebhookProcessed, wasWebhookProcessed } from '@/lib/webhook-dedup';
 import { enqueueWebhookEvent } from '@/lib/webhook-queue';
 
@@ -114,7 +114,20 @@ export async function POST(request: Request) {
   const installationId = (parsedPayload as { installation?: { id?: number } } | null)
     ?.installation?.id;
   if (installationId) {
-    const { allowed } = checkGitHubWebhookRateLimit(installationId);
+    let allowed = true;
+    try {
+      const result = await checkWebhookRateLimit(`github:installation:${installationId}`);
+      allowed = result.success;
+    } catch (error) {
+      // A verified GitHub delivery must still reach the durable queue if the
+      // separate REST rate limiter is unavailable. The queue can reject it if
+      // its Redis connection is down, which causes an explicit 500 response.
+      logger.error('Webhook rate limiter unavailable; continuing signed delivery', error, {
+        event,
+        delivery,
+        installationId,
+      });
+    }
     if (!allowed) {
       logger.warn('Webhook rate limit exceeded', { event, delivery, installationId });
       return new Response('Rate limit exceeded', { status: 429 });

@@ -5,6 +5,8 @@ import { useAuth } from '@/lib/auth/client';
 import { Github } from 'lucide-react';
 import { buildGitHubAppInstallUrl } from '@/lib/github/install-url';
 
+const reviewsEnabled = process.env.NEXT_PUBLIC_GITHUB_REVIEWS_ENABLED === 'true';
+
 interface RepoStatusProps {
   error?: { message: string } | null;
   owner?: string;
@@ -23,12 +25,10 @@ export function RepoStatus({ error, owner, repo }: RepoStatusProps) {
   const isUnauthorized = !isRateLimit && (msg.includes('unauthorized') || msg.includes('401') || msg.includes('Bad credentials'));
   const isNotFound = !isRateLimit && !isUnauthorized && (msg.includes('not found') || msg.includes('404'));
 
-  // Default to "likely private repo we can't see" framing on NOT_FOUND.
-  // Lead with install CTA. "Doesn't exist" is the fine-print fallback.
   const isProbablyPrivate = isNotFound;
 
   const returnPath = typeof window !== 'undefined' ? window.location.pathname + window.location.search : undefined;
-  const installUrl = buildGitHubAppInstallUrl(returnPath);
+  const installUrl = reviewsEnabled ? buildGitHubAppInstallUrl(returnPath) : undefined;
 
   const repoLabel = owner && repo ? `${owner}/${repo}` : owner ? owner : 'this repository';
 
@@ -41,22 +41,28 @@ export function RepoStatus({ error, owner, repo }: RepoStatusProps) {
 
   if (isProbablyPrivate) {
     title = "Can't see this repo";
-    body = (
+    body = reviewsEnabled ? (
       <>
         If <span className="font-mono">{repoLabel}</span> is private, github.gg needs the GitHub App installed on{' '}
         <span className="font-mono">{owner || 'the owner'}</span> to fetch it.
       </>
+    ) : (
+      <>
+        We couldn&apos;t find <span className="font-mono">{repoLabel}</span>. It may be private, or the name may be incorrect. Private repository access is temporarily unavailable.
+      </>
     );
-    primary = (
-      <a
-        href={installUrl}
-        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#111] hover:bg-[#333] rounded transition-colors"
-      >
-        <Github className="h-4 w-4" />
-        Install GitHub App{owner ? ` on ${owner}` : ''}
-      </a>
-    );
-    if (!isSignedIn) {
+    if (reviewsEnabled) {
+      primary = (
+        <a
+          href={installUrl}
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#111] hover:bg-[#333] rounded transition-colors"
+        >
+          <Github className="h-4 w-4" />
+          Install GitHub App{owner ? ` on ${owner}` : ''}
+        </a>
+      );
+    }
+    if (reviewsEnabled && !isSignedIn) {
       secondary = (
         <button
           onClick={() => signIn(returnPath)}
@@ -70,7 +76,7 @@ export function RepoStatus({ error, owner, repo }: RepoStatusProps) {
     title = 'Access denied';
     body = (
       <>
-        Your GitHub session isn&apos;t authorized for <span className="font-mono">{repoLabel}</span>. Try signing in again, or install the GitHub App on the owner.
+        Your GitHub session isn&apos;t authorized for <span className="font-mono">{repoLabel}</span>. Try signing in again.{!reviewsEnabled && ' Private repository access is temporarily unavailable.'}{reviewsEnabled && ' You can also install the GitHub App on the owner.'}
       </>
     );
     primary = (
@@ -82,29 +88,29 @@ export function RepoStatus({ error, owner, repo }: RepoStatusProps) {
         Sign in again
       </button>
     );
-    secondary = (
+    secondary = reviewsEnabled ? (
       <a
         href={installUrl}
         className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#111] bg-white border border-[#ddd] hover:bg-[#f5f5f5] rounded transition-colors"
       >
         Install GitHub App
       </a>
-    );
+    ) : null;
   } else if (isRateLimit) {
     title = 'GitHub rate limit hit';
     body = (
       <>
-        GitHub&apos;s API is temporarily throttled for this request. {isSignedIn ? 'Try again in a minute, or install the GitHub App for higher limits.' : 'Sign in for higher rate limits.'}
+        GitHub&apos;s API is temporarily throttled for this request. {isSignedIn ? reviewsEnabled ? 'Try again in a minute, or install the GitHub App for higher limits.' : 'Try again in a minute.' : 'Sign in for higher rate limits.'}
       </>
     );
-    primary = isSignedIn ? (
+    primary = isSignedIn && reviewsEnabled ? (
       <a
         href={installUrl}
         className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#111] hover:bg-[#333] rounded transition-colors"
       >
         Install GitHub App
       </a>
-    ) : (
+    ) : !isSignedIn ? (
       <button
         onClick={() => signIn(returnPath)}
         className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#111] hover:bg-[#333] rounded transition-colors"
@@ -112,7 +118,7 @@ export function RepoStatus({ error, owner, repo }: RepoStatusProps) {
         <Github className="h-4 w-4" />
         Sign in with GitHub
       </button>
-    );
+    ) : null;
   } else {
     title = 'Error loading repository';
     body = <>{msg}</>;
@@ -134,7 +140,7 @@ export function RepoStatus({ error, owner, repo }: RepoStatusProps) {
             </div>
           )}
 
-          {isProbablyPrivate && isSignedIn && (
+          {reviewsEnabled && isProbablyPrivate && isSignedIn && (
             <div className="text-[12px] text-[#666] mb-3">
               On GitHub&apos;s next screen, pick <span className="font-semibold">Only select repositories</span> to grant access to just this one.
             </div>

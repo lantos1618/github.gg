@@ -3,8 +3,13 @@ import { router, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { sql } from 'drizzle-orm';
 import { generateEmbedding, formatEmbeddingForPg } from '@/lib/ai/embeddings';
+import { reserveRepoSearchRequest, reserveSemanticSearchEmbedding } from '@/lib/rate-limit/semantic-search';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
+import type { BetterAuthSession } from '@/lib/github';
 
 interface ScorecardSearchRow {
+  userId: string;
+  isPrivate: boolean;
   repoOwner: string;
   repoName: string;
   ref: string | null;
@@ -12,6 +17,25 @@ interface ScorecardSearchRow {
   version: number;
   updatedAt: Date;
   similarityScore?: number;
+}
+
+async function visibleScorecards<Row extends ScorecardSearchRow>(rows: Row[], session: BetterAuthSession | null) {
+  const repoAccess = new Map<string, { private: boolean } | null>();
+  const uniqueRepos = new Map<string, ScorecardSearchRow>();
+  for (const row of rows) {
+    uniqueRepos.set(`${row.repoOwner.toLowerCase()}/${row.repoName.toLowerCase()}`, row);
+  }
+  await Promise.all([...uniqueRepos].map(async ([key, row]) => {
+    repoAccess.set(key, await getAccessibleRepositoryInfo(row.repoOwner, row.repoName, session));
+  }));
+
+  return rows
+    .filter((row) => {
+      const access = repoAccess.get(`${row.repoOwner.toLowerCase()}/${row.repoName.toLowerCase()}`);
+      return access && (!access.private || row.userId === session?.user?.id)
+        && (!row.isPrivate || row.userId === session?.user?.id);
+    })
+    .map(({ userId: _userId, isPrivate: _isPrivate, ...row }) => row);
 }
 
 export const repoSearchRouter = router({
@@ -22,19 +46,23 @@ export const repoSearchRouter = router({
   // and "search" states of the repos page.
   searchRepos: publicProcedure
     .input(z.object({
-      query: z.string().optional(),
-      limit: z.number().min(1).max(100).optional().default(50),
-      offset: z.number().min(0).optional().default(0),
+      query: z.string().max(200).optional(),
+      limit: z.number().int().min(1).max(20).optional().default(20),
+      offset: z.number().int().min(0).max(1000).optional().default(0),
     }))
     .query(async ({ input, ctx }) => {
       const { query, limit, offset } = input;
       const trimmed = query?.trim() ?? '';
+      const requestBudget = await reserveRepoSearchRequest(ctx.req, ctx.session?.user?.id);
+      if (requestBudget === 'limited') {
+        return { results: [], total: 0, hasMore: false, mode: 'rate_limited' as const };
+      }
 
       // Privacy: only public scorecards are searchable for everyone. Signed-in
       // users additionally see their own private ones (matches getAllAnalyzedRepos).
       const currentUserId = ctx.session?.user?.id;
       const visibilityClause = currentUserId
-        ? sql`(s.is_private = false OR s.user_id = ${currentUserId})`
+        ? sql`(s.is_private = false OR s."userId" = ${currentUserId})`
         : sql`s.is_private = false`;
 
       // Latest version per (repo_owner, repo_name, ref). We collapse on
@@ -60,13 +88,18 @@ export const repoSearchRouter = router({
         // fetch (limit * 4) so a future filter step has room; for now we
         // just slice.
         let rows: ScorecardSearchRow[] = [];
-        try {
-          const queryEmbedding = await generateEmbedding(`Repository search: ${trimmed}`);
-          const embeddingStr = formatEmbeddingForPg(queryEmbedding);
-          const fetchLimit = Math.min(200, (limit + offset) * 4);
-          const vectorResults = await db.execute(sql`
+        const canEmbed = requestBudget === 'allowed'
+          && await reserveSemanticSearchEmbedding(ctx.req, ctx.session?.user?.id);
+        if (canEmbed) {
+          try {
+            const queryEmbedding = await generateEmbedding(`Repository search: ${trimmed}`);
+            const embeddingStr = formatEmbeddingForPg(queryEmbedding);
+            const fetchLimit = Math.min(200, (limit + offset) * 4);
+            const vectorResults = await db.execute(sql`
             WITH latest AS (${latestPartition})
             SELECT
+              l."userId" as "userId",
+              l.is_private as "isPrivate",
               l.repo_owner as "repoOwner",
               l.repo_name as "repoName",
               l.ref as "ref",
@@ -79,25 +112,30 @@ export const repoSearchRouter = router({
             ORDER BY l.embedding <=> ${embeddingStr}::vector
             LIMIT ${fetchLimit}
           `);
-          rows = (vectorResults as unknown as Array<{
-            repoOwner: string;
-            repoName: string;
-            ref: string | null;
-            overallScore: number;
-            version: number;
-            updatedAt: Date;
-            similarity_score: number;
-          }>).map(r => ({
-            repoOwner: r.repoOwner,
-            repoName: r.repoName,
-            ref: r.ref,
-            overallScore: r.overallScore,
-            version: r.version,
-            updatedAt: new Date(r.updatedAt),
-            similarityScore: Number(r.similarity_score) || 0,
-          }));
-        } catch (err) {
-          console.warn('[repoSearch.searchRepos] vector search failed, falling back to ILIKE:', err);
+            rows = (vectorResults as unknown as Array<{
+              userId: string;
+              isPrivate: boolean;
+              repoOwner: string;
+              repoName: string;
+              ref: string | null;
+              overallScore: number;
+              version: number;
+              updatedAt: Date;
+              similarity_score: number;
+            }>).map(r => ({
+              userId: r.userId,
+              isPrivate: r.isPrivate,
+              repoOwner: r.repoOwner,
+              repoName: r.repoName,
+              ref: r.ref,
+              overallScore: r.overallScore,
+              version: r.version,
+              updatedAt: new Date(r.updatedAt),
+              similarityScore: Number(r.similarity_score) || 0,
+            }));
+          } catch (err) {
+            console.warn('[repoSearch.searchRepos] vector search failed, falling back to ILIKE:', err);
+          }
         }
 
         // Fallback / supplement: a plain substring match. We always run this
@@ -111,6 +149,8 @@ export const repoSearchRouter = router({
           const ilikeResults = await db.execute(sql`
             WITH latest AS (${latestPartition})
             SELECT
+              l."userId" as "userId",
+              l.is_private as "isPrivate",
               l.repo_owner as "repoOwner",
               l.repo_name as "repoName",
               l.ref as "ref",
@@ -139,11 +179,12 @@ export const repoSearchRouter = router({
         // Semantic mode over-fetches up to fetchLimit; total/hasMore reflect
         // what we have in hand, not a global COUNT (that would require a
         // second pass). Good enough for UI hint, not authoritative.
+        const accessible = await visibleScorecards(rows.slice(offset, offset + limit), ctx.session);
         return {
-          results: rows.slice(offset, offset + limit),
-          total: rows.length,
-          hasMore: rows.length > offset + limit,
-          mode: 'semantic' as const,
+          results: accessible,
+          total: accessible.length,
+          hasMore: accessible.length === limit && rows.length > offset + limit,
+          mode: canEmbed && rows.some(row => row.similarityScore !== undefined) ? 'semantic' as const : 'text' as const,
           totalIsExact: false,
         };
       }
@@ -152,6 +193,8 @@ export const repoSearchRouter = router({
       const browseResults = await db.execute(sql`
         WITH latest AS (${latestPartition})
         SELECT
+          l."userId" as "userId",
+          l.is_private as "isPrivate",
           l.repo_owner as "repoOwner",
           l.repo_name as "repoName",
           l.ref as "ref",
@@ -166,10 +209,11 @@ export const repoSearchRouter = router({
         ...r,
         updatedAt: new Date(r.updatedAt),
       }));
+      const accessible = await visibleScorecards(rows, ctx.session);
       return {
-        results: rows,
-        total: rows.length,
-        hasMore: rows.length === limit,
+        results: accessible,
+        total: accessible.length,
+        hasMore: accessible.length === limit,
         mode: 'browse' as const,
       };
     }),
@@ -185,8 +229,10 @@ export const repoSearchRouter = router({
     .query(async ({ input, ctx }) => {
       const { owner, repo, limit } = input;
       const currentUserId = ctx.session?.user?.id;
+      const sourceAccess = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+      if (!sourceAccess) return { results: [], mode: 'unavailable' as const };
       const visibilityClause = currentUserId
-        ? sql`(s.is_private = false OR s.user_id = ${currentUserId})`
+        ? sql`(s.is_private = false OR s."userId" = ${currentUserId})`
         : sql`s.is_private = false`;
 
       // Source row: the latest embedded scorecard for the given (owner, repo).
@@ -194,19 +240,19 @@ export const repoSearchRouter = router({
       // unauthenticated caller can probe whether a private scorecard exists
       // by observing whether this endpoint returns results vs 'unavailable'.
       const sourceResult = await db.execute(sql`
-        SELECT embedding
+        SELECT embedding, "userId" as "userId", is_private as "isPrivate"
         FROM repository_scorecards
         WHERE LOWER(repo_owner) = LOWER(${owner})
           AND LOWER(repo_name) = LOWER(${repo})
           AND embedding IS NOT NULL
           AND ${currentUserId
-            ? sql`(is_private = false OR user_id = ${currentUserId})`
+            ? sql`(is_private = false OR "userId" = ${currentUserId})`
             : sql`is_private = false`}
         ORDER BY updated_at DESC, version DESC
         LIMIT 1
       `);
-      const source = sourceResult[0] as { embedding: string | null } | undefined;
-      if (!source?.embedding) {
+      const source = sourceResult[0] as { embedding: string | null; userId: string; isPrivate: boolean } | undefined;
+      if (!source?.embedding || ((sourceAccess.private || source.isPrivate) && source.userId !== currentUserId)) {
         return { results: [], mode: 'unavailable' as const };
       }
 
@@ -233,6 +279,8 @@ export const repoSearchRouter = router({
           WHERE t.rn = 1
         )
         SELECT
+          l."userId" as "userId",
+          l.is_private as "isPrivate",
           l.repo_owner as "repoOwner",
           l.repo_name as "repoName",
           l.ref as "ref",
@@ -247,6 +295,8 @@ export const repoSearchRouter = router({
       `);
 
       const rows = (neighbours as unknown as Array<{
+        userId: string;
+        isPrivate: boolean;
         repoOwner: string;
         repoName: string;
         ref: string | null;
@@ -255,6 +305,8 @@ export const repoSearchRouter = router({
         updatedAt: Date;
         similarity_score: number;
       }>).map(r => ({
+        userId: r.userId,
+        isPrivate: r.isPrivate,
         repoOwner: r.repoOwner,
         repoName: r.repoName,
         ref: r.ref,
@@ -264,6 +316,6 @@ export const repoSearchRouter = router({
         similarityScore: Number(r.similarity_score) || 0,
       }));
 
-      return { results: rows, mode: 'semantic' as const };
+      return { results: await visibleScorecards(rows, ctx.session), mode: 'semantic' as const };
     }),
 });

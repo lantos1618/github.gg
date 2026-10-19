@@ -70,11 +70,6 @@ export class GitHubService {
     return new GitHubService(octokit);
   }
 
-  static async createWithApp(session: BetterAuthSession): Promise<GitHubService | null> {
-    const octokit = await GitHubAuthFactory.createWithApp(session);
-    return octokit ? new GitHubService(octokit) : null;
-  }
-
   static async createWithOAuth(session: BetterAuthSession): Promise<GitHubService | null> {
     const octokit = await GitHubAuthFactory.createWithOAuth(session);
     return octokit ? new GitHubService(octokit) : null;
@@ -90,18 +85,15 @@ export class GitHubService {
   }
 
   static async createForRepo(owner: string, repo: string, session?: BetterAuthSession, req?: Request): Promise<GitHubService> {
-    const repositoryService = await RepositoryService.createForRepo(owner, repo, session, req);
-    return new GitHubService(repositoryService['octokit']);
+    // Keep the legacy factory on the same authorization path as tRPC routes.
+    void req;
+    return createGitHubServiceForRepo(owner, repo, session ?? null);
   }
 }
 
 // Convenience functions for backward compatibility
 export function createPublicGitHubService(): GitHubService {
   return GitHubService.createPublic();
-}
-
-export async function createGitHubAppService(session: BetterAuthSession): Promise<GitHubService | null> {
-  return GitHubService.createWithApp(session);
 }
 
 export async function createOAuthGitHubService(session: BetterAuthSession): Promise<GitHubService | null> {
@@ -124,13 +116,8 @@ export async function createGitHubServiceFromSession(session: BetterAuthSession 
     return GitHubService.createPublic();
   }
 
-  // Try to create service with GitHub App first
-  const appService = await GitHubService.createWithApp(session);
-  if (appService) {
-    return appService;
-  }
-
-  // Try to create service with OAuth
+  // A session alone cannot authorize a GitHub App installation for a
+  // particular private repository. Use only the user's own OAuth token here.
   const oauthService = await GitHubService.createWithOAuth(session);
   if (oauthService) {
     return oauthService;
@@ -155,10 +142,32 @@ export async function createGitHubServiceForRepo(
     else console.log(`${tag} ${step}`);
   };
 
-  const getGitHubUsername = (): string | null => {
-    if (!session?.user) return null;
-    const user = session.user as typeof session.user & { githubUsername?: string };
-    return user.githubUsername?.toLowerCase() ?? null;
+  let oauthOctokitPromise: Promise<Octokit | null> | null = null;
+  const getOAuthOctokit = (): Promise<Octokit | null> => {
+    if (!session?.user?.id) return Promise.resolve(null);
+    oauthOctokitPromise ??= GitHubAuthFactory.createWithOAuth(session);
+    return oauthOctokitPromise;
+  };
+
+  // The session's cached githubUsername can be stale after a GitHub rename.
+  // Resolve the current account from the authenticated user's OAuth token on
+  // every private-repository request before checking that account's access.
+  let currentUsernamePromise: Promise<string | null> | null = null;
+  const getCurrentGitHubUsername = (): Promise<string | null> => {
+    currentUsernamePromise ??= (async () => {
+      const oauthOctokit = await getOAuthOctokit();
+      if (!oauthOctokit) return null;
+      try {
+        const { data } = await oauthOctokit.request('GET /user');
+        return data.login?.toLowerCase() ?? null;
+      } catch (err) {
+        logStep('current GitHub identity check failed', {
+          status: (err as { status?: number })?.status,
+        });
+        return null;
+      }
+    })();
+    return currentUsernamePromise;
   };
 
   const verifyCollaborator = async (appOctokit: Octokit, username: string): Promise<boolean> => {
@@ -178,9 +187,8 @@ export async function createGitHubServiceForRepo(
   // not appear in the explicit collaborators list. Use the user's OAuth token
   // (read:org scope) to confirm they're an active admin of the owning org.
   const verifyOrgAdmin = async (orgLogin: string): Promise<boolean> => {
-    if (!session?.user?.id) return false;
     try {
-      const oauthOctokit = await GitHubAuthFactory.createWithOAuth(session);
+      const oauthOctokit = await getOAuthOctokit();
       if (!oauthOctokit) return false;
       const { data } = await oauthOctokit.request('GET /user/memberships/orgs/{org}', {
         org: orgLogin,
@@ -193,19 +201,33 @@ export async function createGitHubServiceForRepo(
     }
   };
 
-  const username = getGitHubUsername();
-  if (session?.user?.id && !username) {
-    logStep('signed-in user has no githubUsername — collaborator checks will be skipped');
-  }
+  const verifyPrivateRepoAccess = async (appOctokit: Octokit): Promise<boolean> => {
+    const username = await getCurrentGitHubUsername();
+    if (!username) {
+      logStep('private repo — current GitHub identity could not be verified');
+      return false;
+    }
+
+    // GitHub's collaborator check includes direct, team, organization, and
+    // owner access. The org-admin lookup is a fallback for org ownership.
+    if (username === owner.toLowerCase()) return true;
+    if (await verifyCollaborator(appOctokit, username)) return true;
+    if (await verifyOrgAdmin(owner)) return true;
+    return false;
+  };
 
   // 1. Try the user's own linked GitHub App installation.
   if (session?.user?.id) {
-    const appService = await GitHubService.createWithApp(session);
-    if (appService) {
+    const appOctokit = await GitHubAuthFactory.createWithApp(session);
+    if (appOctokit) {
       try {
-        await appService.getRepositoryInfo(owner, repo);
-        logStep('using user-linked installation');
-        return appService;
+        const appService = new GitHubService(appOctokit);
+        const repoInfo = await appService.getRepositoryInfo(owner, repo);
+        if (!repoInfo.private || await verifyPrivateRepoAccess(appService.octokit)) {
+          logStep('using user-linked installation');
+          return appService;
+        }
+        logStep('user-linked installation cannot authorize private repo');
       } catch {
         logStep('user-linked installation cannot access repo');
       }
@@ -229,23 +251,9 @@ export async function createGitHubServiceForRepo(
         return new GitHubService(appOctokit);
       }
 
-      // Private repo: verify the signed-in user is authorized.
-      //   a) They own the repo (user-owned).
-      //   b) They're a collaborator (covers explicit + team-based access).
-      //   c) They're an admin of the owning org (org owners with implicit access).
-      if (username) {
-        if (username === owner.toLowerCase()) {
-          logStep('user owns the repo');
-          return new GitHubService(appOctokit);
-        }
-        if (await verifyCollaborator(appOctokit, username)) {
-          logStep('user verified as collaborator');
-          return new GitHubService(appOctokit);
-        }
-        if (await verifyOrgAdmin(owner)) {
-          logStep('user verified as org admin');
-          return new GitHubService(appOctokit);
-        }
+      if (await verifyPrivateRepoAccess(appOctokit)) {
+        logStep('current GitHub user verified for private repo');
+        return new GitHubService(appOctokit);
       }
 
       logStep('private repo — user not authorized via app installation');
@@ -285,16 +293,11 @@ export async function createGitHubServiceForUserOperations(session: BetterAuthSe
     return oauthService;
   }
 
-  // Fallback to GitHub App if OAuth is not available
-  const appService = await GitHubService.createWithApp(session);
-  if (appService) {
-    return appService;
-  }
-
-  // Fallback to public service
+  // Without a target repository, an installation token cannot be authorized
+  // for the current user. Fall back to anonymous public access.
   return GitHubService.createPublic();
 }
 
 // Re-export types for convenience
 export type { RepositoryInfo, RepoSummary, GitHubFilesResponse, BetterAuthSession };
-export { DEFAULT_MAX_FILES } from './types'; 
+export { DEFAULT_MAX_FILES } from './types';

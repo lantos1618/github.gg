@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +10,8 @@ import { PageWidthContainer } from '@/components/PageWidthContainer';
 import { safePostHog } from '@/lib/analytics/posthog';
 import { HeroDiagram } from '@/components/home/HeroDiagram';
 import { buildGitHubAppInstallUrl } from '@/lib/github/install-url';
+
+const reviewsEnabled = process.env.NEXT_PUBLIC_GITHUB_REVIEWS_ENABLED === 'true';
 
 export function HeroSection() {
   const router = useRouter();
@@ -67,13 +68,13 @@ export function HeroSection() {
 
             {/* Headline */}
             <h1 className="text-[31px] sm:text-[39px] lg:text-[44px] font-semibold text-[#111] leading-[1.15] mb-3 tracking-tight">
-              Understand any GitHub repo instantly.
+              Explore any public GitHub repo in seconds.
             </h1>
 
             {/* Subtitle */}
             <p className="text-base text-[#666] leading-[1.6] mb-8">
-              Paste a public repo URL. Get an AI-generated architecture diagram, codebase scorecard,
-              and developer hiring intelligence in seconds.
+              Paste a public repo URL to browse its code and explore available analyses.
+              Pro unlocks new AI diagrams, scorecards, and developer insights.
             </p>
 
             {/* Search */}
@@ -101,7 +102,7 @@ export function HeroSection() {
                 >
                   {isAnalyzing ? '...' : (
                     <>
-                      Analyze
+                      Explore
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </>
                   )}
@@ -129,25 +130,24 @@ export function HeroSection() {
             </div>
 
             <p className="text-[13px] text-[#aaa] mb-6">
-              No signup required for public repos.
+              No signup required to browse public repos.
             </p>
 
-            {/* Secondary CTA — install on your own repo for AI PR reviews.
-                Sits AFTER the demo input so users have seen the value
-                proposition before being asked to install (value-first). */}
-            <div className="pt-6 border-t border-[#eee] flex flex-wrap items-center gap-3 text-base">
-              <span className="text-[#aaa]">Want AI reviews on your own PRs?</span>
-              <a
-                href={buildGitHubAppInstallUrl()}
-                data-testid="home-hero-install-cta"
-                onClick={() => safePostHog.capture('install_clicked', { source: 'hero' })}
-                className="inline-flex items-center gap-1.5 text-[#111] hover:text-[#333] font-medium underline-offset-4 hover:underline"
-              >
-                <Github className="h-4 w-4" />
-                Install on your repo — 3 free reviews
-                <ArrowRight className="h-4 w-4" />
-              </a>
-            </div>
+            {reviewsEnabled && (
+              <div className="pt-6 border-t border-[#eee] flex flex-wrap items-center gap-3 text-base">
+                <span className="text-[#aaa]">Want AI reviews on your own PRs?</span>
+                <a
+                  href={buildGitHubAppInstallUrl()}
+                  data-testid="home-hero-install-cta"
+                  onClick={() => safePostHog.capture('install_clicked', { source: 'hero' })}
+                  className="inline-flex items-center gap-1.5 text-[#111] hover:text-[#333] font-medium underline-offset-4 hover:underline"
+                >
+                  <Github className="h-4 w-4" />
+                  Install on your repo — 3 free reviews
+                  <ArrowRight className="h-4 w-4" />
+                </a>
+              </div>
+            )}
           </div>
 
           {/* RIGHT — live diagram demo (real product output, not a mockup) */}

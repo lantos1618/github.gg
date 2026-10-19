@@ -42,27 +42,42 @@ Nice to have:
 
 export default function HireMatchPage() {
   const { isSignedIn, isLoading: authLoading, signIn } = useAuth();
+  const {
+    data: planData,
+    isPending: planPending,
+    isError: planError,
+    refetch: refetchPlan,
+  } = trpc.user.getCurrentPlan.useQuery(undefined, {
+    enabled: isSignedIn,
+    staleTime: 60_000,
+  });
+  const canMatch = planData?.plan === 'pro' || planData?.plan === 'byok';
   const [jobDescription, setJobDescription] = useState('');
   const [minConfidence, setMinConfidence] = useState(50);
   const [selectedArchetypes, setSelectedArchetypes] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(DRAFT_KEY);
-      if (!raw) return;
-      const draft = JSON.parse(raw) as {
-        jobDescription?: string;
-        minConfidence?: number;
-        selectedArchetypes?: string[];
-      };
-      if (draft.jobDescription) setJobDescription(draft.jobDescription);
-      if (typeof draft.minConfidence === 'number') setMinConfidence(draft.minConfidence);
-      if (Array.isArray(draft.selectedArchetypes)) setSelectedArchetypes(draft.selectedArchetypes);
-    } catch {}
+    const restoreDraft = window.setTimeout(() => {
+      try {
+        const savedDraft = sessionStorage.getItem(DRAFT_KEY);
+        if (!savedDraft) return;
+        const draft = JSON.parse(savedDraft) as {
+          jobDescription?: string;
+          minConfidence?: number;
+          selectedArchetypes?: string[];
+        };
+        if (draft.jobDescription) setJobDescription(draft.jobDescription);
+        if (typeof draft.minConfidence === 'number') setMinConfidence(draft.minConfidence);
+        if (Array.isArray(draft.selectedArchetypes)) setSelectedArchetypes(draft.selectedArchetypes);
+      } catch {} finally { setDraftRestored(true); }
+    }, 0);
+    return () => window.clearTimeout(restoreDraft);
   }, []);
 
   useEffect(() => {
+    if (!draftRestored) return;
     try {
       if (!jobDescription && selectedArchetypes.length === 0 && minConfidence === 50) {
         sessionStorage.removeItem(DRAFT_KEY);
@@ -73,7 +88,7 @@ export default function HireMatchPage() {
         JSON.stringify({ jobDescription, minConfidence, selectedArchetypes })
       );
     } catch {}
-  }, [jobDescription, minConfidence, selectedArchetypes]);
+  }, [draftRestored, jobDescription, minConfidence, selectedArchetypes]);
 
   const matchMutation = trpc.hire.matchCandidates.useMutation({
     onSuccess: () => {
@@ -89,6 +104,10 @@ export default function HireMatchPage() {
       toast.error('Please enter a more detailed job description (at least 50 characters)');
       return false;
     }
+    if (jobDescription.trim().length > 4000) {
+      toast.error('Job description must be 4,000 characters or fewer');
+      return false;
+    }
     return true;
   };
 
@@ -96,7 +115,7 @@ export default function HireMatchPage() {
     if (!validate()) return;
     matchMutation.mutate({
       jobDescription: jobDescription.trim(),
-      limit: 20,
+      limit: 10,
       minConfidence: minConfidence > 0 ? minConfidence : undefined,
       archetypes: selectedArchetypes.length > 0 ? selectedArchetypes : undefined,
     });
@@ -137,6 +156,29 @@ export default function HireMatchPage() {
           Paste a job description to find and rank candidates from analyzed developer profiles.
         </p>
 
+        {isSignedIn && !canMatch ? (
+          <div className="max-w-2xl rounded-lg border border-[#eee] bg-[#fafafa] p-6" role="status">
+            {planPending ? (
+              <p className="text-sm text-[#666]">Checking your plan…</p>
+            ) : planError ? (
+              <>
+                <h2 className="text-lg font-semibold text-[#111] mb-2">Could not verify your plan</h2>
+                <p className="text-sm text-[#666] mb-4">Try again before starting a candidate match.</p>
+                <Button variant="outline" onClick={() => void refetchPlan()}>Retry</Button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-semibold text-[#111] mb-2">Candidate matching requires a paid plan</h2>
+                <p className="text-sm text-[#666] mb-4">
+                  Upgrade to Pro or BYOK to rank developers against a job description.
+                </p>
+                <Button asChild className="bg-[#111] hover:bg-[#333] text-white">
+                  <Link href="/pricing?ref=hire-match">See plans</Link>
+                </Button>
+              </>
+            )}
+          </div>
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
           {/* Left: Job input */}
           <div className="lg:col-span-1">
@@ -151,6 +193,7 @@ export default function HireMatchPage() {
                 placeholder="Paste your job description here…&#10;&#10;Include:&#10;- Required skills and experience&#10;- Tech stack preferences&#10;- Role responsibilities&#10;- Nice-to-haves"
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
+                maxLength={4000}
                 className="min-h-[200px] mb-3 text-sm border-[#ddd] focus-visible:ring-0 focus-visible:border-[#111]"
               />
 
@@ -302,6 +345,7 @@ export default function HireMatchPage() {
             )}
           </div>
         </div>
+        )}
       </PageWidthContainer>
     </div>
   );

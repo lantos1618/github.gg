@@ -6,15 +6,10 @@ import {
   Shield,
   Activity,
   Target,
-  Github,
-  Plus,
-  X,
   Network,
   AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { TextButton } from '@/components/ui/text-button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { MOCK_REPOS, MOCK_USERS, type ViewType } from './intel-data';
 import { OverviewTab } from './OverviewTab';
@@ -23,21 +18,9 @@ import { BotsTab } from './BotsTab';
 import { GTMDiscoveryTab } from './GTMDiscoveryTab';
 
 export default function IntelPage() {
-  const [repoInput, setRepoInput] = useState('');
-  const [selectedRepos, setSelectedRepos] = useState(MOCK_REPOS);
+  const selectedRepos = MOCK_REPOS;
   const [activeView, setActiveView] = useState<ViewType>('overview');
   const [searchQuery, setSearchQuery] = useState('');
-
-  const addRepo = () => {
-    if (repoInput.trim()) {
-      // Mock adding a repo
-      setRepoInput('');
-    }
-  };
-
-  const removeRepo = (id: number) => {
-    setSelectedRepos(repos => repos.filter(r => r.id !== id));
-  };
 
   const filteredUsers = useMemo(() => {
     return MOCK_USERS.filter(user => {
@@ -84,25 +67,9 @@ export default function IntelPage() {
             </div>
           </div>
 
-          {/* Repo Input */}
-          <div className="flex gap-2 mb-4">
-            <div className="relative flex-1 max-w-md">
-              <Github className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Add repository (owner/repo)"
-                value={repoInput}
-                onChange={(e) => setRepoInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addRepo()}
-                className="pl-10"
-                aria-label="Add repository"
-              />
-            </div>
-            <TextButton onClick={addRepo} className="inline-flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              Add
-            </TextButton>
-          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            These are sample repositories. Adding your own repositories is not available in this preview.
+          </p>
 
           {/* Selected Repos */}
           <div className="flex flex-wrap gap-2">
@@ -118,12 +85,6 @@ export default function IntelPage() {
                 <span className="font-medium text-gray-700">{repo.owner}/{repo.name}</span>
                 <span className="text-gray-400">·</span>
                 <span className="text-gray-500">{(repo.stars / 1000).toFixed(0)}k</span>
-                <button
-                  onClick={() => removeRepo(repo.id)}
-                  className="ml-1 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-3 w-3" />
-                </button>
               </div>
             ))}
           </div>

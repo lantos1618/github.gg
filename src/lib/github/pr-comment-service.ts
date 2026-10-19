@@ -5,6 +5,8 @@ import { tokenUsage, webhookPreferences } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { PR_REVIEW_CONFIG } from '@/lib/config/pr-review';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { checkMonthlyTokenQuota } from '@/lib/ai/monthly-quota';
+import { checkPaidAIRateLimit } from '@/lib/rate-limit';
 import { escapeHtmlEntities } from '@/lib/utils/sanitize';
 import {
   getFreeTierStatus,
@@ -93,7 +95,12 @@ export async function postPRReviewComment({
     let keyInfo = isPaid ? await getApiKeyForUser(user.id, plan) : null;
     let freeTier: { used: number; remaining: number; total: number } | null = null;
 
-    if (!isPaid || !keyInfo) {
+    if (isPaid && !keyInfo) {
+      console.log(`Skipping PR review for PR #${prNumber}: subscriber Gemini key unavailable; re-entry may be required`);
+      return { success: false, skipped: true, reason: 'subscriber_key_unavailable' };
+    }
+
+    if (!isPaid) {
       // Free-tier path: use platform key for the first N reviews per installation,
       // then return a stub upgrade comment.
       const platformKey = getPlatformApiKey();
@@ -108,6 +115,24 @@ export async function postPRReviewComment({
       }
       keyInfo = { apiKey: platformKey, isByok: false };
       freeTier = status;
+    }
+
+    if (!keyInfo) {
+      return { success: false, skipped: true, reason: 'subscriber_key_unavailable' };
+    }
+
+    if (isPaid) {
+      const quota = await checkMonthlyTokenQuota({ userId: user.id, isByok: keyInfo.isByok });
+      if (!quota.allowed) {
+        console.log(`Skipping PR review for PR #${prNumber}: monthly Pro token allowance reached`);
+        return { success: false, skipped: true, reason: 'monthly_token_limit_reached' };
+      }
+      const rate = await checkPaidAIRateLimit(user.id);
+      if (rate.status !== 'allowed') {
+        const reason = rate.status === 'limited' ? 'ai_rate_limit_reached' : 'ai_rate_limit_unavailable';
+        console.log(`Skipping PR review for PR #${prNumber}: ${reason}`);
+        return { success: false, skipped: true, reason };
+      }
     }
 
     const octokit = await getInstallationOctokit(installationId);
@@ -155,6 +180,7 @@ export async function postPRReviewComment({
     // Analyze the PR
     const analysisStartTime = Date.now();
     const analysisResult = await analyzePullRequest({
+      apiKey: keyInfo.apiKey,
       prTitle: sanitizedTitle,
       prDescription: sanitizedDescription,
       changedFiles: filesToAnalyze.map(f => ({

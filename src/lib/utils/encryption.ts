@@ -38,4 +38,24 @@ export function decryptApiKey(encryptedApiKey: string): string {
   decrypted += decipher.final('utf8');
   
   return decrypted;
-} 
+}
+
+export function getStoredApiKeyStatus(encryptedApiKey: string | null | undefined): {
+  hasKey: boolean;
+  needsReentry: boolean;
+} {
+  if (!encryptedApiKey) {
+    return { hasKey: false, needsReentry: false };
+  }
+
+  try {
+    if (decryptApiKey(encryptedApiKey)) {
+      return { hasKey: true, needsReentry: false };
+    }
+  } catch {
+    // A previous secret or corrupt ciphertext makes this key unreadable.
+  }
+
+  // Let the owner replace an unreadable row without deleting it first.
+  return { hasKey: false, needsReentry: true };
+}

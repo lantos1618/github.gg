@@ -1,19 +1,23 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '@/lib/trpc/trpc';
+import { adminProcedure } from '@/lib/trpc/admin';
 import { db } from '@/db';
-import { developerProfileCache } from '@/db/schema';
-import { sql, desc, and, gte } from 'drizzle-orm';
+import { tokenUsage } from '@/db/schema';
+import { sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
-import { generateJobEmbedding, generateProfileEmbedding, formatEmbeddingForPg } from '@/lib/ai/embeddings';
-import { rankCandidates, type CandidateMatch } from '@/lib/ai/candidate-ranker';
+import { EMBEDDING_MODEL, generateJobEmbedding, generateProfileEmbedding, formatEmbeddingForPg } from '@/lib/ai/embeddings';
+import { MAX_RANKED_CANDIDATES, rankCandidates } from '@/lib/ai/candidate-ranker';
+import { GEMINI_FLASH_MODEL_NAME } from '@/lib/ai/models';
+import { validatePlanAndKey } from '@/lib/trpc/helpers/validate-plan-and-key';
 import type { DeveloperProfile } from '@/lib/types/profile';
+import { filterCurrentlyPublicProfiles } from '@/lib/profile/public-provenance';
 
 // Input schema for matching
 const matchCandidatesInput = z.object({
-  jobDescription: z.string().min(50, 'Job description must be at least 50 characters'),
-  limit: z.number().min(1).max(50).default(20),
+  jobDescription: z.string().trim().min(50, 'Job description must be at least 50 characters').max(4000),
+  limit: z.number().int().min(1).max(MAX_RANKED_CANDIDATES).default(MAX_RANKED_CANDIDATES),
   minConfidence: z.number().min(0).max(100).optional(),
-  archetypes: z.array(z.string()).optional(),
+  archetypes: z.array(z.string().max(100)).max(20).optional(),
 });
 
 // Output schema for a matched candidate
@@ -47,34 +51,29 @@ export const hireRouter = router({
    */
   matchCandidates: protectedProcedure
     .input(matchCandidatesInput)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const startTime = Date.now();
       const { jobDescription, limit, minConfidence, archetypes } = input;
 
+      // Gate both the embedding and every candidate-generation request before
+      // any provider call. BYOK users are billed on their own selected key.
+      const { keyInfo } = await validatePlanAndKey(ctx.user.id);
+
       // Step 1: Generate embedding for the job description
-      const jobEmbedding = await generateJobEmbedding(jobDescription);
-      const embeddingStr = formatEmbeddingForPg(jobEmbedding);
+      const jobEmbedding = await generateJobEmbedding(jobDescription, keyInfo.apiKey);
+      await db.insert(tokenUsage).values({
+        userId: ctx.user.id,
+        feature: 'hire-match',
+        model: EMBEDDING_MODEL,
+        inputTokens: jobEmbedding.inputTokens,
+        outputTokens: 0,
+        totalTokens: jobEmbedding.inputTokens,
+        isByok: keyInfo.isByok,
+        createdAt: new Date(),
+      });
+      const embeddingStr = formatEmbeddingForPg(jobEmbedding.embedding);
 
       // Step 2: Vector similarity search
-      // Get latest version of each profile with embeddings
-      const latestVersions = db
-        .select({
-          username: developerProfileCache.username,
-          maxVersion: sql<number>`MAX(${developerProfileCache.version})`.as('max_version'),
-        })
-        .from(developerProfileCache)
-        .groupBy(developerProfileCache.username)
-        .as('latest');
-
-      // Build WHERE conditions
-      const conditions: ReturnType<typeof sql>[] = [];
-
-      if (minConfidence) {
-        conditions.push(
-          sql`(${developerProfileCache.profileData}->>'profileConfidence')::int >= ${minConfidence}`
-        );
-      }
-
       // Query with vector similarity - fetch more than limit for AI ranking
       const vectorSearchLimit = Math.min(limit * 3, 100);
 
@@ -95,13 +94,14 @@ export const hireRouter = router({
             GROUP BY username
           ) latest ON p.username = latest.username AND p.version = latest.max_version
           WHERE p.embedding IS NOT NULL
+            AND p.profile_data->>'visibilityVerified' = 'true'
           ${minConfidence ? sql`AND (p.profile_data->>'profileConfidence')::int >= ${minConfidence}` : sql``}
           ORDER BY p.embedding <=> ${embeddingStr}::vector
           LIMIT ${vectorSearchLimit}
         `);
-      } catch (error) {
+      } catch {
         // Fallback: If vector search fails (no embeddings yet), use regular search
-        console.warn('Vector search failed, falling back to regular search:', error);
+        console.warn('Vector search failed; using regular candidate search');
 
         candidatesQuery = await db.execute(sql`
           SELECT
@@ -114,14 +114,14 @@ export const hireRouter = router({
             FROM developer_profile_cache
             GROUP BY username
           ) latest ON p.username = latest.username AND p.version = latest.max_version
-          WHERE 1=1
+          WHERE p.profile_data->>'visibilityVerified' = 'true'
           ${minConfidence ? sql`AND (p.profile_data->>'profileConfidence')::int >= ${minConfidence}` : sql``}
           ORDER BY (p.profile_data->>'profileConfidence')::int DESC
           LIMIT ${vectorSearchLimit}
         `);
       }
 
-      const rawCandidates = (candidatesQuery as unknown as Array<{
+      const rawCandidates = await filterCurrentlyPublicProfiles(candidatesQuery as unknown as Array<{
         username: string;
         profileData: DeveloperProfile;
         similarity_score: number;
@@ -152,7 +152,19 @@ export const hireRouter = router({
         similarityScore: Number(c.similarity_score) || 0.5,
       }));
 
-      const rankedCandidates = await rankCandidates(jobDescription, candidatesForRanking);
+      const { candidates: rankedCandidates, usage: rankingUsage } = await rankCandidates(
+        jobDescription, candidatesForRanking, keyInfo.apiKey,
+      );
+      if (rankingUsage.totalTokens > 0) {
+        await db.insert(tokenUsage).values({
+          userId: ctx.user.id,
+          feature: 'hire-match',
+          model: GEMINI_FLASH_MODEL_NAME,
+          ...rankingUsage,
+          isByok: keyInfo.isByok,
+          createdAt: new Date(),
+        });
+      }
 
       // Step 4: Format output
       const results: CandidateMatchOutput[] = rankedCandidates.map(c => ({
@@ -188,7 +200,7 @@ export const hireRouter = router({
    * historical rows, use `bun embed:profiles` instead. This mutation is kept
    * as a redundant manual path but should not be relied on by new code.
    */
-  generateProfileEmbedding: protectedProcedure
+  generateProfileEmbedding: adminProcedure
     .input(z.object({ username: z.string() }))
     .mutation(async ({ input }) => {
       const { username } = input;
@@ -204,15 +216,16 @@ export const hireRouter = router({
       `);
 
       const profileRows = profile as unknown as Array<{ id: string; profileData: DeveloperProfile }>;
-      if (profileRows.length === 0) {
+      const publicRows = await filterCurrentlyPublicProfiles(profileRows);
+      if (publicRows.length === 0) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Profile not found',
         });
       }
 
-      const profileData = profileRows[0].profileData;
-      const profileId = profileRows[0].id;
+      const profileData = publicRows[0].profileData;
+      const profileId = publicRows[0].id;
 
       // Generate embedding
       const embedding = await generateProfileEmbedding(profileData);
@@ -231,7 +244,7 @@ export const hireRouter = router({
   /**
    * Batch generate embeddings for all profiles without embeddings
    */
-  backfillEmbeddings: protectedProcedure
+  backfillEmbeddings: adminProcedure
     .input(z.object({ limit: z.number().min(1).max(100).default(50) }))
     .mutation(async ({ input }) => {
       const { limit } = input;
@@ -249,11 +262,11 @@ export const hireRouter = router({
         LIMIT ${limit}
       `);
 
-      const profiles = profilesWithoutEmbeddings as unknown as Array<{
+      const profiles = await filterCurrentlyPublicProfiles(profilesWithoutEmbeddings as unknown as Array<{
         id: string;
         username: string;
         profileData: DeveloperProfile;
-      }>;
+      }>);
 
       let processed = 0;
       let failed = 0;

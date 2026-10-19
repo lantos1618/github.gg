@@ -2,7 +2,7 @@ import { createCaller } from '@/lib/trpc/server';
 import { ReposClientView } from '@/components/repos/ReposClientView';
 import type { Metadata } from 'next';
 
-export const revalidate = 300; // ISR: revalidate every 5 minutes
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Analyzed Repositories - GG',

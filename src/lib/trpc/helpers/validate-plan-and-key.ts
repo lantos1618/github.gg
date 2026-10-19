@@ -1,5 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { checkMonthlyTokenQuota } from '@/lib/ai/monthly-quota';
+import { checkPaidAIRateLimit } from '@/lib/rate-limit';
 
 /**
  * Combined subscription + API-key gate used by every long-running AI
@@ -28,7 +30,22 @@ export async function validatePlanAndKey(userId: string): Promise<{
   if (!keyInfo) {
     throw new TRPCError({
       code: 'FORBIDDEN',
-      message: 'Please add your Gemini API key in settings to use this feature',
+      message: plan === 'byok'
+        ? 'Please add or re-enter your Gemini API key in settings to use this feature'
+        : 'Gemini service is not configured. Please try again later.',
+    });
+  }
+
+  const quota = await checkMonthlyTokenQuota({ userId, isByok: keyInfo.isByok });
+  if (!quota.allowed) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: quota.message });
+  }
+
+  const rate = await checkPaidAIRateLimit(userId);
+  if (rate.status !== 'allowed') {
+    throw new TRPCError({
+      code: rate.status === 'limited' ? 'TOO_MANY_REQUESTS' : 'INTERNAL_SERVER_ERROR',
+      message: rate.message,
     });
   }
 

@@ -6,6 +6,7 @@ import { eq, sql, inArray } from 'drizzle-orm';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import type { DeveloperProfile } from '@/lib/types/profile';
 import { Octokit } from '@octokit/rest';
+import { filterCurrentlyPublicProfiles } from '@/lib/profile/public-provenance';
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -47,10 +48,10 @@ async function batchGetUserDetails(
 async function getGGProfiles(logins: string[]): Promise<Set<string>> {
   if (logins.length === 0) return new Set();
   try {
-    const rows = await db.selectDistinct({ username: developerProfileCache.username })
+    const rows = await db.select({ username: developerProfileCache.username, profileData: developerProfileCache.profileData })
       .from(developerProfileCache)
       .where(inArray(developerProfileCache.username, logins.map(l => l.toLowerCase())));
-    return new Set(rows.map(r => r.username));
+    return new Set((await filterCurrentlyPublicProfiles(rows)).map(r => r.username));
   } catch {
     return new Set();
   }
@@ -229,11 +230,12 @@ export const discoverRouter = router({
         FROM developer_profile_cache
         WHERE username = ${normalizedUsername}
           AND embedding IS NOT NULL
+          AND profile_data->>'visibilityVerified' = 'true'
         ORDER BY version DESC
         LIMIT 1
       `) as unknown as Array<{ embedding: string; profileData: DeveloperProfile }>;
 
-      if (seedRows.length === 0) {
+      if ((await filterCurrentlyPublicProfiles(seedRows)).length === 0) {
         return { users: [], seed: username, hasEmbedding: false };
       }
 
@@ -251,6 +253,7 @@ export const discoverRouter = router({
           GROUP BY username
         ) latest ON p.username = latest.username AND p.version = latest.max_version
         WHERE p.embedding IS NOT NULL
+          AND p.profile_data->>'visibilityVerified' = 'true'
           AND p.username != ${normalizedUsername}
         ORDER BY p.embedding <=> ${seedEmbedding}::vector
         LIMIT ${limit}
@@ -260,8 +263,9 @@ export const discoverRouter = router({
         similarity: number;
       }>;
 
+      const publicSimilar = await filterCurrentlyPublicProfiles(similar);
       return {
-        users: similar.map(row => {
+        users: publicSimilar.map(row => {
           const profile = row.profileData;
           const avgScore = profile.skillAssessment?.length
             ? Math.round((profile.skillAssessment.reduce((acc, s) => acc + s.score, 0) / profile.skillAssessment.length) * 10)
@@ -300,6 +304,7 @@ export const discoverRouter = router({
           SELECT username, MAX(version) as max_version FROM developer_profile_cache GROUP BY username
         ) latest ON p.username = latest.username AND p.version = latest.max_version
         WHERE p.profile_data IS NOT NULL
+          AND p.profile_data->>'visibilityVerified' = 'true'
         ORDER BY p.updated_at DESC LIMIT ${limit}
       `) as unknown as Array<{
         username: string;
@@ -309,7 +314,8 @@ export const discoverRouter = router({
         projectionY: number | null;
       }>;
 
-      return profiles.map(row => {
+      const publicProfiles = await filterCurrentlyPublicProfiles(profiles);
+      return publicProfiles.map(row => {
         const profile = row.profileData;
         const avgScore = profile.skillAssessment?.length
           ? Math.round((profile.skillAssessment.reduce((acc, s) => acc + s.score, 0) / profile.skillAssessment.length) * 10)

@@ -14,6 +14,7 @@ validateEnvironment();
  * The user's installation status is stored in our database, linked to their account.
  */
 export const auth = betterAuth({
+  baseURL: process.env.NEXT_PUBLIC_APP_URL!,
   trustedOrigins: [
     "https://github.gg",
     "https://dev.github.gg",
@@ -112,4 +113,4 @@ export const auth = betterAuth({
     errorURL: '/auth/error',
   },
   secret: process.env.BETTER_AUTH_SECRET!,
-}); 
+});

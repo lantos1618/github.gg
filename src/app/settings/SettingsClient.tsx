@@ -13,6 +13,8 @@ import { PublicAPIKeysCard } from './components/PublicAPIKeysCard';
 import { ProfileCustomizationCard } from './components/ProfileCustomizationCard';
 import { WebhookPrefsCard } from './components/WebhookPrefsCard';
 
+const reviewsEnabled = process.env.NEXT_PUBLIC_GITHUB_REVIEWS_ENABLED === 'true';
+
 // Add this simple debounce hook if not already available
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -28,12 +30,13 @@ function useDebounce<T>(value: T, delay: number): T {
 export interface SettingsInitialData {
   plan: string | null;
   isPaid: boolean;
-  keyStatus: { hasKey: boolean } | null;
+  keyStatus: { hasKey: boolean; needsReentry: boolean } | null;
   profileStyles: Record<string, string | boolean | undefined> | null;
   username: string | null;
 }
 
 export default function SettingsClient({ initialData }: { initialData: SettingsInitialData }) {
+  const utils = trpc.useUtils();
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
 
@@ -53,6 +56,10 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
   const { plan: clientPlan, isPaid: clientIsPaid } = usePlan();
   const plan = clientPlan ?? initialData.plan;
   const isPaid = clientIsPaid || initialData.isPaid;
+  const planName = plan || 'free';
+  const planDescription = planName === 'free'
+    ? 'Public repositories'
+    : `${reviewsEnabled ? 'Private repositories' : 'Public repository AI'} + ${planName === 'byok' ? 'your Gemini key' : 'managed AI'}`;
   const { data: webhookPrefs, refetch: refetchWebhookPrefs } = trpc.webhooks.getPreferences.useQuery();
   const { data: installationInfo } = trpc.webhooks.getInstallationInfo.useQuery();
 
@@ -134,6 +141,7 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
     onSuccess: () => {
       toast.success('API Key saved successfully!');
       setApiKey('');
+      void utils.user.getApiKeyStatus.invalidate();
     },
     onError: (err) => {
       toast.error(err.message);
@@ -144,6 +152,7 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
   const deleteApiKey = trpc.user.deleteApiKey.useMutation({
     onSuccess: () => {
       toast.success('API Key deleted successfully!');
+      void utils.user.getApiKeyStatus.invalidate();
     },
     onError: (err) => {
       toast.error(err.message);
@@ -232,7 +241,7 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
         {/* Current Plan */}
         <CardWithHeader
           title="Plan"
-          description={`${(plan || 'free').charAt(0).toUpperCase() + (plan || 'free').slice(1)} — ${(!plan || plan === 'free') ? 'Public repositories' : plan === 'byok' ? 'Private repos + BYOK' : 'Private repos + managed AI'}`}
+          description={`${planName.charAt(0).toUpperCase() + planName.slice(1)} — ${planDescription}`}
           icon={Key}
           action={isPaid ? (
             <TextButton
@@ -253,6 +262,7 @@ export default function SettingsClient({ initialData }: { initialData: SettingsI
         {/* API Key Management */}
         <APIKeyCard
           hasKey={!!keyStatus?.hasKey}
+          needsReentry={!!keyStatus?.needsReentry}
           apiKey={apiKey}
           showKey={showKey}
           isSaving={saveApiKey.isPending}

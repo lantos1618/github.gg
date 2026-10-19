@@ -7,6 +7,7 @@ import { useAuthWithHint } from '@/lib/hooks/useAuthWithHint';
 
 const FRESH_SIGNUP_WINDOW_MS = 60_000;
 const ONBOARDING_SEEN_KEY = 'gg-seen-onboarding';
+const reviewsEnabled = process.env.NEXT_PUBLIC_GITHUB_REVIEWS_ENABLED === 'true';
 
 function hasSeenOnboarding(): boolean {
   if (typeof window === 'undefined') return false;
@@ -53,7 +54,7 @@ export function HomeDashboard({ children }: { children: ReactNode }) {
   const userCreatedAt = (session?.user as { createdAt?: string | Date } | undefined)?.createdAt;
 
   const isFreshSignup = useMemo(() => {
-    if (!isSignedIn || skipOnboarding || !userCreatedAt) return false;
+    if (!reviewsEnabled || !isSignedIn || skipOnboarding || !userCreatedAt) return false;
     if (hasSeenOnboarding()) return false;
     const createdMs = new Date(userCreatedAt).getTime();
     if (!Number.isFinite(createdMs)) return false;

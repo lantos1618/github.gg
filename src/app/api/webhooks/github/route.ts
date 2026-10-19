@@ -4,8 +4,8 @@
  * Responsibilities (kept intentionally minimal):
  *   1. Verify the `x-hub-signature-256` HMAC.
  *   2. Rate-limit by installation ID (Path D from audit).
- *   3. Atomically dedup by `x-github-delivery` (Path R3).
- *   4. Enqueue the event onto BullMQ.
+ *   3. Check successful enqueue marks by `x-github-delivery` (Path R3).
+ *   4. Enqueue the event onto BullMQ, then mark it deduplicated.
  *   5. Return 202 Accepted.
  *
  * The actual handler work — DB writes for installations, PR/commit/issue
@@ -19,8 +19,8 @@
  */
 import { Webhooks } from '@octokit/webhooks';
 import { createLogger } from '@/lib/logging';
-import { checkGitHubWebhookRateLimit } from '@/lib/webhooks/rate-limiter';
-import { markWebhookProcessed } from '@/lib/webhook-dedup';
+import { checkWebhookRateLimit } from '@/lib/rate-limit';
+import { markWebhookProcessed, wasWebhookProcessed } from '@/lib/webhook-dedup';
 import { enqueueWebhookEvent } from '@/lib/webhook-queue';
 
 const logger = createLogger('GitHubWebhook');
@@ -114,22 +114,32 @@ export async function POST(request: Request) {
   const installationId = (parsedPayload as { installation?: { id?: number } } | null)
     ?.installation?.id;
   if (installationId) {
-    const { allowed } = checkGitHubWebhookRateLimit(installationId);
+    let allowed = true;
+    try {
+      const result = await checkWebhookRateLimit(`github:installation:${installationId}`);
+      allowed = result.success;
+    } catch (error) {
+      // A verified GitHub delivery must still reach the durable queue if the
+      // separate REST rate limiter is unavailable. The queue can reject it if
+      // its Redis connection is down, which causes an explicit 500 response.
+      logger.error('Webhook rate limiter unavailable; continuing signed delivery', error, {
+        event,
+        delivery,
+        installationId,
+      });
+    }
     if (!allowed) {
       logger.warn('Webhook rate limit exceeded', { event, delivery, installationId });
       return new Response('Rate limit exceeded', { status: 429 });
     }
   }
 
-  // Delivery-ID dedup (audit R3). GitHub retries webhooks aggressively on any
-  // hiccup; without this, every retry would re-enqueue the same job. The
-  // BullMQ job ID is also the delivery ID, so this is belt-and-braces — but
-  // we still want the early return to avoid even touching the queue on
-  // duplicates. Synthetic 'unknown' deliveries (malformed requests) fall
-  // through.
+  // Only marks from successful enqueues can be treated as duplicates. BullMQ
+  // also uses the delivery ID as its job ID, so concurrent deliveries that
+  // both pass this read-only check still enqueue at most one job.
   if (delivery && delivery !== 'unknown') {
-    const acquired = await markWebhookProcessed(delivery);
-    if (!acquired) {
+    const alreadyQueued = await wasWebhookProcessed(delivery);
+    if (alreadyQueued) {
       logger.info('Duplicate webhook delivery — already processed', { event, delivery });
       return Response.json({ queued: false, duplicate: true, deliveryId: delivery }, { status: 200 });
     }
@@ -139,14 +149,16 @@ export async function POST(request: Request) {
   // whole point of this refactor.
   const enqueued = await enqueueWebhookEvent(delivery, event, parsedPayload);
   if (!enqueued) {
-    // The queue is unavailable (Redis down or REDIS_URL missing). Returning
-    // 500 here makes GitHub retry, which is the right call — we don't want to
-    // silently drop events when our queue is broken.
+    // Do not write a dedup mark: a retry must get another chance to enqueue.
     logger.error('Failed to enqueue webhook — queue unavailable', undefined, {
       event,
       delivery,
     });
     return new Response('Queue unavailable', { status: 500 });
+  }
+
+  if (delivery && delivery !== 'unknown') {
+    await markWebhookProcessed(delivery);
   }
 
   logger.info('Webhook enqueued:', {

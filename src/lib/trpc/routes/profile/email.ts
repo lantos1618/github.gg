@@ -1,25 +1,26 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
-import { user, developerEmails } from '@/db/schema';
+import { developerEmails } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { TRPCError } from '@trpc/server';
+import { isCurrentGitHubProfileOwner } from '@/lib/profile/service';
 
 export const profileEmailRouter = router({
   getDeveloperEmail: protectedProcedure
     .input(z.object({ username: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const normalizedUsername = input.username.toLowerCase();
 
-      // 1. Check if the user is registered on our platform by username
-      const registeredUser = await db.query.user.findFirst({
-        where: eq(user.name, normalizedUsername),
-      });
-      if (registeredUser?.email) {
-        return { email: registeredUser.email, source: 'database' };
+      if (!await isCurrentGitHubProfileOwner(ctx.session, normalizedUsername)) {
+        throw new TRPCError({ code: 'FORBIDDEN' });
       }
 
-      // 2. Check our cached developer emails table (scraping happens during
-      //    profile generation only, not on page view).
+      if (ctx.user.email) {
+        return { email: ctx.user.email, source: 'database' };
+      }
+
+      // Cached developer email is visible only to that current GitHub user.
       const cachedEmail = await db.query.developerEmails.findFirst({
         where: eq(developerEmails.username, normalizedUsername),
       });

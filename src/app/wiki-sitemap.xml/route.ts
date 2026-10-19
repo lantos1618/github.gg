@@ -1,6 +1,9 @@
 import { db } from '@/db';
 import { repositoryWikiPages } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
@@ -13,11 +16,29 @@ export async function GET() {
         updatedAt: repositoryWikiPages.updatedAt,
       })
       .from(repositoryWikiPages)
-      .where(eq(repositoryWikiPages.isPublic, true));
+      .where(and(
+        eq(repositoryWikiPages.isPublic, true),
+        sql`${repositoryWikiPages.metadata}->>'visibilityVerified' = 'true'`
+      ));
+
+    // Legacy private-repository pages may still have isPublic=true. Check the
+    // current GitHub visibility before publishing any URL in the sitemap.
+    const repoKeys = [...new Set(pages.map(page => `${page.repoOwner}/${page.repoName}`))];
+    const visibleRepos = new Set<string>();
+    let nextRepo = 0;
+    await Promise.all(Array.from({ length: Math.min(repoKeys.length, 6) }, async () => {
+      while (nextRepo < repoKeys.length) {
+        const key = repoKeys[nextRepo++];
+        const [owner, repo] = key.split('/');
+        const info = await getAccessibleRepositoryInfo(owner, repo, null);
+        if (info && !info.private) visibleRepos.add(key);
+      }
+    }));
+    const publicPages = pages.filter(page => visibleRepos.has(`${page.repoOwner}/${page.repoName}`));
 
     // Group pages by repo to get unique repos
     const repos = new Map<string, Date>();
-    pages.forEach(page => {
+    publicPages.forEach(page => {
       const key = `${page.repoOwner}/${page.repoName}`;
       const existingDate = repos.get(key);
       if (!existingDate || page.updatedAt > existingDate) {
@@ -30,14 +51,14 @@ export async function GET() {
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   ${Array.from(repos.entries()).map(([repo, date]) => `
   <url>
-    <loc>https://github.gg/wiki/${repo}</loc>
+    <loc>https://github.gg/wiki/${repo.split('/').map(encodeURIComponent).join('/')}</loc>
     <lastmod>${date.toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>`).join('')}
-  ${pages.map(page => `
+  ${publicPages.map(page => `
   <url>
-    <loc>https://github.gg/wiki/${page.repoOwner}/${page.repoName}/${page.slug}</loc>
+    <loc>https://github.gg/wiki/${[page.repoOwner, page.repoName, page.slug].map(encodeURIComponent).join('/')}</loc>
     <lastmod>${page.updatedAt.toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
@@ -47,7 +68,7 @@ export async function GET() {
     return new Response(sitemap, {
       headers: {
         'Content-Type': 'application/xml',
-        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+        'Cache-Control': 'no-store',
       },
     });
   } catch (error) {

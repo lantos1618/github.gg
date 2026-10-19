@@ -17,6 +17,7 @@ import { userSubscriptions } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import '@/lib/boneyard-config';
 import { logWarn } from '@/lib/logging';
+import { getEffectiveSubscriptionPlan } from '@/lib/utils/user-plan';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,11 +32,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://www.github.gg'),
   title: {
     default: "GG | The Missing Intelligence Layer for GitHub",
     template: "%s | GG"
   },
-  description: "Instant architectural diagrams, quality scores, and AI documentation for any GitHub repository. Stop reading code, start understanding.",
+  description: "Browse public GitHub repositories for free. Pro adds AI diagrams, code quality scorecards, and documentation.",
   keywords: ["GitHub analysis", "code visualization", "architectural diagrams", "code quality metrics", "AI documentation", "developer tools", "repo visualization"],
   authors: [{ name: "GG Team" }],
   creator: "GG Team",
@@ -44,22 +46,22 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "https://github.gg",
     title: "GG | The Missing Intelligence Layer for GitHub",
-    description: "Instant architectural diagrams, quality scores, and AI documentation for any GitHub repository.",
+    description: "Browse public GitHub repositories for free. Pro adds AI diagrams, code quality scorecards, and documentation.",
     siteName: "GG",
     images: [
       {
-        url: "/og-image.png", // We'll need to ensure this exists or use a fallback
-        width: 1200,
-        height: 630,
-        alt: "GG - GitHub Intelligence Layer",
+        url: "/favicon/android-chrome-512x512.png",
+        width: 512,
+        height: 512,
+        alt: "GG logo",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
     title: "GG | The Missing Intelligence Layer for GitHub",
-    description: "Instant architectural diagrams, quality scores, and AI documentation for any GitHub repository.",
-    images: ["/og-image.png"],
+    description: "Browse public GitHub repositories for free. Pro adds AI diagrams, code quality scorecards, and documentation.",
+    images: ["/favicon/android-chrome-512x512.png"],
     creator: "@github_gg", // Placeholder handle
   },
   icons: {
@@ -96,9 +98,10 @@ export default async function RootLayout({
       try {
         const sub = await db.query.userSubscriptions.findFirst({
           where: eq(userSubscriptions.userId, user.id),
-          columns: { plan: true, status: true },
+          columns: { plan: true, status: true, currentPeriodEnd: true },
         });
-        if (sub?.status === 'active') plan = sub.plan;
+        const effectivePlan = getEffectiveSubscriptionPlan(sub);
+        if (effectivePlan !== 'free') plan = effectivePlan;
       } catch (err) {
         // Non-fatal: subscription lookup failure shouldn't break the page render.
         logWarn('[layout] subscription plan lookup failed', {
@@ -151,7 +154,7 @@ export default async function RootLayout({
                 "price": "0",
                 "priceCurrency": "USD"
               },
-              "description": "Instant architectural diagrams, quality scores, and AI documentation for any GitHub repository."
+              "description": "Free public GitHub repository browsing, with AI analysis on Pro."
             })
           }}
         />

@@ -8,6 +8,9 @@ import { CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth/client';
 import { TextButton } from '@/components/ui/text-button';
 import { buildGitHubAppInstallUrl } from '@/lib/github/install-url';
+import { safeLocalPath } from '@/lib/utils/safe-local-path';
+
+const reviewsEnabled = process.env.NEXT_PUBLIC_GITHUB_REVIEWS_ENABLED === 'true';
 
 function InstallCallbackContent() {
   const searchParams = useSearchParams();
@@ -29,7 +32,7 @@ function InstallCallbackContent() {
     if (setupAction === 'update') {
       setStatus('success');
       const state = searchParams.get('state');
-      const target = state && state.startsWith('/') && !state.startsWith('//') ? state : null;
+      const target = safeLocalPath(state);
       setMessage(target ? `Updated. Taking you back to ${target}...` : 'GitHub App updated successfully!');
       if (target) setTimeout(() => router.push(target), 1500);
       return;
@@ -74,10 +77,10 @@ function InstallCallbackContent() {
       if (response.ok) {
         setStatus('success');
         const state = searchParams.get('state');
-        const target = state && state.startsWith('/') && !state.startsWith('//') ? state : null;
+        const target = safeLocalPath(state);
         setMessage(target
           ? `Installed. Taking you back to ${target}...`
-          : 'GitHub App installed. You can now access private repositories.');
+          : 'GitHub App installation linked to your account.');
         if (target) {
           setTimeout(() => router.push(target), 1500);
         }
@@ -109,13 +112,13 @@ function InstallCallbackContent() {
 
   const handleContinue = () => {
     const state = searchParams.get('state');
-    const target = state && state.startsWith('/') && !state.startsWith('//') ? state : '/';
+    const target = safeLocalPath(state) || '/';
     router.push(target);
   };
 
   const handleRetry = () => {
     const state = searchParams.get('state');
-    const target = state && state.startsWith('/') && !state.startsWith('//') ? state : null;
+    const target = safeLocalPath(state);
     window.location.href = buildGitHubAppInstallUrl(target);
   };
 
@@ -149,7 +152,7 @@ function InstallCallbackContent() {
             <Button onClick={handleContinue} className="w-full">
               {(() => {
                 const state = searchParams.get('state');
-                const target = state && state.startsWith('/') && !state.startsWith('//') ? state : null;
+                const target = safeLocalPath(state);
                 return target ? `Continue to ${target}` : 'Continue to github.gg';
               })()}
             </Button>
@@ -169,9 +172,11 @@ function InstallCallbackContent() {
               <TextButton onClick={handleRetryLinking}>
                 Try Linking Again
               </TextButton>
-              <TextButton onClick={handleRetry}>
-                Try Installation Again
-              </TextButton>
+              {reviewsEnabled && (
+                <TextButton onClick={handleRetry}>
+                  Try Installation Again
+                </TextButton>
+              )}
               <Button onClick={handleContinue} className="w-full">
                 Go Home
               </Button>
@@ -199,4 +204,4 @@ export default function InstallCallbackPage() {
       <InstallCallbackContent />
     </Suspense>
   );
-} 
+}

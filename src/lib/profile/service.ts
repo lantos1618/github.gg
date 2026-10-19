@@ -1,46 +1,46 @@
 import { db } from '@/db';
-import { developerProfileCache, developerEmails, user } from '@/db/schema';
+import { developerProfileCache } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import type { DeveloperProfile } from '@/lib/types/profile';
+import type { BetterAuthSession } from '@/lib/github/types';
+import { GitHubAuthFactory } from '@/lib/github/auth-factory';
+import { filterCurrentlyPublicProfiles } from './public-provenance';
 
-/** Look up cached email from DB only (no scraping). */
-async function getCachedEmail(normalizedUsername: string): Promise<string | null> {
-  // Check registered users first
-  const registeredUser = await db.query.user.findFirst({
-    where: eq(user.name, normalizedUsername),
-  });
-  if (registeredUser?.email) return registeredUser.email;
-
-  // Check cached developer emails
-  const cached = await db.query.developerEmails.findFirst({
-    where: eq(developerEmails.username, normalizedUsername),
-  });
-  return cached?.email ?? null;
+/** Recheck GitHub identity before returning a profile's private email. */
+export async function isCurrentGitHubProfileOwner(
+  session: BetterAuthSession | null,
+  username: string
+): Promise<boolean> {
+  if (!session?.user?.id) return false;
+  const oauthOctokit = await GitHubAuthFactory.createWithOAuth(session);
+  if (!oauthOctokit) return false;
+  try {
+    const { data } = await oauthOctokit.request('GET /user');
+    return data.login.toLowerCase() === username.toLowerCase();
+  } catch {
+    return false;
+  }
 }
 
 export async function getProfileData(username: string) {
   const normalizedUsername = username.toLowerCase();
 
-  // Fetch profile + cached email in parallel (both are fast DB queries)
-  const [profileResult, email] = await Promise.all([
-    db
-      .select()
-      .from(developerProfileCache)
-      .where(eq(developerProfileCache.username, normalizedUsername))
-      .orderBy(desc(developerProfileCache.version))
-      .limit(1),
-    getCachedEmail(normalizedUsername),
-  ]);
+  const profileResult = await db
+    .select()
+    .from(developerProfileCache)
+    .where(eq(developerProfileCache.username, normalizedUsername))
+    .orderBy(desc(developerProfileCache.version))
+    .limit(1);
 
-  if (profileResult.length > 0) {
-    const profile = profileResult[0];
+  const publicProfiles = await filterCurrentlyPublicProfiles(profileResult);
+  if (publicProfiles.length > 0) {
+    const profile = publicProfiles[0];
     const isStale = new Date().getTime() - profile.updatedAt.getTime() > 7 * 24 * 60 * 60 * 1000; // 7 days
     return {
       profile: profile.profileData as DeveloperProfile,
       cached: true,
       stale: isStale,
       lastUpdated: profile.updatedAt,
-      email,
     };
   }
 
@@ -49,7 +49,5 @@ export async function getProfileData(username: string) {
     cached: false,
     stale: false,
     lastUpdated: null,
-    email,
   };
 }
-

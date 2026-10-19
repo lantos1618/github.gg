@@ -2,14 +2,17 @@ import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
 import { createGitHubServiceForRepo } from '@/lib/github';
 import { generateWikiWithCacheStreaming } from '@/lib/ai/wiki-generator';
+import { GEMINI_FLASH_MODEL_NAME } from '@/lib/ai/models';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
 import { tokenUsage } from '@/db/schema';
-import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { collectRepositoryFiles } from '@/lib/wiki/file-collector';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { checkMonthlyTokenQuota } from '@/lib/ai/monthly-quota';
+import { checkPaidAIRateLimit } from '@/lib/rate-limit';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
+import { finishStargazerPerk, type StargazerPerkReservation } from '@/lib/utils/stargazer-reservation';
 import {
   insertWikiPages,
   getWikiPage,
@@ -22,6 +25,7 @@ import {
   createWikiPage,
 } from '@/lib/wiki/repository';
 import { checkRepositoryWriteAccess } from '@/lib/wiki/permissions';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 
 export const wikiRouter = router({
   /**
@@ -38,6 +42,7 @@ export const wikiRouter = router({
     }))
     .subscription(async function* ({ input, ctx }) {
       const { owner, repo, maxFiles } = input;
+      let perkReservation: StargazerPerkReservation | undefined;
 
       try {
         yield { type: 'progress', progress: 0, message: 'Starting wiki generation...' };
@@ -59,6 +64,7 @@ export const wikiRouter = router({
 
           isStargazerPerk = true;
           effectivePlan = perkResult.effectivePlan;
+          perkReservation = perkResult.reservation;
         }
 
         // Get appropriate API key
@@ -66,6 +72,19 @@ export const wikiRouter = router({
         if (!keyInfo) {
           yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
           return;
+        }
+
+        if (!isStargazerPerk) {
+          const quota = await checkMonthlyTokenQuota({ userId: ctx.user.id, isByok: keyInfo.isByok });
+          if (!quota.allowed) {
+            yield { type: 'error', message: quota.message };
+            return;
+          }
+          const rate = await checkPaidAIRateLimit(ctx.user.id);
+          if (rate.status !== 'allowed') {
+            yield { type: 'error', message: rate.message };
+            return;
+          }
         }
 
         yield { type: 'progress', progress: 5, message: 'Authenticating with GitHub...' };
@@ -111,6 +130,8 @@ export const wikiRouter = router({
         // Generate wiki using Gemini context caching with real-time progress
         let wikiResult;
         for await (const update of generateWikiWithCacheStreaming({
+          apiKey: keyInfo.apiKey,
+          useExplicitCache: !keyInfo.isByok,
           owner,
           repo,
           repoDescription: repoData.value.data.description || undefined,
@@ -135,14 +156,34 @@ export const wikiRouter = router({
 
         yield { type: 'progress', progress: 70, message: 'Saving wiki pages...' };
 
-        // Log token usage
+        // Calculate individual file hashes for cache invalidation
+        const fileHashes: Record<string, string> = {};
+        files.forEach(f => {
+          fileHashes[f.path] = crypto.createHash('sha256').update(f.content).digest('hex');
+        });
+
+        // Generation can take minutes. Recheck access and visibility before
+        // writing so a repo made private during generation is never published.
+        const currentRepository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!currentRepository) {
+          yield { type: 'error', message: 'Repository access could not be verified. Please retry.' };
+          return;
+        }
+
+        // Insert pages using repository module
+        const result = await insertWikiPages(
+          owner, repo, wikiResult.pages, fileHashes,
+          !repoData.value.data.private && !currentRepository.private
+        );
+
+        // Record the successful generation before consuming its free use.
         try {
           await db.insert(tokenUsage).values({
             userId: ctx.user.id,
             feature: 'wiki_generation',
             repoOwner: owner,
             repoName: repo,
-            model: 'gemini-3.1-flash-lite',
+            model: GEMINI_FLASH_MODEL_NAME,
             inputTokens: wikiResult.usage.inputTokens,
             outputTokens: wikiResult.usage.outputTokens,
             totalTokens: wikiResult.usage.totalTokens,
@@ -150,16 +191,17 @@ export const wikiRouter = router({
           });
         } catch (dbError) {
           console.error('Failed to log token usage for wiki generation:', dbError);
+          if (isStargazerPerk) throw dbError;
         }
-
-        // Calculate individual file hashes for cache invalidation
-        const fileHashes: Record<string, string> = {};
-        files.forEach(f => {
-          fileHashes[f.path] = crypto.createHash('sha256').update(f.content).digest('hex');
-        });
-
-        // Insert pages using repository module
-        const result = await insertWikiPages(owner, repo, wikiResult.pages, fileHashes);
+        if (perkReservation) {
+          try {
+            await finishStargazerPerk(perkReservation, true);
+          } catch (reservationError) {
+            // The durable usage row still blocks another free generation.
+            console.error('Failed to complete stargazer perk reservation:', reservationError);
+          }
+          perkReservation = undefined;
+        }
 
         yield { type: 'progress', progress: 90, message: 'Wiki generation complete!' };
 
@@ -180,6 +222,14 @@ export const wikiRouter = router({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to generate wiki: ${userFriendlyMessage}`,
         });
+      } finally {
+        if (perkReservation) {
+          try {
+            await finishStargazerPerk(perkReservation, false);
+          } catch (releaseError) {
+            console.error('Failed to release stargazer perk reservation:', releaseError);
+          }
+        }
       }
     }),
 
@@ -194,11 +244,13 @@ export const wikiRouter = router({
       slug: z.string(),
       version: z.number().optional(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const { owner, repo, slug, version } = input;
 
       try {
-        return await getWikiPage(owner, repo, slug, version);
+        const repository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!repository) return null;
+        return await getWikiPage(owner, repo, slug, version, repository.private);
       } catch (error) {
         console.error('Failed to fetch wiki page:', error);
         return null;
@@ -215,11 +267,13 @@ export const wikiRouter = router({
       repo: z.string(),
       version: z.number().optional(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const { owner, repo, version } = input;
 
       try {
-        return await getWikiTableOfContents(owner, repo, version);
+        const repository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!repository) return { pages: [], version: 0 };
+        return await getWikiTableOfContents(owner, repo, version, repository.private);
       } catch (error) {
         console.error('Failed to fetch wiki table of contents:', error);
         return { pages: [], version: 0 };
@@ -244,7 +298,11 @@ export const wikiRouter = router({
       const username = ctx.session?.user?.name ?? undefined;
 
       try {
-        const success = await incrementViewCount(owner, repo, slug, version, userId, username);
+        const repository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!repository) return { success: false };
+        const page = await getWikiPage(owner, repo, slug, version, repository.private);
+        if (!page) return { success: false };
+        const success = await incrementViewCount(owner, repo, slug, page.version, userId, username);
         return { success };
       } catch (error) {
         console.error('Failed to increment view count:', error);
@@ -252,10 +310,7 @@ export const wikiRouter = router({
       }
     }),
 
-  /**
-   * Get viewers for a wiki page
-   * Public: no authentication required
-   */
+  /** Get viewer identities only for current repository writers. */
   getWikiPageViewers: publicProcedure
     .input(z.object({
       owner: z.string(),
@@ -263,14 +318,21 @@ export const wikiRouter = router({
       slug: z.string(),
       version: z.number().optional(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const { owner, repo, slug, version } = input;
 
       try {
-        return await getWikiPageViewers(owner, repo, slug, version);
+        const repository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!repository) return { viewers: [], totalViews: 0, restricted: true };
+        const page = await getWikiPage(owner, repo, slug, version, repository.private);
+        if (!page) return { viewers: [], totalViews: 0, restricted: true };
+        if (!ctx.session?.user?.id || !await checkRepositoryWriteAccess(ctx.session, owner, repo)) {
+          return { viewers: [], totalViews: 0, restricted: true };
+        }
+        return { ...await getWikiPageViewers(owner, repo, slug, page.version), restricted: false };
       } catch (error) {
         console.error('Failed to fetch wiki page viewers:', error);
-        return { viewers: [], totalViews: 0 };
+        return { viewers: [], totalViews: 0, restricted: true };
       }
     }),
 
@@ -345,7 +407,11 @@ export const wikiRouter = router({
           });
         }
 
-        const page = await updateWikiPage(owner, repo, slug, { title, content, summary });
+        const repository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!repository) throw new TRPCError({ code: 'FORBIDDEN' });
+        const page = await updateWikiPage(owner, repo, slug, {
+          title, content, summary, isPublic: !repository.private,
+        });
 
         if (!page) {
           throw new TRPCError({
@@ -396,7 +462,11 @@ export const wikiRouter = router({
           });
         }
 
-        const page = await createWikiPage(owner, repo, { slug, title, content, summary });
+        const repository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!repository) throw new TRPCError({ code: 'FORBIDDEN' });
+        const page = await createWikiPage(
+          owner, repo, { slug, title, content, summary }, !repository.private
+        );
 
         if (!page) {
           throw new TRPCError({

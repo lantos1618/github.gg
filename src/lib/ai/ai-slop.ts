@@ -1,7 +1,10 @@
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { retryWithBackoff } from './retry-utils';
-import { GEMINI_PRO, GEMINI_FLASH } from './models';
+import {
+  addGeminiTokenUsage, createGeminiModels, emptyGeminiTokenUsage, geminiTokenUsage,
+  type GeminiModelUsage, type GeminiModels,
+} from './models';
 
 // Schema for AI slop detection
 export const aiSlopSchema = z.object({
@@ -31,6 +34,7 @@ const partialSlopSchema = z.object({
 export type AISlopData = z.infer<typeof aiSlopSchema>;
 
 export interface AISlopAnalysisParams {
+  apiKey: string;
   files: Array<{ path: string; content: string }>;
   repoName: string;
   onProgress?: (message: string, progress: number) => void;
@@ -38,6 +42,7 @@ export interface AISlopAnalysisParams {
 
 export interface AISlopAnalysisResult {
   analysis: AISlopData;
+  modelUsage: GeminiModelUsage;
   usage: {
     inputTokens: number;
     outputTokens: number;
@@ -70,6 +75,7 @@ function formatFilesForPrompt(files: Array<{ path: string; content: string }>, m
  * Analyze a chunk of files using fast model
  */
 async function analyzeSlopChunk(
+  models: GeminiModels,
   files: Array<{ path: string; content: string }>,
   chunkIndex: number,
   totalChunks: number,
@@ -87,7 +93,7 @@ Return JSON with: issues (file, issue, severity), detectedPatterns, aiGeneratedP
 
   return retryWithBackoff(async () => {
     const { object, usage } = await generateObject({
-      model: GEMINI_FLASH, // Fast model for chunks
+      model: models.flash, // Fast model for chunks
       schema: partialSlopSchema,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -99,6 +105,7 @@ Return JSON with: issues (file, issue, severity), detectedPatterns, aiGeneratedP
  * Generate final report from chunk results using quality model
  */
 async function generateFinalReport(
+  models: GeminiModels,
   chunkResults: Array<z.infer<typeof partialSlopSchema>>,
   repoName: string
 ) {
@@ -123,7 +130,7 @@ CRITICAL FORMATTING RULES:
 
   return retryWithBackoff(async () => {
     const { object, usage } = await generateObject({
-      model: GEMINI_PRO, // Quality model for final report
+      model: models.pro, // Quality model for final report
       schema: aiSlopSchema,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -167,10 +174,12 @@ async function processChunksParallel<T>(
  * Detect AI-generated code and AI slop using Gemini AI
  */
 export async function generateAISlopAnalysis({
+  apiKey,
   files,
   repoName,
   onProgress,
 }: AISlopAnalysisParams): Promise<AISlopAnalysisResult> {
+  const models = createGeminiModels(apiKey);
   const TOKENS_PER_CHUNK = 100000; // 100k tokens per chunk
   const MAX_CONCURRENCY = 3; // Process up to 3 chunks in parallel
 
@@ -204,23 +213,26 @@ export async function generateAISlopAnalysis({
 
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    let flashUsage = emptyGeminiTokenUsage();
 
     if (chunks.length === 1) {
       // Single chunk - direct analysis
       onProgress?.('Analyzing code quality...', 20);
 
-      const { result, usage } = await analyzeSlopChunk(chunks[0], 0, 1, repoName);
+      const { result, usage } = await analyzeSlopChunk(models, chunks[0], 0, 1, repoName);
+      flashUsage = addGeminiTokenUsage(flashUsage, geminiTokenUsage(usage));
       totalInputTokens += usage.inputTokens || 0;
       totalOutputTokens += usage.outputTokens || 0;
 
       onProgress?.('Generating report...', 70);
 
-      const { result: finalResult, usage: finalUsage } = await generateFinalReport([result], repoName);
+      const { result: finalResult, usage: finalUsage } = await generateFinalReport(models, [result], repoName);
       totalInputTokens += finalUsage.inputTokens || 0;
       totalOutputTokens += finalUsage.outputTokens || 0;
 
       return {
         analysis: finalResult,
+        modelUsage: { flash: flashUsage, pro: geminiTokenUsage(finalUsage) },
         usage: { inputTokens: totalInputTokens, outputTokens: totalOutputTokens, totalTokens: totalInputTokens + totalOutputTokens },
       };
     }
@@ -232,7 +244,8 @@ export async function generateAISlopAnalysis({
       chunks,
       async (chunk, index) => {
         console.log(`📝 Chunk ${index + 1}/${chunks.length} (${chunk.length} files)`);
-        const { result, usage } = await analyzeSlopChunk(chunk, index, chunks.length, repoName);
+        const { result, usage } = await analyzeSlopChunk(models, chunk, index, chunks.length, repoName);
+        flashUsage = addGeminiTokenUsage(flashUsage, geminiTokenUsage(usage));
         totalInputTokens += usage.inputTokens || 0;
         totalOutputTokens += usage.outputTokens || 0;
         return result;
@@ -246,12 +259,13 @@ export async function generateAISlopAnalysis({
 
     onProgress?.('Generating final report...', 75);
 
-    const { result, usage } = await generateFinalReport(chunkResults, repoName);
+    const { result, usage } = await generateFinalReport(models, chunkResults, repoName);
     totalInputTokens += usage.inputTokens || 0;
     totalOutputTokens += usage.outputTokens || 0;
 
     return {
       analysis: result,
+      modelUsage: { flash: flashUsage, pro: geminiTokenUsage(usage) },
       usage: { inputTokens: totalInputTokens, outputTokens: totalOutputTokens, totalTokens: totalInputTokens + totalOutputTokens },
     };
   } catch (error) {

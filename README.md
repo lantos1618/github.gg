@@ -213,12 +213,19 @@ bun run db:start          # Start PostgreSQL with Docker
 bun run db:studio         # Open Drizzle Studio
 bun run db:push           # Push schema changes
 bun test                  # Run tests
+bun run test:e2e          # Run Playwright tests (local test-session secret required)
 bun run worker:webhook    # Drain the GitHub webhook queue (long-lived; see WORKER_DEPLOYMENT.md)
 ```
 
 > **Note**: `worker:webhook` is a long-lived process that handles GitHub webhook
 > events outside the Vercel 30s request budget. It must run on Railway or a VM
 > (not Vercel) — see [WORKER_DEPLOYMENT.md](./WORKER_DEPLOYMENT.md) for details.
+
+Authenticated Playwright tests require `ENABLE_TEST_SESSION=true` and a separate
+`TEST_SESSION_SECRET` of at least 32 random characters in `.env.local` (for
+example, generate one with `openssl rand -hex 32`). The test-session endpoint
+accepts matching secret requests only on a local development server. Never use
+`BETTER_AUTH_SECRET` as the test-session secret.
 
 ### Environment Variables
 
@@ -232,7 +239,7 @@ GITHUB_CLIENT_SECRET=...
 BETTER_AUTH_SECRET=...
 
 # AI Features
-GOOGLE_GENERATIVE_AI_API_KEY=...
+GEMINI_API_KEY=...
 
 # Payments (optional)
 STRIPE_SECRET_KEY=...
@@ -320,8 +327,15 @@ bun start
 
 **Important**: Run database migrations before deploying:
 ```bash
-bun run db:push
+bun run migrate
 ```
+
+This security update adds `0030_artifact_privacy.sql` and
+`0031_better_auth_account_password.sql`. Apply them before deploying the new
+application code. On an existing database without an `app_migrations` journal,
+baseline the already-deployed migrations **from the old checkout first**;
+then run `bun run migrate` from this checkout so these new files are applied.
+Do not baseline the new files without running them.
 
 ---
 

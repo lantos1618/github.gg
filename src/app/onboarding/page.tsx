@@ -9,15 +9,17 @@ import { Github, Check, GitPullRequest, Sparkles, ExternalLink } from 'lucide-re
 import { safePostHog } from '@/lib/analytics/posthog';
 import { buildGitHubAppInstallUrl } from '@/lib/github/install-url';
 
+const reviewsEnabled = process.env.NEXT_PUBLIC_GITHUB_REVIEWS_ENABLED === 'true';
+
 export default function OnboardingPage() {
   const { isSignedIn, isLoading: authLoading, signIn } = useAuth();
 
   const installationQuery = trpc.webhooks.getInstallationInfo.useQuery(undefined, {
-    enabled: isSignedIn,
+    enabled: isSignedIn && reviewsEnabled,
     refetchInterval: 5_000,
   });
   const reposQuery = trpc.webhooks.getRepositories.useQuery(undefined, {
-    enabled: isSignedIn && !!installationQuery.data,
+    enabled: isSignedIn && reviewsEnabled && !!installationQuery.data,
     refetchInterval: 5_000,
   });
 
@@ -35,12 +37,32 @@ export default function OnboardingPage() {
   }, [installed, hasRepo]);
 
   useEffect(() => {
+    if (!reviewsEnabled) return;
     safePostHog.capture('onboarding_view', {
       installed,
       repoCount: repos.length,
     });
     try { sessionStorage.setItem('gg-seen-onboarding', '1'); } catch {}
   }, [installed, repos.length]);
+
+  if (!reviewsEnabled) {
+    return (
+      <Layout>
+        <Hero
+          title="GitHub App setup is paused"
+          subtitle="Automated pull request reviews and private repository access are temporarily unavailable. You can still explore public repositories and use the currently available Pro features."
+        />
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <Button size="lg" asChild>
+            <Link href="/">Explore public repositories</Link>
+          </Button>
+          <Button size="lg" variant="outline" asChild>
+            <Link href="/pricing">See current Pro features</Link>
+          </Button>
+        </div>
+      </Layout>
+    );
+  }
 
   if (authLoading) {
     return <Layout><Skeleton /></Layout>;
@@ -144,7 +166,7 @@ export default function OnboardingPage() {
       <div className="mt-10 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
         <Sparkles className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
         <div className="text-sm text-blue-900 leading-relaxed">
-          <span className="font-semibold">Pro?</span> No setup difference — Pro just removes the 3-review cap.{' '}
+          <span className="font-semibold">Pro?</span> Pro includes ongoing reviews after the three free installation reviews.{' '}
           <Link href="/pricing?ref=onboarding" className="underline font-medium">
             See pricing
           </Link>

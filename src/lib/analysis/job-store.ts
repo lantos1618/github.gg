@@ -82,11 +82,40 @@ async function redisGetJson<T>(key: string): Promise<T | null> {
 
 const JOB_TTL = 300; // 5 minutes
 const JOB_PREFIX = 'analysis:job:';
+const JOB_CLAIM_PREFIX = 'analysis:job-claim:';
+// The SSE route can run for five minutes after it starts. Keep the claim well
+// beyond that window, including time spent waiting between job creation and
+// the first subscription. The job itself expires sooner, so it cannot be
+// replayed when this claim eventually expires.
+const JOB_CLAIM_TTL = 900;
+
+function requireDurableJobStore(): void {
+  if (!redis && process.env.NODE_ENV === 'production') {
+    throw new Error('Analysis job storage is unavailable');
+  }
+}
+
+async function claimJob(jobId: string): Promise<boolean> {
+  const key = `${JOB_CLAIM_PREFIX}${jobId}`;
+  if (redis) {
+    // SET NX is atomic across all Vercel instances. Never use GET followed by
+    // SET for the claim: two SSE subscriptions could both start generation.
+    return (await redis.set(key, 'claimed', { nx: true, ex: JOB_CLAIM_TTL })) === 'OK';
+  }
+
+  // Local development only. A per-process Map cannot coordinate serverless
+  // instances, so production fails closed in requireDurableJobStore().
+  if (memoryFallback.has(key)) return false;
+  memoryFallback.set(key, 'claimed');
+  setTimeout(() => memoryFallback.delete(key), JOB_CLAIM_TTL * 1000);
+  return true;
+}
 
 /**
  * Create a job and store params in Redis. Returns a short jobId.
  */
 export async function createJob(params: Omit<AnalysisJob, 'createdAt'>): Promise<string> {
+  requireDurableJobStore();
   const jobId = crypto.randomBytes(16).toString('hex');
   const job: AnalysisJob = { ...params, createdAt: Date.now() };
   await redisSetJson(`${JOB_PREFIX}${jobId}`, job, JOB_TTL);
@@ -94,18 +123,19 @@ export async function createJob(params: Omit<AnalysisJob, 'createdAt'>): Promise
 }
 
 /**
- * Retrieve a job. Returns null if not found / expired / wrong user.
- *
- * Idempotent within the TTL: the job is NOT deleted on read. If the SSE
- * subscription drops and the client auto-reconnects, the new server
- * generator can re-fetch the same job and continue, instead of yielding
- * "Analysis job not found" on every reconnect. Redis TTL (5min) cleans up.
+ * Claim a job once. Returns null if not found, expired, owned by another user,
+ * or already claimed. A disconnected SSE client must create a fresh job using
+ * the existing POST mutation before retrying; replaying this ID could start a
+ * second paid generation while the first is still running.
  */
 export async function consumeJob(jobId: string, userId: string): Promise<AnalysisJob | null> {
+  requireDurableJobStore();
+  if (!/^[0-9a-f]{32}$/.test(jobId)) return null;
   const key = `${JOB_PREFIX}${jobId}`;
   const job = await redisGetJson<AnalysisJob>(key);
   if (!job) return null;
   if (job.userId !== userId) return null;
+  if (!(await claimJob(jobId))) return null;
   return job;
 }
 

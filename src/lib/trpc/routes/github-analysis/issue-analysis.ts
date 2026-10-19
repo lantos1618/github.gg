@@ -2,12 +2,17 @@ import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from '@/lib/trpc/trpc';
 import { createGitHubServiceForRepo, createPublicGitHubService } from '@/lib/github';
 import { analyzeIssue } from '@/lib/ai/issue-analysis';
+import { GEMINI_PRO_MODEL_NAME } from '@/lib/ai/models';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db';
 import { tokenUsage, issueAnalysisCache } from '@/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { checkMonthlyTokenQuota } from '@/lib/ai/monthly-quota';
+import { checkPaidAIRateLimit } from '@/lib/rate-limit';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
+import { finishStargazerPerk, type StargazerPerkReservation } from '@/lib/utils/stargazer-reservation';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 
 export const githubAnalysisIssueAnalysisRouter = router({
   // Get all issues for a repository
@@ -99,6 +104,7 @@ export const githubAnalysisIssueAnalysisRouter = router({
     }))
     .subscription(async function* ({ input, ctx }) {
       const { owner, repo, number } = input;
+      let perkReservation: StargazerPerkReservation | undefined;
 
       try {
         // Yield initial progress
@@ -121,12 +127,26 @@ export const githubAnalysisIssueAnalysisRouter = router({
 
           isStargazerPerk = true;
           effectivePlan = perkResult.effectivePlan;
+          perkReservation = perkResult.reservation;
         }
 
         const keyInfo = await getApiKeyForUser(ctx.user.id, effectivePlan);
         if (!keyInfo) {
           yield { type: 'error' as const, message: 'Please add your Gemini API key in settings to use this feature' };
           return;
+        }
+
+        if (!isStargazerPerk) {
+          const quota = await checkMonthlyTokenQuota({ userId: ctx.user.id, isByok: keyInfo.isByok });
+          if (!quota.allowed) {
+            yield { type: 'error' as const, message: quota.message };
+            return;
+          }
+          const rate = await checkPaidAIRateLimit(ctx.user.id);
+          if (rate.status !== 'allowed') {
+            yield { type: 'error' as const, message: rate.message };
+            return;
+          }
         }
 
         yield { type: 'progress' as const, progress: 3, message: 'Authenticating with GitHub...' };
@@ -149,6 +169,7 @@ export const githubAnalysisIssueAnalysisRouter = router({
         yield { type: 'progress' as const, progress: 15, message: 'Fetched issue data, analyzing...' };
 
         const analysisResult = await analyzeIssue({
+          apiKey: keyInfo.apiKey,
           issueTitle: issue.data.title,
           issueBody: issue.data.body || '',
           issueNumber: issue.data.number,
@@ -165,24 +186,6 @@ export const githubAnalysisIssueAnalysisRouter = router({
         yield { type: 'progress' as const, progress: 70, message: 'Analysis complete, generating recommendations...' };
 
         yield { type: 'progress' as const, progress: 90, message: 'Saving results...' };
-
-        // Log token usage
-        try {
-          await db.insert(tokenUsage).values({
-            userId: ctx.user.id,
-            feature: 'issue_analysis',
-            repoOwner: owner,
-            repoName: repo,
-            model: 'gemini-3.1-pro-preview',
-            inputTokens: analysisResult.usage.inputTokens,
-            outputTokens: analysisResult.usage.outputTokens,
-            totalTokens: analysisResult.usage.totalTokens,
-            isByok: keyInfo.isByok,
-          });
-        } catch (dbError) {
-          console.error('Failed to log token usage for issue analysis:', dbError);
-          // Don't fail the entire request if token logging fails
-        }
 
         // Get the latest version for this issue
         const latestAnalysis = await db
@@ -201,6 +204,10 @@ export const githubAnalysisIssueAnalysisRouter = router({
 
         const nextVersion = latestAnalysis.length > 0 ? latestAnalysis[0].version + 1 : 1;
 
+        const currentRepository = await getAccessibleRepositoryInfo(owner, repo, ctx.session);
+        if (!currentRepository) throw new Error('Repository access could not be verified before saving');
+        const isPrivate = repoData.data.private || currentRepository.private;
+
         // Cache the analysis
         try {
           await db.insert(issueAnalysisCache).values({
@@ -209,6 +216,7 @@ export const githubAnalysisIssueAnalysisRouter = router({
             repoName: repo,
             issueNumber: number,
             version: nextVersion,
+            isPrivate,
             overallScore: analysisResult.analysis.overallScore,
             slopRanking: analysisResult.analysis.slopRanking,
             suggestedPriority: analysisResult.analysis.suggestedPriority,
@@ -223,7 +231,33 @@ export const githubAnalysisIssueAnalysisRouter = router({
           });
         } catch (cacheError) {
           console.error('Failed to cache issue analysis:', cacheError);
-          // Don't fail the entire request if caching fails
+          if (isStargazerPerk) throw cacheError;
+        }
+
+        // Record the persisted analysis before consuming its free use.
+        try {
+          await db.insert(tokenUsage).values({
+            userId: ctx.user.id,
+            feature: 'issue_analysis',
+            repoOwner: owner,
+            repoName: repo,
+            model: GEMINI_PRO_MODEL_NAME,
+            inputTokens: analysisResult.usage.inputTokens,
+            outputTokens: analysisResult.usage.outputTokens,
+            totalTokens: analysisResult.usage.totalTokens,
+            isByok: keyInfo.isByok,
+          });
+        } catch (dbError) {
+          console.error('Failed to log token usage for issue analysis:', dbError);
+          if (isStargazerPerk) throw dbError;
+        }
+        if (perkReservation) {
+          try {
+            await finishStargazerPerk(perkReservation, true);
+          } catch (reservationError) {
+            console.error('Failed to complete stargazer perk reservation:', reservationError);
+          }
+          perkReservation = undefined;
         }
 
         // Yield complete result
@@ -246,6 +280,14 @@ export const githubAnalysisIssueAnalysisRouter = router({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to analyze issue: ${error instanceof Error ? error.message : 'Unknown error'}`,
         });
+      } finally {
+        if (perkReservation) {
+          try {
+            await finishStargazerPerk(perkReservation, false);
+          } catch (releaseError) {
+            console.error('Failed to release stargazer perk reservation:', releaseError);
+          }
+        }
       }
     }),
 });

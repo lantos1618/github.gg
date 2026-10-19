@@ -1,5 +1,11 @@
 import { generateObject } from 'ai';
-import { GEMINI_FLASH } from './models';
+import {
+  addGeminiTokenUsage,
+  createGeminiModels,
+  emptyGeminiTokenUsage,
+  geminiTokenUsage,
+  type GeminiTokenUsage,
+} from './models';
 import { z } from 'zod';
 import type { DeveloperProfile } from '@/lib/types/profile';
 
@@ -26,6 +32,12 @@ export interface CandidateMatch {
   fit: CandidateFit;
 }
 
+export const MAX_RANKED_CANDIDATES = 10;
+
+function excerpt(value: string | undefined, maxChars: number): string {
+  return value?.slice(0, maxChars) || '';
+}
+
 // Salary ranges by archetype (base ranges in USD)
 const SALARY_RANGES: Record<string, { min: number; max: number }> = {
   'Early Career Explorer': { min: 60000, max: 95000 },
@@ -42,8 +54,9 @@ const SALARY_RANGES: Record<string, { min: number; max: number }> = {
 export async function analyzeCandidate(
   jobDescription: string,
   profile: DeveloperProfile,
-  username: string
-): Promise<CandidateFit> {
+  username: string,
+  apiKey: string,
+): Promise<{ fit: CandidateFit; usage: GeminiTokenUsage }> {
   const prompt = `You are an expert technical recruiter. Analyze how well this candidate fits the job requirements.
 
 ## Job Description
@@ -51,18 +64,18 @@ ${jobDescription}
 
 ## Candidate Profile: ${username}
 
-**Summary:** ${profile.summary || 'Not available'}
+**Summary:** ${excerpt(profile.summary, 1000) || 'Not available'}
 
 **Developer Type:** ${profile.developerArchetype || 'Unknown'}
 
 **Skills:**
-${profile.skillAssessment?.map(s => `- ${s.metric}: ${s.score}/10 (${s.reason})`).join('\n') || 'Not available'}
+${profile.skillAssessment?.slice(0, 7).map(s => `- ${excerpt(s.metric, 100)}: ${s.score}/10 (${excerpt(s.reason, 350)})`).join('\n') || 'Not available'}
 
 **Tech Stack:**
-${profile.techStack?.map(t => `- ${t.name} (${t.type})`).join('\n') || 'Not available'}
+${profile.techStack?.slice(0, 15).map(t => `- ${excerpt(t.name, 100)} (${t.type})`).join('\n') || 'Not available'}
 
 **Notable Projects:**
-${profile.topRepos?.slice(0, 3).map(r => `- ${r.name}: ${r.reason} (significance: ${r.significanceScore}/10)`).join('\n') || 'Not available'}
+${profile.topRepos?.slice(0, 3).map(r => `- ${excerpt(r.name, 100)}: ${excerpt(r.reason, 350)} (significance: ${r.significanceScore}/10)`).join('\n') || 'Not available'}
 
 **Profile Confidence:** ${profile.profileConfidence || 0}%
 
@@ -76,7 +89,7 @@ ${profile.topRepos?.slice(0, 3).map(r => `- ${r.name}: ${r.reason} (significance
 Be objective and evidence-based. A 100 score means perfect match, 80+ is strong, 60-79 is moderate, below 60 is weak fit.`;
 
   const result = await generateObject({
-    model: GEMINI_FLASH,
+    model: createGeminiModels(apiKey).flash,
     schema: candidateFitSchema,
     prompt,
   });
@@ -90,12 +103,15 @@ Be objective and evidence-based. A 100 score means perfect match, 80+ is strong,
   const adjustedMax = Math.round(baseRange.max * (0.9 + confidenceModifier * 0.2));
 
   return {
-    ...result.object,
-    estimatedSalaryRange: {
-      min: result.object.estimatedSalaryRange?.min || adjustedMin,
-      max: result.object.estimatedSalaryRange?.max || adjustedMax,
-      currency: 'USD',
+    fit: {
+      ...result.object,
+      estimatedSalaryRange: {
+        min: result.object.estimatedSalaryRange?.min || adjustedMin,
+        max: result.object.estimatedSalaryRange?.max || adjustedMax,
+        currency: 'USD',
+      },
     },
+    usage: geminiTokenUsage(result.usage),
   };
 }
 
@@ -105,46 +121,60 @@ Be objective and evidence-based. A 100 score means perfect match, 80+ is strong,
  */
 export async function rankCandidates(
   jobDescription: string,
-  candidates: Array<{ username: string; profile: DeveloperProfile; similarityScore: number }>
-): Promise<CandidateMatch[]> {
+  candidates: Array<{ username: string; profile: DeveloperProfile; similarityScore: number }>,
+  apiKey: string,
+): Promise<{ candidates: CandidateMatch[]; usage: GeminiTokenUsage }> {
   // Process in parallel with concurrency limit
   const BATCH_SIZE = 5;
   const results: CandidateMatch[] = [];
+  let usage = emptyGeminiTokenUsage();
 
-  for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
-    const batch = candidates.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < Math.min(candidates.length, MAX_RANKED_CANDIDATES); i += BATCH_SIZE) {
+    const batch = candidates.slice(i, Math.min(i + BATCH_SIZE, MAX_RANKED_CANDIDATES));
     const batchResults = await Promise.all(
       batch.map(async (candidate) => {
         try {
-          const fit = await analyzeCandidate(jobDescription, candidate.profile, candidate.username);
+          const { fit, usage: candidateUsage } = await analyzeCandidate(
+            jobDescription, candidate.profile, candidate.username, apiKey,
+          );
           return {
-            username: candidate.username,
-            profile: candidate.profile,
-            similarityScore: candidate.similarityScore,
-            fit,
+            match: {
+              username: candidate.username,
+              profile: candidate.profile,
+              similarityScore: candidate.similarityScore,
+              fit,
+            },
+            usage: candidateUsage,
           };
-        } catch (error) {
-          console.error(`Failed to analyze candidate ${candidate.username}:`, error);
+        } catch {
+          // Provider errors may contain request metadata. Never log the BYOK key.
+          console.warn(`Failed to analyze candidate ${candidate.username}`);
           // Return a default low-score fit on error
           return {
-            username: candidate.username,
-            profile: candidate.profile,
-            similarityScore: candidate.similarityScore,
-            fit: {
-              fitScore: 0,
-              fitReason: 'Analysis failed',
-              keyStrengths: [],
-              potentialGaps: ['Unable to analyze profile'],
-              interviewFocus: [],
-              estimatedSalaryRange: { min: 0, max: 0, currency: 'USD' },
+            match: {
+              username: candidate.username,
+              profile: candidate.profile,
+              similarityScore: candidate.similarityScore,
+              fit: {
+                fitScore: 0,
+                fitReason: 'Analysis failed',
+                keyStrengths: [],
+                potentialGaps: ['Unable to analyze profile'],
+                interviewFocus: [],
+                estimatedSalaryRange: { min: 0, max: 0, currency: 'USD' },
+              },
             },
+            usage: emptyGeminiTokenUsage(),
           };
         }
       })
     );
-    results.push(...batchResults);
+    results.push(...batchResults.map(result => result.match));
+    usage = batchResults.reduce(
+      (total, result) => addGeminiTokenUsage(total, result.usage), usage,
+    );
   }
 
   // Sort by fit score descending
-  return results.sort((a, b) => b.fit.fitScore - a.fit.fitScore);
+  return { candidates: results.sort((a, b) => b.fit.fitScore - a.fit.fitScore), usage };
 }

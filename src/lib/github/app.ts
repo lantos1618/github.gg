@@ -3,16 +3,19 @@ import jwt from 'jsonwebtoken';
 import { db } from '@/db';
 import { githubAppInstallations, account } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { auth } from '@/lib/auth';
 import { Octokit } from '@octokit/rest';
 import { createAppAuth } from '@octokit/auth-app';
 import { SessionData, parseError } from '@/lib/types/errors';
 
+function getAppPrivateKey(): string | undefined {
+  return process.env.GITHUB_PRIVATE_KEY?.replace(/\\n/g, '\n');
+}
+
 // Initialize the GitHub App (only if configured)
-export const githubApp = process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY 
+export const githubApp = process.env.GITHUB_APP_ID && getAppPrivateKey()
   ? new App({
       appId: process.env.GITHUB_APP_ID,
-      privateKey: process.env.GITHUB_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      privateKey: getAppPrivateKey()!,
     })
   : null;
 
@@ -34,7 +37,7 @@ export function generateAppJWT(): string {
     iss: process.env.GITHUB_APP_ID,
   };
 
-  return jwt.sign(payload, process.env.GITHUB_PRIVATE_KEY.replace(/\\n/g, '\n'), {
+  return jwt.sign(payload, getAppPrivateKey()!, {
     algorithm: 'RS256',
   });
 }
@@ -48,7 +51,7 @@ export async function getInstallationToken(installationId: number): Promise<stri
   try {
     const auth = createAppAuth({
       appId: process.env.GITHUB_APP_ID,
-      privateKey: process.env.GITHUB_PRIVATE_KEY,
+      privateKey: getAppPrivateKey()!,
       installationId,
     });
 
@@ -138,94 +141,6 @@ export async function getUserFromInstallation(installationId: number) {
     console.error('Failed to get user from installation:', error);
     return null;
   }
-}
-
-// Check if a repository is accessible through any installation
-export async function isRepoAccessible(owner: string, repo: string): Promise<boolean> {
-  try {
-    const installationId = await getInstallationIdForRepo(owner, repo);
-    if (!installationId) return false;
-
-    // Try to get repository info to verify access
-    const octokit = await getInstallationOctokit(installationId);
-    await octokit.request('GET /repos/{owner}/{repo}', { owner, repo });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// Enhanced function to get the best Octokit instance for a repository with unified auth
-export async function getBestOctokitForRepo(
-  owner: string, 
-  repo: string, 
-  session?: SessionData, 
-  req?: Request
-) {
-
-  // 1. Check if the logged-in user has a linked installation that covers this repo
-  if (session && session.user && session.user.id) {
-    
-    try {
-      // Get the user's linked installation
-      const userAccount = await db.query.account.findFirst({
-        where: and(
-          eq(account.userId, session.user.id),
-          eq(account.providerId, 'github')
-        ),
-      });
-
-      if (userAccount?.installationId) {
-        console.log(`✅ User has linked installation ${userAccount.installationId}`);
-        
-        // Check if this installation can access the repo
-        try {
-          const installationOctokit = await getInstallationOctokit(userAccount.installationId);
-          await installationOctokit.request('GET /repos/{owner}/{repo}', { owner, repo });
-          console.log(`✅ Installation ${userAccount.installationId} can access ${owner}/${repo}`);
-          return installationOctokit;
-        } catch {
-          console.log(`⚠️ Installation ${userAccount.installationId} cannot access ${owner}/${repo}, trying OAuth fallback`);
-        }
-      }
-    } catch (error) {
-      console.error('Error checking user installation:', error);
-    }
-  }
-
-  // 2. Try to get installation-specific access for this repo
-  const installationId = await getInstallationIdForRepo(owner, repo);
-  if (installationId) {
-    console.log(`✅ Found installation ${installationId} for ${owner}/${repo}`);
-    return await getInstallationOctokit(installationId);
-  }
-
-  // 3. If user is logged in, try to use their OAuth token
-  if (session && session.user && session.user.id && req) {
-    try {
-      const { accessToken } = await auth.api.getAccessToken({
-        body: {
-          providerId: 'github',
-          userId: session.user.id,
-        },
-        headers: req.headers,
-      });
-      
-      if (accessToken) {
-        console.log(`✅ Using OAuth token for ${owner}/${repo}`);
-        return new (await import('@octokit/rest')).Octokit({ auth: accessToken });
-      }
-    } catch (error) {
-      console.warn('Failed to get OAuth token, falling back to public API:', error);
-    }
-  }
-
-  // 4. Fallback to app-level access (for public repos)
-  console.log(`⚠️ Using app-level access for ${owner}/${repo}`);
-  if (!githubApp) {
-    throw new Error('GitHub App not configured - cannot access repositories');
-  }
-  return githubApp.octokit;
 }
 
 // Helper function to create authenticated Octokit instance

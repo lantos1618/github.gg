@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { generateObject } from 'ai';
-import { GEMINI_PRO } from './models';
+import { createGeminiModels } from './models';
 import { DiagramType } from '@/lib/types/diagram';
 
 export const diagramSchema = z.object({
@@ -8,6 +8,7 @@ export const diagramSchema = z.object({
 });
 
 export interface DiagramAnalysisParams {
+  apiKey: string;
   files: Array<{ path: string; content: string }>;
   repoName: string;
   diagramType: DiagramType;
@@ -27,8 +28,9 @@ export interface DiagramAnalysisResult {
   };
 }
 
-// NOTE: The Google Gemini API key must be set in the environment as GOOGLE_GENERATIVE_AI_API_KEY
+// The caller supplies the selected Pro or BYOK Gemini key for this request.
 export async function generateRepoDiagramVercel({
+  apiKey,
   files,
   repoName,
   diagramType,
@@ -98,7 +100,7 @@ ANALYZE THESE FILES:
 ${files.map((file: { path: string; content: string }) => `--- ${file.path} ---\n${file.content}`).join('\n')}`;
 
     const result = await generateObject({
-      model: GEMINI_PRO,
+      model: createGeminiModels(apiKey).pro,
       schema: diagramSchema,
       messages: [
         { role: 'user', content: prompt },
@@ -139,7 +141,7 @@ ANALYZE THESE FILES:
 ${files.map((file: { path: string; content: string }) => `--- ${file.path} ---\n${file.content}`).join('\n')}`;
 
   const result = await generateObject({
-    model: GEMINI_PRO,
+    model: createGeminiModels(apiKey).pro,
     schema: diagramSchema,
     messages: [
       { role: 'user', content: prompt },
@@ -154,4 +156,4 @@ ${files.map((file: { path: string; content: string }) => `--- ${file.path} ---\n
       totalTokens: (result.usage.inputTokens || 0) + (result.usage.outputTokens || 0),
     },
   };
-} 
+}

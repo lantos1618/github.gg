@@ -3,11 +3,33 @@ import { userSubscriptions, userApiKeys } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { decryptApiKey } from './encryption';
 import type { Plan } from './permissions';
+import { getPlatformGeminiApiKey } from '@/lib/ai/models';
 
 export async function getUserSubscription(userId: string) {
   return await db.query.userSubscriptions.findFirst({
     where: eq(userSubscriptions.userId, userId)
   });
+}
+
+/** A delayed or missed Stripe webhook must not extend AI entitlement. */
+export function isSubscriptionCurrent(subscription: {
+  status: string;
+  currentPeriodEnd: Date;
+} | null | undefined, now = new Date()): boolean {
+  return subscription?.status === 'active' &&
+    new Date(subscription.currentPeriodEnd).getTime() > now.getTime();
+}
+
+/** Return the plan exposed to the UI only while its billing period is current. */
+export function getEffectiveSubscriptionPlan(subscription: {
+  status: string;
+  currentPeriodEnd: Date;
+  plan: string;
+} | null | undefined, now = new Date()): Plan {
+  if (!isSubscriptionCurrent(subscription, now)) return 'free';
+  return subscription?.plan === 'pro' || subscription?.plan === 'byok'
+    ? subscription.plan
+    : 'free';
 }
 
 export async function getUserApiKey(userId: string) {
@@ -38,14 +60,16 @@ export async function getApiKeyForUser(userId: string, plan?: Plan) {
   
   // For Pro users without BYOK key, use system key
   if (plan === 'pro') {
-    return { apiKey: process.env.GEMINI_API_KEY!, isByok: false };
+    const apiKey = getPlatformGeminiApiKey();
+    return apiKey ? { apiKey, isByok: false } : null;
   }
   
   return null;
 }
 
 export async function getUserPlanAndKey(userId: string) {
-  const subscription = await getUserSubscription(userId);
+  const storedSubscription = await getUserSubscription(userId);
+  const subscription = isSubscriptionCurrent(storedSubscription) ? storedSubscription : null;
   const apiKey = await getUserApiKey(userId);
   
   return {
@@ -53,4 +77,4 @@ export async function getUserPlanAndKey(userId: string) {
     apiKey,
     plan: (subscription?.status === 'active' ? subscription.plan : 'free') as Plan,
   };
-} 
+}

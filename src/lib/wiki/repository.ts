@@ -16,6 +16,7 @@ export interface WikiPage {
     systemPrompt?: string;
     dependsOn?: string[];
     priority?: number;
+    visibilityVerified?: boolean;
   };
   isPublic?: boolean;
   viewCount?: number;
@@ -46,7 +47,8 @@ export async function insertWikiPages(
     content: string;
     summary?: string;
   }>,
-  fileHashes: Record<string, string>
+  fileHashes: Record<string, string>,
+  isPublic: boolean
 ) {
   const latestVersion = await getLatestVersion(owner, repo);
   const nextVersion = latestVersion + 1;
@@ -69,8 +71,9 @@ export async function insertWikiPages(
           systemPrompt: '',
           dependsOn: [],
           priority: 10 - index,
+          visibilityVerified: true,
         },
-        isPublic: true,
+        isPublic,
         viewCount: 0,
       }).returning()
     )
@@ -86,14 +89,21 @@ export async function getWikiPage(
   owner: string,
   repo: string,
   slug: string,
-  version?: number
+  version?: number,
+  includePrivate = false
 ) {
   const conditions = [
     eq(repositoryWikiPages.repoOwner, owner),
     eq(repositoryWikiPages.repoName, repo),
     eq(repositoryWikiPages.slug, slug),
-    eq(repositoryWikiPages.isPublic, true),
   ];
+
+  if (!includePrivate) {
+    conditions.push(eq(repositoryWikiPages.isPublic, true));
+    // Old rows did not record the repo's visibility when written. Treat them
+    // as private until a new write verifies visibility against GitHub.
+    conditions.push(sql`${repositoryWikiPages.metadata}->>'visibilityVerified' = 'true'`);
+  }
 
   if (version !== undefined) {
     conditions.push(eq(repositoryWikiPages.version, version));
@@ -114,21 +124,32 @@ export async function getWikiPage(
 export async function getWikiTableOfContents(
   owner: string,
   repo: string,
-  version?: number
+  version?: number,
+  includePrivate = false
 ) {
   const conditions = [
     eq(repositoryWikiPages.repoOwner, owner),
     eq(repositoryWikiPages.repoName, repo),
-    eq(repositoryWikiPages.isPublic, true),
   ];
+
+  if (!includePrivate) {
+    conditions.push(eq(repositoryWikiPages.isPublic, true));
+    conditions.push(sql`${repositoryWikiPages.metadata}->>'visibilityVerified' = 'true'`);
+  }
 
   // Get latest version if not specified
   let targetVersion = version;
   if (targetVersion === undefined) {
-    targetVersion = await getLatestVersion(owner, repo);
-    if (targetVersion === 0) {
+    const latestVisiblePage = await db
+      .select({ version: repositoryWikiPages.version })
+      .from(repositoryWikiPages)
+      .where(and(...conditions))
+      .orderBy(desc(repositoryWikiPages.version))
+      .limit(1);
+    if (latestVisiblePage.length === 0) {
       return { pages: [], version: 0 };
     }
+    targetVersion = latestVisiblePage[0].version;
   }
 
   conditions.push(eq(repositoryWikiPages.version, targetVersion));
@@ -352,6 +373,7 @@ export async function updateWikiPage(
     title: string;
     content: string;
     summary?: string;
+    isPublic: boolean;
   }
 ) {
   const latestPage = await db
@@ -371,12 +393,20 @@ export async function updateWikiPage(
     return null;
   }
 
+  // A page created while private must stay private after a repository becomes
+  // public. Legacy pages have no verified visibility provenance, so edits must
+  // not publish them either; regenerating from a public repository is required.
+  const visibilityVerified = latestPage[0].metadata?.visibilityVerified === true;
+  const isPublic = visibilityVerified && latestPage[0].isPublic && data.isPublic;
+
   const updatedPage = await db
     .update(repositoryWikiPages)
     .set({
       title: data.title,
       content: data.content,
       summary: data.summary,
+      isPublic,
+      metadata: { ...(latestPage[0].metadata ?? {}), visibilityVerified },
       updatedAt: new Date(),
     })
     .where(eq(repositoryWikiPages.id, latestPage[0].id))
@@ -393,7 +423,8 @@ export async function createWikiPage(
     title: string;
     content: string;
     summary?: string;
-  }
+  },
+  isPublic: boolean
 ) {
   const version = await getLatestVersion(owner, repo) || 1;
 
@@ -433,8 +464,9 @@ export async function createWikiPage(
         systemPrompt: '',
         dependsOn: [],
         priority: 1,
+        visibilityVerified: true,
       },
-      isPublic: true,
+      isPublic,
       viewCount: 0,
     })
     .returning();

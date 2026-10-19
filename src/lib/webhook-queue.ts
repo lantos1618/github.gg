@@ -8,15 +8,15 @@
  * single timeout silently loses the install.
  *
  * Fix: the request path verifies the signature, dedups by delivery ID, and
- * enqueues a job. A long-lived worker (run outside Vercel — see
+ * enqueues a job. A long-lived worker (Vercel Daemon — see
  * WORKER_DEPLOYMENT.md) drains the queue and performs the heavy DB writes
  * with proper retries.
  *
  * Redis connection: BullMQ requires a real TCP connection via `ioredis` — it
  * cannot use the Upstash REST client that powers our rate-limit/dedup paths.
  * Vercel KV exposes `REDIS_URL` for exactly this case, so we use that. If it's
- * not set the factory returns null and callers fall back to a no-op (the
- * webhook still 202s, but the job is dropped — visible in logs).
+ * not set the factory returns null and the webhook receiver returns 500, so
+ * GitHub can retry the delivery.
  */
 
 import { Queue, type QueueOptions } from 'bullmq';
@@ -46,7 +46,7 @@ function getConnection(): IORedisClient | null {
   const url = process.env.REDIS_URL;
   if (!url) {
     logger.warn(
-      'REDIS_URL not set — webhook queue disabled. Webhook events will be acknowledged but not processed.',
+      'REDIS_URL not set — webhook queue disabled; receiver cannot enqueue events.',
     );
     return null;
   }
@@ -90,8 +90,8 @@ export const DEFAULT_WEBHOOK_JOB_OPTS: QueueOptions['defaultJobOptions'] = {
 /**
  * Get or create a named BullMQ queue.
  *
- * Returns null if Redis isn't configured (callers should treat the enqueue as
- * best-effort and log the drop).
+ * Returns null if Redis isn't configured. The webhook receiver must return an
+ * error rather than acknowledge an event that it could not enqueue.
  */
 export function getQueue(name: string = WEBHOOK_QUEUE_NAME): Queue | null {
   const cached = queues.get(name);

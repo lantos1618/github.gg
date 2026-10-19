@@ -10,7 +10,7 @@ import { createContext } from '@/lib/trpc/trpc';
 // "No scorecard available", etc. all at once.
 const MAX_BATCH_SIZE = 20;
 
-const handler = (req: Request) => {
+const handler = async (req: Request): Promise<Response> => {
   const url = new URL(req.url);
   if (url.searchParams.get('batch') === '1') {
     const paths = url.pathname.replace('/api/trpc/', '').split(',');
@@ -18,20 +18,26 @@ const handler = (req: Request) => {
       console.warn(`[trpc] batch rejected: ${paths.length} queries exceeds ${MAX_BATCH_SIZE} — paths: ${paths.join(',')}`);
       return new Response(
         JSON.stringify({ error: `Batch size ${paths.length} exceeds limit of ${MAX_BATCH_SIZE}` }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' } }
       );
     }
   }
 
-  return fetchRequestHandler({
+  const response = await fetchRequestHandler({
     endpoint: '/api/trpc',
     req,
     router: appRouter,
     createContext: () => createContext(req),
   });
+  // Queries include user-specific and private-repository data. Never let a
+  // CDN or browser reuse a tRPC response across users or visibility changes.
+  response.headers.set('Cache-Control', 'private, no-store');
+  return response;
 };
 
 export { handler as GET, handler as POST };
 
+export const dynamic = 'force-dynamic';
+
 // Set maximum duration to 5 minutes for long-running operations like wiki generation
-export const maxDuration = 300; 
+export const maxDuration = 300;

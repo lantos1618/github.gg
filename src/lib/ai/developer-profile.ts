@@ -4,11 +4,15 @@ import { db } from '@/db';
 import { Resend } from 'resend';
 import { developerEmails, repositoryScorecards } from '@/db/schema';
 import type { Octokit } from '@octokit/rest';
-import { GEMINI_PRO } from './models';
+import {
+  addGeminiTokenUsage, createGeminiModels, emptyGeminiTokenUsage, geminiTokenUsage,
+  type GeminiModelUsage,
+} from './models';
 import { generateObject } from 'ai';
 import { developerProfileSchema } from '@/lib/types/profile';
 import { generateScorecardAnalysis, type ScorecardAnalysisResult } from './scorecard';
 import { and, eq, sql, inArray } from 'drizzle-orm';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 
 // Initialize Resend only if API key is available
 const resend = process.env.RESEND_API_KEY 
@@ -196,6 +200,7 @@ export type CrossRepoCommit = {
 };
 
 export type DeveloperProfileParams = {
+  apiKey: string;
   username: string;
   repos: RepoSummary[];
   repoFiles?: Array<{
@@ -221,6 +226,7 @@ export type DeveloperProfileParams = {
 
 export type DeveloperProfileResult = {
   profile: DeveloperProfile;
+  modelUsage: GeminiModelUsage;
   usage: {
     inputTokens: number;
     outputTokens: number;
@@ -229,6 +235,7 @@ export type DeveloperProfileResult = {
 };
 
 export async function* generateDeveloperProfileStreaming({
+  apiKey,
   username,
   repos,
   repoFiles,
@@ -244,6 +251,7 @@ export async function* generateDeveloperProfileStreaming({
   failedRepo?: string;
   failedReason?: string;
 }> {
+  const models = createGeminiModels(apiKey);
   // Filter out forked repositories - we only want to score based on user's original work
   const nonForkedRepos = repos.filter(repo => !repo.fork);
 
@@ -263,8 +271,12 @@ export async function* generateDeveloperProfileStreaming({
   const maxStars = Math.max(...nonForkedRepos.map(repo => repo.stargazersCount || 0), 0);
 
   const totalUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+  const modelUsage: GeminiModelUsage = {
+    flash: emptyGeminiTokenUsage(),
+    pro: emptyGeminiTokenUsage(),
+  };
   let scorecardInsights = '';
-  let scorecardResults: Array<{ repoName: string; scorecard: ScorecardAnalysisResult['scorecard']; usage: ScorecardAnalysisResult['usage'] }> = [];
+  let scorecardResults: Array<{ repoName: string; scorecard: ScorecardAnalysisResult['scorecard']; usage: ScorecardAnalysisResult['usage']; modelUsage: GeminiModelUsage }> = [];
 
   if (repoFiles && repoFiles.length > 0) {
     // Allow up to 15 repos when user explicitly selects them via Configure
@@ -291,7 +303,7 @@ export async function* generateDeveloperProfileStreaming({
 
     // Map uses (owner/name) lowercase keys for case-insensitive lookup.
     const existingScorecardMap = new Map(
-      existingScorecards.map(sc => [`${sc.repoOwner.toLowerCase()}/${sc.repoName.toLowerCase()}`, sc])
+      existingScorecards.filter(sc => !sc.isPrivate).map(sc => [`${sc.repoOwner.toLowerCase()}/${sc.repoName.toLowerCase()}`, sc])
     );
 
     if (process.env.DEBUG_AI === 'true') console.log(`🔍 Found ${existingScorecards.length} existing scorecards`);
@@ -307,6 +319,9 @@ export async function* generateDeveloperProfileStreaming({
       const repoKey = `${normalizedRepoOwner}/${normalizedRepoName}`;
       let result;
 
+      const initialInfo = await getAccessibleRepositoryInfo(repoData.owner, repoData.repoName, null);
+      if (!initialInfo || initialInfo.private) throw new Error(`Repository visibility changed for ${repoKey}`);
+
       // Check if we already have a recent scorecard for this repo (skip if force refresh)
       if (!forceRefreshScorecards && existingScorecardMap.has(repoKey)) {
         if (process.env.DEBUG_AI === 'true') console.log(`✅ Using cached scorecard for ${repoKey}`);
@@ -320,6 +335,7 @@ export async function* generateDeveloperProfileStreaming({
               markdown: existing.markdown,
             },
             usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 }, // No new tokens used
+            modelUsage: { flash: emptyGeminiTokenUsage(), pro: emptyGeminiTokenUsage() },
           };
         }
       }
@@ -338,6 +354,7 @@ export async function* generateDeveloperProfileStreaming({
 
           const scorecardResult = await Promise.race([
             generateScorecardAnalysis({
+              apiKey,
               files: repoData.files,
               repoName: repoData.repoName,
             }),
@@ -354,6 +371,8 @@ export async function* generateDeveloperProfileStreaming({
           const repoRef = repoData.defaultBranch || 'main';
           if (process.env.DEBUG_AI === 'true') console.log(`Saving scorecard for ${normalizedRepoOwner}/${normalizedRepoName}@${repoRef}, userId: ${userId}`);
           try {
+            const currentInfo = await getAccessibleRepositoryInfo(repoData.owner, repoData.repoName, null);
+            if (!currentInfo || currentInfo.private) throw new Error(`Repository visibility changed for ${repoKey}`);
             await db.execute(sql`
               INSERT INTO repository_scorecards (id, "userId", repo_owner, repo_name, ref, version, is_private, overall_score, metrics, markdown, created_at, updated_at)
               SELECT gen_random_uuid(), ${userId}, ${normalizedRepoOwner}, ${normalizedRepoName}, ${repoRef},
@@ -371,6 +390,7 @@ export async function* generateDeveloperProfileStreaming({
               repoName: repoData.repoName,
               scorecard: scorecardResult.scorecard,
               usage: scorecardResult.usage,
+              modelUsage: scorecardResult.modelUsage,
             };
           } catch (e) {
             // DB write failed but the AI work succeeded. Surface this as a
@@ -391,7 +411,7 @@ export async function* generateDeveloperProfileStreaming({
     });
 
     // Use Promise.allSettled with progress updates via a heartbeat
-    const resultsMap = new Map<string, { repoName: string; scorecard: ScorecardAnalysisResult['scorecard']; usage: ScorecardAnalysisResult['usage'] }>();
+    const resultsMap = new Map<string, { repoName: string; scorecard: ScorecardAnalysisResult['scorecard']; usage: ScorecardAnalysisResult['usage']; modelUsage: GeminiModelUsage }>();
     const failures: Array<{ repo: string; reason: string }> = [];
     let completedCount = 0;
 
@@ -448,6 +468,8 @@ export async function* generateDeveloperProfileStreaming({
         totalUsage.inputTokens += result.usage.inputTokens;
         totalUsage.outputTokens += result.usage.outputTokens;
         totalUsage.totalTokens += result.usage.totalTokens;
+        modelUsage.flash = addGeminiTokenUsage(modelUsage.flash, result.modelUsage.flash);
+        modelUsage.pro = addGeminiTokenUsage(modelUsage.pro, result.modelUsage.pro);
       }
     });
   }
@@ -543,7 +565,7 @@ ${crossRepoCommits.map(c => {
     if (process.env.DEBUG_AI === 'true') console.log(`🚀 Calling AI model...`);
     const { object, usage } = await Promise.race([
       generateObject({
-        model: GEMINI_PRO,
+        model: models.pro,
         schema: developerProfileSchema,
         messages: [{ role: 'user', content: prompt }],
       }),
@@ -555,6 +577,7 @@ ${crossRepoCommits.map(c => {
     totalUsage.inputTokens += usage.inputTokens || 0;
     totalUsage.outputTokens += usage.outputTokens || 0;
     totalUsage.totalTokens += (usage.inputTokens || 0) + (usage.outputTokens || 0);
+    modelUsage.pro = addGeminiTokenUsage(modelUsage.pro, geminiTokenUsage(usage));
 
     const patchedProfile = {
       ...object,
@@ -575,6 +598,7 @@ ${crossRepoCommits.map(c => {
       result: {
         profile: patchedProfile,
         usage: totalUsage,
+        modelUsage,
       }
     };
   } catch (error) {

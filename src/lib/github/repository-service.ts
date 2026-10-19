@@ -1,9 +1,8 @@
 import { Octokit } from '@octokit/rest';
 import { extractTarball } from './extractor';
 import { RepoCache } from './cache';
-import type { RepositoryInfo, RepoSummary, GitHubFilesResponse, BetterAuthSession, GitHubFile } from './types';
+import type { RepositoryInfo, RepoSummary, GitHubFilesResponse, GitHubFile } from './types';
 import { DEFAULT_MAX_FILES } from './types';
-import { getBestOctokitForRepo } from './app';
 import { parseError, isApiError } from '@/lib/types/errors';
 import { Readable } from 'stream';
 
@@ -313,25 +312,4 @@ export class RepositoryService {
     return this.cache.getStats();
   }
 
-  // Static factory method for repository-specific service
-  static async createForRepo(owner: string, repo: string, session?: BetterAuthSession, req?: Request): Promise<RepositoryService> {
-    try {
-      // Convert BetterAuthSession to SessionData if needed
-      const sessionData = session ? {
-        user: session.user,
-        accessToken: undefined, // BetterAuthSession doesn't have accessToken
-        refreshToken: undefined,
-        expiresAt: undefined
-      } : undefined;
-      
-      const octokit = await getBestOctokitForRepo(owner, repo, sessionData, req);
-      return new RepositoryService(octokit as Octokit);
-    } catch (error) {
-      console.warn(`Failed to get GitHub App access for ${owner}/${repo}, falling back to OAuth:`, error);
-      // Fallback to OAuth-based service
-      const { GitHubAuthFactory } = await import('./auth-factory');
-      const octokit = GitHubAuthFactory.createPublic();
-      return new RepositoryService(octokit);
-    }
-  }
-} 
+}

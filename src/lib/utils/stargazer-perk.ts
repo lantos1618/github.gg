@@ -7,10 +7,15 @@
 
 import { db } from '@/db';
 import { tokenUsage } from '@/db/schema';
-import { eq, and, gte } from 'drizzle-orm';
+import { eq, and, gte, lt } from 'drizzle-orm';
 import { getCachedStargazerStatus, setCachedStargazerStatus } from '@/lib/rate-limit';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import type { BetterAuthSession } from '@/lib/github/types';
+import {
+  reserveStargazerPerk,
+  finishStargazerPerk,
+  type StargazerPerkReservation,
+} from './stargazer-reservation';
 import type { Plan } from './permissions';
 
 /** The repository that grants the stargazer perk */
@@ -39,6 +44,8 @@ export interface StargazerPerkResult {
   remainingFreeUses: number;
   /** Error message to show user if they don't qualify */
   errorMessage?: string;
+  /** Opaque lease to complete on success or release in the caller's finally block. */
+  reservation?: StargazerPerkReservation;
 }
 
 /**
@@ -73,6 +80,7 @@ export async function checkStargazerPerk(
   currentPlan: Plan
 ): Promise<StargazerPerkResult> {
   const freeUsageLimit = STARGAZER_PERK_FEATURES[feature];
+  let reservation: StargazerPerkReservation | undefined;
 
   try {
     // Check cached stargazer status first to reduce GitHub API calls
@@ -96,22 +104,44 @@ export async function checkStargazerPerk(
       };
     }
 
-    // Check monthly usage for this feature
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    // Claim before reading usage so two concurrent requests for different
+    // targets cannot both pass the one-free-use check.
+    const now = new Date();
+    const claim = await reserveStargazerPerk(userId, feature, now);
+    if (claim.status !== 'acquired') {
+      return {
+        isStargazerPerk: false,
+        effectivePlan: currentPlan,
+        hasStarred: true,
+        remainingFreeUses: 0,
+        errorMessage: claim.status === 'busy'
+          ? 'A free generation is already in progress. Please try again when it finishes.'
+          : claim.status === 'unavailable'
+            ? 'Free monthly access is temporarily unavailable. Please try again later.'
+            : `You have used your ${freeUsageLimit} free monthly ${feature.replace('_', ' ')}. Upgrade to Pro for a larger monthly AI allowance.`,
+      };
+    }
+    reservation = claim.reservation;
+
+    const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
 
     const monthlyUsage = await db
-      .select()
+      .select({ id: tokenUsage.id })
       .from(tokenUsage)
       .where(
         and(
           eq(tokenUsage.userId, userId),
           eq(tokenUsage.feature, feature),
-          gte(tokenUsage.createdAt, oneMonthAgo)
+          gte(tokenUsage.createdAt, periodStart),
+          lt(tokenUsage.createdAt, periodEnd)
         )
-      );
+      )
+      .limit(1);
 
-    const usageCount = monthlyUsage.length;
+    // The free limit is one generation. A profile can write one token_usage
+    // row per model, so any row counts as one completed generation.
+    const usageCount = monthlyUsage.length > 0 ? 1 : 0;
     const remainingFreeUses = Math.max(0, freeUsageLimit - usageCount);
 
     if (remainingFreeUses > 0) {
@@ -120,17 +150,28 @@ export async function checkStargazerPerk(
         effectivePlan: 'pro',
         hasStarred: true,
         remainingFreeUses,
+        reservation,
       };
     }
+
+    await finishStargazerPerk(reservation, false);
+    reservation = undefined;
 
     return {
       isStargazerPerk: false,
       effectivePlan: currentPlan,
       hasStarred: true,
       remainingFreeUses: 0,
-      errorMessage: `You have used your ${freeUsageLimit} free monthly ${feature.replace('_', ' ')}. Upgrade to Pro for unlimited access!`,
+      errorMessage: `You have used your ${freeUsageLimit} free monthly ${feature.replace('_', ' ')}. Upgrade to Pro for a larger monthly AI allowance.`,
     };
   } catch (e) {
+    if (reservation) {
+      try {
+        await finishStargazerPerk(reservation, false);
+      } catch (releaseError) {
+        console.error('Failed to release stargazer perk reservation:', releaseError);
+      }
+    }
     console.error('Failed to check stargazer status:', e);
     return {
       isStargazerPerk: false,

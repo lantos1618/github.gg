@@ -1,7 +1,7 @@
 import { createCaller } from '@/lib/trpc/server';
 import HireSearchClient from './HireSearchClient';
 
-export const revalidate = 300;
+export const dynamic = 'force-dynamic';
 
 export default async function HireSearchPage() {
   const caller = await createCaller();

@@ -2,8 +2,9 @@ import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { aiSlopAnalyses, tokenUsage } from '@/db/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, or, desc, sql } from 'drizzle-orm';
 import { generateAISlopAnalysis, aiSlopSchema } from '@/lib/ai/ai-slop';
+import { geminiUsageRows } from '@/lib/ai/models';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForRepo } from '@/lib/github';
 import { validatePlanAndKey } from '@/lib/trpc/helpers/validate-plan-and-key';
@@ -12,6 +13,7 @@ import { repoRefInputSchema } from '@/lib/trpc/helpers/repo-input';
 import { createJob, consumeJob } from '@/lib/analysis/job-store';
 import { normalizeRepoIdent } from '@/lib/normalize';
 import { isPgErrorWithCode } from '@/lib/db/utils';
+import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 
 /**
  * AI Slop Detection Router
@@ -60,7 +62,7 @@ export const aiSlopRouter = router({
         yield { type: 'progress', progress: 0, message: 'Starting AI slop analysis...' };
 
         yield { type: 'progress', progress: 2, message: 'Verifying subscription...' };
-        let keyInfo: { isByok: boolean };
+        let keyInfo: { apiKey: string; isByok: boolean };
         try {
           ({ keyInfo } = await validatePlanAndKey(ctx.user.id));
         } catch (err) {
@@ -72,11 +74,11 @@ export const aiSlopRouter = router({
         yield { type: 'progress', progress: 3, message: 'Authenticating with GitHub...' };
 
         const githubService = await createGitHubServiceForRepo(job.user, job.repo, ctx.session);
+        const repoInfo = await githubService.getRepositoryInfo(job.user, job.repo);
 
         let ref = job.ref;
         if (!ref || ref === 'main') {
           yield { type: 'progress', progress: 4, message: 'Fetching repository info...' };
-          const repoInfo = await githubService.getRepositoryInfo(job.user, job.repo);
           ref = repoInfo.defaultBranch || 'main';
         }
 
@@ -106,6 +108,7 @@ export const aiSlopRouter = router({
 
         // Start AI analysis with progress callback
         const analysisPromise = generateAISlopAnalysis({
+          apiKey: keyInfo.apiKey,
           files,
           repoName: job.repo,
           onProgress: (message, progress) => {
@@ -148,6 +151,10 @@ export const aiSlopRouter = router({
           const maxVersion = typeof rawMax === 'number' ? rawMax : Number(rawMax) || 0;
           const nextVersion = maxVersion + 1;
 
+          const currentRepository = await getAccessibleRepositoryInfo(job.user, job.repo, ctx.session);
+          if (!currentRepository) throw new Error('Repository access could not be verified before saving');
+          const isPrivate = repoInfo.private || currentRepository.private;
+
           try {
             const results = await db
               .insert(aiSlopAnalyses)
@@ -157,6 +164,7 @@ export const aiSlopRouter = router({
                 repoName: repoNameNormalized,
                 ref: ref,
                 version: nextVersion,
+                isPrivate,
                 overallScore: analysisData.overallScore,
                 aiGeneratedPercentage: analysisData.aiGeneratedPercentage,
                 detectedPatterns: analysisData.detectedPatterns,
@@ -184,18 +192,17 @@ export const aiSlopRouter = router({
         }
 
         // Log token usage
-        await db.insert(tokenUsage).values({
+        const usageRows = geminiUsageRows(result.modelUsage).map(({ model, usage }) => ({
           userId: ctx.user.id,
           feature: 'ai-slop',
           repoOwner: repoOwnerNormalized,
           repoName: repoNameNormalized,
-          model: 'gemini-3.1-flash', // Primary model used for chunks
-          inputTokens: result.usage.inputTokens,
-          outputTokens: result.usage.outputTokens,
-          totalTokens: result.usage.totalTokens,
+          model,
+          ...usage,
           isByok: keyInfo.isByok,
           createdAt: new Date(),
-        });
+        }));
+        if (usageRows.length > 0) await db.insert(tokenUsage).values(usageRows);
 
         yield { type: 'progress', progress: 95, message: 'Analysis complete!' };
 
@@ -222,43 +229,35 @@ export const aiSlopRouter = router({
       }
     }),
 
-  // Unified public endpoint: fetch latest or specific version of an AI slop analysis.
-  // Same resilience as publicGetScorecard: cached analyses are the source of truth,
-  // never block returning them on a live GitHub API call (which can flake).
+  // Fetch a cached analysis only when the caller currently has repository access.
   publicGetAISlop: publicProcedure
     .input(repoRefInputSchema)
     .query(async ({ input, ctx }) => {
       const { user, repo, version } = input;
       const { owner: normalizedUser, repo: normalizedRepo } = normalizeRepoIdent({ owner: user, repo });
 
-      // Try to resolve ref + privacy from GitHub. Failures are soft —
-      // we can still serve the cached analysis if the repo info call hiccups.
-      let ref = input.ref;
-      let repoIsPrivate: boolean | null = null;
-      try {
-        const githubService = await createGitHubServiceForRepo(user, repo, ctx.session);
-        const repoInfo = await githubService.getRepositoryInfo(user, repo);
-        repoIsPrivate = repoInfo.private === true;
-        if (!ref) ref = repoInfo.defaultBranch || 'main';
-      } catch (err) {
-        const message = (err as { message?: string })?.message;
-        console.warn(`[publicGetAISlop ${normalizedUser}/${normalizedRepo}] repo info fetch failed (will still try cache):`, message);
-      }
-
-      if (repoIsPrivate === true && !ctx.session?.user) {
+      const repoInfo = await getAccessibleRepositoryInfo(user, repo, ctx.session);
+      if (!repoInfo) {
         return {
           analysis: null,
           cached: false,
           stale: false,
           lastUpdated: null,
-          error: 'This repository is private',
+          error: 'Unable to access repository',
         };
       }
+      const ref = input.ref || repoInfo.defaultBranch || 'main';
 
       const baseConditions = [
         sql`LOWER(${aiSlopAnalyses.repoOwner}) = ${normalizedUser}`,
         sql`LOWER(${aiSlopAnalyses.repoName}) = ${normalizedRepo}`,
       ];
+      if (repoInfo.private && ctx.session?.user?.id) {
+        baseConditions.push(eq(aiSlopAnalyses.userId, ctx.session.user.id));
+      }
+      baseConditions.push(ctx.session?.user?.id
+        ? or(eq(aiSlopAnalyses.isPrivate, false), eq(aiSlopAnalyses.userId, ctx.session.user.id))!
+        : eq(aiSlopAnalyses.isPrivate, false));
       if (version !== undefined) {
         baseConditions.push(eq(aiSlopAnalyses.version, version));
       }
@@ -309,7 +308,9 @@ export const aiSlopRouter = router({
 
   getAISlopVersions: publicProcedure
     .input(z.object({ user: z.string(), repo: z.string(), ref: z.string().optional().default('main') }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const repoInfo = await getAccessibleRepositoryInfo(input.user, input.repo, ctx.session);
+      if (!repoInfo) return [];
       const { owner: normalizedUser, repo: normalizedRepo } = normalizeRepoIdent({
         owner: input.user,
         repo: input.repo,
@@ -321,7 +322,13 @@ export const aiSlopRouter = router({
           and(
             sql`LOWER(${aiSlopAnalyses.repoOwner}) = ${normalizedUser}`,
             sql`LOWER(${aiSlopAnalyses.repoName}) = ${normalizedRepo}`,
-            eq(aiSlopAnalyses.ref, input.ref)
+            eq(aiSlopAnalyses.ref, input.ref),
+            ctx.session?.user?.id
+              ? or(eq(aiSlopAnalyses.isPrivate, false), eq(aiSlopAnalyses.userId, ctx.session.user.id))!
+              : eq(aiSlopAnalyses.isPrivate, false),
+            ...(repoInfo.private && ctx.session?.user?.id
+              ? [eq(aiSlopAnalyses.userId, ctx.session.user.id)]
+              : [])
           )
         )
         .orderBy(desc(aiSlopAnalyses.version));

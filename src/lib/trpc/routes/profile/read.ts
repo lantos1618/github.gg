@@ -5,6 +5,7 @@ import { developerProfileCache, tokenUsage, user } from '@/db/schema';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { getProfileData } from '@/lib/profile/service';
 import type { DeveloperProfile } from '@/lib/types/profile';
+import { filterCurrentlyPublicProfiles } from '@/lib/profile/public-provenance';
 
 export const profileReadRouter = router({
   // Returns the cached profile if present (used by the analyze button to
@@ -24,8 +25,9 @@ export const profileReadRouter = router({
         .where(eq(developerProfileCache.username, normalizedUsername))
         .limit(1);
 
-      if (cached.length > 0) {
-        const profile = cached[0];
+      const publicCached = await filterCurrentlyPublicProfiles(cached);
+      if (publicCached.length > 0) {
+        const profile = publicCached[0];
         const isStale = new Date().getTime() - profile.updatedAt.getTime() > 7 * 24 * 60 * 60 * 1000;
         return {
           profile: profile.profileData,
@@ -48,11 +50,12 @@ export const profileReadRouter = router({
     .input(z.object({ username: z.string() }))
     .query(async ({ input }) => {
       const normalizedUsername = input.username.toLowerCase();
-      return db
-        .select({ version: developerProfileCache.version, updatedAt: developerProfileCache.updatedAt })
+      const versions = await db
+        .select({ version: developerProfileCache.version, updatedAt: developerProfileCache.updatedAt, profileData: developerProfileCache.profileData })
         .from(developerProfileCache)
         .where(eq(developerProfileCache.username, normalizedUsername))
         .orderBy(desc(developerProfileCache.version));
+      return (await filterCurrentlyPublicProfiles(versions)).map(({ version, updatedAt }) => ({ version, updatedAt }));
     }),
 
   getProfileByVersion: publicProcedure
@@ -69,14 +72,16 @@ export const profileReadRouter = router({
           )
         )
         .limit(1);
-      return result[0] || null;
+      return (await filterCurrentlyPublicProfiles(result))[0] || null;
     }),
 
   getAnalyzedProfileCount: publicProcedure.query(async () => {
     const result = await db
-      .select({ count: sql<number>`COUNT(DISTINCT ${developerProfileCache.username})` })
-      .from(developerProfileCache);
-    return result[0]?.count ?? 0;
+      .select({ username: developerProfileCache.username, profileData: developerProfileCache.profileData })
+      .from(developerProfileCache)
+      .where(sql`${developerProfileCache.profileData}->>'visibilityVerified' = 'true'`);
+    const visible = await filterCurrentlyPublicProfiles(result);
+    return new Set(visible.map(row => row.username)).size;
   }),
 
   // Latest profile per username, projected down to listing fields only
@@ -122,7 +127,16 @@ export const profileReadRouter = router({
 
       if (profiles.length === 0) return [];
 
-      const lowercaseUsernames = profiles.map(p => p.username.toLowerCase());
+      // Projected JSON omits provenance; fetch full rows for the live check.
+      const provenanceRows = await db
+        .select({ username: developerProfileCache.username, version: developerProfileCache.version, profileData: developerProfileCache.profileData })
+        .from(developerProfileCache)
+        .where(inArray(developerProfileCache.username, profiles.map(profile => profile.username)));
+      const visibleVersions = new Set((await filterCurrentlyPublicProfiles(provenanceRows))
+        .map(row => `${row.username}/${row.version}`));
+      const publicProfiles = profiles.filter(profile => visibleVersions.has(`${profile.username}/${profile.version}`));
+
+      const lowercaseUsernames = publicProfiles.map(p => p.username.toLowerCase());
       const users = await db
         .select({ id: user.id, name: user.name })
         .from(user)
@@ -145,7 +159,7 @@ export const profileReadRouter = router({
 
       const tokenMap = new Map(tokenUsageByUserId.map(t => [t.userId, Number(t.totalTokens)]));
 
-      return profiles.map(profile => {
+      return publicProfiles.map(profile => {
         const userId = usernameToUserIdMap.get(profile.username);
         return {
           ...profile,

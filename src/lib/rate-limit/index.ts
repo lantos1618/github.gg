@@ -8,6 +8,9 @@
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { createLogger } from '@/lib/logging';
+import { applyPaidAIRateLimit, type PaidAIRateLimitResult } from './paid-ai';
+export { applyPaidAIRateLimit } from './paid-ai';
+export type { PaidAIRateLimitResult } from './paid-ai';
 
 const logger = createLogger('RateLimit');
 
@@ -80,32 +83,24 @@ export const ipRateLimiter = redis
     })
   : null;
 
-/**
- * Check rate limit for AI operations
- * Returns { success, limit, remaining, reset }
- */
+export async function checkPaidAIRateLimit(userId: string): Promise<PaidAIRateLimitResult> {
+  return applyPaidAIRateLimit(userId, aiRateLimiter);
+}
+
+/** @deprecated Use checkPaidAIRateLimit for a typed denial reason. */
 export async function checkAIRateLimit(userId: string): Promise<{
   success: boolean;
   limit: number;
   remaining: number;
   reset: number;
 }> {
-  if (!aiRateLimiter) {
-    logger.warn('AI rate limiter not configured (KV not available), allowing request');
-    return { success: true, limit: 5, remaining: 5, reset: Date.now() + 60000 };
-  }
-
-  const result = await aiRateLimiter.limit(userId);
-
-  if (!result.success) {
-    logger.warn('AI rate limit exceeded', {
-      userId,
-      limit: result.limit,
-      remaining: result.remaining,
-    });
-  }
-
-  return result;
+  const result = await checkPaidAIRateLimit(userId);
+  return {
+    success: result.status === 'allowed',
+    limit: result.limit,
+    remaining: result.remaining,
+    reset: result.reset,
+  };
 }
 
 /**

@@ -1,5 +1,5 @@
 import { generateObject } from 'ai';
-import { GEMINI_PRO } from './models';
+import { createGeminiModels } from './models';
 import { z } from 'zod';
 
 const commitAnalysisSchema = z.object({
@@ -36,6 +36,7 @@ const commitAnalysisSchema = z.object({
 export type CommitAnalysisResult = z.infer<typeof commitAnalysisSchema>;
 
 export interface CommitAnalysisParams {
+  apiKey: string;
   commitMessage: string;
   commitSha: string;
   author: {
@@ -67,6 +68,7 @@ export interface CommitAnalysisResponse {
  * Analyze a commit and provide detailed insights
  */
 export async function analyzeCommit({
+  apiKey,
   commitMessage,
   commitSha,
   author,
@@ -107,7 +109,7 @@ ${file.patch ? file.patch.slice(0, 2000) : 'Binary file or no patch available'}
 Your response must be a valid JSON object following the schema provided.`;
 
     const { object, usage } = await generateObject({
-      model: GEMINI_PRO,
+      model: createGeminiModels(apiKey).pro,
       schema: commitAnalysisSchema,
       messages: [
         { role: 'user', content: prompt },

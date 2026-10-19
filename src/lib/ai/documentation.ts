@@ -1,5 +1,5 @@
 import { generateObject } from 'ai';
-import { GEMINI_PRO } from './models';
+import { createGeminiModels, type GeminiModels } from './models';
 import { z } from 'zod';
 
 // Partial documentation schema for chunks
@@ -106,6 +106,7 @@ const documentationSchema = z.object({
 export type DocumentationResult = z.infer<typeof documentationSchema>;
 
 export interface DocumentationParams {
+  apiKey: string;
   repoName: string;
   repoDescription?: string;
   primaryLanguage?: string;
@@ -150,6 +151,7 @@ export interface DocumentationResponse {
  * Analyze a chunk of files and return partial documentation
  */
 async function analyzeChunk(
+  models: GeminiModels,
   files: Array<{ path: string; content: string; language: string; size: number }>,
   chunkIndex: number,
   totalChunks: number,
@@ -175,7 +177,7 @@ Extract and document:
 Your response must be a valid JSON object following the schema provided.`;
 
   const { object, usage } = await generateObject({
-    model: GEMINI_PRO,
+    model: models.pro,
     schema: partialDocumentationSchema,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -187,6 +189,7 @@ Your response must be a valid JSON object following the schema provided.`;
  * Stitch together all chunk analyses into final comprehensive documentation
  */
 async function stitchChunks(
+  models: GeminiModels,
   chunkResults: Array<z.infer<typeof partialDocumentationSchema>>,
   repoName: string,
   repoDescription?: string,
@@ -243,7 +246,7 @@ Generate complete structured documentation that covers:
 Your response must be a valid JSON object following the schema provided.`;
 
   const { object, usage } = await generateObject({
-    model: GEMINI_PRO,
+    model: models.pro,
     schema: documentationSchema,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -255,6 +258,7 @@ Your response must be a valid JSON object following the schema provided.`;
  * Generate comprehensive documentation from a codebase
  */
 export async function generateDocumentation({
+  apiKey,
   repoName,
   repoDescription,
   primaryLanguage,
@@ -265,6 +269,7 @@ export async function generateDocumentation({
   tokensPerChunk = 800000, // 800k tokens per chunk (Gemini 2.5 Pro: 1M context window)
 }: DocumentationParams): Promise<DocumentationResponse> {
   try {
+    const models = createGeminiModels(apiKey);
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
 
@@ -309,7 +314,7 @@ export async function generateDocumentation({
       const chunkResults: Array<z.infer<typeof partialDocumentationSchema>> = [];
       for (let i = 0; i < chunks.length; i++) {
         if (process.env.DEBUG_AI === 'true') console.log(`📝 Analyzing chunk ${i + 1}/${chunks.length} (${chunks[i].length} files)...`);
-        const { result, usage } = await analyzeChunk(chunks[i], i, chunks.length, repoName);
+        const { result, usage } = await analyzeChunk(models, chunks[i], i, chunks.length, repoName);
         chunkResults.push(result);
         totalInputTokens += usage.inputTokens || 0;
         totalOutputTokens += usage.outputTokens || 0;
@@ -318,6 +323,7 @@ export async function generateDocumentation({
       // Stitch all chunks together
       if (process.env.DEBUG_AI === 'true') console.log(`🧵 Stitching ${chunks.length} chunks together into final documentation...`);
       const { result, usage } = await stitchChunks(
+        models,
         chunkResults,
         repoName,
         repoDescription,
@@ -395,7 +401,7 @@ Generate structured documentation that covers:
 Your response must be a valid JSON object following the schema provided.`;
 
     const { object, usage } = await generateObject({
-      model: GEMINI_PRO,
+      model: models.pro,
       schema: documentationSchema,
       messages: [
         { role: 'user', content: prompt },

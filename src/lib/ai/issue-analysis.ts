@@ -1,5 +1,5 @@
 import { generateObject } from 'ai';
-import { GEMINI_PRO } from './models';
+import { createGeminiModels } from './models';
 import { z } from 'zod';
 
 const issueAnalysisSchema = z.object({
@@ -44,6 +44,7 @@ const issueAnalysisSchema = z.object({
 export type IssueAnalysisResult = z.infer<typeof issueAnalysisSchema>;
 
 export interface IssueAnalysisParams {
+  apiKey: string;
   issueTitle: string;
   issueBody: string;
   issueNumber: number;
@@ -70,6 +71,7 @@ export interface IssueAnalysisResponse {
  * Analyze a GitHub issue and provide detailed insights
  */
 export async function analyzeIssue({
+  apiKey,
   issueTitle,
   issueBody,
   issueNumber,
@@ -119,7 +121,7 @@ BE HONEST: If it's a poorly written issue, call it out. If it's excellent, prais
 Your response must be a valid JSON object following the schema provided.`;
 
     const { object, usage } = await generateObject({
-      model: GEMINI_PRO,
+      model: createGeminiModels(apiKey).pro,
       schema: issueAnalysisSchema,
       messages: [
         { role: 'user', content: prompt },

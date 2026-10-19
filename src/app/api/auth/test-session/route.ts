@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { randomUUID, createHmac } from 'crypto';
+import { randomUUID, createHmac, createHash, timingSafeEqual } from 'crypto';
 
 const TEST_USER_PREFIX = 'test-';
 
@@ -21,19 +21,60 @@ function signCookie(value: string, secret: string): string {
  * POST /api/auth/test-session
  * Body: { username?: string, email?: string }
  */
-// Defense in depth: hard-block this endpoint in production regardless of the
-// ENABLE_TEST_SESSION flag. A misconfigured env var in the prod project must
-// NEVER allow attacker-driven account takeover (POST {username:'lantos1618'}
-// would mint a signed better-auth session cookie for that user).
-function isTestSessionAllowed(): boolean {
-  if (process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV === 'production') {
+// A session-minting test endpoint must only run on a local development server.
+// Forwarded headers can be spoofed, so require both the request URL and Host
+// to name a loopback interface; use forwarded IPs only as an extra rejection.
+function isLoopbackHost(host: string | null): boolean {
+  return !!host && /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d{1,5})?$/i.test(host);
+}
+
+function isLoopbackIp(ip: string): boolean {
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+}
+
+export function isTestSessionAllowed(request: Request): boolean {
+  if (
+    process.env.NODE_ENV !== 'development' ||
+    process.env.VERCEL_ENV ||
+    process.env.ENABLE_TEST_SESSION !== 'true'
+  ) {
     return false;
   }
-  return process.env.ENABLE_TEST_SESSION === 'true';
+
+  const expectedSecret = process.env.TEST_SESSION_SECRET;
+  const suppliedSecret = request.headers.get('x-test-session-secret');
+  // Keep this independent of BETTER_AUTH_SECRET. A short or unset test secret
+  // must never enable account creation, even on a development server.
+  if (
+    !expectedSecret || expectedSecret.length < 32 || !suppliedSecret ||
+    expectedSecret === process.env.BETTER_AUTH_SECRET
+  ) return false;
+  const expectedDigest = createHash('sha256').update(expectedSecret).digest();
+  const suppliedDigest = createHash('sha256').update(suppliedSecret).digest();
+  if (!timingSafeEqual(expectedDigest, suppliedDigest)) return false;
+
+  try {
+    const url = new URL(request.url);
+    if (!['http:', 'https:'].includes(url.protocol)) return false;
+    if (!isLoopbackHost(url.host) || !isLoopbackHost(request.headers.get('host'))) return false;
+    if (request.headers.get('host')?.toLowerCase() !== url.host.toLowerCase()) return false;
+
+    const origin = request.headers.get('origin');
+    if (origin && origin !== url.origin) return false;
+
+    const forwardedFor = request.headers.get('x-forwarded-for');
+    if (forwardedFor && !forwardedFor.split(',').every(ip => isLoopbackIp(ip.trim()))) return false;
+    const realIp = request.headers.get('x-real-ip');
+    if (realIp && !isLoopbackIp(realIp.trim())) return false;
+
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function POST(request: Request) {
-  if (!isTestSessionAllowed()) {
+  if (!isTestSessionAllowed(request)) {
     return NextResponse.json({ error: 'Not available' }, { status: 403 });
   }
 
@@ -109,8 +150,8 @@ export async function POST(request: Request) {
 /**
  * DELETE /api/auth/test-session - Clean up test sessions and users
  */
-export async function DELETE() {
-  if (!isTestSessionAllowed()) {
+export async function DELETE(request: Request) {
+  if (!isTestSessionAllowed(request)) {
     return NextResponse.json({ error: 'Not available' }, { status: 403 });
   }
 

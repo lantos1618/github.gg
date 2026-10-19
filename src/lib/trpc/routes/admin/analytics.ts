@@ -4,7 +4,7 @@ import { adminProcedure } from '@/lib/trpc/admin';
 import { db } from '@/db';
 import { tokenUsage, userSubscriptions, user } from '@/db/schema';
 import { eq, and, gte, lte, desc, inArray } from 'drizzle-orm';
-import { calculateTokenCost, calculateTotalCost, calculateDailyCostAndRevenue } from '@/lib/utils/cost-calculator';
+import { calculateTokenCost, calculatePlatformCost, calculateDailyCostAndRevenue } from '@/lib/utils/cost-calculator';
 
 export const adminAnalyticsRouter = router({
   // Get overall usage statistics
@@ -44,11 +44,13 @@ export const adminAnalyticsRouter = router({
       const userMap = new Map(users.map(u => [u.id, u]));
 
       // Calculate costs
-      const costBreakdown = calculateTotalCost(usage.map(u => ({
+      const costBreakdown = calculatePlatformCost(usage.map(u => ({
         inputTokens: u.inputTokens,
         outputTokens: u.outputTokens,
         totalTokens: u.totalTokens,
         model: u.model || 'gemini-3.1-pro-preview', // Default model
+        createdAt: u.createdAt ?? undefined,
+        isByok: u.isByok,
       })));
 
       // Aggregate statistics
@@ -109,11 +111,13 @@ export const adminAnalyticsRouter = router({
         orderBy: desc(tokenUsage.createdAt),
       });
 
-      const costBreakdown = calculateTotalCost(usage.map(u => ({
+      const costBreakdown = calculatePlatformCost(usage.map(u => ({
         inputTokens: u.inputTokens,
         outputTokens: u.outputTokens,
         totalTokens: u.totalTokens,
         model: u.model || 'gemini-3.1-pro-preview',
+        createdAt: u.createdAt ?? undefined,
+        isByok: u.isByok,
       })));
 
       return {
@@ -175,11 +179,13 @@ export const adminAnalyticsRouter = router({
       // Calculate usage for each user
       const usersWithUsage = users.map(user => {
         const userUsage = usageMap.get(user.id) || [];
-        const costBreakdown = calculateTotalCost(userUsage.map(u => ({
+        const costBreakdown = calculatePlatformCost(userUsage.map(u => ({
           inputTokens: u.inputTokens,
           outputTokens: u.outputTokens,
           totalTokens: u.totalTokens,
           model: u.model || 'gemini-3.1-pro-preview',
+          createdAt: u.createdAt ?? undefined,
+          isByok: u.isByok,
         })));
 
         return {
@@ -240,20 +246,22 @@ export const adminAnalyticsRouter = router({
           };
         }
 
-        const cost = calculateTokenCost({
-          inputTokens: u.inputTokens,
-          outputTokens: u.outputTokens,
-          totalTokens: u.totalTokens,
-          model: u.model || 'gemini-3.1-pro-preview',
-        });
-
         acc[u.feature].totalTokens += u.totalTokens;
         acc[u.feature].usageCount += 1;
         acc[u.feature].byokTokens += u.isByok ? u.totalTokens : 0;
         acc[u.feature].managedTokens += u.isByok ? 0 : u.totalTokens;
-        acc[u.feature].costBreakdown.inputCost += cost.inputCost;
-        acc[u.feature].costBreakdown.outputCost += cost.outputCost;
-        acc[u.feature].costBreakdown.totalCost += cost.totalCost;
+        if (!u.isByok) {
+          const cost = calculateTokenCost({
+            inputTokens: u.inputTokens,
+            outputTokens: u.outputTokens,
+            totalTokens: u.totalTokens,
+            model: u.model || 'gemini-3.1-pro-preview',
+            createdAt: u.createdAt ?? undefined,
+          });
+          acc[u.feature].costBreakdown.inputCost += cost.inputCost;
+          acc[u.feature].costBreakdown.outputCost += cost.outputCost;
+          acc[u.feature].costBreakdown.totalCost += cost.totalCost;
+        }
 
         return acc;
       }, {} as Record<string, {
@@ -329,6 +337,7 @@ export const adminAnalyticsRouter = router({
           totalTokens: u.totalTokens,
           model: u.model || undefined,
           createdAt: u.createdAt || undefined,
+          isByok: u.isByok,
         })),
         subscriptions: subscriptions.map(s => ({
           currentPeriodEnd: s.currentPeriodEnd,

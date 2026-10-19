@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { applyPaidAIRateLimit } from '../src/lib/rate-limit';
+import { applyPaidAIRateLimit } from '../src/lib/rate-limit/paid-ai';
 
 describe('shared paid AI rate limit', () => {
   test('uses the same per-user key across paid features', async () => {

@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     default: "GG | The Missing Intelligence Layer for GitHub",
     template: "%s | GG"
   },
-  description: "Instant architectural diagrams, quality scores, and AI documentation for any GitHub repository. Stop reading code, start understanding.",
+  description: "Browse public GitHub repositories for free. Pro adds AI diagrams, code quality scorecards, and documentation.",
   keywords: ["GitHub analysis", "code visualization", "architectural diagrams", "code quality metrics", "AI documentation", "developer tools", "repo visualization"],
   authors: [{ name: "GG Team" }],
   creator: "GG Team",
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "https://github.gg",
     title: "GG | The Missing Intelligence Layer for GitHub",
-    description: "Instant architectural diagrams, quality scores, and AI documentation for any GitHub repository.",
+    description: "Browse public GitHub repositories for free. Pro adds AI diagrams, code quality scorecards, and documentation.",
     siteName: "GG",
     images: [
       {
@@ -58,7 +58,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "GG | The Missing Intelligence Layer for GitHub",
-    description: "Instant architectural diagrams, quality scores, and AI documentation for any GitHub repository.",
+    description: "Browse public GitHub repositories for free. Pro adds AI diagrams, code quality scorecards, and documentation.",
     images: ["/og-image.png"],
     creator: "@github_gg", // Placeholder handle
   },
@@ -151,7 +151,7 @@ export default async function RootLayout({
                 "price": "0",
                 "priceCurrency": "USD"
               },
-              "description": "Instant architectural diagrams, quality scores, and AI documentation for any GitHub repository."
+              "description": "Free public GitHub repository browsing, with AI analysis on Pro."
             })
           }}
         />

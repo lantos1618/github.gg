@@ -52,6 +52,10 @@ Production environment variables, so the container does not require an
 Once the production prerequisites pass, change
 `daemons.webhook-worker.instances.iad1` from `0` to `1` and deploy to
 Production, or use the project's Daemons dashboard to scale to one instance.
+After a signed delivery is processed successfully, set
+`NEXT_PUBLIC_GITHUB_REVIEWS_ENABLED=true` in Production and redeploy to show
+the GitHub App installation calls to action on the homepage. Leave it unset
+while the worker has zero instances.
 Dashboard scaling creates an override that persists across deployments until
 cleared; check for an override before assuming the repository value controls
 the running instance count. Watch the daemon logs for `Webhook worker ready`

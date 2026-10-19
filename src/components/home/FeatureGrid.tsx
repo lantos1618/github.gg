@@ -1,5 +1,7 @@
 import { PageWidthContainer } from '@/components/PageWidthContainer';
 
+const reviewsEnabled = process.env.NEXT_PUBLIC_GITHUB_REVIEWS_ENABLED === 'true';
+
 // HeroDiagram has moved into HeroSection (split-screen, right column) so the
 // landing's strongest product asset sits above the fold next to the input.
 // This section is now a compact feature roll-up — Scorecards / Wiki / PR
@@ -8,7 +10,7 @@ import { PageWidthContainer } from '@/components/PageWidthContainer';
 const FEATURES = [
   { label: 'Scorecards', desc: 'A–F grades, per file.' },
   { label: 'Wiki', desc: 'Generated from your code.' },
-  { label: 'PR reviews', desc: 'AI feedback on pull requests.' },
+  ...(reviewsEnabled ? [{ label: 'PR reviews', desc: 'AI feedback on pull requests.' }] : []),
   { label: 'Slop detector', desc: 'Catches AI-shaped code.' },
 ];
 
@@ -34,7 +36,8 @@ export function FeatureGrid() {
         </div>
 
         <div className="mt-8 text-[13px] text-[#aaa]">
-          Works with any public GitHub repository. Private repos supported with GitHub App installation.
+          Works with any public GitHub repository.
+          {reviewsEnabled && ' Private repos are supported with a GitHub App installation.'}
         </div>
       </PageWidthContainer>
     </section>

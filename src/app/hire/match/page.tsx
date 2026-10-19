@@ -42,6 +42,16 @@ Nice to have:
 
 export default function HireMatchPage() {
   const { isSignedIn, isLoading: authLoading, signIn } = useAuth();
+  const {
+    data: planData,
+    isPending: planPending,
+    isError: planError,
+    refetch: refetchPlan,
+  } = trpc.user.getCurrentPlan.useQuery(undefined, {
+    enabled: isSignedIn,
+    staleTime: 60_000,
+  });
+  const canMatch = planData?.plan === 'pro' || planData?.plan === 'byok';
   const [jobDescription, setJobDescription] = useState('');
   const [minConfidence, setMinConfidence] = useState(50);
   const [selectedArchetypes, setSelectedArchetypes] = useState<string[]>([]);
@@ -146,6 +156,29 @@ export default function HireMatchPage() {
           Paste a job description to find and rank candidates from analyzed developer profiles.
         </p>
 
+        {isSignedIn && !canMatch ? (
+          <div className="max-w-2xl rounded-lg border border-[#eee] bg-[#fafafa] p-6" role="status">
+            {planPending ? (
+              <p className="text-sm text-[#666]">Checking your plan…</p>
+            ) : planError ? (
+              <>
+                <h2 className="text-lg font-semibold text-[#111] mb-2">Could not verify your plan</h2>
+                <p className="text-sm text-[#666] mb-4">Try again before starting a candidate match.</p>
+                <Button variant="outline" onClick={() => void refetchPlan()}>Retry</Button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-semibold text-[#111] mb-2">Candidate matching requires a paid plan</h2>
+                <p className="text-sm text-[#666] mb-4">
+                  Upgrade to Pro or BYOK to rank developers against a job description.
+                </p>
+                <Button asChild className="bg-[#111] hover:bg-[#333] text-white">
+                  <Link href="/pricing?ref=hire-match">See plans</Link>
+                </Button>
+              </>
+            )}
+          </div>
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
           {/* Left: Job input */}
           <div className="lg:col-span-1">
@@ -312,6 +345,7 @@ export default function HireMatchPage() {
             )}
           </div>
         </div>
+        )}
       </PageWidthContainer>
     </div>
   );

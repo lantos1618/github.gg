@@ -20,6 +20,18 @@ export function isSubscriptionCurrent(subscription: {
     new Date(subscription.currentPeriodEnd).getTime() > now.getTime();
 }
 
+/** Return the plan exposed to the UI only while its billing period is current. */
+export function getEffectiveSubscriptionPlan(subscription: {
+  status: string;
+  currentPeriodEnd: Date;
+  plan: string;
+} | null | undefined, now = new Date()): Plan {
+  if (!isSubscriptionCurrent(subscription, now)) return 'free';
+  return subscription?.plan === 'pro' || subscription?.plan === 'byok'
+    ? subscription.plan
+    : 'free';
+}
+
 export async function getUserApiKey(userId: string) {
   const keyRecord = await db.query.userApiKeys.findFirst({
     where: eq(userApiKeys.userId, userId)

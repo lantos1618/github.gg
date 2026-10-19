@@ -17,6 +17,7 @@ import { userSubscriptions } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import '@/lib/boneyard-config';
 import { logWarn } from '@/lib/logging';
+import { getEffectiveSubscriptionPlan } from '@/lib/utils/user-plan';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -97,9 +98,10 @@ export default async function RootLayout({
       try {
         const sub = await db.query.userSubscriptions.findFirst({
           where: eq(userSubscriptions.userId, user.id),
-          columns: { plan: true, status: true },
+          columns: { plan: true, status: true, currentPeriodEnd: true },
         });
-        if (sub?.status === 'active') plan = sub.plan;
+        const effectivePlan = getEffectiveSubscriptionPlan(sub);
+        if (effectivePlan !== 'free') plan = effectivePlan;
       } catch (err) {
         // Non-fatal: subscription lookup failure shouldn't break the page render.
         logWarn('[layout] subscription plan lookup failed', {

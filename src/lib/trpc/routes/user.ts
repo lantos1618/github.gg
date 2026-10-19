@@ -4,8 +4,8 @@ import { db } from '@/db';
 import { userApiKeys, tokenUsage, userSubscriptions, user } from '@/db/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import { encryptApiKey, getStoredApiKeyStatus } from '@/lib/utils/encryption';
-import type { Plan } from '@/lib/utils/permissions';
 import { TRPCError } from '@trpc/server';
+import { getEffectiveSubscriptionPlan, isSubscriptionCurrent } from '@/lib/utils/user-plan';
 
 export const userRouter = router({
   // Profile Customization
@@ -28,7 +28,7 @@ export const userRouter = router({
         where: eq(userSubscriptions.userId, ctx.user.id)
       });
       
-      if (!subscription || subscription.status !== 'active') {
+      if (!isSubscriptionCurrent(subscription)) {
         throw new TRPCError({
           code: 'FORBIDDEN',
           message: 'You must have an active subscription to customize your profile.'
@@ -140,10 +140,6 @@ export const userRouter = router({
         where: eq(userSubscriptions.userId, ctx.user.id)
       });
       
-      if (!subscription || subscription.status !== 'active') {
-        return { plan: 'free' as const };
-      }
-      
-      return { plan: subscription.plan as Plan };
+      return { plan: getEffectiveSubscriptionPlan(subscription) };
     }),
 });

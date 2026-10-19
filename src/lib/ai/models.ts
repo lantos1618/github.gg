@@ -24,9 +24,23 @@ export type GeminiModels = ReturnType<typeof createGeminiModels>;
 export type GeminiTokenUsage = { inputTokens: number; outputTokens: number; totalTokens: number };
 export type GeminiModelUsage = { flash: GeminiTokenUsage; pro: GeminiTokenUsage };
 
-export function geminiTokenUsage(usage: { inputTokens?: number; outputTokens?: number }): GeminiTokenUsage {
-  const inputTokens = usage.inputTokens || 0;
-  const outputTokens = usage.outputTokens || 0;
+export function geminiTokenUsage(usage: {
+  inputTokens?: number;
+  outputTokens?: number;
+  reasoningTokens?: number;
+  totalTokens?: number;
+}): GeminiTokenUsage {
+  const count = (value?: number) =>
+    value !== undefined && Number.isFinite(value) && value > 0 ? Math.trunc(value) : 0;
+  const inputTokens = count(usage.inputTokens);
+  // Google's candidatesTokenCount excludes thoughtsTokenCount. The provider
+  // exposes both, and totalTokenCount can include additional billed tokens.
+  const visibleOutput = count(usage.outputTokens);
+  const reasoning = count(usage.reasoningTokens);
+  const outputTokens = Math.max(
+    visibleOutput + reasoning,
+    count(usage.totalTokens) - inputTokens,
+  );
   return { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens };
 }
 

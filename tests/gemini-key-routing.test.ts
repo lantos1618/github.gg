@@ -38,3 +38,18 @@ test('mixed analysis usage retains the model that incurred each charge', () => {
     { model: GEMINI_PRO_MODEL_NAME, usage: { inputTokens: 50, outputTokens: 10, totalTokens: 60 } },
   ]);
 });
+
+test('Gemini usage includes reasoning tokens in billed output and monthly quota', () => {
+  expect(geminiTokenUsage({
+    inputTokens: 100,
+    outputTokens: 20,
+    reasoningTokens: 30,
+    totalTokens: 150,
+  })).toEqual({ inputTokens: 100, outputTokens: 50, totalTokens: 150 });
+
+  expect(geminiTokenUsage({
+    inputTokens: 100,
+    outputTokens: 20,
+    totalTokens: 145,
+  })).toEqual({ inputTokens: 100, outputTokens: 45, totalTokens: 145 });
+});

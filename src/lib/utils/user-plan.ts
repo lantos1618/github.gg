@@ -11,6 +11,15 @@ export async function getUserSubscription(userId: string) {
   });
 }
 
+/** A delayed or missed Stripe webhook must not extend AI entitlement. */
+export function isSubscriptionCurrent(subscription: {
+  status: string;
+  currentPeriodEnd: Date;
+} | null | undefined, now = new Date()): boolean {
+  return subscription?.status === 'active' &&
+    new Date(subscription.currentPeriodEnd).getTime() > now.getTime();
+}
+
 export async function getUserApiKey(userId: string) {
   const keyRecord = await db.query.userApiKeys.findFirst({
     where: eq(userApiKeys.userId, userId)
@@ -47,7 +56,8 @@ export async function getApiKeyForUser(userId: string, plan?: Plan) {
 }
 
 export async function getUserPlanAndKey(userId: string) {
-  const subscription = await getUserSubscription(userId);
+  const storedSubscription = await getUserSubscription(userId);
+  const subscription = isSubscriptionCurrent(storedSubscription) ? storedSubscription : null;
   const apiKey = await getUserApiKey(userId);
   
   return {

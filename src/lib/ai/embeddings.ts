@@ -100,12 +100,43 @@ export async function generateProfileEmbedding(profile: DeveloperProfile): Promi
 }
 
 /**
- * Generate embedding for a job description
+ * Generate a job-description embedding and read the provider's exact token
+ * count. The AI SDK currently discards Gemini's embedding usageMetadata, so
+ * this one metered path uses the documented single-item REST response.
  */
-export async function generateJobEmbedding(jobDescription: string): Promise<number[]> {
-  // Prefix to give context that this is a job listing
+export async function generateJobEmbedding(
+  jobDescription: string,
+  apiKey: string,
+): Promise<{ embedding: number[]; inputTokens: number }> {
+  if (!apiKey) throw new Error('Gemini API key is not configured');
   const prefixedText = `Job Requirements: ${jobDescription}`;
-  return generateEmbedding(prefixedText);
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${EMBEDDING_MODEL}:embedContent`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify({
+        model: `models/${EMBEDDING_MODEL}`,
+        content: { parts: [{ text: prefixedText }] },
+        outputDimensionality: EMBEDDING_DIMENSIONS,
+      }),
+      signal: AbortSignal.timeout(30_000),
+    },
+  );
+  if (!response.ok) throw new Error('Gemini embedding request failed');
+
+  const data = await response.json() as {
+    embedding?: { values?: number[] };
+    usageMetadata?: { promptTokenCount?: number };
+  };
+  const embedding = data.embedding?.values;
+  const inputTokens = data.usageMetadata?.promptTokenCount;
+  if (!embedding || embedding.length !== EMBEDDING_DIMENSIONS ||
+      !embedding.every(Number.isFinite) ||
+      typeof inputTokens !== 'number' || !Number.isSafeInteger(inputTokens) || inputTokens <= 0) {
+    throw new Error('Gemini embedding response was incomplete');
+  }
+  return { embedding, inputTokens };
 }
 
 // text-embedding-004 has a token budget around ~2k. Markdown scorecards routinely

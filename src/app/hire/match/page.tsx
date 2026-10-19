@@ -46,23 +46,28 @@ export default function HireMatchPage() {
   const [minConfidence, setMinConfidence] = useState(50);
   const [selectedArchetypes, setSelectedArchetypes] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(DRAFT_KEY);
-      if (!raw) return;
-      const draft = JSON.parse(raw) as {
-        jobDescription?: string;
-        minConfidence?: number;
-        selectedArchetypes?: string[];
-      };
-      if (draft.jobDescription) setJobDescription(draft.jobDescription);
-      if (typeof draft.minConfidence === 'number') setMinConfidence(draft.minConfidence);
-      if (Array.isArray(draft.selectedArchetypes)) setSelectedArchetypes(draft.selectedArchetypes);
-    } catch {}
+    const restoreDraft = window.setTimeout(() => {
+      try {
+        const savedDraft = sessionStorage.getItem(DRAFT_KEY);
+        if (!savedDraft) return;
+        const draft = JSON.parse(savedDraft) as {
+          jobDescription?: string;
+          minConfidence?: number;
+          selectedArchetypes?: string[];
+        };
+        if (draft.jobDescription) setJobDescription(draft.jobDescription);
+        if (typeof draft.minConfidence === 'number') setMinConfidence(draft.minConfidence);
+        if (Array.isArray(draft.selectedArchetypes)) setSelectedArchetypes(draft.selectedArchetypes);
+      } catch {} finally { setDraftRestored(true); }
+    }, 0);
+    return () => window.clearTimeout(restoreDraft);
   }, []);
 
   useEffect(() => {
+    if (!draftRestored) return;
     try {
       if (!jobDescription && selectedArchetypes.length === 0 && minConfidence === 50) {
         sessionStorage.removeItem(DRAFT_KEY);
@@ -73,7 +78,7 @@ export default function HireMatchPage() {
         JSON.stringify({ jobDescription, minConfidence, selectedArchetypes })
       );
     } catch {}
-  }, [jobDescription, minConfidence, selectedArchetypes]);
+  }, [draftRestored, jobDescription, minConfidence, selectedArchetypes]);
 
   const matchMutation = trpc.hire.matchCandidates.useMutation({
     onSuccess: () => {
@@ -89,6 +94,10 @@ export default function HireMatchPage() {
       toast.error('Please enter a more detailed job description (at least 50 characters)');
       return false;
     }
+    if (jobDescription.trim().length > 4000) {
+      toast.error('Job description must be 4,000 characters or fewer');
+      return false;
+    }
     return true;
   };
 
@@ -96,7 +105,7 @@ export default function HireMatchPage() {
     if (!validate()) return;
     matchMutation.mutate({
       jobDescription: jobDescription.trim(),
-      limit: 20,
+      limit: 10,
       minConfidence: minConfidence > 0 ? minConfidence : undefined,
       archetypes: selectedArchetypes.length > 0 ? selectedArchetypes : undefined,
     });
@@ -151,6 +160,7 @@ export default function HireMatchPage() {
                 placeholder="Paste your job description here…&#10;&#10;Include:&#10;- Required skills and experience&#10;- Tech stack preferences&#10;- Role responsibilities&#10;- Nice-to-haves"
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
+                maxLength={4000}
                 className="min-h-[200px] mb-3 text-sm border-[#ddd] focus-visible:ring-0 focus-visible:border-[#111]"
               />
 

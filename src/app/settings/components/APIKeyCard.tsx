@@ -34,7 +34,7 @@ export function APIKeyCard({
   return (
     <CardWithHeader
       title="BYOK"
-      description="Your own Gemini API key for unlimited usage."
+      description="Use your own Gemini API key; the managed monthly token limit does not apply."
       icon={Key}
     >
       <div className="space-y-4">

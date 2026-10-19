@@ -31,6 +31,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://www.github.gg'),
   title: {
     default: "GG | The Missing Intelligence Layer for GitHub",
     template: "%s | GG"
@@ -48,10 +49,10 @@ export const metadata: Metadata = {
     siteName: "GG",
     images: [
       {
-        url: "/og-image.png", // We'll need to ensure this exists or use a fallback
-        width: 1200,
-        height: 630,
-        alt: "GG - GitHub Intelligence Layer",
+        url: "/favicon/android-chrome-512x512.png",
+        width: 512,
+        height: 512,
+        alt: "GG logo",
       },
     ],
   },
@@ -59,7 +60,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "GG | The Missing Intelligence Layer for GitHub",
     description: "Browse public GitHub repositories for free. Pro adds AI diagrams, code quality scorecards, and documentation.",
-    images: ["/og-image.png"],
+    images: ["/favicon/android-chrome-512x512.png"],
     creator: "@github_gg", // Placeholder handle
   },
   icons: {

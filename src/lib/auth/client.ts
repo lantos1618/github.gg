@@ -31,13 +31,8 @@ export function useAuth() {
 
   const handleSignOut = async () => {
     try {
-      // 1. Perform app-specific cleanup by calling our dedicated endpoint.
-      await fetch('/api/auth/sign-out-cleanup', { method: 'POST' });
-      
-      // 2. Call the core `better-auth` sign-out function.
       await betterAuthSignOut();
 
-      // 3. Clean up client-side state.
       utils.invalidate(); // Invalidate all tRPC queries
       router.push('/');
       router.refresh(); // Force a full page reload to ensure a clean state

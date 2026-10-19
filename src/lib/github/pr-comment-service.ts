@@ -93,7 +93,12 @@ export async function postPRReviewComment({
     let keyInfo = isPaid ? await getApiKeyForUser(user.id, plan) : null;
     let freeTier: { used: number; remaining: number; total: number } | null = null;
 
-    if (!isPaid || !keyInfo) {
+    if (isPaid && !keyInfo) {
+      console.log(`Skipping PR review for PR #${prNumber}: subscriber Gemini key unavailable; re-entry may be required`);
+      return { success: false, skipped: true, reason: 'subscriber_key_unavailable' };
+    }
+
+    if (!isPaid) {
       // Free-tier path: use platform key for the first N reviews per installation,
       // then return a stub upgrade comment.
       const platformKey = getPlatformApiKey();
@@ -108,6 +113,10 @@ export async function postPRReviewComment({
       }
       keyInfo = { apiKey: platformKey, isByok: false };
       freeTier = status;
+    }
+
+    if (!keyInfo) {
+      return { success: false, skipped: true, reason: 'subscriber_key_unavailable' };
     }
 
     const octokit = await getInstallationOctokit(installationId);
@@ -155,6 +164,7 @@ export async function postPRReviewComment({
     // Analyze the PR
     const analysisStartTime = Date.now();
     const analysisResult = await analyzePullRequest({
+      apiKey: keyInfo.apiKey,
       prTitle: sanitizedTitle,
       prDescription: sanitizedDescription,
       changedFiles: filesToAnalyze.map(f => ({

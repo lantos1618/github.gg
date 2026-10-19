@@ -1,6 +1,6 @@
-import { google } from '@ai-sdk/google';
 import { embed, embedMany } from 'ai';
 import type { DeveloperProfile } from '@/lib/types/profile';
+import { createPlatformGeminiModels } from './models';
 
 // gemini-embedding-001 with outputDimensionality=768 — keeps the existing
 // vector(768) column shape. text-embedding-004 (the previous model) was
@@ -19,7 +19,7 @@ const PROVIDER_OPTIONS = {
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   const { embedding } = await embed({
-    model: google.embedding(EMBEDDING_MODEL),
+    model: createPlatformGeminiModels().embedding,
     value: text,
     providerOptions: PROVIDER_OPTIONS,
   });
@@ -31,7 +31,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
  */
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
   const { embeddings } = await embedMany({
-    model: google.embedding(EMBEDDING_MODEL),
+    model: createPlatformGeminiModels().embedding,
     values: texts,
     providerOptions: PROVIDER_OPTIONS,
   });

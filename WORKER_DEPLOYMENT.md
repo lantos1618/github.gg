@@ -23,7 +23,7 @@ Required environment variables:
 | `DATABASE_URL`        | Same Neon URL the web app uses. |
 | `GITHUB_APP_ID`       | Same as web app (needed for installation token minting). |
 | `GITHUB_APP_PRIVATE_KEY` | Same as web app. |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | For the AI analysis handlers (PR / commit / issue). |
+| `GEMINI_API_KEY` | Platform key for AI analysis handlers. BYOK subscribers use their saved key. |
 | `ENABLE_PR_REVIEWS`, `ENABLE_COMMIT_ANALYSIS`, etc. | Feature flags must match the web app or analysis silently no-ops. |
 
 The worker doesn't need `GITHUB_WEBHOOK_SECRET` — signature verification

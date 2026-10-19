@@ -91,6 +91,7 @@ export const githubAnalysisPrAnalysisRouter = router({
         };
 
         const analysisResult = await analyzePullRequest({
+          apiKey: keyInfo.apiKey,
           prTitle: pr.data.title,
           prDescription: pr.data.body || '',
           changedFiles: files.data.slice(0, 20).map(f => ({

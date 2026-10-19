@@ -3,6 +3,7 @@ import { userSubscriptions, userApiKeys } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { decryptApiKey } from './encryption';
 import type { Plan } from './permissions';
+import { getPlatformGeminiApiKey } from '@/lib/ai/models';
 
 export async function getUserSubscription(userId: string) {
   return await db.query.userSubscriptions.findFirst({
@@ -38,7 +39,8 @@ export async function getApiKeyForUser(userId: string, plan?: Plan) {
   
   // For Pro users without BYOK key, use system key
   if (plan === 'pro') {
-    return { apiKey: process.env.GEMINI_API_KEY!, isByok: false };
+    const apiKey = getPlatformGeminiApiKey();
+    return apiKey ? { apiKey, isByok: false } : null;
   }
   
   return null;
@@ -53,4 +55,4 @@ export async function getUserPlanAndKey(userId: string) {
     apiKey,
     plan: (subscription?.status === 'active' ? subscription.plan : 'free') as Plan,
   };
-} 
+}

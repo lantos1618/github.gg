@@ -19,11 +19,12 @@ type KeyInfo = { apiKey: string; isByok: boolean };
 async function resolveKeyAndTier(
   userId: string,
   installationId: number,
-): Promise<{ keyInfo: KeyInfo; freeTier: FreeTierState } | { skip: 'no_api_key' | 'free_tier_exhausted' }> {
+): Promise<{ keyInfo: KeyInfo; freeTier: FreeTierState } | { skip: 'no_api_key' | 'free_tier_exhausted' | 'subscriber_key_unavailable' }> {
   const { subscription, plan } = await getUserPlanAndKey(userId);
   const isPaid = !!subscription && subscription.status === 'active';
   const paidKey = isPaid ? await getApiKeyForUser(userId, plan) : null;
   if (paidKey) return { keyInfo: paidKey, freeTier: null };
+  if (isPaid) return { skip: 'subscriber_key_unavailable' };
 
   const platformKey = getPlatformApiKey();
   if (!platformKey) return { skip: 'no_api_key' };
@@ -91,6 +92,7 @@ export async function postCommitAnalysisComment({
 
     // Analyze the commit
     const analysisResult = await analyzeCommit({
+      apiKey: keyInfo.apiKey,
       commitMessage: sanitizedMessage,
       commitSha: commit.sha,
       author: {
@@ -226,6 +228,7 @@ export async function postIssueAnalysisComment({
 
     // Analyze the issue
     const analysisResult = await analyzeIssue({
+      apiKey: keyInfo.apiKey,
       issueTitle: sanitizedTitle,
       issueBody: sanitizedBody,
       issueNumber: issue.number,

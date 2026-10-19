@@ -1,6 +1,7 @@
 import { db } from '@/db';
 import { installationFreeReviews } from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
+import { getPlatformGeminiApiKey } from '@/lib/ai/models';
 
 export const FREE_REVIEWS_PER_INSTALLATION = 3;
 
@@ -34,8 +35,7 @@ export async function incrementFreeReviewsUsed(installationId: number): Promise<
 }
 
 export function getPlatformApiKey(): string | null {
-  const key = process.env.GEMINI_API_KEY;
-  return key && key.length > 0 ? key : null;
+  return getPlatformGeminiApiKey();
 }
 
 export function freeTierFooter(remaining: number, ref: string): string {

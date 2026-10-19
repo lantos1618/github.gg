@@ -5,6 +5,7 @@ import { db } from '@/db';
 import { tokenUsage, developerProfileCache } from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { generateDeveloperProfileStreaming } from '@/lib/ai/developer-profile';
+import { getPlatformGeminiApiKey } from '@/lib/ai/models';
 import { createGitHubServiceForRepo, createGitHubServiceForUserOperations } from '@/lib/github';
 import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 import { areRepositoriesCurrentlyPublic, withVerifiedPublicSources } from '@/lib/profile/public-provenance';
@@ -112,6 +113,7 @@ export const adminProfileRouter = router({
         // Generate Profile
         let result;
         const generator = generateDeveloperProfileStreaming({
+          apiKey: getPlatformGeminiApiKey() || '',
           username,
           repos: smartSortedRepos,
           repoFiles: repoFiles.length > 0 ? repoFiles : undefined,

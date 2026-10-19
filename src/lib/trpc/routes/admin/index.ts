@@ -8,7 +8,7 @@ import { generateDeveloperProfileStreaming } from '@/lib/ai/developer-profile';
 import { createGitHubServiceForUserOperations } from '@/lib/github';
 import { enqueue, dequeue, updateQueueItem, getQueueLength, getUserQueueItems } from '@/lib/analysis/job-store';
 import { generateObject } from 'ai';
-import { GEMINI_FLASH } from '@/lib/ai/models';
+import { createPlatformGeminiModels, getPlatformGeminiApiKey } from '@/lib/ai/models';
 import { adminProfileRouter } from './profile';
 import { adminNetworkRouter } from './network';
 import { adminAnalyticsRouter } from './analytics';
@@ -59,7 +59,7 @@ export const adminRouter = router({
     .input(z.object({ text: z.string().min(1).max(10000) }))
     .mutation(async ({ input }) => {
       const { object } = await generateObject({
-        model: GEMINI_FLASH,
+        model: createPlatformGeminiModels().flash,
         schema: z.object({
           usernames: z.array(z.string()).describe('GitHub usernames extracted from the text'),
         }),
@@ -130,7 +130,7 @@ ${input.text}`,
           }
 
           // Run the streaming generator
-          const generator = generateDeveloperProfileStreaming({ username, repos: topRepos, userId: ctx.user.id });
+          const generator = generateDeveloperProfileStreaming({ apiKey: getPlatformGeminiApiKey() || '', username, repos: topRepos, userId: ctx.user.id });
           let result: any = null;
           for await (const update of generator) {
             if (update.type === 'complete' && update.result) result = update.result;

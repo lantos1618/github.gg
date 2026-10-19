@@ -112,6 +112,7 @@ export const wikiRouter = router({
         // Generate wiki using Gemini context caching with real-time progress
         let wikiResult;
         for await (const update of generateWikiWithCacheStreaming({
+          apiKey: keyInfo.apiKey,
           owner,
           repo,
           repoDescription: repoData.value.data.description || undefined,

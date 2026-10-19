@@ -1,7 +1,10 @@
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { retryWithBackoff } from './retry-utils';
-import { GEMINI_PRO, GEMINI_FLASH } from './models';
+import {
+  addGeminiTokenUsage, createGeminiModels, emptyGeminiTokenUsage, geminiTokenUsage,
+  type GeminiModelUsage, type GeminiModels,
+} from './models';
 import {
   SECURITY_SEVERITY,
   securityReviewSchema,
@@ -22,6 +25,7 @@ const partialSecuritySchema = z.object({
 });
 
 export interface SecurityReviewParams {
+  apiKey: string;
   files: Array<{ path: string; content: string }>;
   repoName: string;
   onProgress?: (message: string, progress: number) => void;
@@ -29,6 +33,7 @@ export interface SecurityReviewParams {
 
 export interface SecurityReviewResult {
   review: SecurityReviewData;
+  modelUsage: GeminiModelUsage;
   usage: {
     inputTokens: number;
     outputTokens: number;
@@ -77,6 +82,7 @@ const RISK_RUBRIC = `OVERALL SCORING RUBRIC (higher = more secure):
 riskLevel must reflect the worst confirmed finding category.`;
 
 async function analyzeSecurityChunk(
+  models: GeminiModels,
   files: Array<{ path: string; content: string }>,
   chunkIndex: number,
   totalChunks: number,
@@ -104,7 +110,7 @@ Return JSON with: vulnerabilities[], attackSurface[] (entry points / trust bound
 
   return retryWithBackoff(async () => {
     const { object, usage } = await generateObject({
-      model: GEMINI_FLASH,
+      model: models.flash,
       schema: partialSecuritySchema,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -113,6 +119,7 @@ Return JSON with: vulnerabilities[], attackSurface[] (entry points / trust bound
 }
 
 async function generateFinalSecurityReport(
+  models: GeminiModels,
   chunkResults: Array<z.infer<typeof partialSecuritySchema>>,
   repoName: string,
 ) {
@@ -158,7 +165,7 @@ Return JSON matching: { overallScore, riskLevel, metrics, vulnerabilities, attac
 
   return retryWithBackoff(async () => {
     const { object, usage } = await generateObject({
-      model: GEMINI_PRO,
+      model: models.pro,
       schema: securityReviewSchema,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -196,10 +203,12 @@ async function processChunksParallel<T>(
 }
 
 export async function generateSecurityReview({
+  apiKey,
   files,
   repoName,
   onProgress,
 }: SecurityReviewParams): Promise<SecurityReviewResult> {
+  const models = createGeminiModels(apiKey);
   const TOKENS_PER_CHUNK = 100000;
   const MAX_CONCURRENCY = 3;
 
@@ -231,20 +240,23 @@ export async function generateSecurityReview({
 
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
+  let flashUsage = emptyGeminiTokenUsage();
 
   if (chunks.length === 1) {
     onProgress?.('Scanning for vulnerabilities...', 20);
-    const { result, usage } = await analyzeSecurityChunk(chunks[0], 0, 1, repoName);
+    const { result, usage } = await analyzeSecurityChunk(models, chunks[0], 0, 1, repoName);
+    flashUsage = addGeminiTokenUsage(flashUsage, geminiTokenUsage(usage));
     totalInputTokens += usage.inputTokens || 0;
     totalOutputTokens += usage.outputTokens || 0;
 
     onProgress?.('Building security profile...', 70);
-    const { result: finalResult, usage: finalUsage } = await generateFinalSecurityReport([result], repoName);
+    const { result: finalResult, usage: finalUsage } = await generateFinalSecurityReport(models, [result], repoName);
     totalInputTokens += finalUsage.inputTokens || 0;
     totalOutputTokens += finalUsage.outputTokens || 0;
 
     return {
       review: finalResult,
+      modelUsage: { flash: flashUsage, pro: geminiTokenUsage(finalUsage) },
       usage: {
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
@@ -259,7 +271,8 @@ export async function generateSecurityReview({
     chunks,
     async (chunk, index) => {
       console.log(`🔎 Security chunk ${index + 1}/${chunks.length} (${chunk.length} files)`);
-      const { result, usage } = await analyzeSecurityChunk(chunk, index, chunks.length, repoName);
+      const { result, usage } = await analyzeSecurityChunk(models, chunk, index, chunks.length, repoName);
+      flashUsage = addGeminiTokenUsage(flashUsage, geminiTokenUsage(usage));
       totalInputTokens += usage.inputTokens || 0;
       totalOutputTokens += usage.outputTokens || 0;
       return result;
@@ -273,12 +286,13 @@ export async function generateSecurityReview({
 
   onProgress?.('Synthesizing security profile...', 75);
 
-  const { result, usage } = await generateFinalSecurityReport(chunkResults, repoName);
+  const { result, usage } = await generateFinalSecurityReport(models, chunkResults, repoName);
   totalInputTokens += usage.inputTokens || 0;
   totalOutputTokens += usage.outputTokens || 0;
 
   return {
     review: result,
+    modelUsage: { flash: flashUsage, pro: geminiTokenUsage(usage) },
     usage: {
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,

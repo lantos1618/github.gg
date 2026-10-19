@@ -1,5 +1,5 @@
 import { generateObject } from 'ai';
-import { GEMINI_PRO } from './models';
+import { createGeminiModels } from './models';
 import { z } from 'zod';
 
 const prAnalysisSchema = z.object({
@@ -32,6 +32,7 @@ const prAnalysisSchema = z.object({
 export type PRAnalysisResult = z.infer<typeof prAnalysisSchema>;
 
 export interface PRAnalysisParams {
+  apiKey: string;
   prTitle: string;
   prDescription: string;
   changedFiles: Array<{
@@ -60,6 +61,7 @@ export interface PRAnalysisResponse {
  * Analyze a pull request and generate insights
  */
 export async function analyzePullRequest({
+  apiKey,
   prTitle,
   prDescription,
   changedFiles,
@@ -101,7 +103,7 @@ ${file.patch || 'Binary file or no patch available'}
 Your response must be a valid JSON object following the schema provided.`;
 
     const { object, usage } = await generateObject({
-      model: GEMINI_PRO,
+      model: createGeminiModels(apiKey).pro,
       schema: prAnalysisSchema,
       messages: [
         { role: 'user', content: prompt },

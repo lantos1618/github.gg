@@ -1,12 +1,14 @@
 import { db } from '@/db';
 import { tokenUsage } from '@/db/schema';
 import { validatePlanAndKey } from '@/lib/trpc/helpers/validate-plan-and-key';
+import { geminiUsageRows, type GeminiModelUsage } from '@/lib/ai/models';
 import { sql, and, type SQL } from 'drizzle-orm';
 import type { PgTable, TableConfig } from 'drizzle-orm/pg-core';
 
 // Generic type for the AI generation function result
 export interface AIGenerationResult<T> {
   data: T;
+  modelUsage: GeminiModelUsage;
   usage: {
     inputTokens: number;
     outputTokens: number;
@@ -116,18 +118,17 @@ export async function executeAnalysisWithVersioning<
   const insertedRecord = results[0] as TInsert & { version: number };
 
   // 4. Log token usage
-  await db.insert(tokenUsage).values({
+  const usageRows = geminiUsageRows(result.modelUsage).map(({ model, usage }) => ({
     userId,
     feature,
     repoOwner: repoOwner || null,
     repoName: repoName || null,
-    model: 'gemini-3.1-pro-preview',
-    inputTokens: result.usage.inputTokens,
-    outputTokens: result.usage.outputTokens,
-    totalTokens: result.usage.totalTokens,
+    model,
+    ...usage,
     isByok: keyInfo.isByok,
     createdAt: new Date(),
-  });
+  }));
+  if (usageRows.length > 0) await db.insert(tokenUsage).values(usageRows);
 
   return { insertedRecord, usage: result.usage, keyInfo };
 }

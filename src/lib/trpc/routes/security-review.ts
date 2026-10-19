@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { securityReviews, tokenUsage } from '@/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { generateSecurityReview } from '@/lib/ai/security-review';
+import { geminiUsageRows } from '@/lib/ai/models';
 import { securityReviewSchema } from '@/lib/types/security-review';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForRepo } from '@/lib/github';
@@ -65,7 +66,7 @@ export const securityReviewRouter = router({
         }
 
         yield { type: 'progress', progress: 2, message: 'Verifying subscription...' };
-        let keyInfo: { isByok: boolean };
+        let keyInfo: { apiKey: string; isByok: boolean };
         try {
           ({ keyInfo } = await validatePlanAndKey(ctx.user.id));
         } catch (err) {
@@ -109,6 +110,7 @@ export const securityReviewRouter = router({
         const progressQueue: Array<{ message: string; progress: number }> = [];
 
         const analysisPromise = generateSecurityReview({
+          apiKey: keyInfo.apiKey,
           files,
           repoName: job.repo,
           onProgress: (message, progress) => {
@@ -187,18 +189,17 @@ export const securityReviewRouter = router({
           throw new Error(`Failed to save security review after ${maxRetries} attempts`);
         }
 
-        await db.insert(tokenUsage).values({
+        const usageRows = geminiUsageRows(result.modelUsage).map(({ model, usage }) => ({
           userId: ctx.user.id,
           feature: 'security-review',
           repoOwner: repoOwnerNormalized,
           repoName: repoNameNormalized,
-          model: 'gemini-3.1-flash-lite',
-          inputTokens: result.usage.inputTokens,
-          outputTokens: result.usage.outputTokens,
-          totalTokens: result.usage.totalTokens,
+          model,
+          ...usage,
           isByok: keyInfo.isByok,
           createdAt: new Date(),
-        });
+        }));
+        if (usageRows.length > 0) await db.insert(tokenUsage).values(usageRows);
 
         yield { type: 'progress', progress: 95, message: 'Security review complete!' };
 

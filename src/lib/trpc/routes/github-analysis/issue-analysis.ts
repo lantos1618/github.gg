@@ -150,6 +150,7 @@ export const githubAnalysisIssueAnalysisRouter = router({
         yield { type: 'progress' as const, progress: 15, message: 'Fetched issue data, analyzing...' };
 
         const analysisResult = await analyzeIssue({
+          apiKey: keyInfo.apiKey,
           issueTitle: issue.data.title,
           issueBody: issue.data.body || '',
           issueNumber: issue.data.number,

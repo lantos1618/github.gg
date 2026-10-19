@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { developerProfileCache, tokenUsage, developerEmails } from '@/db/schema';
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { generateDeveloperProfileStreaming, findAndStoreDeveloperEmail, type CrossRepoCommit } from '@/lib/ai/developer-profile';
+import { geminiUsageRows } from '@/lib/ai/models';
 import { generateProfileEmbedding } from '@/lib/ai/embeddings';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
@@ -414,6 +415,7 @@ export const profileGenerateRouter = router({
 
         let result;
         const generator = generateDeveloperProfileStreaming({
+          apiKey: keyInfo.apiKey,
           username,
           repos: smartSortedRepos,
           repoFiles: input.includeCodeAnalysis ? repoFiles : undefined,
@@ -537,18 +539,17 @@ export const profileGenerateRouter = router({
 
         // Token usage log — non-critical, never fail the generation on this.
         try {
-          await db.insert(tokenUsage).values({
+          const usageRows = geminiUsageRows(result.modelUsage).map(({ model, usage }) => ({
             userId: ctx.user.id,
             feature: 'profile',
             repoOwner: normalizedUsername,
             repoName: null,
-            model: 'gemini-3.1-pro-preview',
-            inputTokens: result.usage.inputTokens,
-            outputTokens: result.usage.outputTokens,
-            totalTokens: result.usage.totalTokens,
+            model,
+            ...usage,
             isByok: keyInfo.isByok,
             createdAt: new Date(),
-          });
+          }));
+          if (usageRows.length > 0) await db.insert(tokenUsage).values(usageRows);
         } catch (tokenError) {
           console.error('[generateProfile] token usage log failed (non-critical):', tokenError);
         }

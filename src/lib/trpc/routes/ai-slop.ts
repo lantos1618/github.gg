@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { aiSlopAnalyses, tokenUsage } from '@/db/schema';
 import { eq, and, or, desc, sql } from 'drizzle-orm';
 import { generateAISlopAnalysis, aiSlopSchema } from '@/lib/ai/ai-slop';
+import { geminiUsageRows } from '@/lib/ai/models';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForRepo } from '@/lib/github';
 import { validatePlanAndKey } from '@/lib/trpc/helpers/validate-plan-and-key';
@@ -61,7 +62,7 @@ export const aiSlopRouter = router({
         yield { type: 'progress', progress: 0, message: 'Starting AI slop analysis...' };
 
         yield { type: 'progress', progress: 2, message: 'Verifying subscription...' };
-        let keyInfo: { isByok: boolean };
+        let keyInfo: { apiKey: string; isByok: boolean };
         try {
           ({ keyInfo } = await validatePlanAndKey(ctx.user.id));
         } catch (err) {
@@ -107,6 +108,7 @@ export const aiSlopRouter = router({
 
         // Start AI analysis with progress callback
         const analysisPromise = generateAISlopAnalysis({
+          apiKey: keyInfo.apiKey,
           files,
           repoName: job.repo,
           onProgress: (message, progress) => {
@@ -190,18 +192,17 @@ export const aiSlopRouter = router({
         }
 
         // Log token usage
-        await db.insert(tokenUsage).values({
+        const usageRows = geminiUsageRows(result.modelUsage).map(({ model, usage }) => ({
           userId: ctx.user.id,
           feature: 'ai-slop',
           repoOwner: repoOwnerNormalized,
           repoName: repoNameNormalized,
-          model: 'gemini-3.1-flash', // Primary model used for chunks
-          inputTokens: result.usage.inputTokens,
-          outputTokens: result.usage.outputTokens,
-          totalTokens: result.usage.totalTokens,
+          model,
+          ...usage,
           isByok: keyInfo.isByok,
           createdAt: new Date(),
-        });
+        }));
+        if (usageRows.length > 0) await db.insert(tokenUsage).values(usageRows);
 
         yield { type: 'progress', progress: 95, message: 'Analysis complete!' };
 

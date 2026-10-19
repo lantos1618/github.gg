@@ -1,5 +1,8 @@
 import { generateObject } from 'ai';
-import { GEMINI_PRO, GEMINI_FLASH } from './models';
+import {
+  addGeminiTokenUsage, createGeminiModels, emptyGeminiTokenUsage, geminiTokenUsage,
+  type GeminiModelUsage, type GeminiModels,
+} from './models';
 import { scorecardSchema, type ScorecardData } from '@/lib/types/scorecard';
 import { chunkFiles, needsChunking, getChunkingSummary, type Chunk } from './chunker';
 import { retryWithBackoff } from './retry-utils';
@@ -13,6 +16,7 @@ export interface RepoMetadata {
 }
 
 export interface ScorecardAnalysisParams {
+  apiKey: string;
   files: Array<{ path: string; content: string }>;
   repoName: string;
   metadata?: RepoMetadata;
@@ -22,6 +26,7 @@ export interface ScorecardAnalysisParams {
 
 export interface ScorecardAnalysisResult {
   scorecard: ScorecardData;
+  modelUsage: GeminiModelUsage;
   usage: {
     inputTokens: number;
     outputTokens: number;
@@ -112,6 +117,7 @@ function renderPerBatchDetails(partials: ScorecardData[]): string {
  * Generate a single-chunk scorecard (no map-reduce needed).
  */
 async function generateSingleChunkScorecard(
+  models: GeminiModels,
   files: Array<{ path: string; content: string }>,
   repoName: string,
   metadata?: RepoMetadata,
@@ -155,7 +161,7 @@ ${files.map(file => `--- ${file.path} ---\n${file.content}`).join('\n\n')}`;
 
   const { object, usage } = await retryWithBackoff(() =>
     generateObject({
-      model: GEMINI_PRO,
+      model: models.pro,
       schema: scorecardSchema,
       messages: [{ role: 'user', content: prompt }],
       abortSignal,
@@ -164,6 +170,7 @@ ${files.map(file => `--- ${file.path} ---\n${file.content}`).join('\n\n')}`;
 
   return {
     scorecard: object,
+    modelUsage: { flash: emptyGeminiTokenUsage(), pro: geminiTokenUsage(usage) },
     usage: {
       inputTokens: usage.inputTokens || 0,
       outputTokens: usage.outputTokens || 0,
@@ -176,6 +183,7 @@ ${files.map(file => `--- ${file.path} ---\n${file.content}`).join('\n\n')}`;
  * Analyze a single chunk for map-reduce. Returns a partial scorecard.
  */
 async function analyzeChunk(
+  models: GeminiModels,
   chunk: Chunk,
   repoName: string,
   totalChunks: number,
@@ -216,7 +224,7 @@ ${chunk.files.map(f => `--- ${f.path} ---\n${f.content}`).join('\n\n')}`;
   // is reserved for the synthesis step where reasoning quality matters most.
   const { object, usage } = await retryWithBackoff(() =>
     generateObject({
-      model: GEMINI_FLASH,
+      model: models.flash,
       schema: scorecardSchema,
       messages: [{ role: 'user', content: prompt }],
       abortSignal,
@@ -237,6 +245,7 @@ ${chunk.files.map(f => `--- ${f.path} ---\n${f.content}`).join('\n\n')}`;
  * Synthesize multiple partial scorecards into one final result.
  */
 async function synthesizeResults(
+  models: GeminiModels,
   partialResults: ScorecardData[],
   repoName: string,
   totalFiles: number,
@@ -291,7 +300,7 @@ ${partialsText}`;
 
   const { object, usage } = await retryWithBackoff(() =>
     generateObject({
-      model: GEMINI_PRO,
+      model: models.pro,
       schema: scorecardSchema,
       messages: [{ role: 'user', content: prompt }],
       abortSignal,
@@ -315,6 +324,7 @@ ${partialsText}`;
  * Large repos: map-reduce — parallel chunk analysis + synthesis
  */
 export async function generateScorecardAnalysis({
+  apiKey,
   files,
   repoName,
   metadata,
@@ -322,6 +332,7 @@ export async function generateScorecardAnalysis({
   abortSignal,
 }: ScorecardAnalysisParams): Promise<ScorecardAnalysisResult> {
   try {
+    const models = createGeminiModels(apiKey);
     // Always run through chunker — it filters binary, empty, oversized files
     // and sorts by importance, even if everything fits in one chunk.
     //
@@ -345,7 +356,7 @@ export async function generateScorecardAnalysis({
     // Single chunk: direct analysis (no synthesis overhead)
     if (chunks.length === 1) {
       onProgress?.(`Analyzing ${summary.totalFiles} files...`, 15);
-      return await generateSingleChunkScorecard(chunks[0].files, repoName, metadata, abortSignal);
+      return await generateSingleChunkScorecard(models, chunks[0].files, repoName, metadata, abortSignal);
     }
 
     // Multiple chunks: map-reduce
@@ -371,7 +382,7 @@ export async function generateScorecardAnalysis({
           10 + (i / chunks.length) * 55,
         );
         try {
-          chunkResults[i] = await analyzeChunk(chunks[i], repoName, chunks.length, metadata, abortSignal);
+          chunkResults[i] = await analyzeChunk(models, chunks[i], repoName, chunks.length, metadata, abortSignal);
         } catch (err) {
           // A single chunk failing (rate limit exhaustion, schema validation
           // hiccup, etc.) shouldn't nuke the whole scorecard. Log it and let
@@ -404,6 +415,7 @@ export async function generateScorecardAnalysis({
 
     // Reduce: synthesize partial results into final scorecard
     const synthesized = await synthesizeResults(
+      models,
       successfulChunks.map(r => r.scorecard),
       repoName,
       summary.totalFiles,
@@ -417,6 +429,10 @@ export async function generateScorecardAnalysis({
       outputTokens: successfulChunks.reduce((sum, r) => sum + r.usage.outputTokens, 0) + synthesized.usage.outputTokens,
       totalTokens: successfulChunks.reduce((sum, r) => sum + r.usage.totalTokens, 0) + synthesized.usage.totalTokens,
     };
+    const flashUsage = successfulChunks.reduce(
+      (total, chunk) => addGeminiTokenUsage(total, geminiTokenUsage(chunk.usage)),
+      emptyGeminiTokenUsage(),
+    );
 
     // Synthesis collapses N detailed analyses into one executive summary.
     // Preserve the per-batch findings as collapsed <details> sections so the
@@ -428,6 +444,7 @@ export async function generateScorecardAnalysis({
     return {
       scorecard: { ...synthesized.scorecard, markdown: enrichedMarkdown },
       usage: totalUsage,
+      modelUsage: { flash: flashUsage, pro: geminiTokenUsage(synthesized.usage) },
     };
   } catch (error) {
     console.error('Gemini API error:', error);

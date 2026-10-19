@@ -1,8 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { retryWithBackoff, awaitWithHeartbeat } from './retry-utils';
 
-const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '' });
-
 // Example page types to guide AI planning
 const EXAMPLE_PAGE_TYPES = `
 Common wiki page types you might want to create:
@@ -64,6 +62,7 @@ interface GeneratedPage {
 }
 
 export interface WikiGeneratorParams {
+  apiKey: string;
   owner: string;
   repo: string;
   repoDescription?: string;
@@ -92,7 +91,7 @@ export interface WikiGeneratorResult {
 /**
  * Create cached content for the entire codebase
  */
-async function createCodebaseCache(params: WikiGeneratorParams): Promise<string> {
+async function createCodebaseCache(genAI: GoogleGenAI, params: WikiGeneratorParams): Promise<string> {
   const { owner, repo, repoDescription, primaryLanguage, files, packageJson, readme } = params;
 
   // Build complete codebase context
@@ -145,6 +144,7 @@ ${f.content}
  * Plan wiki pages using cached context
  */
 async function planWikiPages(
+  genAI: GoogleGenAI,
   cacheId: string,
   owner: string,
   repo: string
@@ -307,6 +307,7 @@ function groupPagesByLevel(pages: WikiPage[]): WikiPage[][] {
  * Generate a single wiki page using cached context
  */
 async function generateWikiPage(
+  genAI: GoogleGenAI,
   cacheId: string,
   page: WikiPage,
   generatedPages: Map<string, GeneratedPage>
@@ -368,6 +369,7 @@ Start directly with the content.`;
 export async function generateWikiWithCache(
   params: WikiGeneratorParams
 ): Promise<WikiGeneratorResult> {
+  const genAI = new GoogleGenAI({ apiKey: params.apiKey });
   const { owner, repo } = params;
 
   let totalInputTokens = 0;
@@ -378,7 +380,7 @@ export async function generateWikiWithCache(
     // Step 1: Cache the entire codebase
     if (process.env.DEBUG_AI === 'true') console.log('📦 Creating codebase cache...');
     params.onProgress?.('Caching codebase context...', 0, 1);
-    const cacheId = await createCodebaseCache(params);
+    const cacheId = await createCodebaseCache(genAI, params);
 
     // Estimate cache size (rough)
     const codebaseSize = params.files.reduce((sum, f) => sum + f.content.length, 0);
@@ -388,7 +390,7 @@ export async function generateWikiWithCache(
     // Step 2: Plan wiki pages
     if (process.env.DEBUG_AI === 'true') console.log('🎯 Planning wiki pages...');
     params.onProgress?.('Planning wiki structure...', 0, 1);
-    const plan = await planWikiPages(cacheId, owner, repo);
+    const plan = await planWikiPages(genAI, cacheId, owner, repo);
     if (process.env.DEBUG_AI === 'true') console.log(`📋 Planned ${plan.pages.length} pages:`, plan.pages.map(p => p.title).join(', '));
 
     // Step 3: Group pages by dependency level for parallel generation
@@ -407,7 +409,7 @@ export async function generateWikiWithCache(
 
       // Generate all pages in this level in parallel
       const levelResults = await Promise.all(
-        level.map(page => generateWikiPage(cacheId, page, generatedPages))
+        level.map(page => generateWikiPage(genAI, cacheId, page, generatedPages))
       );
 
       // Store results
@@ -452,6 +454,7 @@ export async function generateWikiWithCache(
 export async function* generateWikiWithCacheStreaming(
   params: Omit<WikiGeneratorParams, 'onProgress'>
 ): AsyncGenerator<{ type: 'progress' | 'complete' | 'ping', progress?: number, message?: string, result?: WikiGeneratorResult }> {
+  const genAI = new GoogleGenAI({ apiKey: params.apiKey });
   const { owner, repo } = params;
 
   let totalInputTokens = 0;
@@ -464,7 +467,7 @@ export async function* generateWikiWithCacheStreaming(
     
     // Use heartbeat for long running cache creation
     let cacheId = '';
-    const cachePromise = createCodebaseCache(params);
+    const cachePromise = createCodebaseCache(genAI, params);
     
     for await (const ping of awaitWithHeartbeat(cachePromise)) {
       if (ping.type === 'ping') {
@@ -483,7 +486,7 @@ export async function* generateWikiWithCacheStreaming(
     
     // Use heartbeat for long running planning
     let plan: WikiPlan | null = null;
-    const planPromise = planWikiPages(cacheId, owner, repo);
+    const planPromise = planWikiPages(genAI, cacheId, owner, repo);
     
     for await (const ping of awaitWithHeartbeat(planPromise)) {
       if (ping.type === 'ping') {
@@ -521,7 +524,7 @@ export async function* generateWikiWithCacheStreaming(
       // Generate all pages in this level in parallel
       // Use heartbeat for generation too
       const generationPromise = Promise.all(
-        level.map(page => generateWikiPage(cacheId, page, generatedPages))
+        level.map(page => generateWikiPage(genAI, cacheId, page, generatedPages))
       );
       
       for await (const ping of awaitWithHeartbeat(generationPromise)) {

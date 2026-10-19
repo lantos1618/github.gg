@@ -245,6 +245,7 @@ export const diagramRouter = router({
           }));
 
         const result = await generateRepoDiagramVercel({
+          apiKey: keyInfo.apiKey,
           files,
           repoName: repo,
           diagramType,

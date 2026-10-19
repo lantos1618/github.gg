@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { repositoryScorecards, tokenUsage } from '@/db/schema';
 import { eq, and, or, desc, sql } from 'drizzle-orm';
 import { generateScorecardAnalysis } from '@/lib/ai/scorecard';
+import { geminiUsageRows } from '@/lib/ai/models';
 import { TRPCError } from '@trpc/server';
 import { scorecardSchema } from '@/lib/types/scorecard';
 import { createGitHubServiceForRepo } from '@/lib/github';
@@ -65,7 +66,7 @@ export const scorecardRouter = router({
       try {
         yield { type: 'progress', progress: 1, message: 'Checking plan...' };
 
-        let keyInfo: { isByok: boolean };
+        let keyInfo: { apiKey: string; isByok: boolean };
         try {
           ({ keyInfo } = await validatePlanAndKey(ctx.user.id));
           console.log(`${tag} validatePlanAndKey ${elapsed()} hasKey=true`);
@@ -131,6 +132,7 @@ export const scorecardRouter = router({
         let analysisResult: Awaited<ReturnType<typeof generateScorecardAnalysis>> | null = null;
 
         const analysisPromise = generateScorecardAnalysis({
+          apiKey: keyInfo.apiKey,
           files,
           repoName: job.repo,
           metadata: {
@@ -235,18 +237,17 @@ export const scorecardRouter = router({
             };
 
             // Still log token usage even though we didn't create a new version
-            await db.insert(tokenUsage).values({
+            const usageRows = geminiUsageRows(result.modelUsage).map(({ model, usage }) => ({
               userId: ctx.user.id,
               feature: 'scorecard',
               repoOwner: repoOwnerNormalized,
               repoName: repoNameNormalized,
-              model: 'gemini-3.1-pro-preview',
-              inputTokens: result.usage.inputTokens,
-              outputTokens: result.usage.outputTokens,
-              totalTokens: result.usage.totalTokens,
+              model,
+              ...usage,
               isByok: keyInfo.isByok,
               createdAt: new Date(),
-            });
+            }));
+            if (usageRows.length > 0) await db.insert(tokenUsage).values(usageRows);
 
             return;
           }
@@ -264,7 +265,7 @@ export const scorecardRouter = router({
             const currentInfo = await getAccessibleRepositoryInfo(job.user, job.repo, ctx.session);
             if (!currentInfo) throw new Error('Repository visibility could not be verified before saving scorecard');
             isPrivate = initiallyPrivate || currentInfo.private;
-            return { data: parsedData, usage: result.usage };
+            return { data: parsedData, usage: result.usage, modelUsage: result.modelUsage };
           },
           versioningConditions: [
             eq(repositoryScorecards.userId, ctx.user.id),

@@ -46,7 +46,7 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
 
   const semanticEnabled = debouncedQuery.length >= SEMANTIC_MIN_CHARS;
   const { data: semantic, isFetching } = trpc.repoSearch.searchRepos.useQuery(
-    { query: debouncedQuery, limit: 100, offset: 0 },
+    { query: debouncedQuery, limit: 20, offset: 0 },
     {
       enabled: semanticEnabled,
       staleTime: 30_000,
@@ -142,7 +142,9 @@ export function ReposClientView({ initialRepos, totalRepoCount }: ReposClientVie
         ) : paginatedRepos.length === 0 ? (
           <div className="py-16 text-center">
             <p className="text-base text-[#aaa]">
-              {searchQuery ? 'No repositories found.' : 'No analyzed repositories yet.'}
+              {semantic?.mode === 'rate_limited'
+                ? 'Search is busy. Please try again in a minute.'
+                : searchQuery ? 'No repositories found.' : 'No analyzed repositories yet.'}
             </p>
           </div>
         ) : (

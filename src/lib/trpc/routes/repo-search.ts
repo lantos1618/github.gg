@@ -3,6 +3,7 @@ import { router, publicProcedure } from '@/lib/trpc/trpc';
 import { db } from '@/db';
 import { sql } from 'drizzle-orm';
 import { generateEmbedding, formatEmbeddingForPg } from '@/lib/ai/embeddings';
+import { reserveRepoSearchRequest, reserveSemanticSearchEmbedding } from '@/lib/rate-limit/semantic-search';
 import { getAccessibleRepositoryInfo } from '@/lib/github/repository-access';
 import type { BetterAuthSession } from '@/lib/github';
 
@@ -45,13 +46,17 @@ export const repoSearchRouter = router({
   // and "search" states of the repos page.
   searchRepos: publicProcedure
     .input(z.object({
-      query: z.string().optional(),
-      limit: z.number().min(1).max(100).optional().default(50),
-      offset: z.number().min(0).optional().default(0),
+      query: z.string().max(200).optional(),
+      limit: z.number().int().min(1).max(20).optional().default(20),
+      offset: z.number().int().min(0).max(1000).optional().default(0),
     }))
     .query(async ({ input, ctx }) => {
       const { query, limit, offset } = input;
       const trimmed = query?.trim() ?? '';
+      const requestBudget = await reserveRepoSearchRequest(ctx.req, ctx.session?.user?.id);
+      if (requestBudget === 'limited') {
+        return { results: [], total: 0, hasMore: false, mode: 'rate_limited' as const };
+      }
 
       // Privacy: only public scorecards are searchable for everyone. Signed-in
       // users additionally see their own private ones (matches getAllAnalyzedRepos).
@@ -83,11 +88,14 @@ export const repoSearchRouter = router({
         // fetch (limit * 4) so a future filter step has room; for now we
         // just slice.
         let rows: ScorecardSearchRow[] = [];
-        try {
-          const queryEmbedding = await generateEmbedding(`Repository search: ${trimmed}`);
-          const embeddingStr = formatEmbeddingForPg(queryEmbedding);
-          const fetchLimit = Math.min(200, (limit + offset) * 4);
-          const vectorResults = await db.execute(sql`
+        const canEmbed = requestBudget === 'allowed'
+          && await reserveSemanticSearchEmbedding(ctx.req, ctx.session?.user?.id);
+        if (canEmbed) {
+          try {
+            const queryEmbedding = await generateEmbedding(`Repository search: ${trimmed}`);
+            const embeddingStr = formatEmbeddingForPg(queryEmbedding);
+            const fetchLimit = Math.min(200, (limit + offset) * 4);
+            const vectorResults = await db.execute(sql`
             WITH latest AS (${latestPartition})
             SELECT
               l."userId" as "userId",
@@ -104,29 +112,30 @@ export const repoSearchRouter = router({
             ORDER BY l.embedding <=> ${embeddingStr}::vector
             LIMIT ${fetchLimit}
           `);
-          rows = (vectorResults as unknown as Array<{
-            userId: string;
-            isPrivate: boolean;
-            repoOwner: string;
-            repoName: string;
-            ref: string | null;
-            overallScore: number;
-            version: number;
-            updatedAt: Date;
-            similarity_score: number;
-          }>).map(r => ({
-            userId: r.userId,
-            isPrivate: r.isPrivate,
-            repoOwner: r.repoOwner,
-            repoName: r.repoName,
-            ref: r.ref,
-            overallScore: r.overallScore,
-            version: r.version,
-            updatedAt: new Date(r.updatedAt),
-            similarityScore: Number(r.similarity_score) || 0,
-          }));
-        } catch (err) {
-          console.warn('[repoSearch.searchRepos] vector search failed, falling back to ILIKE:', err);
+            rows = (vectorResults as unknown as Array<{
+              userId: string;
+              isPrivate: boolean;
+              repoOwner: string;
+              repoName: string;
+              ref: string | null;
+              overallScore: number;
+              version: number;
+              updatedAt: Date;
+              similarity_score: number;
+            }>).map(r => ({
+              userId: r.userId,
+              isPrivate: r.isPrivate,
+              repoOwner: r.repoOwner,
+              repoName: r.repoName,
+              ref: r.ref,
+              overallScore: r.overallScore,
+              version: r.version,
+              updatedAt: new Date(r.updatedAt),
+              similarityScore: Number(r.similarity_score) || 0,
+            }));
+          } catch (err) {
+            console.warn('[repoSearch.searchRepos] vector search failed, falling back to ILIKE:', err);
+          }
         }
 
         // Fallback / supplement: a plain substring match. We always run this
@@ -175,7 +184,7 @@ export const repoSearchRouter = router({
           results: accessible,
           total: accessible.length,
           hasMore: accessible.length === limit && rows.length > offset + limit,
-          mode: 'semantic' as const,
+          mode: canEmbed && rows.some(row => row.similarityScore !== undefined) ? 'semantic' as const : 'text' as const,
           totalIsExact: false,
         };
       }

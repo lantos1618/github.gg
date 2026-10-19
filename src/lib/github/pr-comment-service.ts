@@ -5,6 +5,7 @@ import { tokenUsage, webhookPreferences } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { PR_REVIEW_CONFIG } from '@/lib/config/pr-review';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { checkMonthlyTokenQuota } from '@/lib/ai/monthly-quota';
 import { escapeHtmlEntities } from '@/lib/utils/sanitize';
 import {
   getFreeTierStatus,
@@ -117,6 +118,14 @@ export async function postPRReviewComment({
 
     if (!keyInfo) {
       return { success: false, skipped: true, reason: 'subscriber_key_unavailable' };
+    }
+
+    if (isPaid) {
+      const quota = await checkMonthlyTokenQuota({ userId: user.id, isByok: keyInfo.isByok });
+      if (!quota.allowed) {
+        console.log(`Skipping PR review for PR #${prNumber}: monthly Pro token allowance reached`);
+        return { success: false, skipped: true, reason: 'monthly_token_limit_reached' };
+      }
     }
 
     const octokit = await getInstallationOctokit(installationId);

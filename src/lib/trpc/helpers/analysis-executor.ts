@@ -1,6 +1,5 @@
 import { db } from '@/db';
 import { tokenUsage } from '@/db/schema';
-import { validatePlanAndKey } from '@/lib/trpc/helpers/validate-plan-and-key';
 import { geminiUsageRows, type GeminiModelUsage } from '@/lib/ai/models';
 import { sql, and, type SQL } from 'drizzle-orm';
 import type { PgTable, TableConfig } from 'drizzle-orm/pg-core';
@@ -24,6 +23,10 @@ export interface AnalysisExecutionOptions<
 > {
   // User ID for auth checks
   userId: string;
+
+  // Already validated before generation; rechecking after generation could
+  // reject a billed call before its usage is recorded.
+  keyInfo: { isByok: boolean };
 
   // Feature name for usage tracking (e.g., 'scorecard', 'ai-slop', 'diagram', 'profile')
   feature: string;
@@ -52,7 +55,7 @@ export interface AnalysisExecutionOptions<
 
 /**
  * Generic helper to execute AI analysis with:
- * - Subscription & API key validation
+ * - Reuse of the caller's pre-generation subscription, key, and quota check
  * - AI generation
  * - **Atomic** versioned database insertion (single statement: `INSERT ...
  *   VALUES (..., (SELECT COALESCE(MAX(version), 0) + 1 FROM table WHERE ...))`)
@@ -79,6 +82,7 @@ export async function executeAnalysisWithVersioning<
 }> {
   const {
     userId,
+    keyInfo,
     feature,
     repoOwner,
     repoName,
@@ -88,13 +92,10 @@ export async function executeAnalysisWithVersioning<
     buildInsertValues,
   } = options;
 
-  // 1. Subscription + API-key gate (throws TRPCError on failure)
-  const { keyInfo } = await validatePlanAndKey(userId);
-
-  // 2. Generate AI analysis
+  // 1. Generate AI analysis using the caller's pre-validated key.
   const result = await generateFn();
 
-  // 3. Atomic INSERT-SELECT: version is computed inside the statement so
+  // 2. Atomic INSERT-SELECT: version is computed inside the statement so
   //    concurrent writers can't read the same MAX.
   const insertValues = buildInsertValues(result.data) as Record<string, unknown>;
   insertValues.version = sql`(SELECT COALESCE(MAX(version), 0) + 1 FROM ${table} WHERE ${and(...versioningConditions)})`;
@@ -117,7 +118,7 @@ export async function executeAnalysisWithVersioning<
 
   const insertedRecord = results[0] as TInsert & { version: number };
 
-  // 4. Log token usage
+  // 3. Log token usage
   const usageRows = geminiUsageRows(result.modelUsage).map(({ model, usage }) => ({
     userId,
     feature,

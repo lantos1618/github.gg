@@ -257,6 +257,7 @@ export const scorecardRouter = router({
         let isPrivate = initiallyPrivate;
         const { insertedRecord } = await executeAnalysisWithVersioning({
           userId: ctx.user.id,
+          keyInfo,
           feature: 'scorecard',
           repoOwner: repoOwnerNormalized,
           repoName: repoNameNormalized,

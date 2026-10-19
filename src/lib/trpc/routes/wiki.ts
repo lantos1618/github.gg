@@ -10,6 +10,7 @@ import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { collectRepositoryFiles } from '@/lib/wiki/file-collector';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { checkMonthlyTokenQuota } from '@/lib/ai/monthly-quota';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
 import {
   insertWikiPages,
@@ -68,6 +69,14 @@ export const wikiRouter = router({
         if (!keyInfo) {
           yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
           return;
+        }
+
+        if (!isStargazerPerk) {
+          const quota = await checkMonthlyTokenQuota({ userId: ctx.user.id, isByok: keyInfo.isByok });
+          if (!quota.allowed) {
+            yield { type: 'error', message: quota.message };
+            return;
+          }
         }
 
         yield { type: 'progress', progress: 5, message: 'Authenticating with GitHub...' };

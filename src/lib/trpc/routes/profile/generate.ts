@@ -7,6 +7,7 @@ import { generateDeveloperProfileStreaming, findAndStoreDeveloperEmail, type Cro
 import { geminiUsageRows } from '@/lib/ai/models';
 import { generateProfileEmbedding } from '@/lib/ai/embeddings';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { checkMonthlyTokenQuota } from '@/lib/ai/monthly-quota';
 import { checkStargazerPerk } from '@/lib/utils/stargazer-perk';
 import { TRPCError } from '@trpc/server';
 import { createGitHubServiceForRepo, createGitHubServiceForUserOperations, type RepoSummary } from '@/lib/github';
@@ -228,6 +229,14 @@ export const profileGenerateRouter = router({
         if (!keyInfo) {
           yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
           return;
+        }
+
+        if (!isStargazerPerk) {
+          const quota = await checkMonthlyTokenQuota({ userId: ctx.user.id, isByok: keyInfo.isByok });
+          if (!quota.allowed) {
+            yield { type: 'error', message: quota.message };
+            return;
+          }
         }
 
         // BYOK daily limit (skip when riding the stargazer perk)

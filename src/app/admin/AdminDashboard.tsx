@@ -134,8 +134,8 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps = {}
     setLogs((prev: SSELogItem[]) => [...prev, { message: initMessage, timestamp: new Date(), type: 'info' }]);
   };
 
-  // Calculate total cost for the month from dailyStats (for summary card)
-  const totalMonthlyCost = dailyStats && dailyStats.length > 0
+  // getDailyStats returns the last 30 days for the summary card.
+  const totalLast30DaysCost = dailyStats && dailyStats.length > 0
     ? dailyStats.reduce((sum, day) => sum + (day.cost || 0), 0)
     : 0;
 
@@ -275,8 +275,8 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps = {}
           <div className="text-base text-[#aaa]">Registered accounts</div>
         </div>
         <div>
-          <div className="text-xs text-[#999] font-semibold tracking-[1px] uppercase mb-1">Platform AI Cost (This Month)</div>
-          <div className="text-[31px] font-semibold text-[#111]">{formatCost(totalMonthlyCost)}</div>
+          <div className="text-xs text-[#999] font-semibold tracking-[1px] uppercase mb-1">Platform AI Cost (Last 30 Days)</div>
+          <div className="text-[31px] font-semibold text-[#111]">{formatCost(totalLast30DaysCost)}</div>
           <div className="text-base text-[#aaa]">{usageStats?.summary.totalTokens?.toLocaleString() || 0} tokens</div>
         </div>
         <div>

@@ -4,6 +4,7 @@ import { GEMINI_PRO_MODEL_NAME } from '@/lib/ai/models';
 import { diagramInputSchemaServer, diagramBaseSchema } from '@/lib/types/diagram';
 import { parseGeminiError } from '@/lib/utils/errorHandling';
 import { getUserPlanAndKey, getApiKeyForUser } from '@/lib/utils/user-plan';
+import { checkMonthlyTokenQuota } from '@/lib/ai/monthly-quota';
 import { db } from '@/db';
 import { tokenUsage, repositoryDiagrams } from '@/db/schema';
 import { eq, and, or, desc, sql } from 'drizzle-orm';
@@ -221,6 +222,12 @@ export const diagramRouter = router({
         const keyInfo = await getApiKeyForUser(ctx.user.id, plan);
         if (!keyInfo) {
           yield { type: 'error', message: 'Please add your Gemini API key in settings to use this feature' };
+          return;
+        }
+
+        const quota = await checkMonthlyTokenQuota({ userId: ctx.user.id, isByok: keyInfo.isByok });
+        if (!quota.allowed) {
+          yield { type: 'error', message: quota.message };
           return;
         }
 

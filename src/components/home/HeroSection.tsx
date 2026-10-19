@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,13 +66,13 @@ export function HeroSection() {
 
             {/* Headline */}
             <h1 className="text-[31px] sm:text-[39px] lg:text-[44px] font-semibold text-[#111] leading-[1.15] mb-3 tracking-tight">
-              Understand any GitHub repo instantly.
+              Explore any public GitHub repo in seconds.
             </h1>
 
             {/* Subtitle */}
             <p className="text-base text-[#666] leading-[1.6] mb-8">
-              Paste a public repo URL. Get an AI-generated architecture diagram, codebase scorecard,
-              and developer hiring intelligence in seconds.
+              Paste a public repo URL to browse its code and explore available analyses.
+              Pro unlocks new AI diagrams, scorecards, and developer insights.
             </p>
 
             {/* Search */}
@@ -101,7 +100,7 @@ export function HeroSection() {
                 >
                   {isAnalyzing ? '...' : (
                     <>
-                      Analyze
+                      Explore
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </>
                   )}
@@ -129,7 +128,7 @@ export function HeroSection() {
             </div>
 
             <p className="text-[13px] text-[#aaa] mb-6">
-              No signup required for public repos.
+              No signup required to browse public repos.
             </p>
 
             {/* Secondary CTA — install on your own repo for AI PR reviews.

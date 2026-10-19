@@ -8,7 +8,7 @@ import { PageWidthContainer } from '@/components/PageWidthContainer';
 const FEATURES = [
   { label: 'Scorecards', desc: 'A–F grades, per file.' },
   { label: 'Wiki', desc: 'Generated from your code.' },
-  { label: 'PR reviews', desc: 'AI comments on every PR.' },
+  { label: 'PR reviews', desc: 'AI feedback on pull requests.' },
   { label: 'Slop detector', desc: 'Catches AI-shaped code.' },
 ];
 
@@ -17,7 +17,7 @@ export function FeatureGrid() {
     <section className="bg-white border-t border-[#eee]" data-testid="home-feature-grid">
       <PageWidthContainer className="py-14">
         <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-6">
-          Every analysis above is one of these
+          Explore the toolkit
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

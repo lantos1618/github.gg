@@ -21,7 +21,7 @@ export function CallToAction() {
         </h2>
 
         <p className="text-base text-[#888] mb-8 max-w-lg">
-          Install once. Open a PR. Get a real AI code review posted as a comment within a minute.
+          Install the GitHub App on a repo to receive AI review comments on pull requests.
           Three free reviews per installation, no credit card.
         </p>
 
@@ -57,11 +57,11 @@ export function CallToAction() {
         </div>
 
         <p className="text-[13px] text-[#555] mb-16">
-          Public repos are free, forever.{' '}
+          Public repo browsing is free, forever.{' '}
           <Link href="/pricing" className="text-[#888] hover:text-white transition-colors" data-testid="home-cta-pricing-link">
             Upgrade to Pro
           </Link>{' '}
-          for unlimited reviews and private-repo access.
+          for AI analyses and private-repo access.
         </p>
 
         <div className="pt-4 border-t border-[#222]">

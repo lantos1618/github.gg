@@ -12,8 +12,7 @@ const MermaidRenderer = dynamic(
   { ssr: false, loading: () => <div className="h-[420px] bg-[#fafafa] rounded animate-pulse" /> }
 );
 
-// Hand-crafted graph for vercel/next.js — represents the real top-level
-// architecture so the hero shows actual product output, not a mockup.
+// Illustrative graph for vercel/next.js, maintained with the landing page.
 const NEXT_JS_GRAPH = `flowchart TD
   CLI[next CLI] --> Build[next build]
   CLI --> Dev[next dev]
@@ -63,13 +62,13 @@ export function HeroDiagram() {
   return (
     <div id="hero-diagram-root" className="relative">
       <div className="text-xs text-[#999] font-semibold tracking-[1.5px] uppercase mb-3">
-        Live example
+        Example architecture map
       </div>
       <h2 className="text-[25px] font-semibold text-[#111] mb-2">
         Architecture for <span className="font-mono">vercel/next.js</span>
       </h2>
       <p className="text-base text-[#aaa] mb-6">
-        Auto-generated. Open any repo to see its own.
+        Explore this example, then open a repo to browse its code.
       </p>
 
       <div
@@ -90,10 +89,10 @@ export function HeroDiagram() {
           onClick={() => safePostHog.capture('hero_diagram_explore_clicked', { repo: 'vercel/next.js' })}
           className="inline-flex items-center gap-1.5 text-[#111] hover:text-[#333] font-medium underline-offset-4 hover:underline"
         >
-          Explore the live diagram for next.js
+          Explore next.js on GG
           <ArrowRight className="h-4 w-4" />
         </Link>
-        <span className="text-[#aaa] text-[13px]">— or paste your own repo above.</span>
+        <span className="text-[#aaa] text-[13px]">— or paste a public repo above.</span>
       </div>
 
       <style jsx>{`

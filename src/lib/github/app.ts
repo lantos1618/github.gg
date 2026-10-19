@@ -7,11 +7,15 @@ import { Octokit } from '@octokit/rest';
 import { createAppAuth } from '@octokit/auth-app';
 import { SessionData, parseError } from '@/lib/types/errors';
 
+function getAppPrivateKey(): string | undefined {
+  return process.env.GITHUB_PRIVATE_KEY?.replace(/\\n/g, '\n');
+}
+
 // Initialize the GitHub App (only if configured)
-export const githubApp = process.env.GITHUB_APP_ID && process.env.GITHUB_PRIVATE_KEY 
+export const githubApp = process.env.GITHUB_APP_ID && getAppPrivateKey()
   ? new App({
       appId: process.env.GITHUB_APP_ID,
-      privateKey: process.env.GITHUB_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      privateKey: getAppPrivateKey()!,
     })
   : null;
 
@@ -33,7 +37,7 @@ export function generateAppJWT(): string {
     iss: process.env.GITHUB_APP_ID,
   };
 
-  return jwt.sign(payload, process.env.GITHUB_PRIVATE_KEY.replace(/\\n/g, '\n'), {
+  return jwt.sign(payload, getAppPrivateKey()!, {
     algorithm: 'RS256',
   });
 }
@@ -47,7 +51,7 @@ export async function getInstallationToken(installationId: number): Promise<stri
   try {
     const auth = createAppAuth({
       appId: process.env.GITHUB_APP_ID,
-      privateKey: process.env.GITHUB_PRIVATE_KEY,
+      privateKey: getAppPrivateKey()!,
       installationId,
     });
 
